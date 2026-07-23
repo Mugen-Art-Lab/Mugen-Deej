@@ -1,3 +1,17 @@
+# Changelog
+
+## 0.8.4 — 2026-07-24
+
+- Fixed first-launch configuration persistence: a newly created default configuration is now reloaded from JSON before the first-run interface begins.
+- Prevented the initial PowerShell ordered dictionary from saving untouched default values after the user changed names and assignments.
+- Added atomic configuration writes through a verified temporary JSON file.
+- Added read-back verification after every configuration save.
+- Added `config.previous.json` and `config.last-good.json` recovery copies.
+- Restores a completed last-good configuration when the live file is missing, broken, or unexpectedly resembles a fresh first-run configuration.
+- Saves the configuration once more during a normal tray exit.
+- Added concise configuration summaries to the log, including language, first-run state, slider count, and target count.
+- Confirmed persistence across four consecutive close-and-reopen cycles from a completely clean portable folder.
+
 ## 0.8.3 — 2026-07-23
 
 - Embedded the five-size Mugen Deej icon directly into `MugenDeej.exe` as native Windows icon resources.
@@ -11,7 +25,6 @@
 - The main window, dialogs, tray icon and taskbar icon now use the bundled Mugen Deej icon.
 - Packaged the icon inside the portable build for easy reuse.
 
-﻿# Changelog
 
 ## 0.8.1 — 2026-07-23
 

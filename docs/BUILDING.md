@@ -14,7 +14,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File .\MugenDeej.ps1
 
 The launcher source is in `src/launcher`. It starts the PowerShell application without leaving a console window open and writes startup failures to `logs/launcher.log`.
 
-The official 0.8.3 release launcher was built for Windows with the Mugen Deej multi-size icon embedded in the executable. A reproducible packaging script should be added before enabling automated public releases; until then, keep release building a maintainer-only process and verify the resulting archive manually.
+The official 0.8.4 release launcher was built for Windows with the Mugen Deej multi-size icon embedded in the executable. A reproducible packaging script should be added before enabling automated public releases; until then, keep release building a maintainer-only process and verify the resulting archive manually.
 
 ## Release package contents
 

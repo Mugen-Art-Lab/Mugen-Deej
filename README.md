@@ -88,7 +88,7 @@ Choose applications that already have an audio session or preselect running appl
 
 Download the current portable build from the repository's **Releases** page, extract it, and run `MugenDeej.exe`.
 
-Current tested build: **0.8.3**.
+Current tested build: **0.8.4**.
 
 ## Controller protocol
 

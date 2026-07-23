@@ -1,4 +1,4 @@
-﻿# Mugen Deej 0.8.3
+﻿# Mugen Deej 0.8.4
 # Portable bilingual Windows audio controller for deej-compatible USB serial devices.
 # Requires Windows PowerShell 5.1+ and Windows 10/11.
 
@@ -7,6 +7,8 @@ $ErrorActionPreference = 'Stop'
 
 $script:BaseDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $script:ConfigPath = Join-Path $script:BaseDir 'config.json'
+$script:ConfigPreviousPath = Join-Path $script:BaseDir 'config.previous.json'
+$script:ConfigLastGoodPath = Join-Path $script:BaseDir 'config.last-good.json'
 
 function Get-DefaultLanguage {
     try {
@@ -69,7 +71,7 @@ if (-not $createdNew) {
     exit 0
 }
 
-$script:AppVersion = '0.8.3'
+$script:AppVersion = '0.8.4'
 $script:LogDir = Join-Path $script:BaseDir 'logs'
 $script:LogPath = Join-Path $script:LogDir 'mugen-deej.log'
 $script:DriverDir = Join-Path $script:BaseDir 'drivers'
@@ -757,6 +759,92 @@ catch {
     exit 1
 }
 
+function Get-ConfigTargetCount {
+    param([Parameter(Mandatory = $true)]$Config)
+    $count = 0
+    foreach ($slider in @($Config.sliders)) {
+        foreach ($target in @($slider.targets)) {
+            if (-not [string]::IsNullOrWhiteSpace([string]$target)) { $count++ }
+        }
+    }
+    return $count
+}
+
+function Get-ConfigSummary {
+    param([Parameter(Mandatory = $true)]$Config)
+    $language = [string]$Config.app.language
+    $firstRun = [bool]$Config.app.firstRunCompleted
+    $sliderCount = @($Config.sliders).Count
+    $targetCount = Get-ConfigTargetCount -Config $Config
+    return "language=$language; firstRunCompleted=$firstRun; sliders=$sliderCount; targets=$targetCount"
+}
+
+function Read-ConfigFile {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    return Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json
+}
+
+function Test-CompletedConfig {
+    param([Parameter(Mandatory = $true)]$Config)
+    $language = ([string]$Config.app.language).ToLowerInvariant()
+    return ([bool]$Config.app.firstRunCompleted) -and ($language -in @('ru','en'))
+}
+
+function Save-Config {
+    param([Parameter(Mandatory = $true)]$Config)
+
+    $tempPath = "$script:ConfigPath.tmp-$PID"
+    try {
+        $json = $Config | ConvertTo-Json -Depth 8
+        $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+        [System.IO.File]::WriteAllText($tempPath, $json, $utf8NoBom)
+
+        # Never replace the live configuration with JSON that cannot be read back.
+        $verifiedTemp = Read-ConfigFile -Path $tempPath
+        if ($null -eq $verifiedTemp.app -or $null -eq $verifiedTemp.connection -or $null -eq $verifiedTemp.sliders) {
+            throw 'The temporary configuration is incomplete.'
+        }
+        if (@($verifiedTemp.sliders).Count -ne @($Config.sliders).Count) {
+            throw 'The temporary configuration failed slider-count verification.'
+        }
+
+        if (Test-Path -LiteralPath $script:ConfigPath) {
+            if (Test-Path -LiteralPath $script:ConfigPreviousPath) {
+                Remove-Item -LiteralPath $script:ConfigPreviousPath -Force
+            }
+            try {
+                [System.IO.File]::Replace($tempPath, $script:ConfigPath, $script:ConfigPreviousPath, $true)
+            }
+            catch {
+                # Fallback for unusual file systems where File.Replace is unavailable.
+                Copy-Item -LiteralPath $script:ConfigPath -Destination $script:ConfigPreviousPath -Force
+                Remove-Item -LiteralPath $script:ConfigPath -Force
+                [System.IO.File]::Move($tempPath, $script:ConfigPath)
+            }
+        }
+        else {
+            [System.IO.File]::Move($tempPath, $script:ConfigPath)
+        }
+
+        $verifiedLive = Read-ConfigFile -Path $script:ConfigPath
+        if ($null -eq $verifiedLive.app -or $null -eq $verifiedLive.connection -or $null -eq $verifiedLive.sliders) {
+            throw 'The saved configuration failed read-back verification.'
+        }
+        Copy-Item -LiteralPath $script:ConfigPath -Destination $script:ConfigLastGoodPath -Force
+        Write-Log "Config saved and verified: $(Get-ConfigSummary -Config $verifiedLive)" 'DEBUG'
+    }
+    catch {
+        if (Test-Path -LiteralPath $tempPath) {
+            Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue
+        }
+        if (Test-Path -LiteralPath $script:ConfigPreviousPath) {
+            try { Copy-Item -LiteralPath $script:ConfigPreviousPath -Destination $script:ConfigPath -Force } catch { }
+        }
+        Write-Log "Config save failed: $($_.Exception.Message)" 'ERROR'
+        throw
+    }
+}
+
 function New-DefaultConfig {
     $default = [ordered]@{
         configVersion = 8
@@ -789,29 +877,78 @@ function New-DefaultConfig {
             [ordered]@{ name = 'Control 5'; defaultName = $true; targets = @(); inputDeviceId = ''; inputDeviceName = '' }
         )
     }
-    $default | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $script:ConfigPath -Encoding UTF8
-    return $default
+    Save-Config -Config $default
+
+    # On the very first launch, $default is an OrderedDictionary. The rest of
+    # the application expects the PSCustomObject shape produced by
+    # ConvertFrom-Json. Returning the dictionary directly can make UI changes
+    # update temporary note properties while ConvertTo-Json still writes the
+    # untouched dictionary values. Reload immediately so the first launch uses
+    # exactly the same runtime model as every later launch.
+    $runtimeConfig = Read-ConfigFile -Path $script:ConfigPath
+    Write-Log "Default config created and reloaded: $(Get-ConfigSummary -Config $runtimeConfig)" 'INFO'
+    return $runtimeConfig
 }
 
 function Load-Config {
     if (-not (Test-Path -LiteralPath $script:ConfigPath)) {
+        if (Test-Path -LiteralPath $script:ConfigLastGoodPath) {
+            try {
+                $recovered = Read-ConfigFile -Path $script:ConfigLastGoodPath
+                Copy-Item -LiteralPath $script:ConfigLastGoodPath -Destination $script:ConfigPath -Force
+                Write-Log "Config was missing and restored from last-good copy: $(Get-ConfigSummary -Config $recovered)" 'WARN'
+                return $recovered
+            }
+            catch {
+                Write-Log "Last-good config recovery failed: $($_.Exception.Message)" 'ERROR'
+            }
+        }
         Write-Log 'Config missing; creating default config' 'WARN'
         return New-DefaultConfig
     }
+
     try {
-        return Get-Content -LiteralPath $script:ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $loaded = Read-ConfigFile -Path $script:ConfigPath
+
+        # A completed last-good configuration must not be silently replaced by a
+        # fresh first-run file. This specifically protects portable installs from
+        # an unexpected reset between launches.
+        if ((-not (Test-CompletedConfig -Config $loaded)) -and (Test-Path -LiteralPath $script:ConfigLastGoodPath)) {
+            try {
+                $lastGood = Read-ConfigFile -Path $script:ConfigLastGoodPath
+                if (Test-CompletedConfig -Config $lastGood) {
+                    Copy-Item -LiteralPath $script:ConfigPath -Destination $script:ConfigPreviousPath -Force
+                    Copy-Item -LiteralPath $script:ConfigLastGoodPath -Destination $script:ConfigPath -Force
+                    Write-Log "Unexpected first-run config replaced with last-good copy: $(Get-ConfigSummary -Config $lastGood)" 'WARN'
+                    return $lastGood
+                }
+            }
+            catch {
+                Write-Log "Last-good config comparison failed: $($_.Exception.Message)" 'WARN'
+            }
+        }
+
+        Write-Log "Config loaded: $(Get-ConfigSummary -Config $loaded)" 'INFO'
+        return $loaded
     }
     catch {
         Write-Log "Config load failed: $($_.Exception.Message)" 'ERROR'
-        $backup = "$script:ConfigPath.broken-$(Get-Date -Format yyyyMMdd-HHmmss)"
-        Copy-Item -LiteralPath $script:ConfigPath -Destination $backup -Force
+        $broken = "$script:ConfigPath.broken-$(Get-Date -Format yyyyMMdd-HHmmss)"
+        Copy-Item -LiteralPath $script:ConfigPath -Destination $broken -Force
+
+        if (Test-Path -LiteralPath $script:ConfigLastGoodPath) {
+            try {
+                $recovered = Read-ConfigFile -Path $script:ConfigLastGoodPath
+                Copy-Item -LiteralPath $script:ConfigLastGoodPath -Destination $script:ConfigPath -Force
+                Write-Log "Broken config restored from last-good copy: $(Get-ConfigSummary -Config $recovered)" 'WARN'
+                return $recovered
+            }
+            catch {
+                Write-Log "Last-good config recovery failed: $($_.Exception.Message)" 'ERROR'
+            }
+        }
         return New-DefaultConfig
     }
-}
-
-function Save-Config {
-    param([Parameter(Mandatory = $true)]$Config)
-    $Config | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $script:ConfigPath -Encoding UTF8
 }
 
 function Add-MissingConfigProperty {
@@ -2137,6 +2274,7 @@ function Show-SliderSettings {
         }
 
         $script:Config.sliders = @($newSliders)
+        $script:Config.app.firstRunCompleted = $true
         $script:Config.behavior.invertSliders = [bool]$invertCheck.Checked
         switch ($responseCombo.SelectedIndex) {
             0 { $script:Config.behavior.noiseThreshold = 0.003 }
@@ -2147,7 +2285,7 @@ function Show-SliderSettings {
         $script:LastValues = @()
         [MugenDeejAudio.AudioMixer]::InvalidateSessions()
         Refresh-KnobLabels
-        Write-Log 'Slider settings saved from user-friendly UI'
+        Write-Log "Slider settings saved from user-friendly UI: $(Get-ConfigSummary -Config $script:Config)"
         $settingsForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
         $settingsForm.Close()
     })
@@ -2249,6 +2387,9 @@ function Show-FirstRunWizard {
     }
     $laterButton.Add_Click({ & $finishWizard; $wizard.Close() })
     $configureButton.Add_Click({ & $finishWizard; $wizard.Close(); Show-SliderSettings })
+    $wizard.Add_FormClosing({
+        if (-not [bool]$script:Config.app.firstRunCompleted) { & $finishWizard }
+    })
     $wizard.Add_FormClosed({ $wizardTimer.Stop(); $wizardTimer.Dispose() })
     $wizardTimer.Start()
     [void]$wizard.ShowDialog($form)
@@ -3468,6 +3609,8 @@ $form.Add_FormClosing({
         return
     }
     $timer.Stop()
+    try { Save-Config -Config $script:Config }
+    catch { Write-Log "Final config save on exit failed: $($_.Exception.Message)" 'ERROR' }
     Close-ControllerPort
     $notifyIcon.Visible = $false
     $notifyIcon.Dispose()
