@@ -1,0 +1,61 @@
+{
+  "configVersion": 8,
+  "app": {
+    "language": "auto",
+    "startMinimized": false,
+    "minimizeToTray": true,
+    "firstRunCompleted": false,
+    "advancedExpanded": false
+  },
+  "connection": {
+    "mode": "auto",
+    "port": "",
+    "lastWorkingPort": "",
+    "baudRate": 9600,
+    "expectedSliders": 5,
+    "reconnectSeconds": 3,
+    "startupWaitMs": 2200,
+    "dataTimeoutMs": 2500
+  },
+  "behavior": {
+    "invertSliders": false,
+    "noiseThreshold": 0.007
+  },
+  "sliders": [
+    {
+      "name": "Control 1",
+      "defaultName": true,
+      "targets": [],
+      "inputDeviceId": "",
+      "inputDeviceName": ""
+    },
+    {
+      "name": "Control 2",
+      "defaultName": true,
+      "targets": [],
+      "inputDeviceId": "",
+      "inputDeviceName": ""
+    },
+    {
+      "name": "Control 3",
+      "defaultName": true,
+      "targets": [],
+      "inputDeviceId": "",
+      "inputDeviceName": ""
+    },
+    {
+      "name": "Control 4",
+      "defaultName": true,
+      "targets": [],
+      "inputDeviceId": "",
+      "inputDeviceName": ""
+    },
+    {
+      "name": "Control 5",
+      "defaultName": true,
+      "targets": [],
+      "inputDeviceId": "",
+      "inputDeviceName": ""
+    }
+  ]
+}

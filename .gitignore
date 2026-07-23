@@ -1,0 +1,28 @@
+# Runtime data
+config.json
+logs/
+*.log
+
+# Local driver installers
+./drivers/*.exe
+./drivers/*.msi
+
+# Build outputs
+MugenDeej.exe
+*.syso
+dist/
+build/
+
+# Release archives
+*.zip
+*.zip.sha256
+SHA256SUMS.txt
+
+# Editors / OS
+.vscode/
+.idea/
+*.user
+*.suo
+.DS_Store
+Thumbs.db
+desktop.ini

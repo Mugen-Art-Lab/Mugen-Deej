@@ -1,0 +1,8 @@
+* text=auto
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.ino text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.ico binary
+*.png binary
