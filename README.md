@@ -42,37 +42,37 @@ Mugen Deej turns a simple Arduino-based controller with knobs, faders, or other 
 
 ## Interface tour
 
-The main window stays compact, while first-run guidance and configuration are available when needed. Click any screenshot to view it at full size.
+The main window stays compact, while the first-run guide and configuration screens explain the rest of the workflow. Click any screenshot to view it at full size.
 
-<details>
-<summary><strong>First-run guide</strong></summary>
-<br>
+### First-run guide
+
+Connect the controller, move a physical control, and immediately see which input is being detected.
+
 <p align="center">
   <a href="assets/screenshots/en/first-run.png">
     <img src="assets/screenshots/en/first-run.png" width="662" alt="Mugen Deej first-run guide in English">
   </a>
 </p>
-</details>
 
-<details>
-<summary><strong>Configure physical controls</strong></summary>
-<br>
+### Configure physical controls
+
+Rename each control and assign Windows master volume, applications, a microphone, or disable it entirely.
+
 <p align="center">
   <a href="assets/screenshots/en/control-settings.png">
     <img src="assets/screenshots/en/control-settings.png" width="1000" alt="Mugen Deej control settings in English">
   </a>
 </p>
-</details>
 
-<details>
-<summary><strong>Select active or currently silent applications</strong></summary>
-<br>
+### Select active or currently silent applications
+
+Choose applications that already have an audio session or preselect running applications before they play any sound.
+
 <p align="center">
   <a href="assets/screenshots/en/application-selection.png">
     <img src="assets/screenshots/en/application-selection.png" width="862" alt="Mugen Deej application selection in English">
   </a>
 </p>
-</details>
 
 <details>
 <summary><strong>Choose the interface language on first launch</strong></summary>
