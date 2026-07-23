@@ -12,7 +12,11 @@
   <strong>Русский</strong> · <a href="README.md">English</a>
 </p>
 
-![Главное окно Mugen Deej](assets/screenshot-main-ru.png)
+<p align="center">
+  <a href="assets/screenshots/ru/main-window.png">
+    <img src="assets/screenshots/ru/main-window.png" width="682" alt="Главное окно Mugen Deej на русском языке">
+  </a>
+</p>
 
 ## Связь с оригинальным проектом deej
 
@@ -35,6 +39,50 @@ Mugen Deej превращает простой контроллер на Arduino
 - Содержит русский и английский интерфейс и понятное окно первого запуска.
 - Объясняет занятые порты, проблемы драйвера и редкие конфликты одинаковых COM-номеров.
 - Работает портативно и не требует установки.
+
+## Интерфейс
+
+Главное окно остаётся компактным, а подсказки первого запуска и подробная настройка открываются по мере необходимости. Нажмите на изображение, чтобы посмотреть его в полном размере.
+
+<details>
+<summary><strong>Подсказка при первом запуске</strong></summary>
+<br>
+<p align="center">
+  <a href="assets/screenshots/ru/first-run.png">
+    <img src="assets/screenshots/ru/first-run.png" width="662" alt="Подсказка первого запуска Mugen Deej на русском языке">
+  </a>
+</p>
+</details>
+
+<details>
+<summary><strong>Настройка физических регуляторов</strong></summary>
+<br>
+<p align="center">
+  <a href="assets/screenshots/ru/control-settings.png">
+    <img src="assets/screenshots/ru/control-settings.png" width="1000" alt="Настройка регуляторов Mugen Deej на русском языке">
+  </a>
+</p>
+</details>
+
+<details>
+<summary><strong>Выбор активных и пока молчащих приложений</strong></summary>
+<br>
+<p align="center">
+  <a href="assets/screenshots/ru/application-selection.png">
+    <img src="assets/screenshots/ru/application-selection.png" width="862" alt="Выбор приложений Mugen Deej на русском языке">
+  </a>
+</p>
+</details>
+
+<details>
+<summary><strong>Выбор языка при первом запуске</strong></summary>
+<br>
+<p align="center">
+  <a href="assets/screenshots/language-selection.png">
+    <img src="assets/screenshots/language-selection.png" width="562" alt="Двуязычное окно выбора языка Mugen Deej">
+  </a>
+</p>
+</details>
 
 ## Скачать
 

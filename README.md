@@ -12,7 +12,11 @@
   <a href="README_RU.md">Русский</a> · <strong>English</strong>
 </p>
 
-![Mugen Deej main window](assets/screenshot-main-ru.png)
+<p align="center">
+  <a href="assets/screenshots/en/main-window.png">
+    <img src="assets/screenshots/en/main-window.png" width="682" alt="Mugen Deej main window in English">
+  </a>
+</p>
 
 ## Relationship to the original deej project
 
@@ -35,6 +39,50 @@ Mugen Deej turns a simple Arduino-based controller with knobs, faders, or other 
 - Includes Russian and English interfaces and a first-run guide.
 - Provides clearer diagnostics for busy ports, driver problems, and rare COM-number conflicts.
 - Runs portably without an installer.
+
+## Interface tour
+
+The main window stays compact, while first-run guidance and configuration are available when needed. Click any screenshot to view it at full size.
+
+<details>
+<summary><strong>First-run guide</strong></summary>
+<br>
+<p align="center">
+  <a href="assets/screenshots/en/first-run.png">
+    <img src="assets/screenshots/en/first-run.png" width="662" alt="Mugen Deej first-run guide in English">
+  </a>
+</p>
+</details>
+
+<details>
+<summary><strong>Configure physical controls</strong></summary>
+<br>
+<p align="center">
+  <a href="assets/screenshots/en/control-settings.png">
+    <img src="assets/screenshots/en/control-settings.png" width="1000" alt="Mugen Deej control settings in English">
+  </a>
+</p>
+</details>
+
+<details>
+<summary><strong>Select active or currently silent applications</strong></summary>
+<br>
+<p align="center">
+  <a href="assets/screenshots/en/application-selection.png">
+    <img src="assets/screenshots/en/application-selection.png" width="862" alt="Mugen Deej application selection in English">
+  </a>
+</p>
+</details>
+
+<details>
+<summary><strong>Choose the interface language on first launch</strong></summary>
+<br>
+<p align="center">
+  <a href="assets/screenshots/language-selection.png">
+    <img src="assets/screenshots/language-selection.png" width="562" alt="Mugen Deej bilingual language selection">
+  </a>
+</p>
+</details>
 
 ## Download
 
