@@ -1,7 +1,13 @@
-# Security policy
+# Security Policy
 
 Mugen Deej is a local Windows utility that communicates with USB serial devices and Windows audio APIs.
 
-Please do not publish a security-sensitive report as a public issue. While the repository is private, contact the repository owner directly. Before the public launch, replace this paragraph with a dedicated security contact or enable GitHub private vulnerability reporting.
+## Reporting a vulnerability
 
-Supported version: the latest published release.
+Please do not publish security-sensitive reports as public GitHub Issues.
+
+Use GitHub's private vulnerability reporting for this repository so the report can be reviewed privately.
+
+## Supported versions
+
+Only the latest published release is currently supported.
