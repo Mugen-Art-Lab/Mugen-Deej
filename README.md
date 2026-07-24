@@ -22,13 +22,13 @@
 
 Mugen Deej is an independently developed Windows client inspired by and compatible with the original [deej](https://github.com/omriharel/deej) project created by Omri Harel.
 
-It follows the same general idea of an Arduino-based physical volume mixer and accepts a compatible newline-delimited serial format. The Mugen Deej desktop client, interface, diagnostics, connection logic, and bundled reference firmware were developed separately for this project.
+It follows the same general idea of a physical volume mixer and accepts a compatible newline-delimited serial format. The Mugen Deej desktop client, interface, diagnostics, and connection logic were developed separately for this project.
 
 Mugen Deej is **not a fork of the original desktop client**, does not bundle the original `deej.exe`, and is not an official continuation of or affiliated with the original deej project. Full acknowledgement is available in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## What it does
 
-Mugen Deej turns a simple Arduino-based controller with knobs, faders, or other analog controls into a friendly Windows volume mixer.
+Mugen Deej turns a deej-compatible USB serial controller with physical controls into a friendly Windows volume mixer.
 
 - Automatically discovers compatible controllers across COM ports.
 - Reconnects after USB disconnects, resets, and COM-port changes.
@@ -102,17 +102,15 @@ The default configuration expects five values in the `0–1023` range at `9600` 
 
 ## Quick start
 
-1. Flash `firmware/MugenDeej_Nano_RGB.ino` or use a compatible deej sketch.
-2. Connect the controller by USB.
-3. Run `MugenDeej.exe` from the release archive.
-4. Choose the interface language.
-5. Open **Configure controls** and assign each physical control.
+1. Connect a deej-compatible controller by USB.
+2. Run `MugenDeej.exe` from the release archive.
+3. Choose the interface language.
+4. Open **Configure controls** and assign each physical control.
 
 ## Source layout
 
 - `MugenDeej.ps1` — application UI, serial discovery, Core Audio control, diagnostics.
 - `src/launcher/` — small Go launcher used for the Windows executable.
-- `firmware/` — reference Arduino Nano firmware for five controls and WS2812 indicators.
 - `config.example.json` — clean default configuration example.
 - `docs/` — building, troubleshooting, and release notes.
 
