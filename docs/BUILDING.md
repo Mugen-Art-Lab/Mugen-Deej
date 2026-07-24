@@ -18,17 +18,22 @@ The official 0.8.4 release launcher was built for Windows with the Mugen Deej mu
 
 ## Release package contents
 
-A portable release should contain:
+A portable release archive should contain:
 
 - `MugenDeej.exe`
 - `MugenDeej.ps1`
 - `MugenDeej.ico`
 - `MugenDeej-Debug.cmd`
-- `Start Mugen Deej.cmd`
-- `config.json`
-- documentation and license files
-- `firmware/`
-- `drivers/README.txt`
+- `README.txt`
+- `LICENSE`
+- `THIRD_PARTY_NOTICES.md`
 - `SHA256SUMS.txt`
 
-Do not bundle third-party driver installers unless their redistribution terms are confirmed. Mugen Deej can direct the user to the official WCH download instead.
+The GitHub release should also include:
+
+- a matching `Mugen-Deej-<version>-Portable.zip.sha256` checksum file
+- the compatible firmware `.ino` file as a separate release asset
+
+`config.json`, backup configuration files, and the `logs/` and `drivers/` directories are created automatically at runtime when needed.
+
+Do not bundle third-party driver installers unless their redistribution terms are confirmed. Mugen Deej downloads the official WCH driver only after the user requests it and verifies the publisher's digital signature before launch.
