@@ -29,10 +29,7 @@ A portable release archive should contain:
 - `THIRD_PARTY_NOTICES.md`
 - `SHA256SUMS.txt`
 
-The GitHub release should also include:
-
-- a matching `Mugen-Deej-<version>-Portable.zip.sha256` checksum file
-- the compatible firmware `.ino` file as a separate release asset
+The GitHub release should also include a matching `Mugen-Deej-<version>-Portable.zip.sha256` checksum file.
 
 `config.json`, backup configuration files, and the `logs/` and `drivers/` directories are created automatically at runtime when needed.
 
