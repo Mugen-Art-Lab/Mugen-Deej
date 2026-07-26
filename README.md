@@ -88,7 +88,7 @@ Choose applications that already have an audio session or preselect running appl
 
 [Download the latest portable release](https://github.com/Mugen-Art-Lab/Mugen-Deej/releases/latest), extract the complete archive, and run `MugenDeej.exe`.
 
-Current tested build: **0.8.4**.
+Current tested build: **0.8.5**.
 
 ## Controller protocol
 
