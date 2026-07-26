@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.5 — 2026-07-26
+
+- Fixed recovery after Windows sleep and hibernation.
+- The application interface remains responsive and the main window opens normally after resume.
+- Active controller connections are preserved across suspend instead of closing and reopening the COM port.
+- Controller packets resume automatically through the existing SerialPort connection.
+- Unrelated in-progress COM-port probes are cancelled during suspend without disturbing the active controller.
+- Added detailed suspend and resume diagnostics to the application log.
+- Verified through multiple short hibernation cycles and an overnight hibernation lasting more than seven hours.
+
 ## 0.8.4 — 2026-07-24
 
 - Fixed first-launch configuration persistence: a newly created default configuration is now reloaded from JSON before the first-run interface begins.
