@@ -1,4 +1,4 @@
-﻿# Mugen Deej 0.8.4
+﻿# Mugen Deej 0.8.5
 # Portable bilingual Windows audio controller for deej-compatible USB serial devices.
 # Requires Windows PowerShell 5.1+ and Windows 10/11.
 
@@ -34,6 +34,8 @@ Add-Type -AssemblyName System.Drawing
 $windowingSource = @'
 using System;
 using System.Runtime.InteropServices;
+using Microsoft.Win32;
+using System.Windows.Forms;
 
 namespace MugenDeejWindowing
 {
@@ -48,9 +50,58 @@ namespace MugenDeejWindowing
         [DllImport("user32.dll")]
         public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
     }
+
+    public sealed class PowerModeBridge : IDisposable
+    {
+        private readonly Control control;
+        private readonly Action<string> callback;
+        private bool disposed;
+
+        public PowerModeBridge(Control control, Action<string> callback)
+        {
+            if (control == null) throw new ArgumentNullException("control");
+            if (callback == null) throw new ArgumentNullException("callback");
+            this.control = control;
+            this.callback = callback;
+            SystemEvents.PowerModeChanged += OnPowerModeChanged;
+        }
+
+        private void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
+        {
+            if (disposed || control.IsDisposed || !control.IsHandleCreated) return;
+
+            try
+            {
+                string modeName = e.Mode.ToString();
+                // Suspend cleanup must finish before the SystemEvents callback returns.
+                // Control.Invoke marshals to the WinForms thread synchronously, unlike
+                // BeginInvoke, which can leave the serial port open while Windows sleeps.
+                if (control.InvokeRequired)
+                    control.Invoke(callback, new object[] { modeName });
+                else
+                    callback(modeName);
+            }
+            catch (InvalidOperationException) { }
+        }
+
+        public void Dispose()
+        {
+            if (disposed) return;
+            disposed = true;
+            SystemEvents.PowerModeChanged -= OnPowerModeChanged;
+        }
+    }
 }
 '@
-Add-Type -TypeDefinition $windowingSource -Language CSharp
+$windowingReferences = @(
+    [System.Windows.Forms.Control].Assembly.Location
+    [Microsoft.Win32.SystemEvents].Assembly.Location
+) | Select-Object -Unique
+Add-Type -TypeDefinition $windowingSource -Language CSharp -ReferencedAssemblies $windowingReferences
+
+# Used by the patch installer to verify that runtime Add-Type compilation works
+# before the live MugenDeej.ps1 file is replaced.
+if ($env:MUGENDEEJ_BOOTSTRAP_VALIDATE -eq '1') { exit 0 }
 
 $createdNew = $false
 $script:InstanceMutex = [System.Threading.Mutex]::new($true, 'Local\MugenDeej-MugenArtLab', [ref]$createdNew)
@@ -71,7 +122,7 @@ if (-not $createdNew) {
     exit 0
 }
 
-$script:AppVersion = '0.8.4'
+$script:AppVersion = '0.8.5'
 $script:LogDir = Join-Path $script:BaseDir 'logs'
 $script:LogPath = Join-Path $script:LogDir 'mugen-deej.log'
 $script:DriverDir = Join-Path $script:BaseDir 'drivers'
@@ -111,6 +162,50 @@ function Write-Log {
     )
     $line = '{0:yyyy-MM-dd HH:mm:ss.fff} [{1}] {2}' -f (Get-Date), $Level, $Message
     Add-Content -LiteralPath $script:LogPath -Value $line -Encoding UTF8
+}
+
+function Ensure-FormVisible {
+    param(
+        [Parameter(Mandatory = $true)][System.Windows.Forms.Form]$Form,
+        [switch]$CenterIfOffscreen
+    )
+
+    if ($null -eq $Form -or $Form.IsDisposed) { return }
+
+    try {
+        $bounds = if ($Form.WindowState -eq [System.Windows.Forms.FormWindowState]::Normal) {
+            $Form.Bounds
+        }
+        else {
+            $Form.RestoreBounds
+        }
+
+        if ($bounds.Width -le 0 -or $bounds.Height -le 0) {
+            $bounds = New-Object System.Drawing.Rectangle($Form.Location, $Form.Size)
+        }
+
+        $isVisible = $false
+        foreach ($screen in [System.Windows.Forms.Screen]::AllScreens) {
+            $intersection = [System.Drawing.Rectangle]::Intersect($bounds, $screen.WorkingArea)
+            if ($intersection.Width -ge 80 -and $intersection.Height -ge 60) {
+                $isVisible = $true
+                break
+            }
+        }
+
+        if ($isVisible) { return }
+
+        $targetArea = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+        $x = $targetArea.Left + [Math]::Max(0, [int](($targetArea.Width - $Form.Width) / 2))
+        $y = $targetArea.Top + [Math]::Max(0, [int](($targetArea.Height - $Form.Height) / 2))
+
+        $Form.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
+        $Form.Location = New-Object System.Drawing.Point($x, $y)
+        Write-Log ("Window '{0}' was moved back into the visible desktop area" -f $Form.Text) 'WARN'
+    }
+    catch {
+        Write-Log ("Failed to validate window position for '{0}': {1}" -f $Form.Text, $_.Exception.Message) 'WARN'
+    }
 }
 
 Initialize-AppIcon
@@ -1046,6 +1141,21 @@ $script:CaptureDeviceCacheTtlSeconds = 15
 $script:CaptureDeviceRefreshMinSeconds = 4
 $script:CoreAudioCaptureUnavailable = $false
 $script:Closing = $false
+$script:ExitRequested = $false
+$script:ShutdownFinalizing = $false
+$script:IsSuspended = $false
+$script:ResumeReconnectAt = [DateTime]::MinValue
+$script:ResumePreferredPort = ''
+$script:ResumeAutoReconnectSuppressed = $false
+$script:ResumeReconnectDelaySeconds = 15
+$script:ResumePreserveUntil = [DateTime]::MinValue
+$script:ResumePreserveStartedAt = [DateTime]::MinValue
+$script:ResumePreserveFirstErrorLogged = $false
+$script:ResumePreserveSeconds = 15
+$script:ProbeGeneration = 0
+$script:ActiveProbeSerial = $null
+$script:PowerBridge = $null
+$script:PowerUiAction = $null
 $script:KnobNameLabels = @()
 $script:KnobProgressBars = @()
 $script:KnobPercentLabels = @()
@@ -1104,6 +1214,9 @@ $script:Strings = @{
         StatusAutoNotFound = 'Mugen Deej не найден на доступных COM-портах'
         StatusPortsBusy = 'Mugen Deej не найден. Некоторые COM-порты заняты: {0}'
         StatusLost = 'Связь с контроллером потеряна. Переподключаемся…'
+        StatusResumeWaiting = 'Windows восстанавливает USB. Проверка контроллера через {0} с…'
+        StatusResumePreserving = 'Windows восстанавливает прежнее соединение с {0}. Ожидаем данные контроллера…'
+        StatusResumeReconnectFailed = 'Контроллер на {0} не восстановился после сна. Переподключите USB — Mugen Deej подключится автоматически.'
         DriverWorking = 'Драйвер WCH работает — {0}'
         DriverProblem = 'Устройство WCH найдено, но драйвер работает с ошибкой (код {0})'
         DriverCode31 = 'WCH не запустился (код 31). Попробуйте другой USB-порт или питание хаба.'
@@ -1219,6 +1332,9 @@ $script:Strings = @{
         StatusAutoNotFound = 'Mugen Deej was not found on available COM ports'
         StatusPortsBusy = 'Mugen Deej was not found. Some COM ports are busy: {0}'
         StatusLost = 'Controller connection lost. Reconnecting…'
+        StatusResumeWaiting = 'Windows is restoring USB. The controller will be checked in {0} s…'
+        StatusResumePreserving = 'Windows is restoring the existing connection on {0}. Waiting for controller data…'
+        StatusResumeReconnectFailed = 'The controller on {0} did not recover after sleep. Reconnect its USB cable; Mugen Deej will connect automatically.'
         DriverWorking = 'WCH driver is working — {0}'
         DriverProblem = 'A WCH device was found, but its driver reports an error (code {0})'
         DriverCode31 = 'WCH could not start (code 31). Try another USB port or power the hub.'
@@ -1927,6 +2043,7 @@ function Show-ApplicationPicker {
     })
 
     & $populateLists
+    $pickerForm.Add_Shown({ Ensure-FormVisible -Form $pickerForm -CenterIfOffscreen })
     $pickerForm.AcceptButton = $saveButton
     $pickerForm.CancelButton = $cancelButton
     $result = $pickerForm.ShowDialog($Owner)
@@ -2290,6 +2407,7 @@ function Show-SliderSettings {
         $settingsForm.Close()
     })
 
+    $settingsForm.Add_Shown({ Ensure-FormVisible -Form $settingsForm -CenterIfOffscreen })
     $settingsForm.Add_FormClosed({ $liveTimer.Stop(); $liveTimer.Dispose(); $nameToolTip.Dispose() })
     $settingsForm.AcceptButton = $saveButton
     $settingsForm.CancelButton = $cancelButton
@@ -2387,6 +2505,7 @@ function Show-FirstRunWizard {
     }
     $laterButton.Add_Click({ & $finishWizard; $wizard.Close() })
     $configureButton.Add_Click({ & $finishWizard; $wizard.Close(); Show-SliderSettings })
+    $wizard.Add_Shown({ Ensure-FormVisible -Form $wizard -CenterIfOffscreen })
     $wizard.Add_FormClosing({
         if (-not [bool]$script:Config.app.firstRunCompleted) { & $finishWizard }
     })
@@ -2474,6 +2593,32 @@ function Test-IsPortBusyError {
     return $false
 }
 
+function Get-ExceptionDiagnosticText {
+    param([Parameter(Mandatory = $true)]$ErrorRecord)
+
+    $parts = New-Object 'System.Collections.Generic.List[string]'
+    $exception = $ErrorRecord.Exception
+    $depth = 0
+
+    while ($null -ne $exception -and $depth -lt 8) {
+        $typeName = $exception.GetType().FullName
+        $hResultHex = '0x' + (([System.Convert]::ToString([int]$exception.HResult, 16).PadLeft(8, '0')).ToUpperInvariant())
+        $message = ([string]$exception.Message) -replace '[\r\n]+', ' '
+        $nativeText = ''
+
+        if ($exception -is [System.ComponentModel.Win32Exception]) {
+            $nativeText = '; nativeErrorCode=' + [string]$exception.NativeErrorCode
+        }
+
+        [void]$parts.Add(("type={0}; hresult={1}{2}; message={3}" -f $typeName, $hResultHex, $nativeText, $message))
+        $exception = $exception.InnerException
+        $depth++
+    }
+
+    if ($parts.Count -eq 0) { return 'no exception details available' }
+    return ($parts -join ' -> inner: ')
+}
+
 function Test-PortProbeAllowed {
     param([Parameter(Mandatory = $true)][string]$PortName)
     if (-not $script:PortProbeCooldowns.ContainsKey($PortName)) { return $true }
@@ -2515,23 +2660,122 @@ function Test-ProtocolLine {
 }
 
 function Close-ControllerPort {
-    if ($null -ne $script:Serial) {
-        try {
-            if ($script:Serial.IsOpen) { $script:Serial.Close() }
-        }
-        catch { }
-        try { $script:Serial.Dispose() } catch { }
+    param(
+        [string]$Reason = '',
+        [switch]$Detailed
+    )
+
+    $serial = $script:Serial
+    $portName = [string]$script:ConnectedPort
+    if ([string]::IsNullOrWhiteSpace($portName) -and $null -ne $serial) {
+        try { $portName = [string]$serial.PortName } catch { }
     }
+    if ([string]::IsNullOrWhiteSpace($portName)) { $portName = '(none)' }
+
+    if ($Detailed) {
+        Write-Log ("Controller-port cleanup started; reason={0}; port={1}; objectPresent={2}" -f $Reason, $portName, ($null -ne $serial)) 'INFO'
+    }
+
+    if ($null -ne $serial) {
+        try {
+            if ($serial.IsOpen) {
+                $serial.Close()
+                if ($Detailed) { Write-Log ("SerialPort.Close completed for {0}" -f $portName) 'INFO' }
+            }
+            elseif ($Detailed) {
+                Write-Log ("SerialPort for {0} was already closed" -f $portName) 'DEBUG'
+            }
+        }
+        catch {
+            Write-Log ("SerialPort.Close failed for {0}: {1}" -f $portName, $_.Exception.Message) 'WARN'
+        }
+
+        try {
+            $serial.Dispose()
+            if ($Detailed) { Write-Log ("SerialPort.Dispose completed for {0}" -f $portName) 'INFO' }
+        }
+        catch {
+            Write-Log ("SerialPort.Dispose failed for {0}: {1}" -f $portName, $_.Exception.Message) 'WARN'
+        }
+    }
+    elseif ($Detailed) {
+        Write-Log ("No active controller SerialPort object existed for {0}" -f $portName) 'DEBUG'
+    }
+
     $script:Serial = $null
     $script:SerialBuffer = ''
     $script:IsConnected = $false
     $script:ConnectedPort = ''
     $script:LastSerialPacketAt = [DateTime]::MinValue
     $script:LatestLevels = @()
+
+    if ($Detailed) {
+        Write-Log ("Controller-port cleanup completed; reason={0}; port={1}" -f $Reason, $portName) 'INFO'
+    }
+}
+
+function Cancel-ActivePortProbe {
+    param(
+        [string]$Reason = '',
+        [switch]$Detailed
+    )
+
+    $script:ProbeGeneration++
+    $probe = $script:ActiveProbeSerial
+    $script:ActiveProbeSerial = $null
+    $probePort = '(none)'
+    if ($null -ne $probe) {
+        try { $probePort = [string]$probe.PortName } catch { }
+    }
+
+    if ($Detailed) {
+        Write-Log ("Probe cleanup started; reason={0}; port={1}; objectPresent={2}" -f $Reason, $probePort, ($null -ne $probe)) 'INFO'
+    }
+
+    if ($null -ne $probe) {
+        try {
+            if ($probe.IsOpen) {
+                $probe.Close()
+                if ($Detailed) { Write-Log ("Probe SerialPort.Close completed for {0}" -f $probePort) 'INFO' }
+            }
+        }
+        catch {
+            Write-Log ("Probe SerialPort.Close failed for {0}: {1}" -f $probePort, $_.Exception.Message) 'WARN'
+        }
+        try {
+            $probe.Dispose()
+            if ($Detailed) { Write-Log ("Probe SerialPort.Dispose completed for {0}" -f $probePort) 'INFO' }
+        }
+        catch {
+            Write-Log ("Probe SerialPort.Dispose failed for {0}: {1}" -f $probePort, $_.Exception.Message) 'WARN'
+        }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($Reason)) {
+        Write-Log ("Active COM-port probe cancelled: {0}" -f $Reason) 'DEBUG'
+    }
+
+    if ($Detailed) {
+        Write-Log ("Probe cleanup completed; reason={0}; port={1}" -f $Reason, $probePort) 'INFO'
+    }
+}
+
+function Test-ConnectionWorkCancelled {
+    param([int]$Generation)
+
+    return (
+        $script:Closing -or
+        $script:ExitRequested -or
+        $script:IsSuspended -or
+        $Generation -ne $script:ProbeGeneration
+    )
 }
 
 function Open-And-ProbePort {
     param([Parameter(Mandatory = $true)][string]$PortName)
+
+    $probeGeneration = $script:ProbeGeneration
+    if (Test-ConnectionWorkCancelled -Generation $probeGeneration) { return $false }
 
     $serial = New-Object System.IO.Ports.SerialPort
     $serial.PortName = $PortName
@@ -2546,62 +2790,125 @@ function Open-And-ProbePort {
     $serial.WriteTimeout = 200
     $serial.NewLine = "`n"
 
+    $accepted = $false
+    $cancelled = $false
+    $script:ActiveProbeSerial = $serial
+
     try {
+        if (Test-ConnectionWorkCancelled -Generation $probeGeneration) {
+            $cancelled = $true
+            return $false
+        }
+
         Write-Log "Probing $PortName"
         $serial.Open()
+
+        if (Test-ConnectionWorkCancelled -Generation $probeGeneration) {
+            $cancelled = $true
+            return $false
+        }
+
         if ($script:PortProbeFailureCounts.ContainsKey($PortName)) {
             [void]$script:PortProbeFailureCounts.Remove($PortName)
         }
+
         $deadline = (Get-Date).AddMilliseconds([int]$script:Config.connection.startupWaitMs + 2800)
         $readyAfter = (Get-Date).AddMilliseconds([int]$script:Config.connection.startupWaitMs)
         $buffer = ''
 
         while ((Get-Date) -lt $deadline) {
             [System.Windows.Forms.Application]::DoEvents()
+
+            if (Test-ConnectionWorkCancelled -Generation $probeGeneration) {
+                $cancelled = $true
+                return $false
+            }
+
             Start-Sleep -Milliseconds 40
+
+            if (Test-ConnectionWorkCancelled -Generation $probeGeneration) {
+                $cancelled = $true
+                return $false
+            }
+
             if ((Get-Date) -lt $readyAfter) { continue }
+
             $chunk = $serial.ReadExisting()
             if ($chunk.Length -eq 0) { continue }
+
             $buffer += $chunk
             while ($buffer.Contains("`n")) {
                 $idx = $buffer.IndexOf("`n")
                 $line = $buffer.Substring(0, $idx).Trim("`r", "`n", " ", "`t")
                 $buffer = $buffer.Substring($idx + 1)
                 $parsed = Test-ProtocolLine -Line $line -ExpectedCount ([int]$script:Config.connection.expectedSliders)
+
                 if ($null -ne $parsed) {
+                    if (Test-ConnectionWorkCancelled -Generation $probeGeneration) {
+                        $cancelled = $true
+                        return $false
+                    }
+
                     $script:Serial = $serial
+                    $script:ActiveProbeSerial = $null
                     $script:SerialBuffer = $buffer
                     $script:IsConnected = $true
                     $script:ConnectedPort = $PortName
+                    $script:ResumeAutoReconnectSuppressed = $false
                     $script:LastSerialPacketAt = Get-Date
                     $script:Config.connection.lastWorkingPort = $PortName
                     Clear-PortProbeCooldown -PortName $PortName
                     $script:PendingNewPorts = @($script:PendingNewPorts | Where-Object { $_ -ne $PortName })
                     Save-Config -Config $script:Config
                     Write-Log "Controller detected on $PortName"
+                    $accepted = $true
                     return $true
                 }
             }
         }
-        Write-Log "$PortName opened, but Mugen Deej protocol was not detected" 'WARN'
-        Set-PortProbeCooldown -PortName $PortName -Seconds $script:NegativeProbeCooldownSeconds
-    }
-    catch {
-        if (Test-IsPortBusyError -ErrorRecord $_) {
-            if ($script:LastScanBusyPorts -notcontains $PortName) {
-                $script:LastScanBusyPorts += $PortName
-            }
-            $retrySeconds = Register-PortProbeFailure -PortName $PortName -Busy
-            Write-Log "$PortName is busy or held by another application; retry in $retrySeconds s" 'WARN'
+
+        if (-not (Test-ConnectionWorkCancelled -Generation $probeGeneration)) {
+            Write-Log "$PortName opened, but Mugen Deej protocol was not detected" 'WARN'
+            Set-PortProbeCooldown -PortName $PortName -Seconds $script:NegativeProbeCooldownSeconds
         }
         else {
-            $retrySeconds = Register-PortProbeFailure -PortName $PortName
-            Write-Log "Failed to open ${PortName}: $($_.Exception.Message); retry in $retrySeconds s" 'WARN'
+            $cancelled = $true
+        }
+    }
+    catch {
+        if (Test-ConnectionWorkCancelled -Generation $probeGeneration) {
+            $cancelled = $true
+        }
+        else {
+            $diagnostic = Get-ExceptionDiagnosticText -ErrorRecord $_
+            if (Test-IsPortBusyError -ErrorRecord $_) {
+                if ($script:LastScanBusyPorts -notcontains $PortName) {
+                    $script:LastScanBusyPorts += $PortName
+                }
+                $retrySeconds = Register-PortProbeFailure -PortName $PortName -Busy
+                Write-Log "$PortName is busy or unavailable; $diagnostic; retry in $retrySeconds s" 'WARN'
+            }
+            else {
+                $retrySeconds = Register-PortProbeFailure -PortName $PortName
+                Write-Log "Failed to open ${PortName}; $diagnostic; retry in $retrySeconds s" 'WARN'
+            }
+        }
+    }
+    finally {
+        if ($script:ActiveProbeSerial -eq $serial) {
+            $script:ActiveProbeSerial = $null
+        }
+
+        if (-not $accepted) {
+            try { if ($serial.IsOpen) { $serial.Close() } } catch { }
+            try { $serial.Dispose() } catch { }
+        }
+
+        if ($cancelled) {
+            Write-Log ("Probe of {0} ended because connection work was cancelled" -f $PortName) 'DEBUG'
         }
     }
 
-    try { if ($serial.IsOpen) { $serial.Close() } } catch { }
-    try { $serial.Dispose() } catch { }
     return $false
 }
 
@@ -2639,10 +2946,14 @@ function Connect-Controller {
         [switch]$ForceFullScan
     )
 
-    # Open-And-ProbePort pumps WinForms messages while waiting for an Arduino to
-    # reboot. Without this guard, the UI timer (or a second button click) can start
-    # another scan inside the first one. One scan may connect successfully while
-    # the other finishes later and overwrites the green status with "not found".
+    if ($script:IsSuspended -or $script:Closing -or $script:ExitRequested) {
+        Write-Log 'Connection scan skipped because the application is suspended or closing' 'DEBUG'
+        return $false
+    }
+
+    # Open-And-ProbePort pumps WinForms messages while waiting for a controller
+    # to become ready. The guard prevents nested scans, while ProbeGeneration
+    # lets suspend/exit events cancel the active probe cleanly.
     if ($script:IsConnecting) {
         Write-Log 'Connection scan request ignored because another scan is already running' 'DEBUG'
         return $script:IsConnected
@@ -2655,6 +2966,7 @@ function Connect-Controller {
         $script:LastScanBusyPorts = @()
         $mode = [string]$script:Config.connection.mode
         $isExplicitScan = $ForceFullScan -or (-not $Quiet -and @($CandidatePorts).Count -eq 0)
+
         if ($isExplicitScan) {
             Clear-AllPortProbeCooldowns
             $script:PendingNewPorts = @()
@@ -2676,15 +2988,25 @@ function Connect-Controller {
             $ports = @(Get-PortsInPreferredOrder -CandidatePorts $CandidatePorts -IgnoreCooldowns:$ignoreCooldowns)
         }
 
+        if (Test-ConnectionWorkCancelled -Generation $script:ProbeGeneration) { return $false }
+
         if ($ports.Count -eq 0) {
             if (-not $Quiet) { Set-Status (T -Key 'StatusNoPorts') 'warn' }
             return $false
         }
 
         if (-not $Quiet) { Set-Status (T -Key 'StatusSearching') 'busy' }
+
         foreach ($port in $ports) {
+            if (Test-ConnectionWorkCancelled -Generation $script:ProbeGeneration) { return $false }
             if (-not $Quiet) { Set-Status (T -Key 'StatusCheckingPort' -Args @($port)) 'busy' }
+
             if (Open-And-ProbePort -PortName $port) {
+                if (Test-ConnectionWorkCancelled -Generation $script:ProbeGeneration) {
+                    Close-ControllerPort
+                    return $false
+                }
+
                 Set-Status (T -Key 'StatusConnected' -Args @($port, [int]$script:Config.connection.expectedSliders)) 'ok'
                 Update-TrayText
                 Update-DriverStatus
@@ -2692,8 +3014,8 @@ function Connect-Controller {
             }
         }
 
-        # Defensive check: never replace a real open connection with a stale
-        # "not found" result, even if some future code changes the scan flow.
+        if (Test-ConnectionWorkCancelled -Generation $script:ProbeGeneration) { return $false }
+
         if ($script:IsConnected -and $null -ne $script:Serial -and $script:Serial.IsOpen) {
             Set-Status (T -Key 'StatusConnected' -Args @($script:ConnectedPort, [int]$script:Config.connection.expectedSliders)) 'ok'
             Update-TrayText
@@ -2711,6 +3033,7 @@ function Connect-Controller {
                 Set-Status (T -Key 'StatusAutoNotFound') 'warn'
             }
         }
+
         Update-TrayText
         Update-DriverStatus
         return $false
@@ -2718,7 +3041,15 @@ function Connect-Controller {
     finally {
         $script:IsConnecting = $false
         $script:LastReconnectAttempt = Get-Date
-        if ($null -ne $connectButton) { $connectButton.Enabled = $true }
+
+        if ($null -ne $connectButton -and -not $connectButton.IsDisposed) {
+            $connectButton.Enabled = (-not $script:Closing -and -not $script:IsSuspended)
+        }
+
+        if ($script:ExitRequested -and -not $script:ShutdownFinalizing -and $null -ne $form -and -not $form.IsDisposed) {
+            $script:ShutdownFinalizing = $true
+            $form.Close()
+        }
     }
 }
 
@@ -2797,10 +3128,59 @@ function Handle-ControllerConnectionLost {
     Update-DriverStatus
 }
 
+function Fail-ResumePreservedConnection {
+    param([string]$Reason)
+
+    $portName = [string]$script:ConnectedPort
+    if ([string]::IsNullOrWhiteSpace($portName)) {
+        $portName = [string]$script:ResumePreferredPort
+    }
+
+    $elapsedMs = 0
+    if ($script:ResumePreserveStartedAt -ne [DateTime]::MinValue) {
+        $elapsedMs = [int](((Get-Date) - $script:ResumePreserveStartedAt).TotalMilliseconds)
+    }
+
+    Write-Log ("Preserved serial connection did not resume; port={0}; elapsedMs={1}; reason={2}" -f $portName, $elapsedMs, $Reason) 'WARN'
+    $script:ResumePreserveUntil = [DateTime]::MinValue
+    $script:ResumePreserveStartedAt = [DateTime]::MinValue
+    $script:ResumePreserveFirstErrorLogged = $false
+
+    Close-ControllerPort -Reason 'preserved connection failed after system resume' -Detailed
+    [MugenDeejAudio.AudioMixer]::InvalidateSessions()
+    $script:LastReconnectAttempt = Get-Date
+    $script:ResumeAutoReconnectSuppressed = $true
+    Set-Status (T -Key 'StatusResumeReconnectFailed' -Args @($portName)) 'warn'
+    Update-TrayText
+    Update-DriverStatus
+}
+
 function Process-SerialData {
-    if (-not $script:IsConnected -or $null -eq $script:Serial) { return }
+    $resumePreserveActive = ($script:ResumePreserveUntil -ne [DateTime]::MinValue)
+    $now = Get-Date
+
+    if (-not $script:IsConnected -or $null -eq $script:Serial) {
+        if ($resumePreserveActive -and $now -ge $script:ResumePreserveUntil) {
+            Fail-ResumePreservedConnection -Reason 'The preserved SerialPort object was no longer available'
+        }
+        return
+    }
+
     if (-not $script:Serial.IsOpen) {
-        Handle-ControllerConnectionLost -Reason 'Serial port is no longer open'
+        if ($resumePreserveActive -and $now -lt $script:ResumePreserveUntil) {
+            if (-not $script:ResumePreserveFirstErrorLogged) {
+                Write-Log ("Preserved SerialPort is temporarily reported closed after resume; port={0}; waiting until deadline" -f $script:ConnectedPort) 'WARN'
+                $script:ResumePreserveFirstErrorLogged = $true
+            }
+            return
+        }
+
+        if ($resumePreserveActive) {
+            Fail-ResumePreservedConnection -Reason 'The preserved SerialPort remained closed until the resume deadline'
+        }
+        else {
+            Handle-ControllerConnectionLost -Reason 'Serial port is no longer open'
+        }
         return
     }
 
@@ -2810,7 +3190,7 @@ function Process-SerialData {
             $script:SerialBuffer += $chunk
         }
 
-        # Arduino sends packets much faster than Windows audio sessions need updates.
+        # Controllers can send packets much faster than Windows audio sessions need updates.
         # Keep only the newest complete packet so slow browser session enumeration
         # cannot build a several-second queue of obsolete knob positions.
         $latestParsed = $null
@@ -2824,7 +3204,30 @@ function Process-SerialData {
 
         if ($null -ne $latestParsed) {
             $script:LastSerialPacketAt = Get-Date
+
+            if ($resumePreserveActive) {
+                $elapsedMs = [int](((Get-Date) - $script:ResumePreserveStartedAt).TotalMilliseconds)
+                $resumedPort = [string]$script:ConnectedPort
+                $script:ResumePreserveUntil = [DateTime]::MinValue
+                $script:ResumePreserveStartedAt = [DateTime]::MinValue
+                $script:ResumePreserveFirstErrorLogged = $false
+                $script:ResumeAutoReconnectSuppressed = $false
+                Write-Log ("Existing SerialPort resumed without Close/Open; port={0}; firstValidPacketAfterMs={1}" -f $resumedPort, $elapsedMs) 'INFO'
+                Set-Status (T -Key 'StatusConnected' -Args @($resumedPort, [int]$script:Config.connection.expectedSliders)) 'ok'
+                Update-TrayText
+                Update-DriverStatus
+            }
+
             Apply-SliderValues -Values $latestParsed
+            return
+        }
+
+        if ($resumePreserveActive) {
+            if ((Get-Date) -lt $script:ResumePreserveUntil) {
+                return
+            }
+
+            Fail-ResumePreservedConnection -Reason 'No valid controller packets arrived on the preserved SerialPort before the resume deadline'
             return
         }
 
@@ -2838,7 +3241,22 @@ function Process-SerialData {
         }
     }
     catch {
-        Handle-ControllerConnectionLost -Reason $_.Exception.Message
+        if ($resumePreserveActive -and (Get-Date) -lt $script:ResumePreserveUntil) {
+            if (-not $script:ResumePreserveFirstErrorLogged) {
+                $diagnostic = Get-ExceptionDiagnosticText -ErrorRecord $_
+                Write-Log ("Preserved SerialPort read failed during resume grace period; port={0}; {1}; continuing to wait" -f $script:ConnectedPort, $diagnostic) 'WARN'
+                $script:ResumePreserveFirstErrorLogged = $true
+            }
+            return
+        }
+
+        if ($resumePreserveActive) {
+            $diagnostic = Get-ExceptionDiagnosticText -ErrorRecord $_
+            Fail-ResumePreservedConnection -Reason ("Serial read still failed at the resume deadline: {0}" -f $diagnostic)
+        }
+        else {
+            Handle-ControllerConnectionLost -Reason $_.Exception.Message
+        }
     }
 }
 
@@ -3471,6 +3889,8 @@ function Update-ConnectionControls {
 }
 
 function Show-MainWindowForeground {
+    Ensure-FormVisible -Form $form -CenterIfOffscreen
+
     if ($form.WindowState -eq [System.Windows.Forms.FormWindowState]::Minimized) {
         $form.WindowState = [System.Windows.Forms.FormWindowState]::Normal
     }
@@ -3582,17 +4002,144 @@ $portCombo.Add_SelectedIndexChanged({
     }
 })
 
+function Handle-PowerModeChange {
+    param([Parameter(Mandatory = $true)][string]$ModeName)
+
+    if ($script:Closing -or $script:ExitRequested) { return }
+
+    switch ($ModeName) {
+        'Suspend' {
+            if ($script:IsSuspended) { return }
+
+            $suspendStarted = Get-Date
+            $activePort = [string]$script:ConnectedPort
+            if ([string]::IsNullOrWhiteSpace($activePort)) {
+                $activePort = [string]$script:Config.connection.lastWorkingPort
+            }
+            $script:ResumePreferredPort = $activePort
+
+            $serialPresent = ($null -ne $script:Serial)
+            $serialIsOpen = $false
+            if ($serialPresent) {
+                try { $serialIsOpen = [bool]$script:Serial.IsOpen } catch { }
+            }
+
+            Write-Log ("System suspend detected; connectedPort={0}; preferredResumePort={1}; scanning={2}; serialObjectPresent={3}; serialIsOpen={4}" -f $script:ConnectedPort, $script:ResumePreferredPort, $script:IsConnecting, $serialPresent, $serialIsOpen) 'INFO'
+            $script:IsSuspended = $true
+            $script:ResumeReconnectAt = [DateTime]::MinValue
+            $script:ResumeAutoReconnectSuppressed = $true
+            $script:ResumePreserveUntil = [DateTime]::MinValue
+            $script:ResumePreserveStartedAt = [DateTime]::MinValue
+            $script:ResumePreserveFirstErrorLogged = $false
+
+            if ($null -ne $timer) { $timer.Stop() }
+
+            # Preserve the established controller SerialPort across sleep and hibernation.
+            # Only an unrelated in-progress discovery probe is cancelled; Windows
+            # can restore the existing handle when the system resumes.
+            Cancel-ActivePortProbe -Reason 'system suspend; active controller port is intentionally preserved' -Detailed
+            [MugenDeejAudio.AudioMixer]::InvalidateSessions()
+
+            $elapsedMs = [int](((Get-Date) - $suspendStarted).TotalMilliseconds)
+            Write-Log ("Suspend handler completed without closing the controller SerialPort; elapsedMs={0}; port={1}; objectPresent={2}; isOpen={3}" -f $elapsedMs, $script:ConnectedPort, ($null -ne $script:Serial), $serialIsOpen) 'INFO'
+            Set-Status (T -Key 'StatusLost') 'warn'
+            Update-TrayText
+        }
+
+        'Resume' {
+            if ([string]::IsNullOrWhiteSpace($script:ResumePreferredPort)) {
+                $script:ResumePreferredPort = [string]$script:Config.connection.lastWorkingPort
+            }
+
+            $preserveSeconds = [int]$script:ResumePreserveSeconds
+            $serialPresent = ($null -ne $script:Serial)
+            $serialIsOpen = $false
+            if ($serialPresent) {
+                try { $serialIsOpen = [bool]$script:Serial.IsOpen } catch { }
+            }
+
+            Write-Log ("System resume detected; preferredResumePort={0}; preserving the existing SerialPort for {1} seconds; objectPresent={2}; isConnected={3}; isOpen={4}" -f $script:ResumePreferredPort, $preserveSeconds, $serialPresent, $script:IsConnected, $serialIsOpen) 'INFO'
+            $script:IsSuspended = $false
+            [MugenDeejAudio.AudioMixer]::InvalidateSessions()
+
+            $script:ResumeAutoReconnectSuppressed = $true
+            $script:ResumeReconnectAt = [DateTime]::MinValue
+            $script:ResumePreserveFirstErrorLogged = $false
+            $script:SerialBuffer = ''
+            $script:LastSerialPacketAt = Get-Date
+
+            if ($script:IsConnected -and $serialPresent) {
+                $script:ResumePreserveStartedAt = Get-Date
+                $script:ResumePreserveUntil = (Get-Date).AddSeconds($preserveSeconds)
+                Set-Status (T -Key 'StatusResumePreserving' -Args @($script:ResumePreferredPort)) 'busy'
+            }
+            else {
+                # No established connection exists to preserve. Wait briefly,
+                # then perform one targeted reconnect attempt instead of immediately
+                # scanning every COM port.
+                $script:ResumePreserveStartedAt = [DateTime]::MinValue
+                $script:ResumePreserveUntil = [DateTime]::MinValue
+                $script:ResumeReconnectAt = (Get-Date).AddSeconds([int]$script:ResumeReconnectDelaySeconds)
+                Set-Status (T -Key 'StatusResumeWaiting' -Args @([int]$script:ResumeReconnectDelaySeconds)) 'busy'
+                Write-Log 'No established SerialPort existed at resume; falling back to one delayed connection attempt' 'WARN'
+            }
+
+            Ensure-FormVisible -Form $form -CenterIfOffscreen
+            try {
+                $form.Invalidate($true)
+                $form.Update()
+            }
+            catch { }
+
+            if ($null -ne $timer -and -not $script:Closing) { $timer.Start() }
+        }
+    }
+}
+
+function Request-AppExit {
+    if ($script:ExitRequested) { return }
+
+    $script:Closing = $true
+    $script:ExitRequested = $true
+    if ($null -ne $timer) { $timer.Stop() }
+
+    Cancel-ActivePortProbe -Reason 'application exit requested'
+    Close-ControllerPort
+
+    if ($script:IsConnecting) {
+        $form.Hide()
+        return
+    }
+
+    $script:ShutdownFinalizing = $true
+    $form.Close()
+}
+
 $advancedToggle.Add_Click({ Set-AdvancedExpanded -Expanded (-not $advancedPanel.Visible) })
 $refreshButton.Add_Click({ Refresh-PortList; Update-DriverStatus })
-$connectButton.Add_Click({ [void](Connect-Controller -ForceFullScan) })
+$connectButton.Add_Click({
+    $script:ResumeReconnectAt = [DateTime]::MinValue
+    $script:ResumePreserveUntil = [DateTime]::MinValue
+    $script:ResumePreserveStartedAt = [DateTime]::MinValue
+    $script:ResumePreserveFirstErrorLogged = $false
+    $script:ResumeAutoReconnectSuppressed = $false
+    [void](Connect-Controller -ForceFullScan)
+})
 $settingsButton.Add_Click({ Show-SliderSettings })
 $driverButton.Add_Click({ Install-Ch340Driver })
 $logButton.Add_Click({ Start-Process notepad.exe -ArgumentList ('"{0}"' -f $script:LogPath) })
 
 $trayOpen.Add_Click({ Show-MainWindowForeground })
 $traySettings.Add_Click({ Show-MainWindowForeground; Show-SliderSettings })
-$trayReconnect.Add_Click({ [void](Connect-Controller -ForceFullScan) })
-$trayExit.Add_Click({ $script:Closing = $true; $form.Close() })
+$trayReconnect.Add_Click({
+    $script:ResumeReconnectAt = [DateTime]::MinValue
+    $script:ResumePreserveUntil = [DateTime]::MinValue
+    $script:ResumePreserveStartedAt = [DateTime]::MinValue
+    $script:ResumePreserveFirstErrorLogged = $false
+    $script:ResumeAutoReconnectSuppressed = $false
+    [void](Connect-Controller -ForceFullScan)
+})
+$trayExit.Add_Click({ Request-AppExit })
 $notifyIcon.Add_DoubleClick({ Show-MainWindowForeground })
 
 $form.Add_Resize({
@@ -3603,15 +4150,40 @@ $form.Add_Resize({
 
 $form.Add_FormClosing({
     param($sender, $eventArgs)
+
     if (-not $script:Closing -and [bool]$script:Config.app.minimizeToTray) {
         $eventArgs.Cancel = $true
         $form.Hide()
         return
     }
-    $timer.Stop()
+
+    $script:Closing = $true
+    $script:ExitRequested = $true
+
+    if ($script:IsConnecting -and -not $script:ShutdownFinalizing) {
+        $eventArgs.Cancel = $true
+        if ($null -ne $timer) { $timer.Stop() }
+        Cancel-ActivePortProbe -Reason 'form closing while a COM-port probe is active'
+        Close-ControllerPort
+        $form.Hide()
+        return
+    }
+
+    $script:ShutdownFinalizing = $true
+    if ($null -ne $timer) { $timer.Stop() }
+
+    Cancel-ActivePortProbe -Reason 'final application shutdown'
+
     try { Save-Config -Config $script:Config }
     catch { Write-Log "Final config save on exit failed: $($_.Exception.Message)" 'ERROR' }
+
     Close-ControllerPort
+
+    if ($null -ne $script:PowerBridge) {
+        try { $script:PowerBridge.Dispose() } catch { }
+        $script:PowerBridge = $null
+    }
+
     $notifyIcon.Visible = $false
     $notifyIcon.Dispose()
     if ($script:AppIcon) { try { $script:AppIcon.Dispose() } catch { } }
@@ -3623,7 +4195,57 @@ $form.Add_FormClosing({
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 20
 $timer.Add_Tick({
+    if ($script:IsSuspended -or $script:Closing -or $script:ExitRequested) { return }
+
     $now = Get-Date
+
+    # During the resume grace period, do not enumerate or open COM ports.
+    # Read only from the SerialPort object that existed before hibernation.
+    # Process-SerialData clears this state on success or failure.
+    if ($script:ResumePreserveUntil -ne [DateTime]::MinValue) {
+        Process-SerialData
+        Update-KnobMonitor
+        return
+    }
+
+    if ($script:ResumeReconnectAt -ne [DateTime]::MinValue) {
+        if ($now -lt $script:ResumeReconnectAt) {
+            Update-KnobMonitor
+            return
+        }
+
+        # When no established SerialPort existed to preserve, perform one
+        # delayed targeted attempt without a broad scan.
+        $script:ResumeReconnectAt = [DateTime]::MinValue
+        $preferredPort = [string]$script:ResumePreferredPort
+        $script:KnownPorts = @(Get-PortNames)
+        $script:LastPortSnapshotCheck = Get-Date
+        Write-Log ("Resume recovery delay completed; ports={0}; preferredPort={1}; performing one targeted connection attempt" -f ($script:KnownPorts -join ', '), $preferredPort) 'INFO'
+
+        $connected = $false
+        if (-not [string]::IsNullOrWhiteSpace($preferredPort) -and $script:KnownPorts -contains $preferredPort) {
+            Reset-PortProbeState -PortName $preferredPort
+            $connected = [bool](Connect-Controller -Quiet -CandidatePorts @($preferredPort))
+        }
+        else {
+            Write-Log ("The previous working port is not present after the resume quiet period: {0}" -f $preferredPort) 'WARN'
+        }
+
+        if ($connected) {
+            $script:ResumeAutoReconnectSuppressed = $false
+            Write-Log ("Single delayed resume attempt succeeded on {0}" -f $preferredPort) 'INFO'
+        }
+        else {
+            $script:ResumeAutoReconnectSuppressed = $true
+            Write-Log ("Single delayed resume attempt failed or could not run on {0}; automatic port opening is now suppressed until a new COM device appears or the user requests a manual scan" -f $preferredPort) 'WARN'
+            Set-Status (T -Key 'StatusResumeReconnectFailed' -Args @($preferredPort)) 'warn'
+            Update-TrayText
+            Update-DriverStatus
+        }
+
+        Update-KnobMonitor
+        return
+    }
 
     # Detect changes in Windows' COM-port list separately from the slower retry
     # loop. A newly appeared port is always treated as fresh, even if the same
@@ -3651,13 +4273,24 @@ $timer.Add_Tick({
     if (-not $script:IsConnected -and -not $script:IsConnecting -and $script:PendingNewPorts.Count -gt 0) {
         $candidatePorts = @($script:PendingNewPorts)
         $script:PendingNewPorts = @()
-        [void](Connect-Controller -Quiet -CandidatePorts $candidatePorts)
+        $resumeSuppressionWasActive = $script:ResumeAutoReconnectSuppressed
+        if ($resumeSuppressionWasActive) {
+            Write-Log ("New COM device appeared while automatic resume reconnect was suppressed; trying only the new port(s): {0}" -f ($candidatePorts -join ', ')) 'INFO'
+        }
+
+        $newPortConnected = [bool](Connect-Controller -Quiet -CandidatePorts $candidatePorts)
+        if ($newPortConnected) {
+            $script:ResumeAutoReconnectSuppressed = $false
+        }
+        elseif ($resumeSuppressionWasActive) {
+            $script:ResumeAutoReconnectSuppressed = $true
+        }
     }
 
     if ($script:IsConnected) {
         Process-SerialData
     }
-    elseif (-not $script:IsConnecting) {
+    elseif (-not $script:IsConnecting -and -not $script:ResumeAutoReconnectSuppressed) {
         $seconds = [int]$script:Config.connection.reconnectSeconds
         if (((Get-Date) - $script:LastReconnectAttempt).TotalSeconds -ge $seconds) {
             $script:LastReconnectAttempt = Get-Date
@@ -3667,12 +4300,27 @@ $timer.Add_Tick({
     Update-KnobMonitor
 })
 
+$script:PowerUiAction = [System.Action[string]]{
+    param($modeName)
+    try {
+        Handle-PowerModeChange -ModeName $modeName
+    }
+    catch {
+        Write-Log ("Power-mode handler failed for {0}: {1}" -f $modeName, $_.Exception.Message) 'ERROR'
+    }
+}
+
+$script:PowerBridge = [MugenDeejWindowing.PowerModeBridge]::new($form, $script:PowerUiAction)
+Write-Log 'Power suspend/resume monitoring initialized' 'DEBUG'
+
 $form.Add_Shown({
+    Ensure-FormVisible -Form $form -CenterIfOffscreen
     $startMinimized = [bool]$script:Config.app.startMinimized
     if (-not $startMinimized) {
         Show-MainWindowForeground
     }
 
+    $script:ResumeAutoReconnectSuppressed = $false
     $script:KnownPorts = @(Get-PortNames)
     $script:LastPortSnapshotCheck = Get-Date
     Update-DriverStatus
