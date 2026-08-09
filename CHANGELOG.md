@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.6 — 2026-08-09
+- Added an optional **Start Mugen Deej with Windows** setting to the main window.
+- Added an independent **Start minimized to the notification area** setting.
+- Start-minimized launches now suppress the main window before controller discovery, avoiding a visible startup flash.
+- Windows startup registration uses the current user profile and points to `MugenDeej.exe` in the portable folder.
+- When an enabled portable folder is moved, launching Mugen Deej once from the new location updates the stored startup path automatically.
+- Disabling startup removes only the `Mugen Deej` startup value; enabling or updating it leaves unrelated Windows startup entries untouched.
+- Added an in-app reminder to disable startup before deleting the portable folder.
+- Reverified startup both with a visible window and directly to the notification area after full Windows restarts.
+- Reverified sleep/hibernation recovery and automatic USB disconnect/reconnect behavior with the new startup controls enabled.
+
 ## 0.8.5 — 2026-07-26
 
 - Fixed recovery after Windows sleep and hibernation.
