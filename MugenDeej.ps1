@@ -1,4 +1,4 @@
-﻿# Mugen Deej 0.8.5
+# Mugen Deej 0.8.6
 # Portable bilingual Windows audio controller for deej-compatible USB serial devices.
 # Requires Windows PowerShell 5.1+ and Windows 10/11.
 
@@ -9,6 +9,11 @@ $script:BaseDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $script:ConfigPath = Join-Path $script:BaseDir 'config.json'
 $script:ConfigPreviousPath = Join-Path $script:BaseDir 'config.previous.json'
 $script:ConfigLastGoodPath = Join-Path $script:BaseDir 'config.last-good.json'
+$script:ExecutablePath = Join-Path $script:BaseDir 'MugenDeej.exe'
+$script:StartupRegistryPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+$script:StartupRegistryName = 'Mugen Deej'
+# Never recreate an existing Run key with New-Item -Force: Registry provider can remove its other values.
+# Only create the key when it does not exist; then add/update our single named value.
 
 function Get-DefaultLanguage {
     try {
@@ -73,9 +78,9 @@ namespace MugenDeejWindowing
             try
             {
                 string modeName = e.Mode.ToString();
-                // Suspend cleanup must finish before the SystemEvents callback returns.
-                // Control.Invoke marshals to the WinForms thread synchronously, unlike
-                // BeginInvoke, which can leave the serial port open while Windows sleeps.
+                // Power-mode bookkeeping must run on the WinForms thread before the
+                // SystemEvents callback returns. Control.Invoke marshals synchronously
+                // while preserving the established serial connection across suspend.
                 if (control.InvokeRequired)
                     control.Invoke(callback, new object[] { modeName });
                 else
@@ -122,7 +127,7 @@ if (-not $createdNew) {
     exit 0
 }
 
-$script:AppVersion = '0.8.5'
+$script:AppVersion = '0.8.6'
 $script:LogDir = Join-Path $script:BaseDir 'logs'
 $script:LogPath = Join-Path $script:LogDir 'mugen-deej.log'
 $script:DriverDir = Join-Path $script:BaseDir 'drivers'
@@ -162,6 +167,71 @@ function Write-Log {
     )
     $line = '{0:yyyy-MM-dd HH:mm:ss.fff} [{1}] {2}' -f (Get-Date), $Level, $Message
     Add-Content -LiteralPath $script:LogPath -Value $line -Encoding UTF8
+}
+
+function Get-ExpectedStartupCommand {
+    return ('"{0}"' -f $script:ExecutablePath)
+}
+
+function Get-StartupCommand {
+    try {
+        if (-not (Test-Path -LiteralPath $script:StartupRegistryPath)) { return '' }
+        $item = Get-ItemProperty -LiteralPath $script:StartupRegistryPath -Name $script:StartupRegistryName -ErrorAction SilentlyContinue
+        if ($null -eq $item) { return '' }
+        $property = $item.PSObject.Properties[$script:StartupRegistryName]
+        if ($null -eq $property) { return '' }
+        return [string]$property.Value
+    }
+    catch {
+        Write-Log ("Failed to read Windows startup registration: {0}" -f $_.Exception.Message) 'WARN'
+        return ''
+    }
+}
+
+function Test-StartupEnabled {
+    return (-not [string]::IsNullOrWhiteSpace((Get-StartupCommand)))
+}
+
+function Set-StartupEnabled {
+    param([Parameter(Mandatory = $true)][bool]$Enabled)
+
+    if ($Enabled) {
+        if (-not (Test-Path -LiteralPath $script:ExecutablePath)) {
+            throw ("MugenDeej.exe was not found next to MugenDeej.ps1: {0}" -f $script:ExecutablePath)
+        }
+        if (-not (Test-Path -LiteralPath $script:StartupRegistryPath)) {
+            [void](New-Item -Path $script:StartupRegistryPath)
+        }
+        $command = Get-ExpectedStartupCommand
+        [void](New-ItemProperty -LiteralPath $script:StartupRegistryPath -Name $script:StartupRegistryName -Value $command -PropertyType String -Force)
+        Write-Log ("Windows startup enabled: {0}" -f $command) 'INFO'
+    }
+    else {
+        if (Test-Path -LiteralPath $script:StartupRegistryPath) {
+            Remove-ItemProperty -LiteralPath $script:StartupRegistryPath -Name $script:StartupRegistryName -ErrorAction SilentlyContinue
+        }
+        Write-Log 'Windows startup disabled' 'INFO'
+    }
+}
+
+function Sync-StartupRegistrationPath {
+    $current = Get-StartupCommand
+    if ([string]::IsNullOrWhiteSpace($current)) { return }
+    if (-not (Test-Path -LiteralPath $script:ExecutablePath)) { return }
+
+    $expected = Get-ExpectedStartupCommand
+    if ($current -ne $expected) {
+        try {
+            if (-not (Test-Path -LiteralPath $script:StartupRegistryPath)) {
+            [void](New-Item -Path $script:StartupRegistryPath)
+        }
+            [void](New-ItemProperty -LiteralPath $script:StartupRegistryPath -Name $script:StartupRegistryName -Value $expected -PropertyType String -Force)
+            Write-Log ("Windows startup path updated for portable location: {0}" -f $expected) 'INFO'
+        }
+        catch {
+            Write-Log ("Failed to update Windows startup path: {0}" -f $_.Exception.Message) 'WARN'
+        }
+    }
 }
 
 function Ensure-FormVisible {
@@ -1105,6 +1175,7 @@ function Ensure-ConfigShape {
 }
 
 $script:Config = Ensure-ConfigShape -Config (Load-Config)
+Sync-StartupRegistrationPath
 $savedLanguage = ([string]$script:Config.app.language).ToLowerInvariant()
 $script:NeedsInitialLanguageSelection = (-not [bool]$script:Config.app.firstRunCompleted) -and ($savedLanguage -notin @('ru','en'))
 $script:Language = if ($savedLanguage -in @('ru','en')) { $savedLanguage } else { Get-DefaultLanguage }
@@ -1193,6 +1264,12 @@ $script:Strings = @{
         Reconnect = 'Найти и подключить заново'
         ConnectionHelp = 'Автоматический режим подходит почти всегда. Ручной выбор пригодится, если подключено несколько похожих COM-устройств.'
         DriverAndLog = 'Драйвер и журнал'
+        StartupGroup = 'Запуск программы'
+        StartWithWindows = 'Запускать Mugen Deej вместе с Windows'
+        StartMinimized = 'Запускать свёрнутым в область уведомлений'
+        StartupDeleteHint = 'Перед удалением portable-папки отключите автозапуск.'
+        StartupSettingsErrorTitle = 'Настройки запуска'
+        StartupSettingsError = "Не удалось изменить параметры запуска.`r`n`r`n{0}"
         Checking = 'Проверяем…'
         InstallDriver = 'Установить драйвер'
         ReinstallDriver = 'Переустановить драйвер'
@@ -1311,6 +1388,12 @@ $script:Strings = @{
         Reconnect = 'Find and reconnect'
         ConnectionHelp = 'Automatic mode is recommended. Use manual selection when several similar COM devices are connected.'
         DriverAndLog = 'Driver and log'
+        StartupGroup = 'Application startup'
+        StartWithWindows = 'Start Mugen Deej with Windows'
+        StartMinimized = 'Start minimized to the notification area'
+        StartupDeleteHint = 'Disable startup before deleting the portable folder.'
+        StartupSettingsErrorTitle = 'Startup settings'
+        StartupSettingsError = "Could not change the startup settings.`r`n`r`n{0}"
         Checking = 'Checking…'
         InstallDriver = 'Install driver'
         ReinstallDriver = 'Reinstall driver'
@@ -3559,14 +3642,26 @@ if ($script:NeedsInitialLanguageSelection) {
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Mugen Deej $script:AppVersion"
 $form.StartPosition = 'CenterScreen'
-$form.ClientSize = New-Object System.Drawing.Size(680, 490)
-$form.MinimumSize = New-Object System.Drawing.Size(696, 529)
-$form.MaximumSize = New-Object System.Drawing.Size(696, 797)
+$form.ClientSize = New-Object System.Drawing.Size(680, 592)
+$form.MinimumSize = New-Object System.Drawing.Size(696, 631)
+$form.MaximumSize = New-Object System.Drawing.Size(696, 899)
 $form.Font = New-Object System.Drawing.Font('Segoe UI', 10)
 $form.BackColor = [System.Drawing.Color]::FromArgb(247, 247, 249)
 $form.FormBorderStyle = 'FixedSingle'
 $form.MaximizeBox = $false
 Set-FormAppIcon -Form $form
+
+# When start-minimized is enabled, keep the main form completely invisible
+# during its first WinForms show cycle. Application.Run(form) must create/show
+# the main form to establish the message loop, but an opacity of 0 together
+# with no taskbar button prevents a visible startup flash. The form is hidden
+# immediately in Shown and restored to normal display properties for later
+# opening from the tray.
+$script:LaunchMinimized = [bool]$script:Config.app.startMinimized
+if ($script:LaunchMinimized) {
+    $form.Opacity = 0
+    $form.ShowInTaskbar = $false
+}
 
 $title = New-Object System.Windows.Forms.Label
 $title.Text = 'Mugen Deej'
@@ -3668,14 +3763,44 @@ $settingsHint.Size = New-Object System.Drawing.Size(380, 48)
 $settingsHint.TextAlign = 'MiddleLeft'
 $form.Controls.Add($settingsHint)
 
+$startupGroup = New-Object System.Windows.Forms.GroupBox
+$startupGroup.Text = (T -Key 'StartupGroup')
+$startupGroup.Location = New-Object System.Drawing.Point(24, 414)
+$startupGroup.Size = New-Object System.Drawing.Size(632, 90)
+$form.Controls.Add($startupGroup)
+
+$startWithWindowsCheck = New-Object System.Windows.Forms.CheckBox
+$startWithWindowsCheck.Text = (T -Key 'StartWithWindows')
+$startWithWindowsCheck.AutoSize = $true
+$startWithWindowsCheck.Location = New-Object System.Drawing.Point(16, 28)
+$startWithWindowsCheck.Checked = (Test-StartupEnabled)
+$startWithWindowsCheck.Enabled = (Test-Path -LiteralPath $script:ExecutablePath)
+$startupGroup.Controls.Add($startWithWindowsCheck)
+
+$startMinimizedCheck = New-Object System.Windows.Forms.CheckBox
+$startMinimizedCheck.Text = (T -Key 'StartMinimized')
+$startMinimizedCheck.AutoSize = $true
+$startMinimizedCheck.Location = New-Object System.Drawing.Point(300, 28)
+$startMinimizedCheck.Checked = [bool]$script:Config.app.startMinimized
+$startupGroup.Controls.Add($startMinimizedCheck)
+
+$startupDeleteHint = New-Object System.Windows.Forms.Label
+$startupDeleteHint.Text = (T -Key 'StartupDeleteHint')
+$startupDeleteHint.ForeColor = [System.Drawing.Color]::DimGray
+$startupDeleteHint.Font = New-Object System.Drawing.Font('Segoe UI', 8.5)
+$startupDeleteHint.Location = New-Object System.Drawing.Point(18, 56)
+$startupDeleteHint.Size = New-Object System.Drawing.Size(590, 22)
+$startupDeleteHint.TextAlign = 'MiddleLeft'
+$startupGroup.Controls.Add($startupDeleteHint)
+
 $advancedToggle = New-Object System.Windows.Forms.Button
 $advancedToggle.Text = (T -Key 'DiagnosticsClosed')
-$advancedToggle.Location = New-Object System.Drawing.Point(24, 416)
+$advancedToggle.Location = New-Object System.Drawing.Point(24, 516)
 $advancedToggle.Size = New-Object System.Drawing.Size(250, 32)
 $form.Controls.Add($advancedToggle)
 
 $advancedPanel = New-Object System.Windows.Forms.Panel
-$advancedPanel.Location = New-Object System.Drawing.Point(0, 450)
+$advancedPanel.Location = New-Object System.Drawing.Point(0, 550)
 $advancedPanel.Size = New-Object System.Drawing.Size(680, 270)
 $advancedPanel.Visible = $false
 $form.Controls.Add($advancedPanel)
@@ -3761,7 +3886,7 @@ $footer.Text = 'Made by Mugen Art Lab'
 $footer.ForeColor = [System.Drawing.Color]::Gray
 $footer.AutoSize = $true
 $footer.Anchor = [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Bottom
-$footer.Location = New-Object System.Drawing.Point(24, 462)
+$footer.Location = New-Object System.Drawing.Point(24, 564)
 $form.Controls.Add($footer)
 
 $notifyIcon = New-Object System.Windows.Forms.NotifyIcon
@@ -3858,6 +3983,10 @@ function Apply-MainLocalization {
     $connectButton.Text = (T -Key 'Reconnect')
     $connectionHelp.Text = (T -Key 'ConnectionHelp')
     $driverGroup.Text = (T -Key 'DriverAndLog')
+    $startupGroup.Text = (T -Key 'StartupGroup')
+    $startWithWindowsCheck.Text = (T -Key 'StartWithWindows')
+    $startMinimizedCheck.Text = (T -Key 'StartMinimized')
+    $startupDeleteHint.Text = (T -Key 'StartupDeleteHint')
     $logButton.Text = (T -Key 'OpenLog')
     $trayOpen.Text = (T -Key 'TrayOpen')
     $traySettings.Text = (T -Key 'TraySettings')
@@ -3946,7 +4075,7 @@ function Set-AdvancedExpanded {
     )
     $advancedPanel.Visible = $Expanded
     $advancedToggle.Text = if ($Expanded) { (T -Key 'DiagnosticsOpen') } else { (T -Key 'DiagnosticsClosed') }
-    $form.ClientSize = if ($Expanded) { New-Object System.Drawing.Size(680, 758) } else { New-Object System.Drawing.Size(680, 490) }
+    $form.ClientSize = if ($Expanded) { New-Object System.Drawing.Size(680, 860) } else { New-Object System.Drawing.Size(680, 592) }
     # Keep the signature attached to the visible bottom edge in both layouts.
     $footer.Location = New-Object System.Drawing.Point(24, ($form.ClientSize.Height - 28))
     if ($Persist) {
@@ -3977,6 +4106,50 @@ $languageCombo.Add_SelectedIndexChanged({
         Set-Status (T -Key 'StatusNotConnected') 'idle'
     }
     Write-Log "Interface language changed to $newLanguage"
+})
+
+$script:UpdatingStartupCheck = $false
+$script:UpdatingStartMinimizedCheck = $false
+
+$startWithWindowsCheck.Add_CheckedChanged({
+    if ($script:UpdatingStartupCheck) { return }
+    try {
+        Set-StartupEnabled -Enabled ([bool]$startWithWindowsCheck.Checked)
+    }
+    catch {
+        Write-Log ("Failed to change Windows startup setting: {0}" -f $_.Exception.Message) 'ERROR'
+        $script:UpdatingStartupCheck = $true
+        try { $startWithWindowsCheck.Checked = (Test-StartupEnabled) }
+        finally { $script:UpdatingStartupCheck = $false }
+        [System.Windows.Forms.MessageBox]::Show(
+            (T -Key 'StartupSettingsError' -Args @($_.Exception.Message)),
+            (T -Key 'StartupSettingsErrorTitle'),
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Warning
+        ) | Out-Null
+    }
+})
+
+$startMinimizedCheck.Add_CheckedChanged({
+    if ($script:UpdatingStartMinimizedCheck) { return }
+    $previous = [bool]$script:Config.app.startMinimized
+    $script:Config.app.startMinimized = [bool]$startMinimizedCheck.Checked
+    try {
+        Save-Config -Config $script:Config
+        Write-Log ("Start minimized setting changed: {0}" -f ([bool]$script:Config.app.startMinimized)) 'INFO'
+    }
+    catch {
+        $script:Config.app.startMinimized = $previous
+        $script:UpdatingStartMinimizedCheck = $true
+        try { $startMinimizedCheck.Checked = $previous }
+        finally { $script:UpdatingStartMinimizedCheck = $false }
+        [System.Windows.Forms.MessageBox]::Show(
+            (T -Key 'StartupSettingsError' -Args @($_.Exception.Message)),
+            (T -Key 'StartupSettingsErrorTitle'),
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Warning
+        ) | Out-Null
+    }
 })
 
 $autoRadio.Add_CheckedChanged({
@@ -4314,9 +4487,18 @@ $script:PowerBridge = [MugenDeejWindowing.PowerModeBridge]::new($form, $script:P
 Write-Log 'Power suspend/resume monitoring initialized' 'DEBUG'
 
 $form.Add_Shown({
-    Ensure-FormVisible -Form $form -CenterIfOffscreen
     $startMinimized = [bool]$script:Config.app.startMinimized
-    if (-not $startMinimized) {
+    if ($startMinimized) {
+        # Hide before controller discovery/initialization so startup-to-tray does
+        # not display the main window while COM probing is in progress.
+        $form.Hide()
+        $form.WindowState = [System.Windows.Forms.FormWindowState]::Normal
+        $form.ShowInTaskbar = $true
+        $form.Opacity = 1
+        Write-Log 'Main window suppressed during start-minimized launch' 'DEBUG'
+    }
+    else {
+        Ensure-FormVisible -Form $form -CenterIfOffscreen
         Show-MainWindowForeground
     }
 
@@ -4326,11 +4508,7 @@ $form.Add_Shown({
     Update-DriverStatus
     [void](Connect-Controller -ForceFullScan)
     $timer.Start()
-    if ($startMinimized) {
-        $form.WindowState = 'Minimized'
-        $form.Hide()
-    }
-    elseif (-not [bool]$script:Config.app.firstRunCompleted) {
+    if (-not $startMinimized -and -not [bool]$script:Config.app.firstRunCompleted) {
         Show-FirstRunWizard
     }
 })
