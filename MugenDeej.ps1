@@ -1,4 +1,4 @@
-# Mugen Deej 0.8.6
+﻿# Mugen Deej 0.8.7-dev
 # Portable bilingual Windows audio controller for deej-compatible USB serial devices.
 # Requires Windows PowerShell 5.1+ and Windows 10/11.
 
@@ -41,6 +41,8 @@ using System;
 using System.Runtime.InteropServices;
 using Microsoft.Win32;
 using System.Windows.Forms;
+using System.Drawing;
+using System.Drawing.Drawing2D;
 
 namespace MugenDeejWindowing
 {
@@ -54,6 +56,707 @@ namespace MugenDeejWindowing
 
         [DllImport("user32.dll")]
         public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+    }
+
+    internal static class MugenDrawing
+    {
+        public static GraphicsPath RoundedRect(Rectangle rect, int radius)
+        {
+            GraphicsPath path = new GraphicsPath();
+            int r = Math.Max(1, Math.Min(radius, Math.Min(rect.Width, rect.Height) / 2));
+            int d = r * 2;
+
+            path.AddArc(rect.Left, rect.Top, d, d, 180, 90);
+            path.AddArc(rect.Right - d, rect.Top, d, d, 270, 90);
+            path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
+            path.AddArc(rect.Left, rect.Bottom - d, d, d, 90, 90);
+            path.CloseFigure();
+            return path;
+        }
+    }
+
+    public sealed class MugenCardPanel : Panel
+    {
+        public Color BorderColor { get; set; }
+        public int CornerRadius { get; set; }
+
+        public MugenCardPanel()
+        {
+            BorderColor = Color.FromArgb(210, 216, 228);
+            CornerRadius = 12;
+            BorderStyle = BorderStyle.None;
+            SetStyle(ControlStyles.AllPaintingInWmPaint |
+                     ControlStyles.OptimizedDoubleBuffer |
+                     ControlStyles.ResizeRedraw |
+                     ControlStyles.UserPaint |
+                     ControlStyles.SupportsTransparentBackColor, true);
+        }
+
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams cp = base.CreateParams;
+
+                // Guarantee that no native rectangular border survives under
+                // the custom rounded card.
+                const int WS_BORDER = 0x00800000;
+                const int WS_EX_CLIENTEDGE = 0x00000200;
+                cp.Style &= ~WS_BORDER;
+                cp.ExStyle &= ~WS_EX_CLIENTEDGE;
+
+                return cp;
+            }
+        }
+
+        private void UpdateRoundedRegion()
+        {
+            if (Width <= 1 || Height <= 1) return;
+
+            using (GraphicsPath path = MugenDrawing.RoundedRect(
+                new Rectangle(0, 0, Width, Height),
+                CornerRadius))
+            {
+                Region oldRegion = Region;
+                Region = new Region(path);
+                if (oldRegion != null) oldRegion.Dispose();
+            }
+        }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            BorderStyle = BorderStyle.None;
+            base.OnHandleCreated(e);
+            UpdateRoundedRegion();
+        }
+
+        protected override void OnSizeChanged(EventArgs e)
+        {
+            base.OnSizeChanged(e);
+            UpdateRoundedRegion();
+            Invalidate();
+        }
+
+        protected override void OnPaintBackground(PaintEventArgs e)
+        {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            Color outside = Parent != null ? Parent.BackColor : BackColor;
+            using (SolidBrush outsideBrush = new SolidBrush(outside))
+                e.Graphics.FillRectangle(outsideBrush, ClientRectangle);
+
+            Rectangle rect = new Rectangle(0, 0, Math.Max(1, Width - 1), Math.Max(1, Height - 1));
+            using (GraphicsPath path = MugenDrawing.RoundedRect(rect, CornerRadius))
+            using (SolidBrush surface = new SolidBrush(BackColor))
+                e.Graphics.FillPath(surface, path);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            // Do not call Panel.OnPaint here: this control owns its complete
+            // visual surface and border.
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+            Rectangle rect = new Rectangle(0, 0, Math.Max(1, Width - 1), Math.Max(1, Height - 1));
+            using (GraphicsPath path = MugenDrawing.RoundedRect(rect, CornerRadius))
+            using (Pen pen = new Pen(BorderColor))
+                e.Graphics.DrawPath(pen, path);
+        }
+    }
+
+    public sealed class MugenGroupBox : Panel
+    {
+        public Color BorderColor { get; set; }
+        public int CornerRadius { get; set; }
+
+        public MugenGroupBox()
+        {
+            BorderColor = Color.FromArgb(210, 216, 228);
+            CornerRadius = 12;
+            BorderStyle = BorderStyle.None;
+            SetStyle(ControlStyles.AllPaintingInWmPaint |
+                     ControlStyles.OptimizedDoubleBuffer |
+                     ControlStyles.ResizeRedraw |
+                     ControlStyles.UserPaint |
+                     ControlStyles.SupportsTransparentBackColor, true);
+        }
+
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams cp = base.CreateParams;
+                const int WS_BORDER = 0x00800000;
+                const int WS_EX_CLIENTEDGE = 0x00000200;
+                cp.Style &= ~WS_BORDER;
+                cp.ExStyle &= ~WS_EX_CLIENTEDGE;
+                return cp;
+            }
+        }
+
+        private void UpdateRoundedRegion()
+        {
+            if (Width <= 1 || Height <= 1) return;
+
+            using (GraphicsPath path = MugenDrawing.RoundedRect(
+                new Rectangle(0, 0, Width, Height),
+                CornerRadius))
+            {
+                Region oldRegion = Region;
+                Region = new Region(path);
+                if (oldRegion != null) oldRegion.Dispose();
+            }
+        }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            BorderStyle = BorderStyle.None;
+            base.OnHandleCreated(e);
+            UpdateRoundedRegion();
+        }
+
+        protected override void OnSizeChanged(EventArgs e)
+        {
+            base.OnSizeChanged(e);
+            UpdateRoundedRegion();
+            Invalidate();
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+
+            // Paint the rectangular control corners with the actual parent
+            // background, then draw one complete rounded card on top.
+            Color outside = Parent != null ? Parent.BackColor : BackColor;
+            using (SolidBrush outsideBrush = new SolidBrush(outside))
+                e.Graphics.FillRectangle(outsideBrush, ClientRectangle);
+
+            Rectangle rect = new Rectangle(
+                0,
+                0,
+                Math.Max(1, Width - 1),
+                Math.Max(1, Height - 1)
+            );
+
+            using (GraphicsPath path = MugenDrawing.RoundedRect(rect, CornerRadius))
+            using (SolidBrush surface = new SolidBrush(BackColor))
+            using (Pen pen = new Pen(BorderColor))
+            {
+                e.Graphics.FillPath(surface, path);
+                e.Graphics.DrawPath(pen, path);
+            }
+
+            // Friendly UI title: normal content inside the card, not a classic
+            // GroupBox caption cutting a hole through the upper border.
+            if (!String.IsNullOrEmpty(Text))
+            {
+                Rectangle titleRect = new Rectangle(
+                    13,
+                    5,
+                    Math.Max(1, Width - 26),
+                    Font.Height + 4
+                );
+
+                TextRenderer.DrawText(
+                    e.Graphics,
+                    Text,
+                    Font,
+                    titleRect,
+                    ForeColor,
+                    TextFormatFlags.NoPadding |
+                    TextFormatFlags.SingleLine |
+                    TextFormatFlags.VerticalCenter |
+                    TextFormatFlags.Left |
+                    TextFormatFlags.EndEllipsis
+                );
+            }
+        }
+    }
+
+    public sealed class MugenProgressBar : Control
+    {
+        private int minimum;
+        private int maximum;
+        private int currentValue;
+
+        // UI-only percentage used for painting. Never used by controller/audio logic.
+        private int displayPercent;
+
+        // Hysteresis around the next integer-percent boundary, expressed as a
+        // fraction of one percent. 0.20 means a value has to move 20% of the
+        // way into the neighboring 1% bucket before the picture changes.
+        private const double PercentBoundaryHysteresis = 0.20;
+
+        public Color TrackColor { get; set; }
+        public Color FillColor { get; set; }
+        public Color BorderColor { get; set; }
+
+        public int Minimum
+        {
+            get { return minimum; }
+            set
+            {
+                minimum = value;
+                if (maximum < minimum) maximum = minimum;
+                if (currentValue < minimum) currentValue = minimum;
+                displayPercent = GetExactRoundedPercent(currentValue);
+                Invalidate();
+            }
+        }
+
+        public int Maximum
+        {
+            get { return maximum; }
+            set
+            {
+                maximum = Math.Max(value, minimum);
+                if (currentValue > maximum) currentValue = maximum;
+                displayPercent = GetExactRoundedPercent(currentValue);
+                Invalidate();
+            }
+        }
+
+        private double GetExactPercent(int rawValue)
+        {
+            double range = Math.Max(1.0, maximum - minimum);
+            return Math.Max(0.0, Math.Min(100.0, ((rawValue - minimum) * 100.0) / range));
+        }
+
+        private int GetExactRoundedPercent(int rawValue)
+        {
+            return (int)Math.Round(GetExactPercent(rawValue), MidpointRounding.AwayFromZero);
+        }
+
+        public int Value
+        {
+            // Exact application-facing value remains untouched.
+            get { return currentValue; }
+            set
+            {
+                int clamped = Math.Max(minimum, Math.Min(maximum, value));
+                currentValue = clamped;
+
+                double exactPercent = GetExactPercent(clamped);
+
+                if (clamped == minimum)
+                {
+                    if (displayPercent != 0)
+                    {
+                        displayPercent = 0;
+                        Invalidate();
+                    }
+                    return;
+                }
+
+                if (clamped == maximum)
+                {
+                    if (displayPercent != 100)
+                    {
+                        displayPercent = 100;
+                        Invalidate();
+                    }
+                    return;
+                }
+
+                int nextPercent = displayPercent;
+
+                // Move upward only after crossing the halfway boundary plus a
+                // small margin. For example 40 -> 41 occurs above 40.70%.
+                while (nextPercent < 100 &&
+                       exactPercent >= (nextPercent + 0.5 + PercentBoundaryHysteresis))
+                {
+                    nextPercent++;
+                }
+
+                // Move downward only after crossing the opposite boundary by
+                // the same margin. This creates a stable visual hysteresis band.
+                while (nextPercent > 0 &&
+                       exactPercent <= (nextPercent - 0.5 - PercentBoundaryHysteresis))
+                {
+                    nextPercent--;
+                }
+
+                if (nextPercent != displayPercent)
+                {
+                    displayPercent = nextPercent;
+                    Invalidate();
+                }
+            }
+        }
+
+        public MugenProgressBar()
+        {
+            minimum = 0;
+            maximum = 100;
+            currentValue = 0;
+            displayPercent = 0;
+
+            TrackColor = Color.FromArgb(235, 239, 247);
+            FillColor = Color.FromArgb(65, 110, 245);
+            BorderColor = Color.Transparent;
+            SetStyle(ControlStyles.AllPaintingInWmPaint |
+                     ControlStyles.OptimizedDoubleBuffer |
+                     ControlStyles.ResizeRedraw |
+                     ControlStyles.UserPaint, true);
+        }
+
+        public void ApplyTheme(Color track, Color fill, Color border)
+        {
+            TrackColor = track;
+            FillColor = fill;
+            BorderColor = border;
+            Invalidate();
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+
+            Rectangle rect = new Rectangle(0, 0, Math.Max(1, Width - 1), Math.Max(1, Height - 1));
+            int radius = Math.Max(2, Math.Min(6, Height / 2));
+
+            using (GraphicsPath trackPath = MugenDrawing.RoundedRect(rect, radius))
+            using (SolidBrush trackBrush = new SolidBrush(TrackColor))
+            {
+                e.Graphics.FillPath(trackBrush, trackPath);
+
+                if (BorderColor.A > 0)
+                {
+                    using (Pen borderPen = new Pen(BorderColor))
+                        e.Graphics.DrawPath(borderPen, trackPath);
+                }
+            }
+
+            double fraction = Math.Max(0.0, Math.Min(1.0, displayPercent / 100.0));
+            int fillWidth = (int)Math.Round(rect.Width * fraction);
+
+            if (fillWidth > 0)
+            {
+                Rectangle fillRect = new Rectangle(rect.Left, rect.Top, Math.Max(1, fillWidth), rect.Height);
+                using (GraphicsPath fillPath = MugenDrawing.RoundedRect(fillRect, radius))
+                using (SolidBrush fillBrush = new SolidBrush(FillColor))
+                    e.Graphics.FillPath(fillBrush, fillPath);
+            }
+        }
+    }
+
+    public sealed class MugenComboBox : ComboBox
+    {
+        private Color borderColor;
+        private Color accentColor;
+        private Color disabledTextColor;
+        private Color disabledBackColor;
+        private bool hovered;
+
+        public MugenComboBox()
+        {
+            DrawMode = DrawMode.OwnerDrawFixed;
+            FlatStyle = FlatStyle.Flat;
+            ItemHeight = 20;
+            borderColor = Color.FromArgb(180, 188, 202);
+            accentColor = Color.FromArgb(65, 110, 245);
+            disabledTextColor = Color.Gray;
+            disabledBackColor = Color.FromArgb(235, 237, 242);
+        }
+
+        public void ApplyTheme(
+            Color background,
+            Color text,
+            Color border,
+            Color accent,
+            Color disabledText,
+            Color disabledBack)
+        {
+            BackColor = background;
+            ForeColor = text;
+            borderColor = border;
+            accentColor = accent;
+            disabledTextColor = disabledText;
+            disabledBackColor = disabledBack;
+            Invalidate();
+        }
+
+        protected override void OnMouseEnter(EventArgs e)
+        {
+            hovered = true;
+            base.OnMouseEnter(e);
+            Invalidate();
+        }
+
+        protected override void OnMouseLeave(EventArgs e)
+        {
+            hovered = false;
+            base.OnMouseLeave(e);
+            Invalidate();
+        }
+
+        protected override void OnGotFocus(EventArgs e)
+        {
+            base.OnGotFocus(e);
+            Invalidate();
+        }
+
+        protected override void OnLostFocus(EventArgs e)
+        {
+            base.OnLostFocus(e);
+            Invalidate();
+        }
+
+        protected override void OnEnabledChanged(EventArgs e)
+        {
+            base.OnEnabledChanged(e);
+            Invalidate();
+        }
+
+        protected override void OnSelectedIndexChanged(EventArgs e)
+        {
+            base.OnSelectedIndexChanged(e);
+            Invalidate();
+        }
+
+        protected override void OnDrawItem(DrawItemEventArgs e)
+        {
+            if (e.Index < 0)
+            {
+                base.OnDrawItem(e);
+                return;
+            }
+
+            bool selected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+            Color back = selected ? accentColor : BackColor;
+            Color fore = selected ? Color.White : ForeColor;
+
+            using (SolidBrush brush = new SolidBrush(back))
+                e.Graphics.FillRectangle(brush, e.Bounds);
+
+            string text = GetItemText(Items[e.Index]);
+            Rectangle textRect = new Rectangle(e.Bounds.X + 7, e.Bounds.Y, Math.Max(1, e.Bounds.Width - 12), e.Bounds.Height);
+            TextRenderer.DrawText(
+                e.Graphics,
+                text,
+                Font,
+                textRect,
+                fore,
+                TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix
+            );
+
+            e.DrawFocusRectangle();
+        }
+
+        protected override void WndProc(ref Message m)
+        {
+            base.WndProc(ref m);
+
+            const int WM_PAINT = 0x000F;
+            const int WM_NCPAINT = 0x0085;
+            const int WM_SETFOCUS = 0x0007;
+            const int WM_KILLFOCUS = 0x0008;
+
+            if (m.Msg == WM_PAINT || m.Msg == WM_NCPAINT || m.Msg == WM_SETFOCUS || m.Msg == WM_KILLFOCUS)
+                DrawMugenSurface();
+        }
+
+        private void DrawMugenSurface()
+        {
+            if (!IsHandleCreated || Width < 12 || Height < 8) return;
+
+            try
+            {
+                using (Graphics g = CreateGraphics())
+                {
+                    g.SmoothingMode = SmoothingMode.AntiAlias;
+
+                    Color back = Enabled ? BackColor : disabledBackColor;
+                    Color fore = Enabled ? ForeColor : disabledTextColor;
+                    Color border = (Focused || hovered) && Enabled ? accentColor : borderColor;
+
+                    Rectangle whole = new Rectangle(0, 0, Width - 1, Height - 1);
+                    using (SolidBrush backBrush = new SolidBrush(back))
+                        g.FillRectangle(backBrush, whole);
+
+                    int buttonWidth = Math.Min(24, Math.Max(19, Height - 2));
+                    Rectangle textRect = new Rectangle(7, 1, Math.Max(1, Width - buttonWidth - 10), Height - 2);
+                    string selectedText = SelectedIndex >= 0 ? GetItemText(SelectedItem) : Text;
+
+                    TextRenderer.DrawText(
+                        g,
+                        selectedText,
+                        Font,
+                        textRect,
+                        fore,
+                        TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix
+                    );
+
+                    int dividerX = Width - buttonWidth;
+                    using (Pen divider = new Pen(borderColor))
+                        g.DrawLine(divider, dividerX, 3, dividerX, Height - 4);
+
+                    float cx = dividerX + buttonWidth / 2f;
+                    float cy = Height / 2f + 1f;
+                    PointF[] arrow = new PointF[] {
+                        new PointF(cx - 4f, cy - 2f),
+                        new PointF(cx + 4f, cy - 2f),
+                        new PointF(cx, cy + 2.5f)
+                    };
+                    using (SolidBrush arrowBrush = new SolidBrush(fore))
+                        g.FillPolygon(arrowBrush, arrow);
+
+                    using (Pen pen = new Pen(border))
+                        g.DrawRectangle(pen, whole);
+                }
+            }
+            catch
+            {
+                // Painting is cosmetic; never let it break combo-box behavior.
+            }
+        }
+    }
+
+    public sealed class MugenToolStripRenderer : ToolStripProfessionalRenderer
+    {
+        private readonly Color back;
+        private readonly Color hover;
+        private readonly Color text;
+        private readonly Color border;
+
+        public MugenToolStripRenderer(Color backColor, Color hoverColor, Color textColor, Color borderColor)
+        {
+            back = backColor;
+            hover = hoverColor;
+            text = textColor;
+            border = borderColor;
+            RoundedEdges = false;
+        }
+
+        protected override void OnRenderToolStripBackground(ToolStripRenderEventArgs e)
+        {
+            using (SolidBrush brush = new SolidBrush(back))
+                e.Graphics.FillRectangle(brush, e.AffectedBounds);
+        }
+
+        protected override void OnRenderImageMargin(ToolStripRenderEventArgs e)
+        {
+            using (SolidBrush brush = new SolidBrush(back))
+                e.Graphics.FillRectangle(brush, e.AffectedBounds);
+        }
+
+        protected override void OnRenderMenuItemBackground(ToolStripItemRenderEventArgs e)
+        {
+            Color itemBack = (e.Item.Selected && e.Item.Enabled) ? hover : back;
+            using (SolidBrush brush = new SolidBrush(itemBack))
+                e.Graphics.FillRectangle(brush, new Rectangle(Point.Empty, e.Item.Size));
+        }
+
+        protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
+        {
+            e.TextColor = e.Item.Enabled ? text : Color.FromArgb(
+                Math.Max(70, text.R - 80),
+                Math.Max(70, text.G - 80),
+                Math.Max(70, text.B - 80)
+            );
+            base.OnRenderItemText(e);
+        }
+
+        protected override void OnRenderSeparator(ToolStripSeparatorRenderEventArgs e)
+        {
+            int y = e.Item.Height / 2;
+            using (Pen pen = new Pen(border))
+                e.Graphics.DrawLine(pen, 5, y, Math.Max(6, e.Item.Width - 6), y);
+        }
+
+        protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e)
+        {
+            Rectangle rect = new Rectangle(0, 0, Math.Max(1, e.ToolStrip.Width - 1), Math.Max(1, e.ToolStrip.Height - 1));
+            using (Pen pen = new Pen(border))
+                e.Graphics.DrawRectangle(pen, rect);
+        }
+    }
+
+    public static class ThemeInterop
+    {
+        [DllImport("dwmapi.dll")]
+        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int valueSize);
+
+        [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)]
+        private static extern int SetWindowTheme(IntPtr hwnd, string pszSubAppName, string pszSubIdList);
+
+        public static void SetDarkControlTheme(IntPtr hwnd, bool dark, bool comboBox)
+        {
+            if (hwnd == IntPtr.Zero) return;
+            try
+            {
+                if (dark)
+                {
+                    // Combo boxes use the CFD class on current Windows builds;
+                    // Explorer is a useful fallback for the other standard controls.
+                    string theme = comboBox ? "DarkMode_CFD" : "DarkMode_Explorer";
+                    int hr = SetWindowTheme(hwnd, theme, null);
+                    if (hr != 0 && comboBox)
+                        SetWindowTheme(hwnd, "DarkMode_Explorer", null);
+                }
+                else
+                {
+                    // Restore the class' normal visual style.
+                    SetWindowTheme(hwnd, null, null);
+                }
+            }
+            catch (DllNotFoundException) { }
+            catch (EntryPointNotFoundException) { }
+        }
+
+        public static void SetDarkTitleBar(IntPtr hwnd, bool dark)
+        {
+            if (hwnd == IntPtr.Zero) return;
+            int enabled = dark ? 1 : 0;
+            try
+            {
+                // DWMWA_USE_IMMERSIVE_DARK_MODE is 20 on current Windows builds;
+                // 19 is kept as a best-effort fallback for older Windows 10 builds.
+                int hr = DwmSetWindowAttribute(hwnd, 20, ref enabled, sizeof(int));
+                if (hr != 0)
+                    DwmSetWindowAttribute(hwnd, 19, ref enabled, sizeof(int));
+            }
+            catch (DllNotFoundException) { }
+            catch (EntryPointNotFoundException) { }
+        }
+    }
+
+    public sealed class ThemePreferenceBridge : IDisposable
+    {
+        private readonly Control control;
+        private readonly Action<string> callback;
+        private bool disposed;
+
+        public ThemePreferenceBridge(Control control, Action<string> callback)
+        {
+            if (control == null) throw new ArgumentNullException("control");
+            if (callback == null) throw new ArgumentNullException("callback");
+            this.control = control;
+            this.callback = callback;
+            SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
+        }
+
+        private void OnUserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e)
+        {
+            if (disposed || control.IsDisposed || !control.IsHandleCreated) return;
+            try
+            {
+                string category = e.Category.ToString();
+                if (control.InvokeRequired)
+                    control.Invoke(callback, new object[] { category });
+                else
+                    callback(category);
+            }
+            catch (InvalidOperationException) { }
+        }
+
+        public void Dispose()
+        {
+            if (disposed) return;
+            disposed = true;
+            SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
+        }
     }
 
     public sealed class PowerModeBridge : IDisposable
@@ -100,6 +803,7 @@ namespace MugenDeejWindowing
 '@
 $windowingReferences = @(
     [System.Windows.Forms.Control].Assembly.Location
+    [System.Drawing.Color].Assembly.Location
     [Microsoft.Win32.SystemEvents].Assembly.Location
 ) | Select-Object -Unique
 Add-Type -TypeDefinition $windowingSource -Language CSharp -ReferencedAssemblies $windowingReferences
@@ -127,7 +831,7 @@ if (-not $createdNew) {
     exit 0
 }
 
-$script:AppVersion = '0.8.6'
+$script:AppVersion = '0.8.7'
 $script:LogDir = Join-Path $script:BaseDir 'logs'
 $script:LogPath = Join-Path $script:LogDir 'mugen-deej.log'
 $script:DriverDir = Join-Path $script:BaseDir 'drivers'
@@ -1012,9 +1716,10 @@ function Save-Config {
 
 function New-DefaultConfig {
     $default = [ordered]@{
-        configVersion = 8
+        configVersion = 9
         app = [ordered]@{
             language = 'auto'
+            theme = 'auto'
             startMinimized = $false
             minimizeToTray = $true
             firstRunCompleted = $false
@@ -1135,6 +1840,7 @@ function Ensure-ConfigShape {
         $Config | Add-Member -MemberType NoteProperty -Name 'app' -Value ([pscustomobject]@{})
     }
     Add-MissingConfigProperty -Object $Config.app -Name 'language' -Value 'auto'
+    Add-MissingConfigProperty -Object $Config.app -Name 'theme' -Value 'auto'
     Add-MissingConfigProperty -Object $Config.app -Name 'startMinimized' -Value $false
     Add-MissingConfigProperty -Object $Config.app -Name 'minimizeToTray' -Value $true
     Add-MissingConfigProperty -Object $Config.app -Name 'firstRunCompleted' -Value $false
@@ -1170,7 +1876,7 @@ function Ensure-ConfigShape {
         $looksGenerated = $sliderName -match '^(Ручка|Регулятор|Knob|Control)\s+\d+$'
         Add-MissingConfigProperty -Object $slider -Name 'defaultName' -Value $looksGenerated
     }
-    $Config.configVersion = 8
+    $Config.configVersion = 9
     return $Config
 }
 
@@ -1227,6 +1933,12 @@ $script:ProbeGeneration = 0
 $script:ActiveProbeSerial = $null
 $script:PowerBridge = $null
 $script:PowerUiAction = $null
+$script:ThemePreferenceBridge = $null
+$script:ThemeUiAction = $null
+$script:ThemeCombo = $null
+$script:TrayMenu = $null
+$script:UpdatingThemeCombo = $false
+$script:LastEffectiveTheme = ''
 $script:KnobNameLabels = @()
 $script:KnobProgressBars = @()
 $script:KnobPercentLabels = @()
@@ -1250,6 +1962,10 @@ $script:FriendlyProcessNames = @{
 $script:Strings = @{
     ru = @{
         LanguageLabel = 'Язык:'
+        ThemeLabel = 'Тема:'
+        ThemeAuto = 'Авто'
+        ThemeLight = 'Светлая'
+        ThemeDark = 'Тёмная'
         Subtitle = 'Настольный аудиоконтроллер'
         Starting = 'Запуск…'
         KnobStatus = 'Состояние регуляторов'
@@ -1374,6 +2090,10 @@ $script:Strings = @{
     }
     en = @{
         LanguageLabel = 'Language:'
+        ThemeLabel = 'Theme:'
+        ThemeAuto = 'Auto'
+        ThemeLight = 'Light'
+        ThemeDark = 'Dark'
         Subtitle = 'Desktop audio controller'
         Starting = 'Starting…'
         KnobStatus = 'Control status'
@@ -1510,6 +2230,334 @@ function T {
     $value = [string]$text
     if ($Args.Count -gt 0) { return ($value -f $Args) }
     return $value
+}
+
+$script:ThemePalettes = @{
+    light = @{
+        # Softer canvas for bright/HDR monitors: not a white sheet anymore.
+        Window = [System.Drawing.Color]::FromArgb(228, 233, 243)
+
+        # Cards stay bright, but are visibly separated from the canvas.
+        Surface = [System.Drawing.Color]::FromArgb(249, 250, 253)
+        SurfaceAlt = [System.Drawing.Color]::FromArgb(245, 247, 252)
+
+        # Controls/inputs form a third visual layer.
+        Control = [System.Drawing.Color]::FromArgb(247, 249, 253)
+        ControlHover = [System.Drawing.Color]::FromArgb(232, 238, 250)
+        ControlPressed = [System.Drawing.Color]::FromArgb(220, 230, 248)
+        Input = [System.Drawing.Color]::FromArgb(252, 253, 255)
+
+        Text = [System.Drawing.Color]::FromArgb(29, 35, 50)
+        Muted = [System.Drawing.Color]::FromArgb(93, 103, 123)
+        DisabledText = [System.Drawing.Color]::FromArgb(128, 137, 153)
+        DisabledControl = [System.Drawing.Color]::FromArgb(229, 233, 241)
+
+        # Stronger than dev3 so card geometry survives HDR/high brightness.
+        Border = [System.Drawing.Color]::FromArgb(187, 197, 215)
+
+        Accent = [System.Drawing.Color]::FromArgb(63, 105, 245)
+        AccentHover = [System.Drawing.Color]::FromArgb(78, 119, 255)
+        AccentPressed = [System.Drawing.Color]::FromArgb(49, 91, 230)
+        AccentText = [System.Drawing.Color]::White
+
+        ProgressTrack = [System.Drawing.Color]::FromArgb(222, 229, 242)
+    }
+    dark = @{
+        Window = [System.Drawing.Color]::FromArgb(20, 23, 29)
+        Surface = [System.Drawing.Color]::FromArgb(28, 32, 40)
+        SurfaceAlt = [System.Drawing.Color]::FromArgb(28, 32, 40)
+        Control = [System.Drawing.Color]::FromArgb(34, 39, 48)
+        ControlHover = [System.Drawing.Color]::FromArgb(43, 50, 62)
+        ControlPressed = [System.Drawing.Color]::FromArgb(51, 60, 74)
+        Input = [System.Drawing.Color]::FromArgb(30, 35, 43)
+        Text = [System.Drawing.Color]::FromArgb(239, 243, 250)
+        Muted = [System.Drawing.Color]::FromArgb(164, 174, 192)
+        DisabledText = [System.Drawing.Color]::FromArgb(132, 142, 158)
+        DisabledControl = [System.Drawing.Color]::FromArgb(44, 49, 59)
+        Border = [System.Drawing.Color]::FromArgb(66, 75, 91)
+        Accent = [System.Drawing.Color]::FromArgb(80, 130, 255)
+        AccentHover = [System.Drawing.Color]::FromArgb(95, 145, 255)
+        AccentPressed = [System.Drawing.Color]::FromArgb(66, 114, 235)
+        AccentText = [System.Drawing.Color]::White
+        ProgressTrack = [System.Drawing.Color]::FromArgb(44, 50, 61)
+    }
+}
+
+function Get-NormalizedThemeSetting {
+    param([string]$Value)
+    $normalized = ([string]$Value).Trim().ToLowerInvariant()
+    if ($normalized -in @('light', 'dark')) { return $normalized }
+    return 'auto'
+}
+
+function Get-WindowsTheme {
+    try {
+        $personalizePath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize'
+        $item = Get-ItemProperty -LiteralPath $personalizePath -Name 'AppsUseLightTheme' -ErrorAction Stop
+        if ([int]$item.AppsUseLightTheme -eq 0) { return 'dark' }
+    }
+    catch {
+        # Light is the safest fallback on unsupported/partially configured systems.
+    }
+    return 'light'
+}
+
+function Get-EffectiveTheme {
+    $setting = Get-NormalizedThemeSetting -Value ([string]$script:Config.app.theme)
+    if ($setting -eq 'auto') { return Get-WindowsTheme }
+    return $setting
+}
+
+function Test-IsMutedColor {
+    param([System.Drawing.Color]$Color)
+    $argb = $Color.ToArgb()
+    $known = @(
+        [System.Drawing.Color]::DimGray.ToArgb(),
+        [System.Drawing.Color]::Gray.ToArgb(),
+        $script:ThemePalettes.light.Muted.ToArgb(),
+        $script:ThemePalettes.dark.Muted.ToArgb()
+    )
+    return ($known -contains $argb)
+}
+
+function Apply-ThemeToControl {
+    param(
+        [Parameter(Mandatory = $true)][System.Windows.Forms.Control]$Control,
+        [Parameter(Mandatory = $true)][string]$ThemeName
+    )
+
+    $palette = $script:ThemePalettes[$ThemeName]
+    $isDark = ($ThemeName -eq 'dark')
+
+    if ($Control -is [MugenDeejWindowing.MugenProgressBar]) {
+        $Control.ApplyTheme($palette.ProgressTrack, $palette.Accent, $palette.Border)
+    }
+    elseif ($Control -is [MugenDeejWindowing.MugenComboBox]) {
+        $Control.ApplyTheme(
+            $palette.Input,
+            $palette.Text,
+            $palette.Border,
+            $palette.Accent,
+            $palette.DisabledText,
+            $palette.DisabledControl
+        )
+    }
+    elseif ($Control -is [MugenDeejWindowing.MugenCardPanel]) {
+        $Control.BackColor = $palette.Surface
+        $Control.ForeColor = $palette.Text
+        $Control.BorderColor = $palette.Border
+    }
+    elseif ($Control -is [MugenDeejWindowing.MugenGroupBox]) {
+        $Control.BackColor = $palette.SurfaceAlt
+        $Control.ForeColor = $palette.Text
+        $Control.BorderColor = $palette.Border
+    }
+    elseif ($Control -is [System.Windows.Forms.Form]) {
+        $Control.BackColor = $palette.Window
+        $Control.ForeColor = $palette.Text
+    }
+    elseif ($Control -is [System.Windows.Forms.GroupBox]) {
+        $Control.BackColor = $palette.Window
+        $Control.ForeColor = $palette.Text
+    }
+    elseif ($Control -is [System.Windows.Forms.Panel]) {
+        if ($Control.BorderStyle -ne [System.Windows.Forms.BorderStyle]::None) {
+            $Control.BackColor = $palette.Surface
+        }
+        else {
+            $Control.BackColor = $palette.Window
+        }
+        $Control.ForeColor = $palette.Text
+    }
+    elseif ($Control -is [System.Windows.Forms.Button]) {
+        $isPrimary = ([string]$Control.Tag -eq 'MugenPrimary')
+        $Control.UseVisualStyleBackColor = $false
+        $Control.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $Control.FlatAppearance.BorderSize = 1
+
+        if ($isPrimary) {
+            $Control.ForeColor = $palette.AccentText
+            $Control.BackColor = $palette.Accent
+            $Control.FlatAppearance.BorderColor = $palette.Accent
+            $Control.FlatAppearance.MouseOverBackColor = $palette.AccentHover
+            $Control.FlatAppearance.MouseDownBackColor = $palette.AccentPressed
+        }
+        else {
+            $Control.ForeColor = $palette.Text
+            $Control.BackColor = $palette.Control
+            $Control.FlatAppearance.BorderColor = $palette.Border
+            $Control.FlatAppearance.MouseOverBackColor = $palette.ControlHover
+            $Control.FlatAppearance.MouseDownBackColor = $palette.ControlPressed
+        }
+    }
+    elseif ($Control -is [System.Windows.Forms.CheckBox]) {
+        $Control.ForeColor = $palette.Text
+        $Control.BackColor = [System.Drawing.Color]::Transparent
+        $Control.UseVisualStyleBackColor = (-not $isDark)
+        try { [MugenDeejWindowing.ThemeInterop]::SetDarkControlTheme($Control.Handle, $isDark, $false) } catch { }
+    }
+    elseif ($Control -is [System.Windows.Forms.RadioButton]) {
+        $Control.ForeColor = $palette.Text
+        $Control.BackColor = [System.Drawing.Color]::Transparent
+        $Control.UseVisualStyleBackColor = (-not $isDark)
+        try { [MugenDeejWindowing.ThemeInterop]::SetDarkControlTheme($Control.Handle, $isDark, $false) } catch { }
+    }
+    elseif ($Control -is [System.Windows.Forms.ComboBox]) {
+        $Control.BackColor = $palette.Input
+        $Control.ForeColor = $palette.Text
+        $Control.FlatStyle = if ($isDark) { [System.Windows.Forms.FlatStyle]::Flat } else { [System.Windows.Forms.FlatStyle]::Standard }
+        try { [MugenDeejWindowing.ThemeInterop]::SetDarkControlTheme($Control.Handle, $isDark, $true) } catch { }
+    }
+    elseif ($Control -is [System.Windows.Forms.TextBoxBase]) {
+        $Control.BackColor = $palette.Input
+        $Control.ForeColor = $palette.Text
+    }
+    elseif ($Control -is [System.Windows.Forms.ListView]) {
+        $Control.BackColor = $palette.Surface
+        $Control.ForeColor = $palette.Text
+    }
+    elseif ($Control -is [System.Windows.Forms.ListBox]) {
+        $Control.BackColor = $palette.Surface
+        $Control.ForeColor = $palette.Text
+    }
+    elseif ($Control -is [System.Windows.Forms.Label]) {
+        if ($Control.Text -ne '●') {
+            $Control.ForeColor = if (Test-IsMutedColor -Color $Control.ForeColor) { $palette.Muted } else { $palette.Text }
+        }
+        $Control.BackColor = [System.Drawing.Color]::Transparent
+    }
+
+    if (-not $Control.Enabled) {
+        if ($Control -is [System.Windows.Forms.Button]) {
+            $Control.ForeColor = $palette.DisabledText
+            if ($isDark) {
+                $Control.UseVisualStyleBackColor = $false
+                $Control.BackColor = $palette.DisabledControl
+                $Control.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+                $Control.FlatAppearance.BorderColor = $palette.Border
+            }
+        }
+        elseif (
+            $Control -is [System.Windows.Forms.ComboBox] -or
+            $Control -is [System.Windows.Forms.TextBoxBase]
+        ) {
+            $Control.BackColor = $palette.DisabledControl
+            $Control.ForeColor = $palette.DisabledText
+        }
+        elseif (
+            $Control -is [System.Windows.Forms.Label] -or
+            $Control -is [System.Windows.Forms.CheckBox] -or
+            $Control -is [System.Windows.Forms.RadioButton]
+        ) {
+            if ($Control.Text -ne '●') {
+                $Control.ForeColor = $palette.DisabledText
+            }
+        }
+    }
+
+    foreach ($child in $Control.Controls) {
+        Apply-ThemeToControl -Control $child -ThemeName $ThemeName
+    }
+}
+
+function Apply-ThemeToForm {
+    param(
+        [Parameter(Mandatory = $true)][System.Windows.Forms.Form]$Form,
+        [string]$ThemeName = ''
+    )
+
+    if ([string]::IsNullOrWhiteSpace($ThemeName)) { $ThemeName = Get-EffectiveTheme }
+    Apply-ThemeToControl -Control $Form -ThemeName $ThemeName
+    try {
+        [MugenDeejWindowing.ThemeInterop]::SetDarkTitleBar($Form.Handle, ($ThemeName -eq 'dark'))
+    }
+    catch {
+        Write-Log ("Failed to update title-bar theme for '{0}': {1}" -f $Form.Text, $_.Exception.Message) 'DEBUG'
+    }
+    $Form.Invalidate($true)
+}
+
+function Apply-ToolStripTheme {
+    param(
+        [Parameter(Mandatory = $true)][System.Windows.Forms.ToolStrip]$ToolStrip,
+        [Parameter(Mandatory = $true)][string]$ThemeName
+    )
+
+    $palette = $script:ThemePalettes[$ThemeName]
+
+    if ($ToolStrip -is [System.Windows.Forms.ContextMenuStrip]) {
+        $ToolStrip.ShowImageMargin = $false
+        $ToolStrip.ShowCheckMargin = $false
+    }
+
+    $ToolStrip.BackColor = $palette.Control
+    $ToolStrip.ForeColor = $palette.Text
+    $ToolStrip.RenderMode = [System.Windows.Forms.ToolStripRenderMode]::Professional
+    $ToolStrip.Renderer = [MugenDeejWindowing.MugenToolStripRenderer]::new(
+        $palette.Control,
+        $palette.ControlHover,
+        $palette.Text,
+        $palette.Border
+    )
+    foreach ($item in $ToolStrip.Items) {
+        $item.BackColor = $palette.Control
+        $item.ForeColor = $palette.Text
+    }
+}
+
+function Apply-CurrentTheme {
+    $themeName = Get-EffectiveTheme
+    foreach ($openForm in @([System.Windows.Forms.Application]::OpenForms)) {
+        if ($null -ne $openForm -and -not $openForm.IsDisposed) {
+            Apply-ThemeToForm -Form $openForm -ThemeName $themeName
+        }
+    }
+    if ($null -ne $script:TrayMenu -and -not $script:TrayMenu.IsDisposed) {
+        Apply-ToolStripTheme -ToolStrip $script:TrayMenu -ThemeName $themeName
+    }
+    if ($script:LastEffectiveTheme -ne $themeName) {
+        Write-Log ("Effective interface theme changed: {0} -> {1}" -f $script:LastEffectiveTheme, $themeName) 'INFO'
+    }
+    $script:LastEffectiveTheme = $themeName
+    return $themeName
+}
+
+function Sync-ThemeCombo {
+    if ($null -eq $script:ThemeCombo -or $script:ThemeCombo.IsDisposed) { return }
+
+    $script:UpdatingThemeCombo = $true
+    try {
+        $setting = Get-NormalizedThemeSetting -Value ([string]$script:Config.app.theme)
+        $script:ThemeCombo.BeginUpdate()
+        try {
+            $script:ThemeCombo.Items.Clear()
+            [void]$script:ThemeCombo.Items.Add((T -Key 'ThemeAuto'))
+            [void]$script:ThemeCombo.Items.Add((T -Key 'ThemeLight'))
+            [void]$script:ThemeCombo.Items.Add((T -Key 'ThemeDark'))
+            $script:ThemeCombo.SelectedIndex = switch ($setting) {
+                'light' { 1 }
+                'dark' { 2 }
+                default { 0 }
+            }
+        }
+        finally {
+            $script:ThemeCombo.EndUpdate()
+        }
+    }
+    finally {
+        $script:UpdatingThemeCombo = $false
+    }
+}
+
+function Handle-ThemePreferenceChange {
+    param([Parameter(Mandatory = $true)][string]$CategoryName)
+    if ($script:Closing -or $script:ExitRequested) { return }
+    if ((Get-NormalizedThemeSetting -Value ([string]$script:Config.app.theme)) -ne 'auto') { return }
+
+    $newEffective = Get-EffectiveTheme
+    if ($newEffective -eq $script:LastEffectiveTheme) { return }
+    [void](Apply-CurrentTheme)
+    Write-Log ("Windows preference change ({0}) updated Auto theme to {1}" -f $CategoryName, $newEffective) 'INFO'
 }
 
 function Get-CaptureDevicesFromPnp {
@@ -1888,7 +2936,7 @@ function Show-ApplicationPicker {
     $hint.Size = New-Object System.Drawing.Size(810, 42)
     $pickerForm.Controls.Add($hint)
 
-    $activeGroup = New-Object System.Windows.Forms.GroupBox
+    $activeGroup = New-Object MugenDeejWindowing.MugenGroupBox
     $activeGroup.Text = (T -Key 'ActiveAudioGroup')
     $activeGroup.Location = New-Object System.Drawing.Point(25, 100)
     $activeGroup.Size = New-Object System.Drawing.Size(810, 205)
@@ -1913,7 +2961,7 @@ function Show-ApplicationPicker {
     $activeEmptyLabel.Size = New-Object System.Drawing.Size(775, 22)
     $activeGroup.Controls.Add($activeEmptyLabel)
 
-    $otherGroup = New-Object System.Windows.Forms.GroupBox
+    $otherGroup = New-Object MugenDeejWindowing.MugenGroupBox
     $otherGroup.Text = (T -Key 'OtherAppsGroup')
     $otherGroup.Location = New-Object System.Drawing.Point(25, 315)
     $otherGroup.Size = New-Object System.Drawing.Size(810, 235)
@@ -2126,6 +3174,7 @@ function Show-ApplicationPicker {
     })
 
     & $populateLists
+    Apply-ThemeToForm -Form $pickerForm
     $pickerForm.Add_Shown({ Ensure-FormVisible -Form $pickerForm -CenterIfOffscreen })
     $pickerForm.AcceptButton = $saveButton
     $pickerForm.CancelButton = $cancelButton
@@ -2163,9 +3212,9 @@ function Show-SliderSettings {
     $settingsForm.Controls.Add($hint)
 
     $headers = @(
-        @{ Text = (T -Key 'HeaderKnob'); X = 24; Width = 120 },
-        @{ Text = (T -Key 'HeaderName'); X = 150; Width = 160 },
-        @{ Text = (T -Key 'HeaderMode'); X = 322; Width = 190 },
+        @{ Text = (T -Key 'HeaderKnob'); X = 24; Width = 140 },
+        @{ Text = (T -Key 'HeaderName'); X = 174; Width = 145 },
+        @{ Text = (T -Key 'HeaderMode'); X = 326; Width = 185 },
         @{ Text = (T -Key 'HeaderControls'); X = 524; Width = 260 },
         @{ Text = (T -Key 'HeaderPosition'); X = 930; Width = 130 }
     )
@@ -2191,24 +3240,24 @@ function Show-SliderSettings {
 
     for ($i = 0; $i -lt $count; $i++) {
         $y = 150 + ($i * 76)
-        $rowPanel = New-Object System.Windows.Forms.Panel
+        $rowPanel = New-Object MugenDeejWindowing.MugenCardPanel
         $rowPanel.Location = New-Object System.Drawing.Point(20, $y)
         $rowPanel.Size = New-Object System.Drawing.Size(1070, 66)
         $rowPanel.BackColor = [System.Drawing.Color]::White
-        $rowPanel.BorderStyle = 'FixedSingle'
+        $rowPanel.BorderStyle = 'None'
         $settingsForm.Controls.Add($rowPanel)
 
         $position = if ($i -lt $positions.Count) { $positions[$i] } else { (T -Key 'PosNumber' -Args @($i + 1)) }
         $indexLabel = New-Object System.Windows.Forms.Label
         $indexLabel.Text = "$($i + 1) · $position"
         $indexLabel.Location = New-Object System.Drawing.Point(8, 9)
-        $indexLabel.Size = New-Object System.Drawing.Size(116, 45)
+        $indexLabel.Size = New-Object System.Drawing.Size(142, 45)
         $indexLabel.TextAlign = 'MiddleLeft'
         $rowPanel.Controls.Add($indexLabel)
 
         $nameBox = New-Object System.Windows.Forms.TextBox
-        $nameBox.Location = New-Object System.Drawing.Point(128, 17)
-        $nameBox.Size = New-Object System.Drawing.Size(160, 30)
+        $nameBox.Location = New-Object System.Drawing.Point(154, 17)
+        $nameBox.Size = New-Object System.Drawing.Size(145, 30)
         if ($i -lt $script:Config.sliders.Count) { $nameBox.Text = [string]$script:Config.sliders[$i].name }
         else { $nameBox.Text = (T -Key 'KnobN' -Args @($i + 1)) }
         $rowPanel.Controls.Add($nameBox)
@@ -2231,10 +3280,10 @@ function Show-SliderSettings {
             $selectedInputDeviceName = [string]$script:Config.sliders[$i].inputDeviceName
         }
 
-        $modeCombo = New-Object System.Windows.Forms.ComboBox
+        $modeCombo = New-Object MugenDeejWindowing.MugenComboBox
         $modeCombo.DropDownStyle = 'DropDownList'
-        $modeCombo.Location = New-Object System.Drawing.Point(300, 16)
-        $modeCombo.Size = New-Object System.Drawing.Size(190, 30)
+        $modeCombo.Location = New-Object System.Drawing.Point(306, 16)
+        $modeCombo.Size = New-Object System.Drawing.Size(186, 30)
         $modeCombo.Tag = $i
         [void]$modeCombo.Items.Add((T -Key 'ModeMaster'))
         [void]$modeCombo.Items.Add((T -Key 'ModeApplications'))
@@ -2263,7 +3312,7 @@ function Show-SliderSettings {
         $rowPanel.Controls.Add($selectButton)
         [void]$selectButtons.Add($selectButton)
 
-        $microphoneCombo = New-Object System.Windows.Forms.ComboBox
+        $microphoneCombo = New-Object MugenDeejWindowing.MugenComboBox
         $microphoneCombo.DropDownStyle = 'DropDownList'
         $microphoneCombo.Location = New-Object System.Drawing.Point(502, 16)
         $microphoneCombo.Size = New-Object System.Drawing.Size(400, 30)
@@ -2274,7 +3323,7 @@ function Show-SliderSettings {
         $rowPanel.Controls.Add($microphoneCombo)
         [void]$microphoneCombos.Add($microphoneCombo)
 
-        $progressBar = New-Object System.Windows.Forms.ProgressBar
+        $progressBar = New-Object MugenDeejWindowing.MugenProgressBar
         $progressBar.Location = New-Object System.Drawing.Point(914, 17)
         $progressBar.Size = New-Object System.Drawing.Size(105, 23)
         $progressBar.Minimum = 0
@@ -2366,7 +3415,7 @@ function Show-SliderSettings {
     $responseLabel.Size = New-Object System.Drawing.Size(110, 25)
     $advancedPanel.Controls.Add($responseLabel)
 
-    $responseCombo = New-Object System.Windows.Forms.ComboBox
+    $responseCombo = New-Object MugenDeejWindowing.MugenComboBox
     $responseCombo.DropDownStyle = 'DropDownList'
     $responseCombo.Location = New-Object System.Drawing.Point(110, 38)
     $responseCombo.Size = New-Object System.Drawing.Size(255, 30)
@@ -2418,6 +3467,7 @@ function Show-SliderSettings {
     $saveButton.Text = (T -Key 'Save')
     $saveButton.Location = New-Object System.Drawing.Point(982, 677)
     $saveButton.Size = New-Object System.Drawing.Size(105, 36)
+    $saveButton.Tag = 'MugenPrimary'
     $settingsForm.Controls.Add($saveButton)
 
     $liveTimer = New-Object System.Windows.Forms.Timer
@@ -2490,6 +3540,7 @@ function Show-SliderSettings {
         $settingsForm.Close()
     })
 
+    Apply-ThemeToForm -Form $settingsForm
     $settingsForm.Add_Shown({ Ensure-FormVisible -Form $settingsForm -CenterIfOffscreen })
     $settingsForm.Add_FormClosed({ $liveTimer.Stop(); $liveTimer.Dispose(); $nameToolTip.Dispose() })
     $settingsForm.AcceptButton = $saveButton
@@ -2540,7 +3591,7 @@ function Show-FirstRunWizard {
         $label.Size = New-Object System.Drawing.Size(90, 24)
         $wizard.Controls.Add($label)
 
-        $bar = New-Object System.Windows.Forms.ProgressBar
+        $bar = New-Object MugenDeejWindowing.MugenProgressBar
         $bar.Location = New-Object System.Drawing.Point(120, $y)
         $bar.Size = New-Object System.Drawing.Size(420, 23)
         $bar.Maximum = 1000
@@ -2588,6 +3639,7 @@ function Show-FirstRunWizard {
     }
     $laterButton.Add_Click({ & $finishWizard; $wizard.Close() })
     $configureButton.Add_Click({ & $finishWizard; $wizard.Close(); Show-SliderSettings })
+    Apply-ThemeToForm -Form $wizard
     $wizard.Add_Shown({ Ensure-FormVisible -Form $wizard -CenterIfOffscreen })
     $wizard.Add_FormClosing({
         if (-not [bool]$script:Config.app.firstRunCompleted) { & $finishWizard }
@@ -3622,6 +4674,7 @@ function Show-InitialLanguagePicker {
         param($sender, $eventArgs)
         if ([string]$languageForm.Tag -ne 'selected') { $eventArgs.Cancel = $true }
     })
+    Apply-ThemeToForm -Form $languageForm
     $languageForm.Add_Shown({
         [void][MugenDeejWindowing.Foreground]::ShowWindowAsync($languageForm.Handle, 9)
         [void][MugenDeejWindowing.Foreground]::BringWindowToTop($languageForm.Handle)
@@ -3677,27 +4730,41 @@ $subtitle.AutoSize = $true
 $subtitle.Location = New-Object System.Drawing.Point(27, 57)
 $form.Controls.Add($subtitle)
 
+$themeLabel = New-Object System.Windows.Forms.Label
+$themeLabel.Text = (T -Key 'ThemeLabel')
+$themeLabel.Location = New-Object System.Drawing.Point(274, 24)
+$themeLabel.Size = New-Object System.Drawing.Size(60, 25)
+$themeLabel.TextAlign = 'MiddleRight'
+$form.Controls.Add($themeLabel)
+
+$themeCombo = New-Object MugenDeejWindowing.MugenComboBox
+$themeCombo.DropDownStyle = 'DropDownList'
+$themeCombo.Location = New-Object System.Drawing.Point(340, 21)
+$themeCombo.Size = New-Object System.Drawing.Size(110, 29)
+$form.Controls.Add($themeCombo)
+$script:ThemeCombo = $themeCombo
+
 $languageLabel = New-Object System.Windows.Forms.Label
 $languageLabel.Text = (T -Key 'LanguageLabel')
-$languageLabel.Location = New-Object System.Drawing.Point(470, 24)
-$languageLabel.Size = New-Object System.Drawing.Size(75, 25)
+$languageLabel.Location = New-Object System.Drawing.Point(456, 24)
+$languageLabel.Size = New-Object System.Drawing.Size(84, 25)
 $languageLabel.TextAlign = 'MiddleRight'
 $form.Controls.Add($languageLabel)
 
-$languageCombo = New-Object System.Windows.Forms.ComboBox
+$languageCombo = New-Object MugenDeejWindowing.MugenComboBox
 $languageCombo.DropDownStyle = 'DropDownList'
-$languageCombo.Location = New-Object System.Drawing.Point(550, 21)
-$languageCombo.Size = New-Object System.Drawing.Size(105, 29)
+$languageCombo.Location = New-Object System.Drawing.Point(545, 21)
+$languageCombo.Size = New-Object System.Drawing.Size(110, 29)
 [void]$languageCombo.Items.Add('Русский')
 [void]$languageCombo.Items.Add('English')
 $languageCombo.SelectedIndex = if ($script:Language -eq 'ru') { 0 } else { 1 }
 $form.Controls.Add($languageCombo)
 
-$statusPanel = New-Object System.Windows.Forms.Panel
+$statusPanel = New-Object MugenDeejWindowing.MugenCardPanel
 $statusPanel.Location = New-Object System.Drawing.Point(24, 88)
 $statusPanel.Size = New-Object System.Drawing.Size(632, 60)
 $statusPanel.BackColor = [System.Drawing.Color]::White
-$statusPanel.BorderStyle = 'FixedSingle'
+$statusPanel.BorderStyle = 'None'
 $form.Controls.Add($statusPanel)
 
 $statusDot = New-Object System.Windows.Forms.Label
@@ -3715,14 +4782,14 @@ $statusLabel.Location = New-Object System.Drawing.Point(46, 10)
 $statusLabel.TextAlign = 'MiddleLeft'
 $statusPanel.Controls.Add($statusLabel)
 
-$knobGroup = New-Object System.Windows.Forms.GroupBox
+$knobGroup = New-Object MugenDeejWindowing.MugenGroupBox
 $knobGroup.Text = (T -Key 'KnobStatus')
 $knobGroup.Location = New-Object System.Drawing.Point(24, 160)
 $knobGroup.Size = New-Object System.Drawing.Size(632, 184)
 $form.Controls.Add($knobGroup)
 
 for ($i = 0; $i -lt 5; $i++) {
-    $y = 26 + ($i * 29)
+    $y = 34 + ($i * 29)
     $nameLabel = New-Object System.Windows.Forms.Label
     $nameLabel.Text = (T -Key 'KnobN' -Args @($i + 1))
     $nameLabel.Location = New-Object System.Drawing.Point(16, $y)
@@ -3731,7 +4798,7 @@ for ($i = 0; $i -lt 5; $i++) {
     $knobGroup.Controls.Add($nameLabel)
     $script:KnobNameLabels += $nameLabel
 
-    $bar = New-Object System.Windows.Forms.ProgressBar
+    $bar = New-Object MugenDeejWindowing.MugenProgressBar
     $bar.Location = New-Object System.Drawing.Point(190, $y)
     $bar.Size = New-Object System.Drawing.Size(350, 21)
     $bar.Minimum = 0
@@ -3751,6 +4818,7 @@ for ($i = 0; $i -lt 5; $i++) {
 $settingsButton = New-Object System.Windows.Forms.Button
 $settingsButton.Text = (T -Key 'ConfigureKnobs')
 $settingsButton.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 10)
+$settingsButton.Tag = 'MugenPrimary'
 $settingsButton.Location = New-Object System.Drawing.Point(24, 360)
 $settingsButton.Size = New-Object System.Drawing.Size(230, 42)
 $form.Controls.Add($settingsButton)
@@ -3763,7 +4831,7 @@ $settingsHint.Size = New-Object System.Drawing.Size(380, 48)
 $settingsHint.TextAlign = 'MiddleLeft'
 $form.Controls.Add($settingsHint)
 
-$startupGroup = New-Object System.Windows.Forms.GroupBox
+$startupGroup = New-Object MugenDeejWindowing.MugenGroupBox
 $startupGroup.Text = (T -Key 'StartupGroup')
 $startupGroup.Location = New-Object System.Drawing.Point(24, 414)
 $startupGroup.Size = New-Object System.Drawing.Size(632, 90)
@@ -3805,7 +4873,7 @@ $advancedPanel.Size = New-Object System.Drawing.Size(680, 270)
 $advancedPanel.Visible = $false
 $form.Controls.Add($advancedPanel)
 
-$connectionGroup = New-Object System.Windows.Forms.GroupBox
+$connectionGroup = New-Object MugenDeejWindowing.MugenGroupBox
 $connectionGroup.Text = (T -Key 'ConnectionGroup')
 $connectionGroup.Location = New-Object System.Drawing.Point(24, 0)
 $connectionGroup.Size = New-Object System.Drawing.Size(632, 150)
@@ -3823,7 +4891,7 @@ $manualRadio.AutoSize = $true
 $manualRadio.Location = New-Object System.Drawing.Point(18, 61)
 $connectionGroup.Controls.Add($manualRadio)
 
-$portCombo = New-Object System.Windows.Forms.ComboBox
+$portCombo = New-Object MugenDeejWindowing.MugenComboBox
 $portCombo.DropDownStyle = 'DropDownList'
 $portCombo.Location = New-Object System.Drawing.Point(220, 58)
 $portCombo.Size = New-Object System.Drawing.Size(125, 29)
@@ -3848,7 +4916,7 @@ $connectionHelp.Location = New-Object System.Drawing.Point(265, 91)
 $connectionHelp.Size = New-Object System.Drawing.Size(345, 52)
 $connectionGroup.Controls.Add($connectionHelp)
 
-$driverGroup = New-Object System.Windows.Forms.GroupBox
+$driverGroup = New-Object MugenDeejWindowing.MugenGroupBox
 $driverGroup.Text = (T -Key 'DriverAndLog')
 $driverGroup.Location = New-Object System.Drawing.Point(24, 158)
 $driverGroup.Size = New-Object System.Drawing.Size(632, 104)
@@ -3901,6 +4969,7 @@ $trayReconnect = $trayMenu.Items.Add((T -Key 'TrayReconnect'))
 [void]$trayMenu.Items.Add('-')
 $trayExit = $trayMenu.Items.Add((T -Key 'TrayExit'))
 $notifyIcon.ContextMenuStrip = $trayMenu
+$script:TrayMenu = $trayMenu
 
 function Set-Status {
     param([string]$Text, [ValidateSet('ok','warn','error','busy','idle')][string]$State = 'idle')
@@ -3971,7 +5040,9 @@ function Update-DriverStatus {
 }
 
 function Apply-MainLocalization {
+    $themeLabel.Text = (T -Key 'ThemeLabel')
     $languageLabel.Text = (T -Key 'LanguageLabel')
+    Sync-ThemeCombo
     $subtitle.Text = (T -Key 'Subtitle')
     $knobGroup.Text = (T -Key 'KnobStatus')
     $settingsButton.Text = (T -Key 'ConfigureKnobs')
@@ -4089,6 +5160,41 @@ Refresh-PortList
 Update-ConnectionControls
 Apply-MainLocalization
 Set-AdvancedExpanded -Expanded ([bool]$script:Config.app.advancedExpanded) -Persist $false
+$initialTheme = Get-EffectiveTheme
+Apply-ThemeToForm -Form $form -ThemeName $initialTheme
+Apply-ToolStripTheme -ToolStrip $trayMenu -ThemeName $initialTheme
+$script:LastEffectiveTheme = $initialTheme
+
+$themeCombo.Add_SelectedIndexChanged({
+    if ($script:UpdatingThemeCombo -or $themeCombo.SelectedIndex -lt 0) { return }
+
+    $newTheme = switch ($themeCombo.SelectedIndex) {
+        1 { 'light' }
+        2 { 'dark' }
+        default { 'auto' }
+    }
+    $previousTheme = Get-NormalizedThemeSetting -Value ([string]$script:Config.app.theme)
+    if ($newTheme -eq $previousTheme) { return }
+
+    $script:Config.app.theme = $newTheme
+    try {
+        Save-Config -Config $script:Config
+        [void](Apply-CurrentTheme)
+        Write-Log ("Interface theme setting changed: {0} -> {1}" -f $previousTheme, $newTheme) 'INFO'
+    }
+    catch {
+        $script:Config.app.theme = $previousTheme
+        Sync-ThemeCombo
+        [void](Apply-CurrentTheme)
+        Write-Log ("Failed to save interface theme setting: {0}" -f $_.Exception.Message) 'ERROR'
+        [System.Windows.Forms.MessageBox]::Show(
+            $_.Exception.Message,
+            'Mugen Deej',
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Warning
+        ) | Out-Null
+    }
+})
 
 $languageCombo.Add_SelectedIndexChanged({
     $newLanguage = if ($languageCombo.SelectedIndex -eq 0) { 'ru' } else { 'en' }
@@ -4356,6 +5462,10 @@ $form.Add_FormClosing({
         try { $script:PowerBridge.Dispose() } catch { }
         $script:PowerBridge = $null
     }
+    if ($null -ne $script:ThemePreferenceBridge) {
+        try { $script:ThemePreferenceBridge.Dispose() } catch { }
+        $script:ThemePreferenceBridge = $null
+    }
 
     $notifyIcon.Visible = $false
     $notifyIcon.Dispose()
@@ -4485,6 +5595,18 @@ $script:PowerUiAction = [System.Action[string]]{
 
 $script:PowerBridge = [MugenDeejWindowing.PowerModeBridge]::new($form, $script:PowerUiAction)
 Write-Log 'Power suspend/resume monitoring initialized' 'DEBUG'
+
+$script:ThemeUiAction = [System.Action[string]]{
+    param($categoryName)
+    try {
+        Handle-ThemePreferenceChange -CategoryName $categoryName
+    }
+    catch {
+        Write-Log ("Theme preference handler failed for {0}: {1}" -f $categoryName, $_.Exception.Message) 'ERROR'
+    }
+}
+$script:ThemePreferenceBridge = [MugenDeejWindowing.ThemePreferenceBridge]::new($form, $script:ThemeUiAction)
+Write-Log 'Windows theme preference monitoring initialized' 'DEBUG'
 
 $form.Add_Shown({
     $startMinimized = [bool]$script:Config.app.startMinimized

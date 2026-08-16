@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.7 — 2026-08-17
+
+- Added **Auto, Light, and Dark** application themes.
+- Auto theme follows Windows app-theme changes while Mugen Deej is running.
+- Refreshed the WinForms interface with the new Friendly UI, including rounded cards, custom combo boxes, flatter buttons, and smoother control indicators.
+- Added matching light and dark styling across the main window, control settings, first-run guide, application picker, and notification-area menu.
+- Improved visual stability of control-position indicators so stationary potentiometers no longer appear to jitter, without changing the underlying USB/controller/audio behavior.
+- Improved light-theme contrast for bright and HDR displays and refined card geometry and spacing.
+- Fixed Russian and English layout issues in the theme selector, control-position labels, and control-status card spacing.
+- Kept the 0.8.6 startup, tray-start, suspend/resume, USB reconnect, and per-user Windows startup behavior unchanged.
+
 ## 0.8.6 — 2026-08-09
 - Added an optional **Start Mugen Deej with Windows** setting to the main window.
 - Added an independent **Start minimized to the notification area** setting.
