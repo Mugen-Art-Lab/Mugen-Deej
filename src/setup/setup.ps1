@@ -13,6 +13,8 @@ Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
+# Use the Windows UI language only as the initial/default choice. The setup
+# always asks explicitly before showing the main installer window.
 $script:IsRussian = $false
 try {
     $script:IsRussian = ([System.Globalization.CultureInfo]::CurrentUICulture.TwoLetterISOLanguageName -eq 'ru')
@@ -94,6 +96,72 @@ function New-SetupButton {
     }
 
     return $button
+}
+
+function Select-SetupLanguage {
+    $languageForm = New-Object System.Windows.Forms.Form
+    $languageForm.Text = 'Mugen Deej — Language / Язык'
+    $languageForm.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
+    $languageForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+    $languageForm.MaximizeBox = $false
+    $languageForm.MinimizeBox = $false
+    $languageForm.ClientSize = New-Object System.Drawing.Size(430, 205)
+    $languageForm.BackColor = $script:SetupPalette['Back']
+    $languageForm.ForeColor = $script:SetupPalette['TextColor']
+    $languageForm.Font = New-Object System.Drawing.Font('Segoe UI', 9.5)
+
+    try {
+        if (Test-Path -LiteralPath $SetupExePath -PathType Leaf) {
+            $languageForm.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($SetupExePath)
+        }
+    }
+    catch { }
+
+    $languageTitle = New-Object System.Windows.Forms.Label
+    $languageTitle.Text = 'Выберите язык / Choose language'
+    $languageTitle.Location = New-Object System.Drawing.Point(28, 26)
+    $languageTitle.Size = New-Object System.Drawing.Size(374, 34)
+    $languageTitle.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 16)
+    $languageTitle.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $languageTitle.ForeColor = $script:SetupPalette['TextColor']
+    $languageForm.Controls.Add($languageTitle)
+
+    $languageHint = New-Object System.Windows.Forms.Label
+    $languageHint.Text = 'Язык установщика можно выбрать независимо от языка Windows.`r`nSetup language can be selected independently of Windows.'
+    $languageHint.Location = New-Object System.Drawing.Point(30, 68)
+    $languageHint.Size = New-Object System.Drawing.Size(370, 48)
+    $languageHint.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $languageHint.ForeColor = $script:SetupPalette['MutedColor']
+    $languageForm.Controls.Add($languageHint)
+
+    $russianButton = New-SetupButton -Caption 'Русский' -X 72 -Y 135 -Width 132 -IsPrimary $script:IsRussian
+    $englishButton = New-SetupButton -Caption 'English' -X 226 -Y 135 -Width 132 -IsPrimary (-not $script:IsRussian)
+    $languageForm.Controls.Add($russianButton)
+    $languageForm.Controls.Add($englishButton)
+
+    if ($script:IsRussian) {
+        $languageForm.AcceptButton = $russianButton
+        $russianButton.Select()
+    }
+    else {
+        $languageForm.AcceptButton = $englishButton
+        $englishButton.Select()
+    }
+
+    $russianButton.Add_Click({
+        $script:IsRussian = $true
+        $languageForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
+        $languageForm.Close()
+    })
+
+    $englishButton.Add_Click({
+        $script:IsRussian = $false
+        $languageForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
+        $languageForm.Close()
+    })
+
+    [void]$languageForm.ShowDialog()
+    $languageForm.Dispose()
 }
 
 function Test-PathInside {
@@ -209,6 +277,10 @@ function New-DesktopShortcut {
         }
     }
 }
+
+# Ask explicitly every time the setup starts. Windows UI culture only chooses
+# which button is highlighted/default in this small selector.
+Select-SetupLanguage
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = (L -Ru 'Mugen Deej — установка' -En 'Mugen Deej — Setup')
