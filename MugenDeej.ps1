@@ -1,4 +1,4 @@
-﻿# Mugen Deej 0.8.7-dev
+﻿# Mugen Deej 0.9.0-dev25
 # Portable bilingual Windows audio controller for deej-compatible USB serial devices.
 # Requires Windows PowerShell 5.1+ and Windows 10/11.
 
@@ -85,11 +85,15 @@ namespace MugenDeejWindowing
             BorderColor = Color.FromArgb(210, 216, 228);
             CornerRadius = 12;
             BorderStyle = BorderStyle.None;
-            SetStyle(ControlStyles.AllPaintingInWmPaint |
-                     ControlStyles.OptimizedDoubleBuffer |
-                     ControlStyles.ResizeRedraw |
-                     ControlStyles.UserPaint |
-                     ControlStyles.SupportsTransparentBackColor, true);
+
+            SetStyle(
+                ControlStyles.AllPaintingInWmPaint |
+                ControlStyles.OptimizedDoubleBuffer |
+                ControlStyles.ResizeRedraw |
+                ControlStyles.UserPaint |
+                ControlStyles.SupportsTransparentBackColor,
+                true
+            );
         }
 
         protected override CreateParams CreateParams
@@ -98,10 +102,9 @@ namespace MugenDeejWindowing
             {
                 CreateParams cp = base.CreateParams;
 
-                // Guarantee that no native rectangular border survives under
-                // the custom rounded card.
                 const int WS_BORDER = 0x00800000;
                 const int WS_EX_CLIENTEDGE = 0x00000200;
+
                 cp.Style &= ~WS_BORDER;
                 cp.ExStyle &= ~WS_EX_CLIENTEDGE;
 
@@ -109,42 +112,44 @@ namespace MugenDeejWindowing
             }
         }
 
-        private void UpdateRoundedRegion()
-        {
-            if (Width <= 1 || Height <= 1) return;
-
-            using (GraphicsPath path = MugenDrawing.RoundedRect(
-                new Rectangle(0, 0, Width, Height),
-                CornerRadius))
-            {
-                Region oldRegion = Region;
-                Region = new Region(path);
-                if (oldRegion != null) oldRegion.Dispose();
-            }
-        }
-
         protected override void OnHandleCreated(EventArgs e)
         {
             BorderStyle = BorderStyle.None;
             base.OnHandleCreated(e);
-            UpdateRoundedRegion();
+
+            // dev8: paint-only rounded geometry.
+            // Do not clip the anti-aliased edge with a second rounded Region.
+            Region oldRegion = Region;
+            Region = null;
+
+            if (oldRegion != null)
+                oldRegion.Dispose();
         }
 
         protected override void OnSizeChanged(EventArgs e)
         {
             base.OnSizeChanged(e);
-            UpdateRoundedRegion();
             Invalidate();
         }
 
         protected override void OnPaintBackground(PaintEventArgs e)
         {
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+
             Color outside = Parent != null ? Parent.BackColor : BackColor;
+
             using (SolidBrush outsideBrush = new SolidBrush(outside))
                 e.Graphics.FillRectangle(outsideBrush, ClientRectangle);
 
-            Rectangle rect = new Rectangle(0, 0, Math.Max(1, Width - 1), Math.Max(1, Height - 1));
+            // Keep the entire anti-aliased outline inside the control bounds.
+            Rectangle rect = new Rectangle(
+                1,
+                1,
+                Math.Max(1, Width - 3),
+                Math.Max(1, Height - 3)
+            );
+
             using (GraphicsPath path = MugenDrawing.RoundedRect(rect, CornerRadius))
             using (SolidBrush surface = new SolidBrush(BackColor))
                 e.Graphics.FillPath(surface, path);
@@ -152,17 +157,21 @@ namespace MugenDeejWindowing
 
         protected override void OnPaint(PaintEventArgs e)
         {
-            // Do not call Panel.OnPaint here: this control owns its complete
-            // visual surface and border.
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
-            Rectangle rect = new Rectangle(0, 0, Math.Max(1, Width - 1), Math.Max(1, Height - 1));
+
+            Rectangle rect = new Rectangle(
+                1,
+                1,
+                Math.Max(1, Width - 3),
+                Math.Max(1, Height - 3)
+            );
+
             using (GraphicsPath path = MugenDrawing.RoundedRect(rect, CornerRadius))
             using (Pen pen = new Pen(BorderColor))
                 e.Graphics.DrawPath(pen, path);
         }
     }
-
     public sealed class MugenGroupBox : Panel
     {
         public Color BorderColor { get; set; }
@@ -173,11 +182,15 @@ namespace MugenDeejWindowing
             BorderColor = Color.FromArgb(210, 216, 228);
             CornerRadius = 12;
             BorderStyle = BorderStyle.None;
-            SetStyle(ControlStyles.AllPaintingInWmPaint |
-                     ControlStyles.OptimizedDoubleBuffer |
-                     ControlStyles.ResizeRedraw |
-                     ControlStyles.UserPaint |
-                     ControlStyles.SupportsTransparentBackColor, true);
+
+            SetStyle(
+                ControlStyles.AllPaintingInWmPaint |
+                ControlStyles.OptimizedDoubleBuffer |
+                ControlStyles.ResizeRedraw |
+                ControlStyles.UserPaint |
+                ControlStyles.SupportsTransparentBackColor,
+                true
+            );
         }
 
         protected override CreateParams CreateParams
@@ -185,25 +198,14 @@ namespace MugenDeejWindowing
             get
             {
                 CreateParams cp = base.CreateParams;
+
                 const int WS_BORDER = 0x00800000;
                 const int WS_EX_CLIENTEDGE = 0x00000200;
+
                 cp.Style &= ~WS_BORDER;
                 cp.ExStyle &= ~WS_EX_CLIENTEDGE;
+
                 return cp;
-            }
-        }
-
-        private void UpdateRoundedRegion()
-        {
-            if (Width <= 1 || Height <= 1) return;
-
-            using (GraphicsPath path = MugenDrawing.RoundedRect(
-                new Rectangle(0, 0, Width, Height),
-                CornerRadius))
-            {
-                Region oldRegion = Region;
-                Region = new Region(path);
-                if (oldRegion != null) oldRegion.Dispose();
             }
         }
 
@@ -211,32 +213,48 @@ namespace MugenDeejWindowing
         {
             BorderStyle = BorderStyle.None;
             base.OnHandleCreated(e);
-            UpdateRoundedRegion();
+
+            // dev7: no rounded Region. The anti-aliased painted outline must
+            // not be clipped by a second hard-edged geometry layer.
+            Region oldRegion = Region;
+            Region = null;
+
+            if (oldRegion != null)
+                oldRegion.Dispose();
         }
 
         protected override void OnSizeChanged(EventArgs e)
         {
             base.OnSizeChanged(e);
-            UpdateRoundedRegion();
             Invalidate();
         }
 
+        protected override void OnTextChanged(EventArgs e)
+        {
+            base.OnTextChanged(e);
+
+            // Owner-drawn text must repaint immediately when localization
+            // changes Text. Without this, old-language pixels remain until
+            // hover, resize or another unrelated invalidation.
+            Invalidate();
+        }
         protected override void OnPaint(PaintEventArgs e)
         {
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
 
-            // Paint the rectangular control corners with the actual parent
-            // background, then draw one complete rounded card on top.
             Color outside = Parent != null ? Parent.BackColor : BackColor;
+
             using (SolidBrush outsideBrush = new SolidBrush(outside))
                 e.Graphics.FillRectangle(outsideBrush, ClientRectangle);
 
+            // One-pixel inset keeps the complete anti-aliased stroke within
+            // the drawable surface instead of cutting its outer half-pixels.
             Rectangle rect = new Rectangle(
-                0,
-                0,
-                Math.Max(1, Width - 1),
-                Math.Max(1, Height - 1)
+                1,
+                1,
+                Math.Max(1, Width - 3),
+                Math.Max(1, Height - 3)
             );
 
             using (GraphicsPath path = MugenDrawing.RoundedRect(rect, CornerRadius))
@@ -247,8 +265,6 @@ namespace MugenDeejWindowing
                 e.Graphics.DrawPath(pen, path);
             }
 
-            // Friendly UI title: normal content inside the card, not a classic
-            // GroupBox caption cutting a hole through the upper border.
             if (!String.IsNullOrEmpty(Text))
             {
                 Rectangle titleRect = new Rectangle(
@@ -273,7 +289,994 @@ namespace MugenDeejWindowing
             }
         }
     }
+    public sealed class MugenButton : Control, IButtonControl
+    {
+        private bool hovered;
+        private bool pressed;
+        private bool isDefault;
+        private ContentAlignment textAlign;
 
+        public Color BorderColor { get; private set; }
+        public Color HoverBackColor { get; private set; }
+        public Color PressedBackColor { get; private set; }
+        public Color DisabledBackColor { get; private set; }
+        public Color DisabledTextColor { get; private set; }
+        public Color DisabledBorderColor { get; private set; }
+        public Color FocusBorderColor { get; private set; }
+        public int CornerRadius { get; private set; }
+
+        // Compatibility properties used by existing PowerShell UI code.
+        // They intentionally do not delegate to native Button painting.
+        public FlatStyle FlatStyle { get; set; }
+        public bool UseVisualStyleBackColor { get; set; }
+
+        public DialogResult DialogResult { get; set; }
+
+        public ContentAlignment TextAlign
+        {
+            get { return textAlign; }
+            set
+            {
+                textAlign = value;
+                Invalidate();
+            }
+        }
+
+        public MugenButton()
+        {
+            hovered = false;
+            pressed = false;
+            isDefault = false;
+            textAlign = ContentAlignment.MiddleCenter;
+
+            BackColor = Color.FromArgb(247, 249, 253);
+            ForeColor = Color.FromArgb(29, 35, 50);
+            BorderColor = Color.FromArgb(180, 188, 202);
+            HoverBackColor = Color.FromArgb(232, 238, 250);
+            PressedBackColor = Color.FromArgb(220, 230, 248);
+            DisabledBackColor = Color.FromArgb(229, 233, 241);
+            DisabledTextColor = Color.Gray;
+            DisabledBorderColor = Color.FromArgb(180, 188, 202);
+            FocusBorderColor = Color.FromArgb(65, 110, 245);
+            CornerRadius = 8;
+
+            FlatStyle = FlatStyle.Flat;
+            UseVisualStyleBackColor = false;
+            DialogResult = DialogResult.None;
+
+            TabStop = true;
+            SetStyle(
+                ControlStyles.AllPaintingInWmPaint |
+                ControlStyles.OptimizedDoubleBuffer |
+                ControlStyles.ResizeRedraw |
+                ControlStyles.UserPaint |
+                ControlStyles.Selectable |
+                ControlStyles.StandardClick |
+                ControlStyles.SupportsTransparentBackColor,
+                true
+            );
+        }
+
+        public void ApplyTheme(
+            Color background,
+            Color text,
+            Color border,
+            Color hoverBack,
+            Color pressedBack,
+            Color disabledBack,
+            Color disabledText,
+            Color disabledBorder,
+            Color focusBorder,
+            int radius)
+        {
+            BackColor = background;
+            ForeColor = text;
+            BorderColor = border;
+            HoverBackColor = hoverBack;
+            PressedBackColor = pressedBack;
+            DisabledBackColor = disabledBack;
+            DisabledTextColor = disabledText;
+            DisabledBorderColor = disabledBorder;
+            FocusBorderColor = focusBorder;
+            CornerRadius = Math.Max(1, radius);
+            Invalidate();
+        }
+
+        public void NotifyDefault(bool value)
+        {
+            if (isDefault == value) return;
+            isDefault = value;
+            Invalidate();
+        }
+
+        public void PerformClick()
+        {
+            if (!Enabled || !Visible) return;
+            OnClick(EventArgs.Empty);
+        }
+
+        protected override bool IsInputKey(Keys keyData)
+        {
+            Keys code = keyData & Keys.KeyCode;
+            if (code == Keys.Space) return true;
+            return base.IsInputKey(keyData);
+        }
+
+        protected override void OnTextChanged(EventArgs e)
+        {
+            base.OnTextChanged(e);
+
+            // Owner-drawn text must repaint immediately when localization
+            // changes Text. Without this, old-language pixels remain until
+            // hover, resize or another unrelated invalidation.
+            Invalidate();
+        }
+        protected override void OnMouseEnter(EventArgs e)
+        {
+            hovered = true;
+            base.OnMouseEnter(e);
+            Invalidate();
+        }
+
+        protected override void OnMouseLeave(EventArgs e)
+        {
+            hovered = false;
+            pressed = false;
+            base.OnMouseLeave(e);
+            Invalidate();
+        }
+
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left && Enabled)
+            {
+                Focus();
+                pressed = true;
+                Capture = true;
+                Invalidate();
+            }
+            base.OnMouseDown(e);
+        }
+
+        protected override void OnMouseUp(MouseEventArgs e)
+        {
+            // dev7: let WinForms ControlStyles.StandardClick raise exactly one
+            // mouse Click. Do not call OnClick manually here.
+            pressed = false;
+            Capture = false;
+            base.OnMouseUp(e);
+            Invalidate();
+        }
+
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            if (Enabled && e.KeyCode == Keys.Space && !e.Alt && !e.Control)
+            {
+                pressed = true;
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                Invalidate();
+            }
+            else
+            {
+                base.OnKeyDown(e);
+            }
+        }
+
+        protected override void OnKeyUp(KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Space && pressed)
+            {
+                pressed = false;
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                Invalidate();
+
+                if (Enabled) OnClick(EventArgs.Empty);
+            }
+            else
+            {
+                base.OnKeyUp(e);
+            }
+        }
+
+        protected override void OnGotFocus(EventArgs e)
+        {
+            base.OnGotFocus(e);
+            Invalidate();
+        }
+
+        protected override void OnLostFocus(EventArgs e)
+        {
+            pressed = false;
+            Capture = false;
+            base.OnLostFocus(e);
+            Invalidate();
+        }
+
+        protected override void OnEnabledChanged(EventArgs e)
+        {
+            if (!Enabled)
+            {
+                hovered = false;
+                pressed = false;
+            }
+            base.OnEnabledChanged(e);
+            Invalidate();
+        }
+
+        protected override void OnClick(EventArgs e)
+        {
+            base.OnClick(e);
+
+            Form form = FindForm();
+            if (form != null && DialogResult != DialogResult.None)
+            {
+                form.DialogResult = DialogResult;
+            }
+        }
+
+        private TextFormatFlags GetTextFlags()
+        {
+            TextFormatFlags flags =
+                TextFormatFlags.NoPrefix |
+                TextFormatFlags.EndEllipsis |
+                TextFormatFlags.SingleLine;
+
+            switch (TextAlign)
+            {
+                case ContentAlignment.TopLeft:
+                    flags |= TextFormatFlags.Left | TextFormatFlags.Top;
+                    break;
+                case ContentAlignment.TopCenter:
+                    flags |= TextFormatFlags.HorizontalCenter | TextFormatFlags.Top;
+                    break;
+                case ContentAlignment.TopRight:
+                    flags |= TextFormatFlags.Right | TextFormatFlags.Top;
+                    break;
+                case ContentAlignment.MiddleLeft:
+                    flags |= TextFormatFlags.Left | TextFormatFlags.VerticalCenter;
+                    break;
+                case ContentAlignment.MiddleRight:
+                    flags |= TextFormatFlags.Right | TextFormatFlags.VerticalCenter;
+                    break;
+                case ContentAlignment.BottomLeft:
+                    flags |= TextFormatFlags.Left | TextFormatFlags.Bottom;
+                    break;
+                case ContentAlignment.BottomCenter:
+                    flags |= TextFormatFlags.HorizontalCenter | TextFormatFlags.Bottom;
+                    break;
+                case ContentAlignment.BottomRight:
+                    flags |= TextFormatFlags.Right | TextFormatFlags.Bottom;
+                    break;
+                default:
+                    flags |= TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter;
+                    break;
+            }
+
+            return flags;
+        }
+
+        protected override void OnPaintBackground(PaintEventArgs e)
+        {
+            Color outside = Parent != null ? Parent.BackColor : SystemColors.Control;
+            using (SolidBrush outsideBrush = new SolidBrush(outside))
+                e.Graphics.FillRectangle(outsideBrush, ClientRectangle);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+
+            Color fill = BackColor;
+            Color text = ForeColor;
+            Color border = BorderColor;
+
+            if (!Enabled)
+            {
+                fill = DisabledBackColor;
+                text = DisabledTextColor;
+                border = DisabledBorderColor;
+            }
+            else if (pressed)
+            {
+                fill = PressedBackColor;
+            }
+            else if (hovered)
+            {
+                fill = HoverBackColor;
+            }
+
+            if (Focused && ShowFocusCues && Enabled)
+            {
+                border = FocusBorderColor;
+            }
+
+            Rectangle rect = new Rectangle(
+                0,
+                0,
+                Math.Max(1, Width - 1),
+                Math.Max(1, Height - 1)
+            );
+
+            using (GraphicsPath path = MugenDrawing.RoundedRect(rect, CornerRadius))
+            using (SolidBrush fillBrush = new SolidBrush(fill))
+            using (Pen borderPen = new Pen(border))
+            {
+                e.Graphics.FillPath(fillBrush, path);
+                e.Graphics.DrawPath(borderPen, path);
+            }
+
+            Rectangle textRect = new Rectangle(
+                Padding.Left + 4,
+                Padding.Top + 2,
+                Math.Max(1, Width - Padding.Horizontal - 8),
+                Math.Max(1, Height - Padding.Vertical - 4)
+            );
+
+            TextRenderer.DrawText(
+                e.Graphics,
+                Text,
+                Font,
+                textRect,
+                text,
+                GetTextFlags()
+            );
+        }
+    }
+    public sealed class MugenButtonTile : Label
+    {
+        private Color borderColor;
+
+        public Color BorderColor
+        {
+            get { return borderColor; }
+            set
+            {
+                borderColor = value;
+                Invalidate();
+            }
+        }
+
+        public int CornerRadius { get; set; }
+
+        public MugenButtonTile()
+        {
+            BorderStyle = BorderStyle.None;
+            BorderColor = Color.FromArgb(180, 188, 202);
+            CornerRadius = 5;
+            TextAlign = ContentAlignment.MiddleCenter;
+
+            SetStyle(
+                ControlStyles.AllPaintingInWmPaint |
+                ControlStyles.OptimizedDoubleBuffer |
+                ControlStyles.ResizeRedraw |
+                ControlStyles.UserPaint |
+                ControlStyles.SupportsTransparentBackColor,
+                true
+            );
+        }
+
+        public void ApplyTheme(Color background, Color text, Color border)
+        {
+            BackColor = background;
+            ForeColor = text;
+            BorderColor = border;
+            Invalidate();
+        }
+
+        protected override void OnPaintBackground(PaintEventArgs e)
+        {
+            Color outside = Parent != null ? Parent.BackColor : SystemColors.Control;
+            using (SolidBrush outsideBrush = new SolidBrush(outside))
+                e.Graphics.FillRectangle(outsideBrush, ClientRectangle);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+
+            Rectangle rect = new Rectangle(
+                0,
+                0,
+                Math.Max(1, Width - 1),
+                Math.Max(1, Height - 1)
+            );
+
+            using (GraphicsPath path = MugenDrawing.RoundedRect(rect, CornerRadius))
+            using (SolidBrush fillBrush = new SolidBrush(BackColor))
+            using (Pen borderPen = new Pen(BorderColor))
+            {
+                e.Graphics.FillPath(fillBrush, path);
+                e.Graphics.DrawPath(borderPen, path);
+            }
+
+            TextRenderer.DrawText(
+                e.Graphics,
+                Text,
+                Font,
+                rect,
+                ForeColor,
+                TextFormatFlags.HorizontalCenter |
+                TextFormatFlags.VerticalCenter |
+                TextFormatFlags.SingleLine |
+                TextFormatFlags.NoPrefix
+            );
+        }
+    }
+    public static class MugenMediaKeys
+    {
+        private const uint WM_APPCOMMAND = 0x0319;
+
+        private const int APPCOMMAND_VOLUME_MUTE = 8;
+        private const int APPCOMMAND_VOLUME_DOWN = 9;
+        private const int APPCOMMAND_VOLUME_UP = 10;
+
+        private const int APPCOMMAND_MEDIA_NEXTTRACK = 11;
+        private const int APPCOMMAND_MEDIA_PREVIOUSTRACK = 12;
+        private const int APPCOMMAND_MEDIA_STOP = 13;
+        private const int APPCOMMAND_MEDIA_PLAY_PAUSE = 14;
+
+        private const uint SMTO_NORMAL = 0x0000;
+        private const uint SMTO_ABORTIFHUNG = 0x0002;
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern IntPtr GetShellWindow();
+
+        [System.Runtime.InteropServices.DllImport(
+            "user32.dll",
+            SetLastError = true
+        )]
+        private static extern IntPtr SendMessageTimeout(
+            IntPtr hWnd,
+            uint Msg,
+            IntPtr wParam,
+            IntPtr lParam,
+            uint fuFlags,
+            uint uTimeout,
+            out IntPtr lpdwResult
+        );
+
+        private static void SendAppCommand(int command)
+        {
+            IntPtr target = GetForegroundWindow();
+
+            if (target == IntPtr.Zero)
+                target = GetShellWindow();
+
+            if (target == IntPtr.Zero)
+                throw new InvalidOperationException(
+                    "No foreground or shell window is available for WM_APPCOMMAND."
+                );
+
+            IntPtr result;
+            IntPtr lParam = new IntPtr(command << 16);
+
+            IntPtr sendResult = SendMessageTimeout(
+                target,
+                WM_APPCOMMAND,
+                target,
+                lParam,
+                SMTO_NORMAL | SMTO_ABORTIFHUNG,
+                750,
+                out result
+            );
+
+            if (sendResult == IntPtr.Zero)
+            {
+                int error = System.Runtime.InteropServices.Marshal.GetLastWin32Error();
+
+                throw new System.ComponentModel.Win32Exception(
+                    error,
+                    "WM_APPCOMMAND delivery failed."
+                );
+            }
+        }
+
+        public static void PlayPause()
+        {
+            SendAppCommand(APPCOMMAND_MEDIA_PLAY_PAUSE);
+        }
+
+        public static void PreviousTrack()
+        {
+            SendAppCommand(APPCOMMAND_MEDIA_PREVIOUSTRACK);
+        }
+
+        public static void NextTrack()
+        {
+            SendAppCommand(APPCOMMAND_MEDIA_NEXTTRACK);
+        }
+
+        public static void Stop()
+        {
+            SendAppCommand(APPCOMMAND_MEDIA_STOP);
+        }
+
+        public static void VolumeUp()
+        {
+            SendAppCommand(APPCOMMAND_VOLUME_UP);
+        }
+
+        public static void VolumeDown()
+        {
+            SendAppCommand(APPCOMMAND_VOLUME_DOWN);
+        }
+
+        public static void VolumeMute()
+        {
+            SendAppCommand(APPCOMMAND_VOLUME_MUTE);
+        }
+    }
+    public static class MugenHotkeys
+    {
+        private const uint INPUT_KEYBOARD = 1;
+        private const uint KEYEVENTF_EXTENDEDKEY = 0x0001;
+        private const uint KEYEVENTF_KEYUP = 0x0002;
+
+        private const ushort VK_CONTROL = 0x11;
+        private const ushort VK_SHIFT = 0x10;
+        private const ushort VK_MENU = 0x12;
+        private const ushort VK_LWIN = 0x5B;
+
+        [System.Runtime.InteropServices.StructLayout(
+            System.Runtime.InteropServices.LayoutKind.Sequential
+        )]
+        private struct INPUT
+        {
+            public uint type;
+            public InputUnion U;
+        }
+
+        [System.Runtime.InteropServices.StructLayout(
+            System.Runtime.InteropServices.LayoutKind.Explicit
+        )]
+        private struct InputUnion
+        {
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            public MOUSEINPUT mi;
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            public KEYBDINPUT ki;
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            public HARDWAREINPUT hi;
+        }
+
+        [System.Runtime.InteropServices.StructLayout(
+            System.Runtime.InteropServices.LayoutKind.Sequential
+        )]
+        private struct MOUSEINPUT
+        {
+            public int dx;
+            public int dy;
+            public uint mouseData;
+            public uint dwFlags;
+            public uint time;
+            public IntPtr dwExtraInfo;
+        }
+
+        [System.Runtime.InteropServices.StructLayout(
+            System.Runtime.InteropServices.LayoutKind.Sequential
+        )]
+        private struct HARDWAREINPUT
+        {
+            public uint uMsg;
+            public ushort wParamL;
+            public ushort wParamH;
+        }
+
+        [System.Runtime.InteropServices.StructLayout(
+            System.Runtime.InteropServices.LayoutKind.Sequential
+        )]
+        private struct KEYBDINPUT
+        {
+            public ushort wVk;
+            public ushort wScan;
+            public uint dwFlags;
+            public UIntPtr time;
+            public IntPtr dwExtraInfo;
+        }
+
+        [System.Runtime.InteropServices.DllImport(
+            "user32.dll",
+            SetLastError = true
+        )]
+        private static extern uint SendInput(
+            uint nInputs,
+            INPUT[] pInputs,
+            int cbSize
+        );
+
+        private static bool IsExtended(ushort vk)
+        {
+            switch (vk)
+            {
+                case 0x21: // Page Up
+                case 0x22: // Page Down
+                case 0x23: // End
+                case 0x24: // Home
+                case 0x25: // Left
+                case 0x26: // Up
+                case 0x27: // Right
+                case 0x28: // Down
+                case 0x2D: // Insert
+                case 0x2E: // Delete
+                case 0x6F: // Numpad Divide
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        private static INPUT KeyInput(ushort vk, bool keyUp)
+        {
+            uint flags = 0;
+
+            if (IsExtended(vk))
+                flags |= KEYEVENTF_EXTENDEDKEY;
+
+            if (keyUp)
+                flags |= KEYEVENTF_KEYUP;
+
+            INPUT input = new INPUT();
+            input.type = INPUT_KEYBOARD;
+            input.U.ki = new KEYBDINPUT
+            {
+                wVk = vk,
+                wScan = 0,
+                dwFlags = flags,
+                time = UIntPtr.Zero,
+                dwExtraInfo = IntPtr.Zero
+            };
+
+            return input;
+        }
+
+        private static void AddDown(
+            System.Collections.Generic.List<INPUT> list,
+            ushort vk
+        )
+        {
+            list.Add(KeyInput(vk, false));
+        }
+
+        private static void AddUp(
+            System.Collections.Generic.List<INPUT> list,
+            ushort vk
+        )
+        {
+            list.Add(KeyInput(vk, true));
+        }
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern short GetAsyncKeyState(int vKey);
+
+        public static bool IsWindowsKeyDown()
+        {
+            const int VK_LWIN = 0x5B;
+            const int VK_RWIN = 0x5C;
+
+            return
+                (GetAsyncKeyState(VK_LWIN) & 0x8000) != 0 ||
+                (GetAsyncKeyState(VK_RWIN) & 0x8000) != 0;
+        }
+        public static void Send(
+            int keyCode,
+            bool ctrl,
+            bool shift,
+            bool alt,
+            bool win
+        )
+        {
+            if (keyCode <= 0 || keyCode > 255)
+                throw new ArgumentOutOfRangeException("keyCode");
+
+            ushort key = (ushort)keyCode;
+            var inputs = new System.Collections.Generic.List<INPUT>();
+
+            if (ctrl) AddDown(inputs, VK_CONTROL);
+            if (shift) AddDown(inputs, VK_SHIFT);
+            if (alt) AddDown(inputs, VK_MENU);
+            if (win) AddDown(inputs, VK_LWIN);
+
+            AddDown(inputs, key);
+            AddUp(inputs, key);
+
+            if (win) AddUp(inputs, VK_LWIN);
+            if (alt) AddUp(inputs, VK_MENU);
+            if (shift) AddUp(inputs, VK_SHIFT);
+            if (ctrl) AddUp(inputs, VK_CONTROL);
+
+            INPUT[] packet = inputs.ToArray();
+
+            uint sent = SendInput(
+                (uint)packet.Length,
+                packet,
+                System.Runtime.InteropServices.Marshal.SizeOf(typeof(INPUT))
+            );
+
+            if (sent != packet.Length)
+            {
+                int error =
+                    System.Runtime.InteropServices.Marshal.GetLastWin32Error();
+
+                throw new System.ComponentModel.Win32Exception(
+                    error,
+                    "SendInput did not send the complete hotkey."
+                );
+            }
+        }
+    }
+    public static class MugenFolderPicker
+    {
+        private const uint FOS_PICKFOLDERS = 0x00000020;
+        private const uint FOS_FORCEFILESYSTEM = 0x00000040;
+        private const uint FOS_PATHMUSTEXIST = 0x00000800;
+        private const uint SIGDN_FILESYSPATH = 0x80058000;
+        private const int ERROR_CANCELLED_HRESULT =
+            unchecked((int)0x800704C7);
+
+        [System.Runtime.InteropServices.ComImport]
+        [System.Runtime.InteropServices.Guid(
+            "DC1C5A9C-E88A-4DDE-A5A1-60F82A20AEF7"
+        )]
+        [System.Runtime.InteropServices.ClassInterface(
+            System.Runtime.InteropServices.ClassInterfaceType.None
+        )]
+        private class FileOpenDialogRCW
+        {
+        }
+
+        [System.Runtime.InteropServices.ComImport]
+        [System.Runtime.InteropServices.Guid(
+            "42f85136-db7e-439c-85f1-e4075d135fc8"
+        )]
+        [System.Runtime.InteropServices.InterfaceType(
+            System.Runtime.InteropServices.ComInterfaceType.InterfaceIsIUnknown
+        )]
+        private interface IFileDialog
+        {
+            [System.Runtime.InteropServices.PreserveSig]
+            int Show(IntPtr parent);
+
+            void SetFileTypes(uint cFileTypes, IntPtr rgFilterSpec);
+            void SetFileTypeIndex(uint iFileType);
+            void GetFileTypeIndex(out uint piFileType);
+            void Advise(IntPtr pfde, out uint pdwCookie);
+            void Unadvise(uint dwCookie);
+            void SetOptions(uint fos);
+            void GetOptions(out uint pfos);
+            void SetDefaultFolder(IShellItem psi);
+            void SetFolder(IShellItem psi);
+            void GetFolder(out IShellItem ppsi);
+            void GetCurrentSelection(out IShellItem ppsi);
+
+            void SetFileName(
+                [System.Runtime.InteropServices.MarshalAs(
+                    System.Runtime.InteropServices.UnmanagedType.LPWStr
+                )]
+                string pszName
+            );
+
+            void GetFileName(
+                [System.Runtime.InteropServices.MarshalAs(
+                    System.Runtime.InteropServices.UnmanagedType.LPWStr
+                )]
+                out string pszName
+            );
+
+            void SetTitle(
+                [System.Runtime.InteropServices.MarshalAs(
+                    System.Runtime.InteropServices.UnmanagedType.LPWStr
+                )]
+                string pszTitle
+            );
+
+            void SetOkButtonLabel(
+                [System.Runtime.InteropServices.MarshalAs(
+                    System.Runtime.InteropServices.UnmanagedType.LPWStr
+                )]
+                string pszText
+            );
+
+            void SetFileNameLabel(
+                [System.Runtime.InteropServices.MarshalAs(
+                    System.Runtime.InteropServices.UnmanagedType.LPWStr
+                )]
+                string pszLabel
+            );
+
+            void GetResult(out IShellItem ppsi);
+            void AddPlace(IShellItem psi, int fdap);
+
+            void SetDefaultExtension(
+                [System.Runtime.InteropServices.MarshalAs(
+                    System.Runtime.InteropServices.UnmanagedType.LPWStr
+                )]
+                string pszDefaultExtension
+            );
+
+            void Close(int hr);
+            void SetClientGuid(ref Guid guid);
+            void ClearClientData();
+            void SetFilter(IntPtr pFilter);
+        }
+
+        [System.Runtime.InteropServices.ComImport]
+        [System.Runtime.InteropServices.Guid(
+            "43826D1E-E718-42EE-BC55-A1E261C37BFE"
+        )]
+        [System.Runtime.InteropServices.InterfaceType(
+            System.Runtime.InteropServices.ComInterfaceType.InterfaceIsIUnknown
+        )]
+        private interface IShellItem
+        {
+            void BindToHandler(
+                IntPtr pbc,
+                ref Guid bhid,
+                ref Guid riid,
+                out IntPtr ppv
+            );
+
+            void GetParent(out IShellItem ppsi);
+
+            void GetDisplayName(
+                uint sigdnName,
+                out IntPtr ppszName
+            );
+
+            void GetAttributes(
+                uint sfgaoMask,
+                out uint psfgaoAttribs
+            );
+
+            void Compare(
+                IShellItem psi,
+                uint hint,
+                out int piOrder
+            );
+        }
+
+        [System.Runtime.InteropServices.DllImport(
+            "shell32.dll",
+            CharSet = System.Runtime.InteropServices.CharSet.Unicode,
+            PreserveSig = true
+        )]
+        private static extern int SHCreateItemFromParsingName(
+            string pszPath,
+            IntPtr pbc,
+            ref Guid riid,
+            [System.Runtime.InteropServices.MarshalAs(
+                System.Runtime.InteropServices.UnmanagedType.Interface
+            )]
+            out IShellItem ppv
+        );
+
+        public static string SelectFolder(
+            IntPtr owner,
+            string initialPath,
+            string title,
+            string okButtonLabel
+        )
+        {
+            IFileDialog dialog = null;
+            IShellItem initialItem = null;
+            IShellItem resultItem = null;
+            IntPtr pathPtr = IntPtr.Zero;
+
+            try
+            {
+                dialog = (IFileDialog)new FileOpenDialogRCW();
+
+                uint options;
+                dialog.GetOptions(out options);
+
+                options |=
+                    FOS_PICKFOLDERS |
+                    FOS_FORCEFILESYSTEM |
+                    FOS_PATHMUSTEXIST;
+
+                dialog.SetOptions(options);
+
+                if (!string.IsNullOrWhiteSpace(title))
+                    dialog.SetTitle(title);
+
+                if (!string.IsNullOrWhiteSpace(okButtonLabel))
+                    dialog.SetOkButtonLabel(okButtonLabel);
+
+                if (
+                    !string.IsNullOrWhiteSpace(initialPath) &&
+                    System.IO.Directory.Exists(initialPath)
+                )
+                {
+                    Guid shellItemId = new Guid(
+                        "43826D1E-E718-42EE-BC55-A1E261C37BFE"
+                    );
+
+                    int createHr = SHCreateItemFromParsingName(
+                        initialPath,
+                        IntPtr.Zero,
+                        ref shellItemId,
+                        out initialItem
+                    );
+
+                    if (createHr >= 0 && initialItem != null)
+                        dialog.SetFolder(initialItem);
+                }
+
+                int showHr = dialog.Show(owner);
+
+                if (showHr == ERROR_CANCELLED_HRESULT)
+                    return null;
+
+                if (showHr < 0)
+                    System.Runtime.InteropServices.Marshal.ThrowExceptionForHR(
+                        showHr
+                    );
+
+                dialog.GetResult(out resultItem);
+                resultItem.GetDisplayName(
+                    SIGDN_FILESYSPATH,
+                    out pathPtr
+                );
+
+                if (pathPtr == IntPtr.Zero)
+                    return null;
+
+                return System.Runtime.InteropServices.Marshal.PtrToStringUni(
+                    pathPtr
+                );
+            }
+            finally
+            {
+                if (pathPtr != IntPtr.Zero)
+                    System.Runtime.InteropServices.Marshal.FreeCoTaskMem(
+                        pathPtr
+                    );
+
+                if (
+                    resultItem != null &&
+                    System.Runtime.InteropServices.Marshal.IsComObject(
+                        resultItem
+                    )
+                )
+                {
+                    System.Runtime.InteropServices.Marshal.FinalReleaseComObject(
+                        resultItem
+                    );
+                }
+
+                if (
+                    initialItem != null &&
+                    System.Runtime.InteropServices.Marshal.IsComObject(
+                        initialItem
+                    )
+                )
+                {
+                    System.Runtime.InteropServices.Marshal.FinalReleaseComObject(
+                        initialItem
+                    );
+                }
+
+                if (
+                    dialog != null &&
+                    System.Runtime.InteropServices.Marshal.IsComObject(dialog)
+                )
+                {
+                    System.Runtime.InteropServices.Marshal.FinalReleaseComObject(
+                        dialog
+                    );
+                }
+            }
+        }
+    }
     public sealed class MugenProgressBar : Control
     {
         private int minimum;
@@ -831,7 +1834,25 @@ if (-not $createdNew) {
     exit 0
 }
 
-$script:AppVersion = '0.8.7'
+$script:AppVersion = '0.9.0-dev25'
+$script:ControllerProtocol = 'unknown'
+$script:DetectedSliderCount = 0
+$script:DetectedButtonCount = 0
+$script:LatestButtons = @()
+$script:LastButtonStates = @()
+$script:LastCapabilityMismatchLog = [DateTime]::MinValue
+$script:ButtonActionConfigPath = Join-Path $script:BaseDir 'button-actions.dev.json'
+$script:ButtonActionsLoaded = $false
+$script:ButtonActions = @()
+$script:SoftMutedSliders = @{}
+$script:LastButtonActionAt = @{}
+$script:ButtonSettingsButton = $null
+$script:SettingsHintControl = $null
+$script:ButtonStateGroup = $null
+$script:ButtonStateFlow = $null
+$script:MainButtonIndicators = @()
+$script:KnobMuteLabels = @()
+$script:LastButtonUiVisible = $null
 $script:LogDir = Join-Path $script:BaseDir 'logs'
 $script:LogPath = Join-Path $script:LogDir 'mugen-deej.log'
 $script:DriverDir = Join-Path $script:BaseDir 'drivers'
@@ -2320,6 +3341,50 @@ function Test-IsMutedColor {
     return ($known -contains $argb)
 }
 
+function Set-RoundedControlRegion {
+    param(
+        [Parameter(Mandatory = $true)][System.Windows.Forms.Control]$Control,
+        [Parameter(Mandatory = $true)][int]$Radius
+    )
+
+    if ($Control.IsDisposed -or $Control.Width -le 1 -or $Control.Height -le 1) {
+        return
+    }
+
+    $safeRadius = [Math]::Max(
+        1,
+        [Math]::Min(
+            $Radius,
+            [int][Math]::Floor([Math]::Min($Control.Width, $Control.Height) / 2)
+        )
+    )
+    $diameter = $safeRadius * 2
+    $rect = [System.Drawing.Rectangle]::new(
+        0,
+        0,
+        $Control.Width,
+        $Control.Height
+    )
+
+    $path = New-Object System.Drawing.Drawing2D.GraphicsPath
+    try {
+        $path.AddArc($rect.Left, $rect.Top, $diameter, $diameter, 180, 90)
+        $path.AddArc(($rect.Right - $diameter), $rect.Top, $diameter, $diameter, 270, 90)
+        $path.AddArc(($rect.Right - $diameter), ($rect.Bottom - $diameter), $diameter, $diameter, 0, 90)
+        $path.AddArc($rect.Left, ($rect.Bottom - $diameter), $diameter, $diameter, 90, 90)
+        $path.CloseFigure()
+
+        $oldRegion = $Control.Region
+        $Control.Region = New-Object System.Drawing.Region($path)
+        if ($null -ne $oldRegion) {
+            $oldRegion.Dispose()
+        }
+    }
+    finally {
+        $path.Dispose()
+    }
+}
+
 function Apply-ThemeToControl {
     param(
         [Parameter(Mandatory = $true)][System.Windows.Forms.Control]$Control,
@@ -2328,6 +3393,63 @@ function Apply-ThemeToControl {
 
     $palette = $script:ThemePalettes[$ThemeName]
     $isDark = ($ThemeName -eq 'dark')
+    # dev5: true owner-drawn rounded controls. Return before the dev4
+    # Region-based fallback and before the generic WinForms Button/Label branches.
+    if ($Control -is [MugenDeejWindowing.MugenButton]) {
+        $isPrimary = ([string]$Control.Tag -eq 'MugenPrimary')
+        $radius = if ([string]$Control.Tag -eq 'MugenSection') { 7 } else { 8 }
+
+        if ($isPrimary) {
+            $Control.ApplyTheme(
+                $palette.Accent,
+                $palette.AccentText,
+                $palette.Accent,
+                $palette.AccentHover,
+                $palette.AccentPressed,
+                $palette.DisabledControl,
+                $palette.DisabledText,
+                $palette.Border,
+                $palette.Accent,
+                $radius
+            )
+        }
+        else {
+            $Control.ApplyTheme(
+                $palette.Control,
+                $palette.Text,
+                $palette.Border,
+                $palette.ControlHover,
+                $palette.ControlPressed,
+                $palette.DisabledControl,
+                $palette.DisabledText,
+                $palette.Border,
+                $palette.Accent,
+                $radius
+            )
+        }
+        return
+    }
+
+    if ($Control -is [MugenDeejWindowing.MugenButtonTile]) {
+        $Control.ApplyTheme(
+            $palette.Control,
+            $palette.Text,
+            $palette.Border
+        )
+        return
+    }
+
+    # dev4 rounding hierarchy:
+    # cards keep their existing largest radius;
+    # normal buttons use 8 px;
+    # section/diagnostic toggles use a slightly tighter 7 px.
+    if ($Control -is [System.Windows.Forms.Button]) {
+        $buttonRadius = 8
+        if ([string]$Control.Tag -eq 'MugenSection') {
+            $buttonRadius = 7
+        }
+        Set-RoundedControlRegion -Control $Control -Radius $buttonRadius
+    }
 
     if ($Control -is [MugenDeejWindowing.MugenProgressBar]) {
         $Control.ApplyTheme($palette.ProgressTrack, $palette.Accent, $palette.Border)
@@ -2995,7 +4117,7 @@ function Show-ApplicationPicker {
     $otherEmptyLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
     $otherGroup.Controls.Add($otherEmptyLabel)
 
-    $refreshAppsButton = New-Object System.Windows.Forms.Button
+    $refreshAppsButton = New-Object MugenDeejWindowing.MugenButton
     $refreshAppsButton.Text = (T -Key 'RefreshList')
     $refreshAppsButton.Location = New-Object System.Drawing.Point(25, 563)
     $refreshAppsButton.Size = New-Object System.Drawing.Size(175, 34)
@@ -3012,7 +4134,7 @@ function Show-ApplicationPicker {
     $manualBox.Size = New-Object System.Drawing.Size(430, 30)
     $pickerForm.Controls.Add($manualBox)
 
-    $addManualButton = New-Object System.Windows.Forms.Button
+    $addManualButton = New-Object MugenDeejWindowing.MugenButton
     $addManualButton.Text = (T -Key 'Add')
     $addManualButton.Location = New-Object System.Drawing.Point(660, 596)
     $addManualButton.Size = New-Object System.Drawing.Size(175, 34)
@@ -3025,14 +4147,14 @@ function Show-ApplicationPicker {
     $manualHint.Size = New-Object System.Drawing.Size(610, 38)
     $pickerForm.Controls.Add($manualHint)
 
-    $cancelButton = New-Object System.Windows.Forms.Button
+    $cancelButton = New-Object MugenDeejWindowing.MugenButton
     $cancelButton.Text = (T -Key 'Cancel')
     $cancelButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
     $cancelButton.Location = New-Object System.Drawing.Point(635, 685)
     $cancelButton.Size = New-Object System.Drawing.Size(90, 34)
     $pickerForm.Controls.Add($cancelButton)
 
-    $saveButton = New-Object System.Windows.Forms.Button
+    $saveButton = New-Object MugenDeejWindowing.MugenButton
     $saveButton.Text = (T -Key 'Done')
     $saveButton.Location = New-Object System.Drawing.Point(735, 685)
     $saveButton.Size = New-Object System.Drawing.Size(90, 34)
@@ -3210,6 +4332,36 @@ function Show-SliderSettings {
     $hint.Location = New-Object System.Drawing.Point(25, 56)
     $hint.Size = New-Object System.Drawing.Size(1055, 58)
     $settingsForm.Controls.Add($hint)
+    # SOAK UX: configuration is transactional, while hardware position is live.
+    $saveNotice = New-Object System.Windows.Forms.Label
+
+    if ($script:Language -eq 'ru') {
+        $saveNotice.Text = 'Важно: названия, режимы и назначенные приложения применяются только после нажатия «Сохранить». Положение физических регуляторов отображается сразу.'
+    }
+    else {
+        $saveNotice.Text = 'Important: names, modes, and assigned applications are applied only after you click Save. Physical control positions are shown immediately.'
+    }
+
+    $saveNotice.Font = New-Object System.Drawing.Font(
+        'Segoe UI Semibold',
+        9.5
+    )
+    $saveNotice.ForeColor = [System.Drawing.Color]::FromArgb(
+        230,
+        170,
+        70
+    )
+    $saveNotice.AutoSize = $false
+    $saveNotice.Location = New-Object System.Drawing.Point(
+        $hint.Left,
+        ($hint.Bottom + 4)
+    )
+    $saveNotice.Size = New-Object System.Drawing.Size(
+        ($settingsForm.ClientSize.Width - $hint.Left - 24),
+        34
+    )
+    $saveNotice.TextAlign = 'MiddleLeft'
+    $settingsForm.Controls.Add($saveNotice)
 
     $headers = @(
         @{ Text = (T -Key 'HeaderKnob'); X = 24; Width = 140 },
@@ -3304,7 +4456,7 @@ function Show-SliderSettings {
         $rowPanel.Controls.Add($summaryLabel)
         [void]$summaryLabels.Add($summaryLabel)
 
-        $selectButton = New-Object System.Windows.Forms.Button
+        $selectButton = New-Object MugenDeejWindowing.MugenButton
         $selectButton.Text = (T -Key 'SelectApplications')
         $selectButton.Location = New-Object System.Drawing.Point(722, 15)
         $selectButton.Size = New-Object System.Drawing.Size(180, 34)
@@ -3390,7 +4542,8 @@ function Show-SliderSettings {
         & $updateRowSummary $i
     }
 
-    $advancedToggle = New-Object System.Windows.Forms.Button
+    $advancedToggle = New-Object MugenDeejWindowing.MugenButton
+    $advancedToggle.Tag = 'MugenSection'
     $advancedToggle.Text = (T -Key 'AdvancedClosed')
     $advancedToggle.Location = New-Object System.Drawing.Point(25, 540)
     $advancedToggle.Size = New-Object System.Drawing.Size(245, 34)
@@ -3434,7 +4587,7 @@ function Show-SliderSettings {
     $responseHint.Size = New-Object System.Drawing.Size(355, 48)
     $advancedPanel.Controls.Add($responseHint)
 
-    $advancedConfigButton = New-Object System.Windows.Forms.Button
+    $advancedConfigButton = New-Object MugenDeejWindowing.MugenButton
     $advancedConfigButton.Text = (T -Key 'OpenConfig')
     $advancedConfigButton.Location = New-Object System.Drawing.Point(0, 74)
     $advancedConfigButton.Size = New-Object System.Drawing.Size(190, 32)
@@ -3456,14 +4609,14 @@ function Show-SliderSettings {
     })
     $advancedConfigButton.Add_Click({ Start-Process notepad.exe -ArgumentList ('"{0}"' -f $script:ConfigPath) })
 
-    $cancelButton = New-Object System.Windows.Forms.Button
+    $cancelButton = New-Object MugenDeejWindowing.MugenButton
     $cancelButton.Text = (T -Key 'Cancel')
     $cancelButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
     $cancelButton.Location = New-Object System.Drawing.Point(870, 677)
     $cancelButton.Size = New-Object System.Drawing.Size(100, 36)
     $settingsForm.Controls.Add($cancelButton)
 
-    $saveButton = New-Object System.Windows.Forms.Button
+    $saveButton = New-Object MugenDeejWindowing.MugenButton
     $saveButton.Text = (T -Key 'Save')
     $saveButton.Location = New-Object System.Drawing.Point(982, 677)
     $saveButton.Size = New-Object System.Drawing.Size(105, 36)
@@ -3540,7 +4693,44 @@ function Show-SliderSettings {
         $settingsForm.Close()
     })
 
+    # Make room for the Save/apply notice without depending on hardcoded row Y
+    # coordinates. All existing top-level controls below the original hint move
+    # down together; the form grows by the same amount.
+    $saveNoticeShift = 38
+    $originalHintBottom = $hint.Bottom
+
+    foreach ($control in @($settingsForm.Controls)) {
+        if (
+            $control -ne $saveNotice -and
+            $control -ne $hint -and
+            $control.Top -gt $originalHintBottom
+        ) {
+            $control.Top = $control.Top + $saveNoticeShift
+        }
+    }
+
+    $settingsForm.ClientSize = New-Object System.Drawing.Size(
+        $settingsForm.ClientSize.Width,
+        ($settingsForm.ClientSize.Height + $saveNoticeShift)
+    )
+
+    if (
+        $settingsForm.MinimumSize.Width -gt 0 -and
+        $settingsForm.MinimumSize.Height -gt 0
+    ) {
+        $settingsForm.MinimumSize = New-Object System.Drawing.Size(
+            $settingsForm.MinimumSize.Width,
+            ($settingsForm.MinimumSize.Height + $saveNoticeShift)
+        )
+    }
     Apply-ThemeToForm -Form $settingsForm
+
+    # Theme application recolors generic labels; restore semantic amber.
+    $saveNotice.ForeColor = [System.Drawing.Color]::FromArgb(
+        230,
+        170,
+        70
+    )
     $settingsForm.Add_Shown({ Ensure-FormVisible -Form $settingsForm -CenterIfOffscreen })
     $settingsForm.Add_FormClosed({ $liveTimer.Stop(); $liveTimer.Dispose(); $nameToolTip.Dispose() })
     $settingsForm.AcceptButton = $saveButton
@@ -3607,13 +4797,13 @@ function Show-FirstRunWizard {
         $wizardPercents += $percent
     }
 
-    $laterButton = New-Object System.Windows.Forms.Button
+    $laterButton = New-Object MugenDeejWindowing.MugenButton
     $laterButton.Text = (T -Key 'CloseHint')
     $laterButton.Location = New-Object System.Drawing.Point(305, 452)
     $laterButton.Size = New-Object System.Drawing.Size(155, 36)
     $wizard.Controls.Add($laterButton)
 
-    $configureButton = New-Object System.Windows.Forms.Button
+    $configureButton = New-Object MugenDeejWindowing.MugenButton
     $configureButton.Text = (T -Key 'ConfigureKnobs')
     $configureButton.Location = New-Object System.Drawing.Point(472, 452)
     $configureButton.Size = New-Object System.Drawing.Size(160, 36)
@@ -3776,22 +4966,2674 @@ function Add-PendingNewPorts {
     }
 }
 
-function Test-ProtocolLine {
-    param(
-        [string]$Line,
-        [int]$ExpectedCount
-    )
+function Get-ControllerPacketSignature {
+    param([Parameter(Mandatory = $true)]$Packet)
+    return ('{0}:{1}:{2}' -f [string]$Packet.Protocol, @($Packet.Sliders).Count, @($Packet.Buttons).Count)
+}
+
+function Test-ControllerProtocolLine {
+    param([string]$Line)
+
     if ([string]::IsNullOrWhiteSpace($Line)) { return $null }
-    $parts = $Line.Trim() -split '\|'
-    if ($parts.Count -ne $ExpectedCount) { return $null }
-    $values = New-Object int[] $ExpectedCount
-    for ($i = 0; $i -lt $ExpectedCount; $i++) {
+
+    $parts = @($Line.Trim() -split '\|')
+    if ($parts.Count -lt 1 -or $parts.Count -gt 64) { return $null }
+
+    # Classic deej protocol: raw numeric values only.
+    $legacyValues = New-Object 'System.Collections.Generic.List[int]'
+    $legacy = $true
+    foreach ($part in $parts) {
         $value = 0
-        if (-not [int]::TryParse($parts[$i], [ref]$value)) { return $null }
-        if ($value -lt 0 -or $value -gt 1023) { return $null }
-        $values[$i] = $value
+        if (-not [int]::TryParse($part, [ref]$value) -or $value -lt 0 -or $value -gt 1023) {
+            $legacy = $false
+            break
+        }
+        $legacyValues.Add($value)
     }
-    return ,$values
+
+    if ($legacy -and $legacyValues.Count -gt 0) {
+        return [pscustomobject]@{
+            Protocol = 'legacy'
+            Sliders = @($legacyValues.ToArray())
+            Buttons = @()
+        }
+    }
+
+    # Extended s/b protocol used by Miodec-style button sketches and the
+    # Mugen reference sketch. Slider and button counts are discovered from
+    # the packet itself.
+    $sliders = New-Object 'System.Collections.Generic.List[int]'
+    $buttons = New-Object 'System.Collections.Generic.List[int]'
+
+    foreach ($part in $parts) {
+        $match = [regex]::Match($part, '^(?<kind>[sSbB])(?<value>\d{1,4})$')
+        if (-not $match.Success) { return $null }
+
+        $kind = $match.Groups['kind'].Value.ToLowerInvariant()
+        $value = 0
+        if (-not [int]::TryParse($match.Groups['value'].Value, [ref]$value)) { return $null }
+
+        if ($kind -eq 's') {
+            if ($value -lt 0 -or $value -gt 1023) { return $null }
+            $sliders.Add($value)
+        }
+        elseif ($kind -eq 'b') {
+            if ($value -ne 0 -and $value -ne 1) { return $null }
+            $buttons.Add($value)
+        }
+        else {
+            return $null
+        }
+    }
+
+    if ($sliders.Count -lt 1) { return $null }
+
+    return [pscustomobject]@{
+        Protocol = 'extended'
+        Sliders = @($sliders.ToArray())
+        Buttons = @($buttons.ToArray())
+    }
+}
+
+function Get-ControllerConnectedStatusText {
+    param([Parameter(Mandatory = $true)][string]$PortName)
+
+    $sliderCount = [int]$script:DetectedSliderCount
+    $buttonCount = [int]$script:DetectedButtonCount
+
+    if ($sliderCount -le 0) {
+        $sliderCount = [int]$script:Config.connection.expectedSliders
+    }
+
+    if ($script:Language -eq 'ru') {
+        if ($buttonCount -gt 0) {
+            return ('Контроллер подключён — {0} · {1} регуляторов · {2} кнопок' -f $PortName, $sliderCount, $buttonCount)
+        }
+        return ('Контроллер подключён — {0} · {1} регуляторов' -f $PortName, $sliderCount)
+    }
+
+    if ($buttonCount -gt 0) {
+        return ('Controller connected — {0} · {1} controls · {2} buttons' -f $PortName, $sliderCount, $buttonCount)
+    }
+    return ('Controller connected — {0} · {1} controls' -f $PortName, $sliderCount)
+}
+
+function Set-DetectedControllerCapabilities {
+    param(
+        [Parameter(Mandatory = $true)]$Packet,
+        [string]$PortName = ''
+    )
+
+    $protocol = [string]$Packet.Protocol
+    $sliderCount = @($Packet.Sliders).Count
+    $buttonCount = @($Packet.Buttons).Count
+
+    $changed = (
+        $script:ControllerProtocol -ne $protocol -or
+        $script:DetectedSliderCount -ne $sliderCount -or
+        $script:DetectedButtonCount -ne $buttonCount
+    )
+
+    $script:ControllerProtocol = $protocol
+    $script:DetectedSliderCount = $sliderCount
+    $script:DetectedButtonCount = $buttonCount
+    $script:SoftMutedSliders = @{}
+    $script:LastButtonActionAt = @{}
+    if ($buttonCount -gt 0) {
+        Normalize-ButtonActions -Count $buttonCount
+    }
+    Update-ButtonFeatureUi
+
+    if ($changed) {
+        Write-Log (
+            'Controller capabilities detected: port={0}; protocol={1}; sliders={2}; buttons={3}' -f
+            $PortName, $protocol, $sliderCount, $buttonCount
+        ) 'INFO'
+    }
+}
+
+function Initialize-ButtonStates {
+    param([int[]]$Values)
+
+    $script:LatestButtons = @($Values)
+    $script:LastButtonStates = @($Values)
+
+    if (@($Values).Count -gt 0) {
+        Write-Log ('Button states initialized: {0}' -f (@($Values) -join ',')) 'DEBUG'
+    }
+}
+
+function Update-ButtonStates {
+    param([int[]]$Values)
+
+    $valuesArray = @($Values)
+    $script:LatestButtons = $valuesArray
+
+    if ($valuesArray.Count -eq 0) {
+        $script:LastButtonStates = @()
+        return
+    }
+
+    if (@($script:LastButtonStates).Count -ne $valuesArray.Count) {
+        Initialize-ButtonStates -Values $valuesArray
+        return
+    }
+
+    for ($i = 0; $i -lt $valuesArray.Count; $i++) {
+        $newValue = [int]$valuesArray[$i]
+        $oldValue = [int]$script:LastButtonStates[$i]
+        if ($newValue -eq $oldValue) { continue }
+
+        $script:LastButtonStates[$i] = $newValue
+        $state = if ($newValue -eq 0) { 'pressed' } else { 'released' }
+        Write-Log ('Button {0} {1} (raw={2})' -f ($i + 1), $state, $newValue) 'INFO'
+        if ($newValue -eq 0) {
+            Invoke-ButtonAction -ButtonIndex $i
+        }
+    }
+}
+
+function Get-ButtonFeatureText {
+    param([Parameter(Mandatory = $true)][string]$Key)
+
+    $ru = ($script:Language -eq 'ru')
+
+    switch ($Key) {
+        'MainButton' {
+            if ($ru) { return 'Настроить кнопки' }
+            else { return 'Configure buttons' }
+        }
+
+        'Title' {
+            if ($ru) { return 'Настройка кнопок — Mugen Deej' }
+            else { return 'Button settings — Mugen Deej' }
+        }
+
+        'Heading' {
+            if ($ru) { return 'Действия физических кнопок' }
+            else { return 'Physical button actions' }
+        }
+
+        'Hint' {
+            if ($ru) {
+                return 'Назначьте каждой физической кнопке действие. Доступны действия регуляторов, медиакоманды, системная громкость Windows и собственные горячие клавиши. Действие выполняется один раз при нажатии.'
+            }
+            else {
+                return 'Assign an action to each physical button. Available actions include control mute, media commands, Windows system volume, and custom hotkeys. Each action fires once per press.'
+            }
+        }
+
+        'ButtonN' {
+            if ($ru) { return 'Кнопка' }
+            else { return 'Button' }
+        }
+
+        'ButtonStatus' {
+            if ($ru) { return 'Состояние кнопок' }
+            else { return 'Button status' }
+        }
+
+        'None' {
+            if ($ru) { return 'Не использовать' }
+            else { return 'Do nothing' }
+        }
+
+        'MuteControl' {
+            if ($ru) { return 'Регулятор: отключить / включить звук' }
+            else { return 'Control: mute / unmute' }
+        }
+
+        'PlayPause' {
+            if ($ru) { return 'Медиа: воспроизведение / пауза' }
+            else { return 'Media: play / pause' }
+        }
+
+        'PreviousTrack' {
+            if ($ru) { return 'Медиа: предыдущий трек' }
+            else { return 'Media: previous track' }
+        }
+
+        'NextTrack' {
+            if ($ru) { return 'Медиа: следующий трек' }
+            else { return 'Media: next track' }
+        }
+
+        'StopPlayback' {
+            if ($ru) { return 'Медиа: стоп (полная остановка)' }
+            else { return 'Media: stop playback' }
+        }
+
+        'VolumeUp' {
+            if ($ru) { return 'Windows: сделать громче' }
+            else { return 'Windows: volume up' }
+        }
+
+        'VolumeDown' {
+            if ($ru) { return 'Windows: сделать тише' }
+            else { return 'Windows: volume down' }
+        }
+
+        'VolumeMute' {
+            if ($ru) { return 'Windows: отключить / включить системный звук' }
+            else { return 'Windows: mute / unmute system volume' }
+        }
+
+        'HotkeyConfigure' {
+            if ($ru) { return 'Горячая клавиша…' }
+            else { return 'Hotkey…' }
+        }
+
+        'HotkeyPrefix' {
+            if ($ru) { return 'Горячая клавиша: ' }
+            else { return 'Hotkey: ' }
+        }
+
+        'HotkeyTitle' {
+            if ($ru) { return 'Горячая клавиша — Mugen Deej' }
+            else { return 'Hotkey — Mugen Deej' }
+        }
+
+        'HotkeyHeading' {
+            if ($ru) { return 'Настройка горячей клавиши' }
+            else { return 'Configure hotkey' }
+        }
+
+        'HotkeyHint' {
+            if ($ru) {
+                return 'Выберите модификаторы и клавишу. F13–F24 особенно удобны для OBS и других программ: они редко заняты обычной клавиатурой.'
+            }
+            else {
+                return 'Choose modifiers and a key. F13–F24 are especially useful for OBS and similar apps because normal keyboards rarely use them.'
+            }
+        }
+
+        'HotkeyKey' {
+            if ($ru) { return 'Клавиша:' }
+            else { return 'Key:' }
+        }
+
+        'Muted' {
+            if ($ru) { return 'БЕЗ ЗВУКА' }
+            else { return 'MUTED' }
+        }
+
+        'Save' {
+            if ($ru) { return 'Сохранить' }
+            else { return 'Save' }
+        }
+
+        'Cancel' {
+            if ($ru) { return 'Отмена' }
+            else { return 'Cancel' }
+        }
+
+        'NoButtons' {
+            if ($ru) { return 'Подключённый контроллер не сообщает о кнопках.' }
+            else { return 'The connected controller does not report any buttons.' }
+        }
+
+        default {
+            return $Key
+        }
+    }
+}
+
+function Get-HotkeyKeyName {
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$KeyCode
+    )
+
+    if ($KeyCode -ge 65 -and $KeyCode -le 90) {
+        return [char]$KeyCode
+    }
+
+    if ($KeyCode -ge 48 -and $KeyCode -le 57) {
+        return [char]$KeyCode
+    }
+
+    if ($KeyCode -ge 112 -and $KeyCode -le 135) {
+        return ('F' + ($KeyCode - 111))
+    }
+
+    if ($KeyCode -ge 96 -and $KeyCode -le 105) {
+        return ('Num ' + ($KeyCode - 96))
+    }
+
+    switch ($KeyCode) {
+        8   { return 'Backspace' }
+        9   { return 'Tab' }
+        13  { return 'Enter' }
+        19  { return 'Pause' }
+        27  { return 'Esc' }
+        32  { return 'Space' }
+        33  { return 'Page Up' }
+        34  { return 'Page Down' }
+        35  { return 'End' }
+        36  { return 'Home' }
+        37  { return 'Left' }
+        38  { return 'Up' }
+        39  { return 'Right' }
+        40  { return 'Down' }
+        44  { return 'Print Screen' }
+        45  { return 'Insert' }
+        46  { return 'Delete' }
+        106 { return 'Num *' }
+        107 { return 'Num +' }
+        109 { return 'Num -' }
+        110 { return 'Num .' }
+        111 { return 'Num /' }
+        186 { return ';' }
+        187 { return '=' }
+        188 { return ',' }
+        189 { return '-' }
+        190 { return '.' }
+        191 { return '/' }
+        192 { return '`' }
+        219 { return '[' }
+        220 { return '\' }
+        221 { return ']' }
+        222 { return '''' }
+        default { return ('VK ' + $KeyCode) }
+    }
+}
+
+function Get-HotkeyActionDisplay {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Action
+    )
+
+    if ($Action -notmatch '^hotkey:(\d{1,3}):(\d{1,2})$') {
+        return (Get-ButtonFeatureText -Key 'HotkeyConfigure')
+    }
+
+    $keyCode = [int]$Matches[1]
+    $mask = [int]$Matches[2]
+    $parts = @()
+
+    if (($mask -band 1) -ne 0) { $parts += 'Ctrl' }
+    if (($mask -band 2) -ne 0) { $parts += 'Shift' }
+    if (($mask -band 4) -ne 0) { $parts += 'Alt' }
+    if (($mask -band 8) -ne 0) { $parts += 'Win' }
+
+    $parts += (Get-HotkeyKeyName -KeyCode $keyCode)
+
+    return (
+        (Get-ButtonFeatureText -Key 'HotkeyPrefix') +
+        ($parts -join ' + ')
+    )
+}
+
+function Get-HotkeyChoiceTable {
+    $labels = @()
+    $codes = @()
+
+    foreach ($code in 65..90) {
+        $labels += [string][char]$code
+        $codes += $code
+    }
+
+    foreach ($code in 48..57) {
+        $labels += [string][char]$code
+        $codes += $code
+    }
+
+    foreach ($number in 1..24) {
+        $labels += ('F' + $number)
+        $codes += (111 + $number)
+    }
+
+    $special = @(
+        @(32, 'Space'),
+        @(13, 'Enter'),
+        @(9, 'Tab'),
+        @(8, 'Backspace'),
+        @(27, 'Esc'),
+        @(45, 'Insert'),
+        @(46, 'Delete'),
+        @(36, 'Home'),
+        @(35, 'End'),
+        @(33, 'Page Up'),
+        @(34, 'Page Down'),
+        @(37, 'Left'),
+        @(38, 'Up'),
+        @(39, 'Right'),
+        @(40, 'Down'),
+        @(44, 'Print Screen'),
+        @(19, 'Pause'),
+        @(186, ';'),
+        @(187, '='),
+        @(188, ','),
+        @(189, '-'),
+        @(190, '.'),
+        @(191, '/'),
+        @(192, '`'),
+        @(219, '['),
+        @(220, '\'),
+        @(221, ']'),
+        @(222, '''')
+    )
+
+    foreach ($item in $special) {
+        $codes += [int]$item[0]
+        $labels += [string]$item[1]
+    }
+
+    foreach ($number in 0..9) {
+        $labels += ('Num ' + $number)
+        $codes += (96 + $number)
+    }
+
+    foreach ($item in @(
+        @(106, 'Num *'),
+        @(107, 'Num +'),
+        @(109, 'Num -'),
+        @(110, 'Num .'),
+        @(111, 'Num /')
+    )) {
+        $codes += [int]$item[0]
+        $labels += [string]$item[1]
+    }
+
+    return [pscustomobject]@{
+        Labels = @($labels)
+        Codes = @($codes)
+    }
+}
+
+function Show-HotkeyEditor {
+    param(
+        [string]$ExistingAction = ''
+    )
+
+    $script:HotkeyEditorResult = $null
+
+    $editor = New-Object System.Windows.Forms.Form
+    $editor.Text = Get-ButtonFeatureText -Key 'HotkeyTitle'
+    $editor.StartPosition = 'CenterParent'
+    $editor.ClientSize = [System.Drawing.Size]::new(590, 435)
+    $editor.MinimumSize = [System.Drawing.Size]::new(606, 474)
+    $editor.Font = New-Object System.Drawing.Font('Segoe UI', 10)
+    $editor.FormBorderStyle = 'FixedDialog'
+    $editor.MaximizeBox = $false
+    $editor.MinimizeBox = $false
+    $editor.KeyPreview = $true
+
+    Set-FormAppIcon -Form $editor
+
+    $heading = New-Object System.Windows.Forms.Label
+    $heading.Text = Get-ButtonFeatureText -Key 'HotkeyHeading'
+    $heading.Font = New-Object System.Drawing.Font(
+        'Segoe UI Semibold',
+        15
+    )
+    $heading.AutoSize = $true
+    $heading.Location = [System.Drawing.Point]::new(22, 18)
+    $editor.Controls.Add($heading)
+
+    $hint = New-Object System.Windows.Forms.Label
+    if ($script:Language -eq 'ru') {
+        $hint.Text = 'Можно выбрать сочетание вручную или нажать кнопку захвата и затем нужное сочетание на обычной клавиатуре. F13–F24 особенно удобны для OBS и других программ.'
+    }
+    else {
+        $hint.Text = 'Choose a shortcut manually, or start capture and press the desired combination on your keyboard. F13–F24 are especially useful for OBS and similar apps.'
+    }
+    $hint.Location = [System.Drawing.Point]::new(25, 56)
+    $hint.Size = [System.Drawing.Size]::new(540, 62)
+    $editor.Controls.Add($hint)
+
+    $ctrlCheck = New-Object System.Windows.Forms.CheckBox
+    $ctrlCheck.Text = 'Ctrl'
+    $ctrlCheck.Location = [System.Drawing.Point]::new(28, 128)
+    $ctrlCheck.Size = [System.Drawing.Size]::new(82, 28)
+    $editor.Controls.Add($ctrlCheck)
+
+    $shiftCheck = New-Object System.Windows.Forms.CheckBox
+    $shiftCheck.Text = 'Shift'
+    $shiftCheck.Location = [System.Drawing.Point]::new(116, 128)
+    $shiftCheck.Size = [System.Drawing.Size]::new(82, 28)
+    $editor.Controls.Add($shiftCheck)
+
+    $altCheck = New-Object System.Windows.Forms.CheckBox
+    $altCheck.Text = 'Alt'
+    $altCheck.Location = [System.Drawing.Point]::new(204, 128)
+    $altCheck.Size = [System.Drawing.Size]::new(82, 28)
+    $editor.Controls.Add($altCheck)
+
+    $winCheck = New-Object System.Windows.Forms.CheckBox
+    $winCheck.Text = 'Win'
+    $winCheck.Location = [System.Drawing.Point]::new(292, 128)
+    $winCheck.Size = [System.Drawing.Size]::new(82, 28)
+    $editor.Controls.Add($winCheck)
+
+    $keyLabel = New-Object System.Windows.Forms.Label
+    $keyLabel.Text = Get-ButtonFeatureText -Key 'HotkeyKey'
+    $keyLabel.Location = [System.Drawing.Point]::new(28, 177)
+    $keyLabel.Size = [System.Drawing.Size]::new(90, 28)
+    $editor.Controls.Add($keyLabel)
+
+    $keyCombo = New-Object MugenDeejWindowing.MugenComboBox
+    $keyCombo.DropDownStyle = 'DropDownList'
+    $keyCombo.Location = [System.Drawing.Point]::new(122, 174)
+    $keyCombo.Size = [System.Drawing.Size]::new(250, 30)
+
+    $choices = Get-HotkeyChoiceTable
+
+    foreach ($label in $choices.Labels) {
+        [void]$keyCombo.Items.Add([string]$label)
+    }
+
+    $existingKey = 124
+    $existingMask = 0
+
+    if ($ExistingAction -match '^hotkey:(\d{1,3}):(\d{1,2})$') {
+        $existingKey = [int]$Matches[1]
+        $existingMask = [int]$Matches[2]
+    }
+
+    $ctrlCheck.Checked = (($existingMask -band 1) -ne 0)
+    $shiftCheck.Checked = (($existingMask -band 2) -ne 0)
+    $altCheck.Checked = (($existingMask -band 4) -ne 0)
+    $winCheck.Checked = (($existingMask -band 8) -ne 0)
+
+    $selectedKeyIndex = [array]::IndexOf(
+        [object[]]$choices.Codes,
+        [object]$existingKey
+    )
+
+    if ($selectedKeyIndex -lt 0) {
+        $selectedKeyIndex = [array]::IndexOf(
+            [object[]]$choices.Codes,
+            [object]124
+        )
+    }
+
+    if ($selectedKeyIndex -lt 0) {
+        $selectedKeyIndex = 0
+    }
+
+    $keyCombo.SelectedIndex = $selectedKeyIndex
+    $editor.Controls.Add($keyCombo)
+
+    $captureButton = New-Object MugenDeejWindowing.MugenButton
+    if ($script:Language -eq 'ru') {
+        $captureButton.Text = 'Нажать сочетание…'
+    }
+    else {
+        $captureButton.Text = 'Press shortcut…'
+    }
+    $captureButton.Location = [System.Drawing.Point]::new(386, 172)
+    $captureButton.Size = [System.Drawing.Size]::new(175, 34)
+    $editor.Controls.Add($captureButton)
+
+    $preview = New-Object System.Windows.Forms.Label
+    $preview.Location = [System.Drawing.Point]::new(28, 224)
+    $preview.Size = [System.Drawing.Size]::new(530, 30)
+    $preview.Font = New-Object System.Drawing.Font(
+        'Segoe UI Semibold',
+        11
+    )
+    $editor.Controls.Add($preview)
+
+    $captureStatus = New-Object System.Windows.Forms.Label
+    $captureStatus.Location = [System.Drawing.Point]::new(28, 257)
+    $captureStatus.Size = [System.Drawing.Size]::new(530, 34)
+    $editor.Controls.Add($captureStatus)
+
+    $systemHotkeyWarning = New-Object System.Windows.Forms.Label
+    if ($script:Language -eq 'ru') {
+        $systemHotkeyWarning.Text = 'Некоторые сочетания — особенно с Win / Alt — зарезервированы Windows или активным приложением. Они могут сработать во время записи или не дойти до нужной программы.'
+    }
+    else {
+        $systemHotkeyWarning.Text = 'Some shortcuts — especially Win / Alt combinations — are reserved by Windows or the active app. They may trigger while recording or never reach the target app.'
+    }
+    $systemHotkeyWarning.Location = [System.Drawing.Point]::new(28, 300)
+    $systemHotkeyWarning.Size = [System.Drawing.Size]::new(530, 58)
+    $editor.Controls.Add($systemHotkeyWarning)
+
+    $captureState = [pscustomobject]@{
+        Armed = $false
+    }
+
+    $updatePreview = {
+        if ($keyCombo.SelectedIndex -lt 0) {
+            $preview.Text = ''
+            return
+        }
+
+        $mask = 0
+
+        if ($ctrlCheck.Checked) { $mask = $mask -bor 1 }
+        if ($shiftCheck.Checked) { $mask = $mask -bor 2 }
+        if ($altCheck.Checked) { $mask = $mask -bor 4 }
+        if ($winCheck.Checked) { $mask = $mask -bor 8 }
+
+        $keyCode = [int]$choices.Codes[$keyCombo.SelectedIndex]
+
+        $preview.Text = Get-HotkeyActionDisplay -Action (
+            'hotkey:' +
+            $keyCode +
+            ':' +
+            $mask
+        )
+    }
+
+    $setCaptureText = {
+        if ($captureState.Armed) {
+            if ($script:Language -eq 'ru') {
+                $captureButton.Text = 'Ожидаю…'
+                $captureStatus.Text = 'Нажмите нужную клавишу или сочетание на клавиатуре.'
+                $captureStatus.ForeColor = [System.Drawing.Color]::FromArgb(48, 190, 108)
+            }
+            else {
+                $captureButton.Text = 'Waiting…'
+                $captureStatus.Text = 'Press the desired key or shortcut on your keyboard.'
+                $captureStatus.ForeColor = [System.Drawing.Color]::FromArgb(48, 190, 108)
+            }
+        }
+        else {
+            if ($script:Language -eq 'ru') {
+                $captureButton.Text = 'Нажать сочетание…'
+            }
+            else {
+                $captureButton.Text = 'Press shortcut…'
+            }
+
+            $captureStatus.Text = ''
+        }
+    }
+
+    $captureButton.Add_Click({
+        if ($captureState.Armed) {
+            $captureState.Armed = $false
+            & $setCaptureText
+            $captureButton.Refresh()
+            $captureStatus.Refresh()
+            return
+        }
+
+        $captureState.Armed = $true
+        & $setCaptureText
+        $captureButton.Refresh()
+        $captureStatus.Refresh()
+
+        $editor.Activate()
+        $editor.Focus()
+    })
+
+    $editor.Add_KeyDown({
+        param($sender, $eventArgs)
+
+        if (-not $captureState.Armed) {
+            return
+        }
+
+        $keyCode = [int]$eventArgs.KeyCode
+
+        # Ignore pure modifier presses and wait for the actual key.
+        if ($keyCode -in @(16, 17, 18, 91, 92)) {
+            $eventArgs.Handled = $true
+            $eventArgs.SuppressKeyPress = $true
+            return
+        }
+
+        # Leave capture mode immediately, before changing checkboxes or the
+        # ComboBox. Those control changes can trigger more WinForms events and
+        # repaint work; keeping Armed=true until the end made "Ожидаю..." linger
+        # visually even though the shortcut had already been captured.
+        $captureState.Armed = $false
+        & $setCaptureText
+        $captureButton.Refresh()
+        $captureStatus.Refresh()
+        [System.Windows.Forms.Application]::DoEvents()
+
+        $mask = 0
+
+        if ($eventArgs.Control) { $mask = $mask -bor 1 }
+        if ($eventArgs.Shift)   { $mask = $mask -bor 2 }
+        if ($eventArgs.Alt)     { $mask = $mask -bor 4 }
+
+        if ([MugenDeejWindowing.MugenHotkeys]::IsWindowsKeyDown()) {
+            $mask = $mask -bor 8
+        }
+
+        $ctrlCheck.Checked = (($mask -band 1) -ne 0)
+        $shiftCheck.Checked = (($mask -band 2) -ne 0)
+        $altCheck.Checked = (($mask -band 4) -ne 0)
+        $winCheck.Checked = (($mask -band 8) -ne 0)
+
+        $foundIndex = -1
+
+        for ($i = 0; $i -lt @($choices.Codes).Count; $i++) {
+            if ([int]$choices.Codes[$i] -eq $keyCode) {
+                $foundIndex = $i
+                break
+            }
+        }
+
+        if ($foundIndex -lt 0) {
+            $choices.Codes = @($choices.Codes) + $keyCode
+            $choices.Labels = @($choices.Labels) + (
+                Get-HotkeyKeyName -KeyCode $keyCode
+            )
+
+            [void]$keyCombo.Items.Add(
+                (Get-HotkeyKeyName -KeyCode $keyCode)
+            )
+
+            $foundIndex = $keyCombo.Items.Count - 1
+        }
+
+        $keyCombo.SelectedIndex = $foundIndex
+
+        & $updatePreview
+
+        $eventArgs.Handled = $true
+        $eventArgs.SuppressKeyPress = $true
+    })
+
+    $ctrlCheck.Add_CheckedChanged($updatePreview)
+    $shiftCheck.Add_CheckedChanged($updatePreview)
+    $altCheck.Add_CheckedChanged($updatePreview)
+    $winCheck.Add_CheckedChanged($updatePreview)
+    $keyCombo.Add_SelectedIndexChanged($updatePreview)
+
+    $cancel = New-Object MugenDeejWindowing.MugenButton
+    $cancel.Text = Get-ButtonFeatureText -Key 'Cancel'
+    $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+    $cancel.Location = [System.Drawing.Point]::new(364, 383)
+    $cancel.Size = [System.Drawing.Size]::new(95, 36)
+    $editor.Controls.Add($cancel)
+
+    $save = New-Object MugenDeejWindowing.MugenButton
+    $save.Text = Get-ButtonFeatureText -Key 'Save'
+    $save.Tag = 'MugenPrimary'
+    $save.Location = [System.Drawing.Point]::new(470, 383)
+    $save.Size = [System.Drawing.Size]::new(95, 36)
+    $editor.Controls.Add($save)
+
+    $save.Add_Click({
+        if ($keyCombo.SelectedIndex -lt 0) {
+            return
+        }
+
+        $mask = 0
+
+        if ($ctrlCheck.Checked) { $mask = $mask -bor 1 }
+        if ($shiftCheck.Checked) { $mask = $mask -bor 2 }
+        if ($altCheck.Checked) { $mask = $mask -bor 4 }
+        if ($winCheck.Checked) { $mask = $mask -bor 8 }
+
+        $keyCode = [int]$choices.Codes[$keyCombo.SelectedIndex]
+
+        $script:HotkeyEditorResult = (
+            'hotkey:' +
+            $keyCode +
+            ':' +
+            $mask
+        )
+
+        $editor.DialogResult = [System.Windows.Forms.DialogResult]::OK
+        $editor.Close()
+    })
+
+    Apply-ThemeToForm -Form $editor
+    $systemHotkeyWarning.ForeColor = [System.Drawing.Color]::FromArgb(215, 160, 62)
+
+    & $updatePreview
+    & $setCaptureText
+
+    $editor.Add_Shown({
+        Ensure-FormVisible -Form $editor -CenterIfOffscreen
+    })
+
+    $editor.AcceptButton = $save
+    $editor.CancelButton = $cancel
+
+    [void]$editor.ShowDialog($form)
+    $editor.Dispose()
+
+    return $script:HotkeyEditorResult
+}
+function Encode-ButtonActionPayload {
+    param([Parameter(Mandatory = $true)][string]$Text)
+
+    return [Convert]::ToBase64String(
+        [System.Text.Encoding]::UTF8.GetBytes($Text)
+    )
+}
+
+function Decode-ButtonActionPayload {
+    param([Parameter(Mandatory = $true)][string]$Payload)
+
+    try {
+        return [System.Text.Encoding]::UTF8.GetString(
+            [Convert]::FromBase64String($Payload)
+        )
+    }
+    catch {
+        return ''
+    }
+}
+
+function Get-LaunchActionDisplay {
+    param([Parameter(Mandatory = $true)][string]$Action)
+
+    if ($Action -match '^launch64:(.+)$') {
+        $target = Decode-ButtonActionPayload -Payload $Matches[1]
+
+        if (-not [string]::IsNullOrWhiteSpace($target)) {
+            $name = [System.IO.Path]::GetFileName($target)
+
+            if ([string]::IsNullOrWhiteSpace($name)) {
+                $name = $target
+            }
+
+            if ($script:Language -eq 'ru') {
+                return ('Запустить: ' + $name)
+            }
+
+            return ('Launch: ' + $name)
+        }
+    }
+
+    if ($script:Language -eq 'ru') {
+        return 'Запустить программу / файл…'
+    }
+
+    return 'Launch program / file…'
+}
+
+function Get-UrlActionDisplay {
+    param([Parameter(Mandatory = $true)][string]$Action)
+
+    if ($Action -match '^url64:(.+)$') {
+        $url = Decode-ButtonActionPayload -Payload $Matches[1]
+
+        if (-not [string]::IsNullOrWhiteSpace($url)) {
+            $display = $url
+
+            try {
+                $uri = [Uri]$url
+
+                if (-not [string]::IsNullOrWhiteSpace($uri.Host)) {
+                    $display = $uri.Host
+                }
+            }
+            catch {}
+
+            if ($script:Language -eq 'ru') {
+                return ('Открыть URL: ' + $display)
+            }
+
+            return ('Open URL: ' + $display)
+        }
+    }
+
+    if ($script:Language -eq 'ru') {
+        return 'Открыть URL…'
+    }
+
+    return 'Open URL…'
+}
+
+function Invoke-WithWindowsUICulture {
+    param(
+        [Parameter(Mandatory = $true)]
+        [scriptblock]$Action
+    )
+
+    $thread = [System.Threading.Thread]::CurrentThread
+    $oldUiCulture = $thread.CurrentUICulture
+    $oldCulture = $thread.CurrentCulture
+
+    try {
+        $windowsCulture = [System.Globalization.CultureInfo]::InstalledUICulture
+
+        if ($null -ne $windowsCulture) {
+            $thread.CurrentUICulture = $windowsCulture
+            $thread.CurrentCulture = $windowsCulture
+        }
+
+        return (& $Action)
+    }
+    finally {
+        $thread.CurrentUICulture = $oldUiCulture
+        $thread.CurrentCulture = $oldCulture
+    }
+}
+function Select-LaunchTargetAction {
+    param(
+        [string]$ExistingAction = ''
+    )
+
+    $existingTarget = ''
+
+    if ($ExistingAction -match '^launch64:(.+)$') {
+        $existingTarget = Decode-ButtonActionPayload -Payload $Matches[1]
+    }
+
+    return (
+        Invoke-WithWindowsUICulture -Action {
+            $dialog = New-Object System.Windows.Forms.OpenFileDialog
+
+            try {
+                $dialog.AutoUpgradeEnabled = $true
+                $dialog.CheckFileExists = $true
+                $dialog.Multiselect = $false
+                $dialog.RestoreDirectory = $true
+
+                if ($script:Language -eq 'ru') {
+                    $dialog.Title = 'Выберите программу или файл'
+                    $dialog.Filter = 'Все файлы (*.*)|*.*'
+                }
+                else {
+                    $dialog.Title = 'Select a program or file'
+                    $dialog.Filter = 'All files (*.*)|*.*'
+                }
+
+                if (
+                    -not [string]::IsNullOrWhiteSpace($existingTarget) -and
+                    (Test-Path -LiteralPath $existingTarget -PathType Leaf)
+                ) {
+                    try {
+                        $dialog.InitialDirectory = Split-Path -Parent $existingTarget
+                        $dialog.FileName = [System.IO.Path]::GetFileName(
+                            $existingTarget
+                        )
+                    }
+                    catch {}
+                }
+
+                $dialogResult = $dialog.ShowDialog($form)
+
+                if (
+                    $dialogResult -ne
+                    [System.Windows.Forms.DialogResult]::OK
+                ) {
+                    return $null
+                }
+
+                $target = [string]$dialog.FileName
+
+                if ([string]::IsNullOrWhiteSpace($target)) {
+                    return $null
+                }
+
+                return (
+                    'launch64:' +
+                    (Encode-ButtonActionPayload -Text $target)
+                )
+            }
+            finally {
+                $dialog.Dispose()
+            }
+        }
+    )
+}
+function Get-FolderActionDisplay {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Action
+    )
+
+    if ($Action -match '^folder64:(.+)$') {
+        $target = Decode-ButtonActionPayload -Payload $Matches[1]
+
+        if (-not [string]::IsNullOrWhiteSpace($target)) {
+            $trimmed = $target.TrimEnd(
+                [System.IO.Path]::DirectorySeparatorChar,
+                [System.IO.Path]::AltDirectorySeparatorChar
+            )
+
+            $name = [System.IO.Path]::GetFileName($trimmed)
+
+            if ([string]::IsNullOrWhiteSpace($name)) {
+                $name = $target
+            }
+
+            if ($script:Language -eq 'ru') {
+                return ('Открыть папку: ' + $name)
+            }
+
+            return ('Open folder: ' + $name)
+        }
+    }
+
+    if ($script:Language -eq 'ru') {
+        return 'Открыть папку…'
+    }
+
+    return 'Open folder…'
+}
+
+function Select-FolderTargetAction {
+    param(
+        [string]$ExistingAction = ''
+    )
+
+    $existingTarget = ''
+
+    if ($ExistingAction -match '^folder64:(.+)$') {
+        $existingTarget = Decode-ButtonActionPayload -Payload $Matches[1]
+
+        if (
+            [string]::IsNullOrWhiteSpace($existingTarget) -or
+            -not (Test-Path -LiteralPath $existingTarget -PathType Container)
+        ) {
+            $existingTarget = ''
+        }
+    }
+
+    $title = if ($script:Language -eq 'ru') {
+        'Выберите папку'
+    }
+    else {
+        'Select folder'
+    }
+
+    $okLabel = if ($script:Language -eq 'ru') {
+        'Выбрать папку'
+    }
+    else {
+        'Select folder'
+    }
+
+    try {
+        $target = [MugenDeejWindowing.MugenFolderPicker]::SelectFolder(
+            $form.Handle,
+            $existingTarget,
+            $title,
+            $okLabel
+        )
+    }
+    catch {
+        Write-Log (
+            'Modern folder picker failed: {0}' -f
+            $_.Exception.Message
+        ) 'WARN'
+
+        $folderPickerErrorMessage = if ($script:Language -eq 'ru') {
+            'Не удалось открыть современное окно выбора папки.'
+        }
+        else {
+            'Could not open the modern folder picker.'
+        }
+
+        [System.Windows.Forms.MessageBox]::Show(
+            $folderPickerErrorMessage,
+            'Mugen Deej',
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Warning
+        ) | Out-Null
+
+        return $null
+    }
+
+    if ([string]::IsNullOrWhiteSpace($target)) {
+        return $null
+    }
+
+    return (
+        'folder64:' +
+        (Encode-ButtonActionPayload -Text $target)
+    )
+}
+function Show-UrlActionEditor {
+    param([string]$ExistingAction = '')
+
+    $script:UrlEditorResult = $null
+
+    $editor = New-Object System.Windows.Forms.Form
+
+    if ($script:Language -eq 'ru') {
+        $editor.Text = 'Открыть URL — Mugen Deej'
+    }
+    else {
+        $editor.Text = 'Open URL — Mugen Deej'
+    }
+
+    $editor.StartPosition = 'CenterParent'
+    $editor.ClientSize = [System.Drawing.Size]::new(600, 250)
+    $editor.MinimumSize = [System.Drawing.Size]::new(616, 289)
+    $editor.Font = New-Object System.Drawing.Font('Segoe UI', 10)
+    $editor.FormBorderStyle = 'FixedDialog'
+    $editor.MaximizeBox = $false
+    $editor.MinimizeBox = $false
+
+    Set-FormAppIcon -Form $editor
+
+    $heading = New-Object System.Windows.Forms.Label
+
+    if ($script:Language -eq 'ru') {
+        $heading.Text = 'Адрес для открытия'
+    }
+    else {
+        $heading.Text = 'URL to open'
+    }
+
+    $heading.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 15)
+    $heading.AutoSize = $true
+    $heading.Location = [System.Drawing.Point]::new(22, 18)
+    $editor.Controls.Add($heading)
+
+    $hint = New-Object System.Windows.Forms.Label
+
+    if ($script:Language -eq 'ru') {
+        $hint.Text = 'Введите полный адрес. Он откроется в браузере по умолчанию.'
+    }
+    else {
+        $hint.Text = 'Enter a full URL. It will open in your default browser.'
+    }
+
+    $hint.Location = [System.Drawing.Point]::new(25, 56)
+    $hint.Size = [System.Drawing.Size]::new(550, 30)
+    $editor.Controls.Add($hint)
+
+    $urlBox = New-Object System.Windows.Forms.TextBox
+    $urlBox.Location = [System.Drawing.Point]::new(28, 100)
+    $urlBox.Size = [System.Drawing.Size]::new(544, 30)
+
+    if ($ExistingAction -match '^url64:(.+)$') {
+        $urlBox.Text = Decode-ButtonActionPayload -Payload $Matches[1]
+    }
+    else {
+        $urlBox.Text = 'https://'
+    }
+
+    $editor.Controls.Add($urlBox)
+
+    $validation = New-Object System.Windows.Forms.Label
+    $validation.Location = [System.Drawing.Point]::new(28, 137)
+    $validation.Size = [System.Drawing.Size]::new(544, 30)
+    $editor.Controls.Add($validation)
+
+    $cancel = New-Object MugenDeejWindowing.MugenButton
+    $cancel.Text = Get-ButtonFeatureText -Key 'Cancel'
+    $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+    $cancel.Location = [System.Drawing.Point]::new(378, 195)
+    $cancel.Size = [System.Drawing.Size]::new(95, 36)
+    $editor.Controls.Add($cancel)
+
+    $save = New-Object MugenDeejWindowing.MugenButton
+    $save.Text = Get-ButtonFeatureText -Key 'Save'
+    $save.Tag = 'MugenPrimary'
+    $save.Location = [System.Drawing.Point]::new(484, 195)
+    $save.Size = [System.Drawing.Size]::new(95, 36)
+    $editor.Controls.Add($save)
+
+    $save.Add_Click({
+        $url = [string]$urlBox.Text.Trim()
+        $valid = $false
+
+        try {
+            $uri = [Uri]$url
+            $valid = (
+                $uri.IsAbsoluteUri -and
+                ($uri.Scheme -eq 'http' -or $uri.Scheme -eq 'https')
+            )
+        }
+        catch {
+            $valid = $false
+        }
+
+        if (-not $valid) {
+            if ($script:Language -eq 'ru') {
+                $validation.Text = 'Введите корректный адрес http:// или https://'
+            }
+            else {
+                $validation.Text = 'Enter a valid http:// or https:// URL.'
+            }
+
+            $validation.ForeColor = [System.Drawing.Color]::FromArgb(235, 95, 95)
+            return
+        }
+
+        $script:UrlEditorResult = (
+            'url64:' +
+            (Encode-ButtonActionPayload -Text $url)
+        )
+
+        $editor.DialogResult = [System.Windows.Forms.DialogResult]::OK
+        $editor.Close()
+    })
+
+    Apply-ThemeToForm -Form $editor
+
+    $editor.Add_Shown({
+        Ensure-FormVisible -Form $editor -CenterIfOffscreen
+        $urlBox.SelectAll()
+        $urlBox.Focus()
+    })
+
+    $editor.AcceptButton = $save
+    $editor.CancelButton = $cancel
+
+    [void]$editor.ShowDialog($form)
+    $editor.Dispose()
+
+    return $script:UrlEditorResult
+}
+
+function Invoke-ShellButtonTarget {
+    param([Parameter(Mandatory = $true)][string]$Target)
+
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $Target
+    $psi.UseShellExecute = $true
+
+    if (Test-Path -LiteralPath $Target -PathType Leaf) {
+        try {
+            $workingDir = Split-Path -Parent $Target
+
+            if (-not [string]::IsNullOrWhiteSpace($workingDir)) {
+                $psi.WorkingDirectory = $workingDir
+            }
+        }
+        catch {}
+    }
+
+    [void][System.Diagnostics.Process]::Start($psi)
+}
+function Get-CommandActionDisplay {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Action
+    )
+
+    if ($Action -match '^command64:(.+)$') {
+        $command = Decode-ButtonActionPayload -Payload $Matches[1]
+
+        if (-not [string]::IsNullOrWhiteSpace($command)) {
+            $display = $command.Trim()
+
+            if ($display.Length -gt 72) {
+                $display = $display.Substring(0, 69) + '...'
+            }
+
+            if ($script:Language -eq 'ru') {
+                return ('Выполнить: ' + $display)
+            }
+
+            return ('Run: ' + $display)
+        }
+    }
+
+    if ($script:Language -eq 'ru') {
+        return 'Выполнить команду…'
+    }
+
+    return 'Run command…'
+}
+
+function Show-CommandActionEditor {
+    param(
+        [string]$ExistingAction = ''
+    )
+
+    $script:CommandEditorResult = $null
+
+    $editor = New-Object System.Windows.Forms.Form
+
+    if ($script:Language -eq 'ru') {
+        $editor.Text = 'Выполнить команду — Mugen Deej'
+    }
+    else {
+        $editor.Text = 'Run command — Mugen Deej'
+    }
+
+    $editor.StartPosition = 'CenterParent'
+    $editor.ClientSize = [System.Drawing.Size]::new(650, 310)
+    $editor.MinimumSize = [System.Drawing.Size]::new(666, 349)
+    $editor.Font = New-Object System.Drawing.Font('Segoe UI', 10)
+    $editor.FormBorderStyle = 'FixedDialog'
+    $editor.MaximizeBox = $false
+    $editor.MinimizeBox = $false
+
+    Set-FormAppIcon -Form $editor
+
+    $heading = New-Object System.Windows.Forms.Label
+
+    if ($script:Language -eq 'ru') {
+        $heading.Text = 'Команда Windows'
+    }
+    else {
+        $heading.Text = 'Windows command'
+    }
+
+    $heading.Font = New-Object System.Drawing.Font(
+        'Segoe UI Semibold',
+        15
+    )
+    $heading.AutoSize = $true
+    $heading.Location = [System.Drawing.Point]::new(22, 18)
+    $editor.Controls.Add($heading)
+
+    $hint = New-Object System.Windows.Forms.Label
+
+    if ($script:Language -eq 'ru') {
+        $hint.Text = 'Введите то, что обычно можно запустить через Win+R: cmd, notepad, control, ms-settings:display. Можно указывать аргументы, например: cmd /k ipconfig'
+    }
+    else {
+        $hint.Text = 'Enter something you would normally run with Win+R: cmd, notepad, control, ms-settings:display. Arguments are allowed, for example: cmd /k ipconfig'
+    }
+
+    $hint.Location = [System.Drawing.Point]::new(25, 56)
+    $hint.Size = [System.Drawing.Size]::new(600, 58)
+    $editor.Controls.Add($hint)
+
+    $commandBox = New-Object System.Windows.Forms.TextBox
+    $commandBox.Location = [System.Drawing.Point]::new(28, 127)
+    $commandBox.Size = [System.Drawing.Size]::new(594, 30)
+
+    if ($ExistingAction -match '^command64:(.+)$') {
+        $commandBox.Text = Decode-ButtonActionPayload -Payload $Matches[1]
+    }
+
+    $editor.Controls.Add($commandBox)
+
+    $validation = New-Object System.Windows.Forms.Label
+    $validation.Location = [System.Drawing.Point]::new(28, 165)
+    $validation.Size = [System.Drawing.Size]::new(594, 32)
+    $editor.Controls.Add($validation)
+
+    $notice = New-Object System.Windows.Forms.Label
+
+    if ($script:Language -eq 'ru') {
+        $notice.Text = 'Команда запускается с теми же правами, что и Mugen Deej.'
+    }
+    else {
+        $notice.Text = 'The command runs with the same privileges as Mugen Deej.'
+    }
+
+    $notice.Location = [System.Drawing.Point]::new(28, 207)
+    $notice.Size = [System.Drawing.Size]::new(594, 30)
+    $editor.Controls.Add($notice)
+
+    $cancel = New-Object MugenDeejWindowing.MugenButton
+    $cancel.Text = Get-ButtonFeatureText -Key 'Cancel'
+    $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+    $cancel.Location = [System.Drawing.Point]::new(428, 257)
+    $cancel.Size = [System.Drawing.Size]::new(95, 36)
+    $editor.Controls.Add($cancel)
+
+    $save = New-Object MugenDeejWindowing.MugenButton
+    $save.Text = Get-ButtonFeatureText -Key 'Save'
+    $save.Tag = 'MugenPrimary'
+    $save.Location = [System.Drawing.Point]::new(534, 257)
+    $save.Size = [System.Drawing.Size]::new(95, 36)
+    $editor.Controls.Add($save)
+
+    $save.Add_Click({
+        $command = [string]$commandBox.Text.Trim()
+
+        if ([string]::IsNullOrWhiteSpace($command)) {
+            if ($script:Language -eq 'ru') {
+                $validation.Text = 'Введите команду.'
+            }
+            else {
+                $validation.Text = 'Enter a command.'
+            }
+
+            $validation.ForeColor = [System.Drawing.Color]::FromArgb(
+                235,
+                95,
+                95
+            )
+
+            return
+        }
+
+        $script:CommandEditorResult = (
+            'command64:' +
+            (Encode-ButtonActionPayload -Text $command)
+        )
+
+        $editor.DialogResult = [System.Windows.Forms.DialogResult]::OK
+        $editor.Close()
+    })
+
+    Apply-ThemeToForm -Form $editor
+
+    $editor.Add_Shown({
+        Ensure-FormVisible -Form $editor -CenterIfOffscreen
+        $commandBox.Focus()
+        $commandBox.SelectionStart = $commandBox.Text.Length
+    })
+
+    $editor.AcceptButton = $save
+    $editor.CancelButton = $cancel
+
+    [void]$editor.ShowDialog($form)
+    $editor.Dispose()
+
+    return $script:CommandEditorResult
+}
+
+function Invoke-RunCommandAction {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Command
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Command)) {
+        throw 'Command is empty.'
+    }
+
+    $commandProcessor = $env:ComSpec
+
+    if ([string]::IsNullOrWhiteSpace($commandProcessor)) {
+        $commandProcessor = 'cmd.exe'
+    }
+
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $commandProcessor
+    $psi.Arguments = (
+        '/d /c start "" ' +
+        $Command
+    )
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+    [void][System.Diagnostics.Process]::Start($psi)
+}
+function Initialize-ButtonActions {
+    if ($script:ButtonActionsLoaded) { return }
+
+    $script:ButtonActionsLoaded = $true
+    $script:ButtonActions = @()
+
+    if (-not (Test-Path -LiteralPath $script:ButtonActionConfigPath)) { return }
+
+    try {
+        $data = Get-Content -LiteralPath $script:ButtonActionConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($null -ne $data -and $null -ne $data.actions) {
+            $script:ButtonActions = @($data.actions | ForEach-Object { [string]$_ })
+        }
+        Write-Log ('Button action config loaded: actions={0}' -f @($script:ButtonActions).Count) 'DEBUG'
+    }
+    catch {
+        Write-Log ('Failed to load dev button action config: {0}' -f $_.Exception.Message) 'WARN'
+        $script:ButtonActions = @()
+    }
+}
+
+function Normalize-ButtonActions {
+    param([Parameter(Mandatory = $true)][int]$Count)
+
+    Initialize-ButtonActions
+
+    if ($Count -lt 0) {
+        $Count = 0
+    }
+
+    $validFixedActions = @(
+        'media:playpause',
+        'media:previous',
+        'media:next',
+        'media:stop',
+        'system:volumeup',
+        'system:volumedown',
+        'system:volumemute'
+    )
+
+    $normalized = @()
+
+    for ($i = 0; $i -lt $Count; $i++) {
+        $action = if ($i -lt @($script:ButtonActions).Count) {
+            [string]$script:ButtonActions[$i]
+        }
+        else {
+            'none'
+        }
+
+        if ([string]::IsNullOrWhiteSpace($action)) {
+            $action = 'none'
+        }
+
+        $valid = (
+            $action -eq 'none' -or
+            $action -match '^mute:\d+$' -or
+            $validFixedActions -contains $action
+        )
+
+        if (
+            -not $valid -and
+            $action -match '^hotkey:(\d{1,3}):(\d{1,2})$'
+        ) {
+            $vk = [int]$Matches[1]
+            $mask = [int]$Matches[2]
+
+            $valid = (
+                $vk -gt 0 -and
+                $vk -le 255 -and
+                $mask -ge 0 -and
+                $mask -le 15
+            )
+        }
+
+        if (
+            -not $valid -and
+            $action -match '^(launch64|folder64|url64|command64):(.+)$'
+        ) {
+            $decoded = Decode-ButtonActionPayload -Payload $Matches[2]
+            $valid = -not [string]::IsNullOrWhiteSpace($decoded)
+        }
+
+        if (-not $valid) {
+            $action = 'none'
+        }
+
+        $normalized += $action
+    }
+
+    $script:ButtonActions = @($normalized)
+}
+function Save-ButtonActions {
+    $payload = [pscustomobject]@{
+        version = 1
+        actions = @($script:ButtonActions)
+    }
+    $json = $payload | ConvertTo-Json -Depth 4
+    Set-Content -LiteralPath $script:ButtonActionConfigPath -Value $json -Encoding UTF8
+    Write-Log ('Button actions saved: {0}' -f (@($script:ButtonActions) -join ',')) 'INFO'
+}
+
+function Get-MuteStatusColor {
+    if ((Get-EffectiveTheme) -eq 'dark') {
+        return [System.Drawing.Color]::FromArgb(255, 92, 92)
+    }
+    return [System.Drawing.Color]::Firebrick
+}
+
+function Set-ButtonIndicatorAppearance {
+    param(
+        [Parameter(Mandatory = $true)][System.Windows.Forms.Label]$Indicator,
+        [Parameter(Mandatory = $true)][int]$ButtonIndex,
+        [switch]$DotOnly
+    )
+
+    $themeName = Get-EffectiveTheme
+    $palette = $script:ThemePalettes[$themeName]
+    if ($Indicator -is [MugenDeejWindowing.MugenButtonTile]) {
+        $Indicator.BorderColor = $palette.Border
+    }
+    $pressed = (
+        @($script:LatestButtons).Count -gt $ButtonIndex -and
+        [int]$script:LatestButtons[$ButtonIndex] -eq 0
+    )
+
+    if ($DotOnly) {
+        $Indicator.BackColor = [System.Drawing.Color]::Transparent
+        $Indicator.ForeColor = if ($pressed) { $palette.Accent } else { $palette.Muted }
+        return
+    }
+
+    $Indicator.BackColor = if ($pressed) { $palette.Accent } else { $palette.Control }
+    $Indicator.ForeColor = if ($pressed) { $palette.AccentText } else { $palette.Text }
+}
+
+function Ensure-MainButtonIndicators {
+    $count = if ($script:IsConnected) { [int]$script:DetectedButtonCount } else { 0 }
+
+    if ($null -eq $script:ButtonStateFlow -or $script:ButtonStateFlow.IsDisposed) { return }
+    if (@($script:MainButtonIndicators).Count -eq $count) { return }
+
+    $script:ButtonStateFlow.SuspendLayout()
+    try {
+        $script:ButtonStateFlow.Controls.Clear()
+        $script:MainButtonIndicators = @()
+
+        for ($i = 0; $i -lt $count; $i++) {
+            $indicator = New-Object MugenDeejWindowing.MugenButtonTile
+            $indicator.Text = [string]($i + 1)
+            $indicator.Size = [System.Drawing.Size]::new(46, 28)
+            $indicator.Margin = New-Object System.Windows.Forms.Padding(4, 1, 4, 1)
+            $indicator.TextAlign = 'MiddleCenter'
+            $indicator.BorderStyle = 'None'
+            # dev5: MugenButtonTile draws its own rounded border; no Region clipping.
+            $indicator.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 9)
+            $script:ButtonStateFlow.Controls.Add($indicator)
+            $script:MainButtonIndicators += $indicator
+        }
+    }
+    finally {
+        $script:ButtonStateFlow.ResumeLayout($true)
+    }
+}
+
+function Update-MainButtonIndicators {
+    Ensure-MainButtonIndicators
+
+    
+# dev3 theme fix: FlowLayoutPanel must visually inherit the MugenGroupBox card surface
+    if (
+        $null -ne $script:ButtonStateFlow -and
+        -not $script:ButtonStateFlow.IsDisposed -and
+        $null -ne $script:ButtonStateGroup -and
+        -not $script:ButtonStateGroup.IsDisposed
+    ) {
+        $script:ButtonStateFlow.BackColor = $script:ButtonStateGroup.BackColor
+    }
+
+    for ($i = 0; $i -lt @($script:MainButtonIndicators).Count; $i++) {
+        Set-ButtonIndicatorAppearance `
+            -Indicator $script:MainButtonIndicators[$i] `
+            -ButtonIndex $i
+    }
+}
+
+function Set-MainButtonLayout {
+    param([Parameter(Mandatory = $true)][bool]$HasButtons)
+
+    if (
+        $null -eq $form -or
+        $null -eq $startupGroup -or
+        $null -eq $advancedToggle -or
+        $null -eq $advancedPanel -or
+        $null -eq $footer
+    ) {
+        return
+    }
+
+    $offset = if ($HasButtons) { 84 } else { 0 }
+
+    if ($null -ne $script:ButtonStateGroup) {
+        $script:ButtonStateGroup.Location = [System.Drawing.Point]::new(24, 356)
+    }
+
+    $settingsButton.Location = [System.Drawing.Point]::new(24, (360 + $offset))
+    if ($null -ne $script:ButtonSettingsButton) {
+        $script:ButtonSettingsButton.Location = [System.Drawing.Point]::new(272, (360 + $offset))
+    }
+    if ($null -ne $script:SettingsHintControl) {
+        $script:SettingsHintControl.Location = [System.Drawing.Point]::new(272, (358 + $offset))
+    }
+
+    $startupGroup.Location = [System.Drawing.Point]::new(24, (414 + $offset))
+    $advancedToggle.Location = [System.Drawing.Point]::new(24, (516 + $offset))
+    $advancedPanel.Location = [System.Drawing.Point]::new(0, (550 + $offset))
+
+    $collapsedHeight = 592 + $offset
+    $expandedHeight = 860 + $offset
+
+    $form.MinimumSize = [System.Drawing.Size]::new(696, (631 + $offset))
+    $form.MaximumSize = [System.Drawing.Size]::new(696, (899 + $offset))
+    $form.ClientSize = [System.Drawing.Size]::new(
+        680,
+        $(if ($advancedPanel.Visible) { $expandedHeight } else { $collapsedHeight })
+    )
+    $footer.Location = [System.Drawing.Point]::new(24, ($form.ClientSize.Height - 28))
+}
+
+function Update-ButtonFeatureUi {
+    $hasButtons = ($script:IsConnected -and $script:DetectedButtonCount -gt 0)
+
+    if ($null -ne $script:ButtonSettingsButton -and -not $script:ButtonSettingsButton.IsDisposed) {
+        $script:ButtonSettingsButton.Text = Get-ButtonFeatureText -Key 'MainButton'
+        $script:ButtonSettingsButton.Visible = $hasButtons
+        $script:ButtonSettingsButton.Enabled = $hasButtons
+    }
+
+    if ($null -ne $script:SettingsHintControl -and -not $script:SettingsHintControl.IsDisposed) {
+        $script:SettingsHintControl.Visible = (-not $hasButtons)
+    }
+
+    if ($null -ne $script:ButtonStateGroup -and -not $script:ButtonStateGroup.IsDisposed) {
+        $script:ButtonStateGroup.Text = Get-ButtonFeatureText -Key 'ButtonStatus'
+        $script:ButtonStateGroup.Visible = $hasButtons
+    }
+
+    if ($script:LastButtonUiVisible -ne $hasButtons) {
+        $script:LastButtonUiVisible = $hasButtons
+        Set-MainButtonLayout -HasButtons $hasButtons
+    }
+
+    if ($hasButtons) {
+        Update-MainButtonIndicators
+    }
+}
+
+function Set-SliderAudioLevelDirect {
+    param(
+        [Parameter(Mandatory = $true)][int]$SliderIndex,
+        [Parameter(Mandatory = $true)][double]$Level
+    )
+
+    if ($SliderIndex -lt 0 -or $SliderIndex -ge $script:Config.sliders.Count) { return }
+
+    $levelClamped = [Math]::Max(0.0, [Math]::Min(1.0, $Level))
+    $slider = $script:Config.sliders[$SliderIndex]
+    $processTargets = New-Object 'System.Collections.Generic.List[string]'
+
+    foreach ($targetObject in @($slider.targets)) {
+        $target = ([string]$targetObject).Trim()
+        if ([string]::IsNullOrWhiteSpace($target)) { continue }
+        $audioTargetKey = $target
+
+        try {
+            if ($target -ieq 'master') {
+                [MugenDeejAudio.AudioMixer]::SetMaster([single]$levelClamped)
+            }
+            elseif ($target -ieq 'mic') {
+                $inputDeviceId = [string]$slider.inputDeviceId
+                $audioTargetKey = 'mic:' + $inputDeviceId
+                [MugenDeejAudio.AudioMixer]::SetInputDeviceVolume($inputDeviceId, [single]$levelClamped)
+            }
+            else {
+                $processTargets.Add($target)
+            }
+        }
+        catch {
+            Write-AudioWarningThrottled `
+                -Key ('button-slider-' + ($SliderIndex + 1) + '-' + $audioTargetKey) `
+                -Message ('Button audio target failed: ' + $audioTargetKey + '; ' + $_.Exception.Message)
+        }
+    }
+
+    if ($processTargets.Count -gt 0) {
+        try {
+            [void][MugenDeejAudio.AudioMixer]::SetProcessVolumes($processTargets.ToArray(), [single]$levelClamped)
+        }
+        catch {
+            Write-AudioWarningThrottled `
+                -Key ('button-slider-' + ($SliderIndex + 1) + '-applications') `
+                -Message ('Button application targets failed for slider ' + ($SliderIndex + 1) + ': ' + $_.Exception.Message)
+            [MugenDeejAudio.AudioMixer]::InvalidateSessions()
+        }
+    }
+}
+
+function Toggle-SliderSoftMute {
+    param([Parameter(Mandatory = $true)][int]$SliderIndex)
+
+    if ($SliderIndex -lt 0 -or $SliderIndex -ge $script:Config.sliders.Count) { return }
+
+    if ($script:SoftMutedSliders.ContainsKey($SliderIndex)) {
+        [void]$script:SoftMutedSliders.Remove($SliderIndex)
+
+        $level = 0.0
+        if ($script:LatestLevels.Count -gt $SliderIndex) {
+            $level = [Math]::Max(0.0, [Math]::Min(1.0, [double]$script:LatestLevels[$SliderIndex]))
+        }
+
+        if ($script:LastValues.Count -gt $SliderIndex) {
+            $script:LastValues[$SliderIndex] = $level
+        }
+
+        Set-SliderAudioLevelDirect -SliderIndex $SliderIndex -Level $level
+        Write-Log ('Button action: slider {0} unmuted at {1:P0}' -f ($SliderIndex + 1), $level) 'INFO'
+    }
+    else {
+        $script:SoftMutedSliders[$SliderIndex] = $true
+        Set-SliderAudioLevelDirect -SliderIndex $SliderIndex -Level 0.0
+        Write-Log ('Button action: slider {0} muted' -f ($SliderIndex + 1)) 'INFO'
+    }
+}
+
+function Clear-SoftMutesAfterControllerDisconnect {
+    param(
+        [string]$Reason = 'controller disconnected'
+    )
+
+    $mutedIndexes = @(
+        $script:SoftMutedSliders.Keys |
+        ForEach-Object { [int]$_ } |
+        Sort-Object
+    )
+
+    if ($mutedIndexes.Count -eq 0) {
+        return
+    }
+
+    $restored = New-Object 'System.Collections.Generic.List[string]'
+
+    foreach ($sliderIndex in $mutedIndexes) {
+        $level = 0.0
+
+        if ($script:LatestLevels.Count -gt $sliderIndex) {
+            $level = [Math]::Max(
+                0.0,
+                [Math]::Min(
+                    1.0,
+                    [double]$script:LatestLevels[$sliderIndex]
+                )
+            )
+        }
+
+        [void]$script:SoftMutedSliders.Remove($sliderIndex)
+
+        if ($script:LastValues.Count -gt $sliderIndex) {
+            $script:LastValues[$sliderIndex] = $level
+        }
+
+        Set-SliderAudioLevelDirect `
+            -SliderIndex $sliderIndex `
+            -Level $level
+
+        $restored.Add(
+            ('{0}:{1:P0}' -f ($sliderIndex + 1), $level)
+        )
+    }
+
+    Write-Log (
+        'Soft mutes cleared after controller disconnect: reason={0}; sliders={1}; restored={2}' -f
+        $Reason,
+        $mutedIndexes.Count,
+        ($restored -join ',')
+    ) 'INFO'
+}
+
+function Invoke-ButtonAction {
+    param([Parameter(Mandatory = $true)][int]$ButtonIndex)
+
+    Initialize-ButtonActions
+
+    if (
+        $ButtonIndex -lt 0 -or
+        $ButtonIndex -ge @($script:ButtonActions).Count
+    ) {
+        return
+    }
+
+    $now = Get-Date
+
+    if ($script:LastButtonActionAt.ContainsKey($ButtonIndex)) {
+        $elapsedMs = (
+            $now -
+            [DateTime]$script:LastButtonActionAt[$ButtonIndex]
+        ).TotalMilliseconds
+
+        if ($elapsedMs -lt 80) {
+            Write-Log (
+                'Button {0} action suppressed by debounce ({1:N0} ms)' -f
+                ($ButtonIndex + 1),
+                $elapsedMs
+            ) 'DEBUG'
+            return
+        }
+    }
+
+    $script:LastButtonActionAt[$ButtonIndex] = $now
+
+    $action = [string]$script:ButtonActions[$ButtonIndex]
+
+    if (
+        [string]::IsNullOrWhiteSpace($action) -or
+        $action -eq 'none'
+    ) {
+        return
+    }
+
+    if ($action -match '^mute:(\d+)$') {
+        Toggle-SliderSoftMute -SliderIndex ([int]$Matches[1])
+        return
+    }
+
+    if ($action -match '^hotkey:(\d{1,3}):(\d{1,2})$') {
+        $keyCode = [int]$Matches[1]
+        $mask = [int]$Matches[2]
+
+        try {
+            [MugenDeejWindowing.MugenHotkeys]::Send(
+                $keyCode,
+                (($mask -band 1) -ne 0),
+                (($mask -band 2) -ne 0),
+                (($mask -band 4) -ne 0),
+                (($mask -band 8) -ne 0)
+            )
+
+            Write-Log (
+                'Button action: custom hotkey; transport=SendInput; button={0}; hotkey={1}' -f
+                ($ButtonIndex + 1),
+                (Get-HotkeyActionDisplay -Action $action)
+            ) 'INFO'
+        }
+        catch {
+            Write-Log (
+                'Custom hotkey failed: button={0}; action={1}; error={2}' -f
+                ($ButtonIndex + 1),
+                $action,
+                $_.Exception.Message
+            ) 'WARN'
+        }
+
+        return
+    }
+
+    if ($action -match '^command64:(.+)$') {
+        $command = Decode-ButtonActionPayload -Payload $Matches[1]
+
+        try {
+            Invoke-RunCommandAction -Command $command
+
+            Write-Log (
+                'Button action: run command; button={0}' -f
+                ($ButtonIndex + 1)
+            ) 'INFO'
+        }
+        catch {
+            Write-Log (
+                'Command action failed: button={0}; error={1}' -f
+                ($ButtonIndex + 1),
+                $_.Exception.Message
+            ) 'WARN'
+        }
+
+        return
+    }
+    if ($action -match '^launch64:(.+)$') {
+        $target = Decode-ButtonActionPayload -Payload $Matches[1]
+
+        try {
+            if (
+                [string]::IsNullOrWhiteSpace($target) -or
+                -not (Test-Path -LiteralPath $target -PathType Leaf)
+            ) {
+                throw ('Target file was not found: ' + $target)
+            }
+
+            Invoke-ShellButtonTarget -Target $target
+
+            Write-Log (
+                'Button action: launch file/program; button={0}; target={1}' -f
+                ($ButtonIndex + 1),
+                [System.IO.Path]::GetFileName($target)
+            ) 'INFO'
+        }
+        catch {
+            Write-Log (
+                'Launch action failed: button={0}; error={1}' -f
+                ($ButtonIndex + 1),
+                $_.Exception.Message
+            ) 'WARN'
+        }
+
+        return
+    }
+
+    if ($action -match '^folder64:(.+)$') {
+        $target = Decode-ButtonActionPayload -Payload $Matches[1]
+
+        try {
+            if (
+                [string]::IsNullOrWhiteSpace($target) -or
+                -not (Test-Path -LiteralPath $target -PathType Container)
+            ) {
+                throw ('Target folder was not found: ' + $target)
+            }
+
+            Invoke-ShellButtonTarget -Target $target
+
+            Write-Log (
+                'Button action: open folder; button={0}; target={1}' -f
+                ($ButtonIndex + 1),
+                $target
+            ) 'INFO'
+        }
+        catch {
+            Write-Log (
+                'Folder action failed: button={0}; error={1}' -f
+                ($ButtonIndex + 1),
+                $_.Exception.Message
+            ) 'WARN'
+        }
+
+        return
+    }
+
+    if ($action -match '^url64:(.+)$') {
+        $url = Decode-ButtonActionPayload -Payload $Matches[1]
+
+        try {
+            Invoke-ShellButtonTarget -Target $url
+
+            $urlHost = $url
+
+            try {
+                $urlHost = ([Uri]$url).Host
+            }
+            catch {}
+
+            Write-Log (
+                'Button action: open URL; button={0}; target={1}' -f
+                ($ButtonIndex + 1),
+                $urlHost
+            ) 'INFO'
+        }
+        catch {
+            Write-Log (
+                'URL action failed: button={0}; error={1}' -f
+                ($ButtonIndex + 1),
+                $_.Exception.Message
+            ) 'WARN'
+        }
+
+        return
+    }
+
+    try {
+        switch ($action) {
+            'media:playpause' {
+                [MugenDeejWindowing.MugenMediaKeys]::PlayPause()
+                Write-Log (
+                    'Button action: media play/pause; transport=WM_APPCOMMAND; button={0}' -f
+                    ($ButtonIndex + 1)
+                ) 'INFO'
+                return
+            }
+
+            'media:previous' {
+                [MugenDeejWindowing.MugenMediaKeys]::PreviousTrack()
+                Write-Log (
+                    'Button action: media previous track; transport=WM_APPCOMMAND; button={0}' -f
+                    ($ButtonIndex + 1)
+                ) 'INFO'
+                return
+            }
+
+            'media:next' {
+                [MugenDeejWindowing.MugenMediaKeys]::NextTrack()
+                Write-Log (
+                    'Button action: media next track; transport=WM_APPCOMMAND; button={0}' -f
+                    ($ButtonIndex + 1)
+                ) 'INFO'
+                return
+            }
+
+            'media:stop' {
+                [MugenDeejWindowing.MugenMediaKeys]::Stop()
+                Write-Log (
+                    'Button action: media stop; transport=WM_APPCOMMAND; button={0}' -f
+                    ($ButtonIndex + 1)
+                ) 'INFO'
+                return
+            }
+
+            'system:volumeup' {
+                [MugenDeejWindowing.MugenMediaKeys]::VolumeUp()
+                Write-Log (
+                    'Button action: Windows volume up; transport=WM_APPCOMMAND; button={0}' -f
+                    ($ButtonIndex + 1)
+                ) 'INFO'
+                return
+            }
+
+            'system:volumedown' {
+                [MugenDeejWindowing.MugenMediaKeys]::VolumeDown()
+                Write-Log (
+                    'Button action: Windows volume down; transport=WM_APPCOMMAND; button={0}' -f
+                    ($ButtonIndex + 1)
+                ) 'INFO'
+                return
+            }
+
+            'system:volumemute' {
+                [MugenDeejWindowing.MugenMediaKeys]::VolumeMute()
+                Write-Log (
+                    'Button action: Windows volume mute toggle; transport=WM_APPCOMMAND; button={0}' -f
+                    ($ButtonIndex + 1)
+                ) 'INFO'
+                return
+            }
+        }
+    }
+    catch {
+        Write-Log (
+            'Button fixed action failed: button={0}; action={1}; error={2}' -f
+            ($ButtonIndex + 1),
+            $action,
+            $_.Exception.Message
+        ) 'WARN'
+
+        return
+    }
+
+    Write-Log (
+        'Unknown button action ignored: button={0}; action={1}' -f
+        ($ButtonIndex + 1),
+        $action
+    ) 'WARN'
+}
+function Show-ButtonSettings {
+    if (
+        -not $script:IsConnected -or
+        $script:DetectedButtonCount -le 0
+    ) {
+        [System.Windows.Forms.MessageBox]::Show(
+            (Get-ButtonFeatureText -Key 'NoButtons'),
+            'Mugen Deej',
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Information
+        ) | Out-Null
+
+        return
+    }
+
+    Normalize-ButtonActions -Count $script:DetectedButtonCount
+
+    $pendingActions = @()
+
+    foreach ($action in @($script:ButtonActions)) {
+        $pendingActions += [string]$action
+    }
+
+    $buttonForm = New-Object System.Windows.Forms.Form
+    $buttonForm.Text = Get-ButtonFeatureText -Key 'Title'
+    $buttonForm.StartPosition = 'CenterParent'
+    $buttonForm.ClientSize = [System.Drawing.Size]::new(720, 500)
+    $buttonForm.MinimumSize = [System.Drawing.Size]::new(736, 539)
+    $buttonForm.Font = New-Object System.Drawing.Font('Segoe UI', 10)
+    $buttonForm.FormBorderStyle = 'FixedDialog'
+    $buttonForm.MaximizeBox = $false
+    $buttonForm.MinimizeBox = $false
+
+    Set-FormAppIcon -Form $buttonForm
+
+    $heading = New-Object System.Windows.Forms.Label
+    $heading.Text = Get-ButtonFeatureText -Key 'Heading'
+    $heading.Font = New-Object System.Drawing.Font(
+        'Segoe UI Semibold',
+        16
+    )
+    $heading.AutoSize = $true
+    $heading.Location = [System.Drawing.Point]::new(22, 18)
+    $buttonForm.Controls.Add($heading)
+
+    $hint = New-Object System.Windows.Forms.Label
+
+    if ($script:Language -eq 'ru') {
+        $hint.Text = 'Назначьте каждой физической кнопке действие: регулятор, медиакоманду, системную громкость, горячую клавишу, запуск программы / файла, папки, URL или команды Windows.'
+    }
+    else {
+        $hint.Text = 'Assign each physical button an action: control mute, media, system volume, a hotkey, launch a program / file, folder, URL, or Windows command.'
+    }
+
+    $hint.ForeColor = [System.Drawing.Color]::DimGray
+    $hint.Location = [System.Drawing.Point]::new(25, 56)
+    $hint.Size = [System.Drawing.Size]::new(660, 43)
+    $buttonForm.Controls.Add($hint)
+
+    $saveNotice = New-Object System.Windows.Forms.Label
+
+    if ($script:Language -eq 'ru') {
+        $saveNotice.Text = 'Важно: выбранные действия начнут работать только после нажатия «Сохранить».'
+    }
+    else {
+        $saveNotice.Text = 'Important: selected actions take effect only after you click Save.'
+    }
+
+    $saveNotice.Font = New-Object System.Drawing.Font(
+        'Segoe UI Semibold',
+        9.5
+    )
+    $saveNotice.ForeColor = [System.Drawing.Color]::FromArgb(
+        230,
+        170,
+        70
+    )
+    $saveNotice.Location = [System.Drawing.Point]::new(25, 101)
+    $saveNotice.Size = [System.Drawing.Size]::new(660, 27)
+    $buttonForm.Controls.Add($saveNotice)
+
+    $panel = New-Object System.Windows.Forms.Panel
+    $panel.Location = [System.Drawing.Point]::new(22, 132)
+    $panel.Size = [System.Drawing.Size]::new(676, 296)
+    $panel.AutoScroll = $true
+    $buttonForm.Controls.Add($panel)
+
+    $settingsIndicators = @()
+
+    $sliderCount = [Math]::Min(
+        [int]$script:DetectedSliderCount,
+        [int]$script:Config.sliders.Count
+    )
+
+    for ($i = 0; $i -lt $script:DetectedButtonCount; $i++) {
+        $y = 8 + ($i * 46)
+
+        $label = New-Object System.Windows.Forms.Label
+        $label.Text = (
+            (Get-ButtonFeatureText -Key 'ButtonN') +
+            ' ' +
+            ($i + 1)
+        )
+        $label.Location = [System.Drawing.Point]::new(8, ($y + 4))
+        $label.Size = [System.Drawing.Size]::new(92, 28)
+        $panel.Controls.Add($label)
+
+        $indicator = New-Object System.Windows.Forms.Label
+        $indicator.Text = '●'
+        $indicator.Location = [System.Drawing.Point]::new(101, ($y + 3))
+        $indicator.Size = [System.Drawing.Size]::new(28, 28)
+        $indicator.TextAlign = 'MiddleCenter'
+        $indicator.Font = New-Object System.Drawing.Font(
+            'Segoe UI',
+            13
+        )
+        $panel.Controls.Add($indicator)
+        $settingsIndicators += $indicator
+
+        $combo = New-Object MugenDeejWindowing.MugenComboBox
+        $combo.DropDownStyle = 'DropDownList'
+        $combo.Location = [System.Drawing.Point]::new(136, $y)
+        $combo.Size = [System.Drawing.Size]::new(508, 30)
+
+        $state = [pscustomobject]@{
+            Row = $i
+            ActionMap = New-Object System.Collections.ArrayList
+            Suppress = $true
+        }
+
+        $combo.Tag = $state
+
+        [void]$combo.Items.Add(
+            (Get-ButtonFeatureText -Key 'None')
+        )
+        [void]$state.ActionMap.Add('none')
+
+        for ($sliderIndex = 0; $sliderIndex -lt $sliderCount; $sliderIndex++) {
+            $name = [string]$script:Config.sliders[$sliderIndex].name
+
+            if ([string]::IsNullOrWhiteSpace($name)) {
+                $name = [string]($sliderIndex + 1)
+            }
+
+            $display = (
+                (Get-ButtonFeatureText -Key 'MuteControl') +
+                ' ' +
+                ($sliderIndex + 1) +
+                ' — ' +
+                $name
+            )
+
+            [void]$combo.Items.Add($display)
+            [void]$state.ActionMap.Add(('mute:' + $sliderIndex))
+        }
+
+        foreach ($fixedAction in @(
+            @('PlayPause', 'media:playpause'),
+            @('PreviousTrack', 'media:previous'),
+            @('NextTrack', 'media:next'),
+            @('StopPlayback', 'media:stop'),
+            @('VolumeUp', 'system:volumeup'),
+            @('VolumeDown', 'system:volumedown'),
+            @('VolumeMute', 'system:volumemute')
+        )) {
+            [void]$combo.Items.Add(
+                (Get-ButtonFeatureText -Key $fixedAction[0])
+            )
+
+            [void]$state.ActionMap.Add(
+                [string]$fixedAction[1]
+            )
+        }
+
+        $action = [string]$pendingActions[$i]
+
+        if (
+            $action -match '^hotkey:\d{1,3}:\d{1,2}$' -or
+            $action -match '^launch64:.+$' -or
+            $action -match '^folder64:.+$' -or
+            $action -match '^command64:.+$' -or
+            $action -match '^url64:.+$'
+        ) {
+            $dynamicDisplay = if ($action -match '^hotkey:') {
+                Get-HotkeyActionDisplay -Action $action
+            }
+            elseif ($action -match '^launch64:') {
+                Get-LaunchActionDisplay -Action $action
+            }
+            elseif ($action -match '^folder64:') {
+                Get-FolderActionDisplay -Action $action
+            }
+            elseif ($action -match '^command64:') {
+                Get-CommandActionDisplay -Action $action
+            }
+            else {
+                Get-UrlActionDisplay -Action $action
+            }
+
+            [void]$combo.Items.Add($dynamicDisplay)
+            [void]$state.ActionMap.Add($action)
+        }
+
+        [void]$combo.Items.Add(
+            (Get-ButtonFeatureText -Key 'HotkeyConfigure')
+        )
+        [void]$state.ActionMap.Add('hotkey:configure')
+
+        if ($script:Language -eq 'ru') {
+            [void]$combo.Items.Add('Запустить программу / файл…')
+            [void]$combo.Items.Add('Открыть папку…')
+            [void]$combo.Items.Add('Выполнить команду…')
+            [void]$combo.Items.Add('Открыть URL…')
+        }
+        else {
+            [void]$combo.Items.Add('Launch program / file…')
+            [void]$combo.Items.Add('Open folder…')
+            [void]$combo.Items.Add('Run command…')
+            [void]$combo.Items.Add('Open URL…')
+        }
+
+        [void]$state.ActionMap.Add('launch:configure')
+        [void]$state.ActionMap.Add('folder:configure')
+        [void]$state.ActionMap.Add('command:configure')
+        [void]$state.ActionMap.Add('url:configure')
+
+        $selected = -1
+
+        for (
+            $mapIndex = 0;
+            $mapIndex -lt $state.ActionMap.Count;
+            $mapIndex++
+        ) {
+            if (
+                [string]$state.ActionMap[$mapIndex] -eq
+                $action
+            ) {
+                $selected = $mapIndex
+                break
+            }
+        }
+
+        if ($selected -lt 0) {
+            $selected = 0
+            $pendingActions[$i] = 'none'
+        }
+
+        $combo.SelectedIndex = $selected
+        $state.Suppress = $false
+
+        $combo.Add_SelectedIndexChanged({
+            param($sender, $eventArgs)
+
+            $comboState = $sender.Tag
+
+            if ($comboState.Suppress) {
+                return
+            }
+
+            $row = [int]$comboState.Row
+            $selectedIndex = [int]$sender.SelectedIndex
+
+            if (
+                $selectedIndex -lt 0 -or
+                $selectedIndex -ge $comboState.ActionMap.Count
+            ) {
+                return
+            }
+
+            $selectedAction = [string]$comboState.ActionMap[
+                $selectedIndex
+            ]
+
+            if (
+                $selectedAction -notin @(
+                    'hotkey:configure',
+                    'launch:configure',
+                    'folder:configure',
+                    'command:configure',
+                    'url:configure'
+                )
+            ) {
+                $pendingActions[$row] = $selectedAction
+                return
+            }
+
+            $previousAction = [string]$pendingActions[$row]
+            $configuredAction = $null
+
+            switch ($selectedAction) {
+                'hotkey:configure' {
+                    $configuredAction = Show-HotkeyEditor `
+                        -ExistingAction $previousAction
+                }
+
+                'launch:configure' {
+                    $configuredAction = Select-LaunchTargetAction `
+                        -ExistingAction $previousAction
+                }
+
+                'folder:configure' {
+                    $configuredAction = Select-FolderTargetAction `
+                        -ExistingAction $previousAction
+                }
+
+                'command:configure' {
+                    $configuredAction = Show-CommandActionEditor `
+                        -ExistingAction $previousAction
+                }
+
+                'url:configure' {
+                    $configuredAction = Show-UrlActionEditor `
+                        -ExistingAction $previousAction
+                }
+            }
+
+            $comboState.Suppress = $true
+
+            try {
+                if (
+                    [string]::IsNullOrWhiteSpace($configuredAction)
+                ) {
+                    $restoreIndex = -1
+
+                    for (
+                        $j = 0;
+                        $j -lt $comboState.ActionMap.Count;
+                        $j++
+                    ) {
+                        if (
+                            [string]$comboState.ActionMap[$j] -eq
+                            $previousAction
+                        ) {
+                            $restoreIndex = $j
+                            break
+                        }
+                    }
+
+                    if ($restoreIndex -lt 0) {
+                        $restoreIndex = 0
+                    }
+
+                    $sender.SelectedIndex = $restoreIndex
+                    return
+                }
+
+                $configuredAction = [string]$configuredAction
+                $pendingActions[$row] = $configuredAction
+
+                $dynamicIndex = -1
+                $firstConfigureIndex = -1
+
+                for (
+                    $j = 0;
+                    $j -lt $comboState.ActionMap.Count;
+                    $j++
+                ) {
+                    $mappedAction = [string]$comboState.ActionMap[$j]
+
+                    if (
+                        $mappedAction -match '^hotkey:' -or
+                        $mappedAction -match '^launch64:' -or
+                        $mappedAction -match '^folder64:' -or
+                        $mappedAction -match '^command64:' -or
+                        $mappedAction -match '^url64:'
+                    ) {
+                        $dynamicIndex = $j
+                    }
+
+                    if (
+                        $firstConfigureIndex -lt 0 -and
+                        $mappedAction -in @(
+                            'hotkey:configure',
+                            'launch:configure',
+                            'folder:configure',
+                            'command:configure',
+                            'url:configure'
+                        )
+                    ) {
+                        $firstConfigureIndex = $j
+                    }
+                }
+
+                $display = if (
+                    $configuredAction -match '^hotkey:'
+                ) {
+                    Get-HotkeyActionDisplay `
+                        -Action $configuredAction
+                }
+                elseif (
+                    $configuredAction -match '^launch64:'
+                ) {
+                    Get-LaunchActionDisplay `
+                        -Action $configuredAction
+                }
+                elseif (
+                    $configuredAction -match '^folder64:'
+                ) {
+                    Get-FolderActionDisplay `
+                        -Action $configuredAction
+                }
+                elseif (
+                    $configuredAction -match '^command64:'
+                ) {
+                    Get-CommandActionDisplay `
+                        -Action $configuredAction
+                }
+                else {
+                    Get-UrlActionDisplay `
+                        -Action $configuredAction
+                }
+
+                if ($dynamicIndex -ge 0) {
+                    $comboState.ActionMap[$dynamicIndex] =
+                        $configuredAction
+
+                    $sender.Items[$dynamicIndex] = $display
+                }
+                else {
+                    if ($firstConfigureIndex -lt 0) {
+                        $firstConfigureIndex = $sender.Items.Count
+                    }
+
+                    $comboState.ActionMap.Insert(
+                        $firstConfigureIndex,
+                        $configuredAction
+                    )
+
+                    $sender.Items.Insert(
+                        $firstConfigureIndex,
+                        $display
+                    )
+
+                    $dynamicIndex = $firstConfigureIndex
+                }
+
+                $sender.SelectedIndex = $dynamicIndex
+            }
+            finally {
+                $comboState.Suppress = $false
+            }
+        })
+
+        $panel.Controls.Add($combo)
+    }
+
+    $cancel = New-Object MugenDeejWindowing.MugenButton
+    $cancel.Text = Get-ButtonFeatureText -Key 'Cancel'
+    $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+    $cancel.Location = [System.Drawing.Point]::new(472, 447)
+    $cancel.Size = [System.Drawing.Size]::new(105, 36)
+    $buttonForm.Controls.Add($cancel)
+
+    $save = New-Object MugenDeejWindowing.MugenButton
+    $save.Text = Get-ButtonFeatureText -Key 'Save'
+    $save.Tag = 'MugenPrimary'
+    $save.Location = [System.Drawing.Point]::new(588, 447)
+    $save.Size = [System.Drawing.Size]::new(105, 36)
+    $buttonForm.Controls.Add($save)
+
+    $save.Add_Click({
+        $script:ButtonActions = @($pendingActions)
+        Save-ButtonActions
+
+        $buttonForm.DialogResult =
+            [System.Windows.Forms.DialogResult]::OK
+
+        $buttonForm.Close()
+    })
+
+    $liveButtonTimer = New-Object System.Windows.Forms.Timer
+    $liveButtonTimer.Interval = 25
+
+    $liveButtonTimer.Add_Tick({
+        for (
+            $i = 0;
+            $i -lt $settingsIndicators.Count;
+            $i++
+        ) {
+            Set-ButtonIndicatorAppearance `
+                -Indicator $settingsIndicators[$i] `
+                -ButtonIndex $i `
+                -DotOnly
+        }
+    })
+
+    Apply-ThemeToForm -Form $buttonForm
+
+    # Keep the Save note as a semantic amber accent after theme application.
+    $saveNotice.ForeColor = [System.Drawing.Color]::FromArgb(
+        230,
+        170,
+        70
+    )
+
+    for (
+        $i = 0;
+        $i -lt $settingsIndicators.Count;
+        $i++
+    ) {
+        Set-ButtonIndicatorAppearance `
+            -Indicator $settingsIndicators[$i] `
+            -ButtonIndex $i `
+            -DotOnly
+    }
+
+    $buttonForm.Add_Shown({
+        Ensure-FormVisible `
+            -Form $buttonForm `
+            -CenterIfOffscreen
+
+        $liveButtonTimer.Start()
+    })
+
+    $buttonForm.Add_FormClosed({
+        $liveButtonTimer.Stop()
+        $liveButtonTimer.Dispose()
+    })
+
+    $buttonForm.AcceptButton = $save
+    $buttonForm.CancelButton = $cancel
+
+    [void]$buttonForm.ShowDialog($form)
+    $buttonForm.Dispose()
+}
+function Test-ControllerPacketMatchesCapabilities {
+    param([Parameter(Mandatory = $true)]$Packet)
+
+    if ($script:ControllerProtocol -eq 'unknown' -or $script:DetectedSliderCount -le 0) {
+        return $true
+    }
+
+    return (
+        [string]$Packet.Protocol -eq $script:ControllerProtocol -and
+        @($Packet.Sliders).Count -eq $script:DetectedSliderCount -and
+        @($Packet.Buttons).Count -eq $script:DetectedButtonCount
+    )
 }
 
 function Close-ControllerPort {
@@ -3843,7 +7685,11 @@ function Close-ControllerPort {
     $script:ConnectedPort = ''
     $script:LastSerialPacketAt = [DateTime]::MinValue
     $script:LatestLevels = @()
-
+    $script:ControllerProtocol = 'unknown'
+    $script:DetectedSliderCount = 0
+    $script:DetectedButtonCount = 0
+    $script:LatestButtons = @()
+    $script:LastButtonStates = @()
     if ($Detailed) {
         Write-Log ("Controller-port cleanup completed; reason={0}; port={1}" -f $Reason, $portName) 'INFO'
     }
@@ -3950,6 +7796,8 @@ function Open-And-ProbePort {
         $deadline = (Get-Date).AddMilliseconds([int]$script:Config.connection.startupWaitMs + 2800)
         $readyAfter = (Get-Date).AddMilliseconds([int]$script:Config.connection.startupWaitMs)
         $buffer = ''
+        $candidateSignature = ''
+        $candidateHits = 0
 
         while ((Get-Date) -lt $deadline) {
             [System.Windows.Forms.Application]::DoEvents()
@@ -3976,9 +7824,23 @@ function Open-And-ProbePort {
                 $idx = $buffer.IndexOf("`n")
                 $line = $buffer.Substring(0, $idx).Trim("`r", "`n", " ", "`t")
                 $buffer = $buffer.Substring($idx + 1)
-                $parsed = Test-ProtocolLine -Line $line -ExpectedCount ([int]$script:Config.connection.expectedSliders)
+                $parsed = Test-ControllerProtocolLine -Line $line
 
                 if ($null -ne $parsed) {
+                    $signature = Get-ControllerPacketSignature -Packet $parsed
+                    if ($signature -eq $candidateSignature) {
+                        $candidateHits++
+                    }
+                    else {
+                        $candidateSignature = $signature
+                        $candidateHits = 1
+                    }
+
+                    $requiredHits = if ([string]$parsed.Protocol -eq 'extended') { 2 } else { 3 }
+                    if ($candidateHits -lt $requiredHits) { continue }
+
+                    Set-DetectedControllerCapabilities -Packet $parsed -PortName $PortName
+                    Initialize-ButtonStates -Values @($parsed.Buttons)
                     if (Test-ConnectionWorkCancelled -Generation $probeGeneration) {
                         $cancelled = $true
                         return $false
@@ -4142,7 +8004,7 @@ function Connect-Controller {
                     return $false
                 }
 
-                Set-Status (T -Key 'StatusConnected' -Args @($port, [int]$script:Config.connection.expectedSliders)) 'ok'
+                Set-Status (Get-ControllerConnectedStatusText -PortName $port) 'ok'
                 Update-TrayText
                 Update-DriverStatus
                 return $true
@@ -4152,7 +8014,7 @@ function Connect-Controller {
         if (Test-ConnectionWorkCancelled -Generation $script:ProbeGeneration) { return $false }
 
         if ($script:IsConnected -and $null -ne $script:Serial -and $script:Serial.IsOpen) {
-            Set-Status (T -Key 'StatusConnected' -Args @($script:ConnectedPort, [int]$script:Config.connection.expectedSliders)) 'ok'
+            Set-Status (Get-ControllerConnectedStatusText -PortName $script:ConnectedPort) 'ok'
             Update-TrayText
             return $true
         }
@@ -4191,7 +8053,7 @@ function Connect-Controller {
 function Apply-SliderValues {
     param([int[]]$Values)
 
-    if ($Values.Count -ne [int]$script:Config.connection.expectedSliders) { return }
+    if ($null -eq $Values -or $Values.Count -lt 1) { return }
     $threshold = [double]$script:Config.behavior.noiseThreshold
     $invert = [bool]$script:Config.behavior.invertSliders
 
@@ -4210,6 +8072,9 @@ function Apply-SliderValues {
         $level = [double]$script:LatestLevels[$i]
         if ([Math]::Abs($level - [double]$script:LastValues[$i]) -lt $threshold) { continue }
         $script:LastValues[$i] = $level
+        if ($script:SoftMutedSliders.ContainsKey($i)) {
+            continue
+        }
 
         if ($i -ge $script:Config.sliders.Count) { continue }
         $slider = $script:Config.sliders[$i]
@@ -4253,16 +8118,28 @@ function Handle-ControllerConnectionLost {
     param([string]$Reason)
 
     if (-not [string]::IsNullOrWhiteSpace($Reason)) {
-        Write-Log "Serial connection lost: $Reason" 'WARN'
+        Write-Log (
+            'Serial connection lost: {0}' -f
+            $Reason
+        ) 'WARN'
     }
+
+    Clear-SoftMutesAfterControllerDisconnect `
+        -Reason 'controller disconnected'
+
     Close-ControllerPort
+
     [MugenDeejAudio.AudioMixer]::InvalidateSessions()
+
     $script:LastReconnectAttempt = Get-Date
-    Set-Status (T -Key 'StatusLost') 'warn'
+
+    Set-Status `
+        (T -Key 'StatusLost') `
+        'warn'
+
     Update-TrayText
     Update-DriverStatus
 }
-
 function Fail-ResumePreservedConnection {
     param([string]$Reason)
 
@@ -4281,6 +8158,7 @@ function Fail-ResumePreservedConnection {
     $script:ResumePreserveStartedAt = [DateTime]::MinValue
     $script:ResumePreserveFirstErrorLogged = $false
 
+    Clear-SoftMutesAfterControllerDisconnect -Reason 'preserved connection failed after resume'
     Close-ControllerPort -Reason 'preserved connection failed after system resume' -Detailed
     [MugenDeejAudio.AudioMixer]::InvalidateSessions()
     $script:LastReconnectAttempt = Get-Date
@@ -4333,8 +8211,29 @@ function Process-SerialData {
             $idx = $script:SerialBuffer.IndexOf("`n")
             $line = $script:SerialBuffer.Substring(0, $idx).Trim("`r", "`n", " ", "`t")
             $script:SerialBuffer = $script:SerialBuffer.Substring($idx + 1)
-            $parsed = Test-ProtocolLine -Line $line -ExpectedCount ([int]$script:Config.connection.expectedSliders)
-            if ($null -ne $parsed) { $latestParsed = $parsed }
+            $parsed = Test-ControllerProtocolLine -Line $line
+            if ($null -ne $parsed) {
+                if (Test-ControllerPacketMatchesCapabilities -Packet $parsed) {
+                    Update-ButtonStates -Values @($parsed.Buttons)
+                    $latestParsed = $parsed
+                }
+                else {
+                    $nowMismatch = Get-Date
+                    if (
+                        $script:LastCapabilityMismatchLog -eq [DateTime]::MinValue -or
+                        ($nowMismatch - $script:LastCapabilityMismatchLog).TotalSeconds -ge 5
+                    ) {
+                        Write-Log (
+                            'Ignored packet whose shape changed while connected: expected={0}:{1}:{2}; got={3}' -f
+                            $script:ControllerProtocol,
+                            $script:DetectedSliderCount,
+                            $script:DetectedButtonCount,
+                            (Get-ControllerPacketSignature -Packet $parsed)
+                        ) 'WARN'
+                        $script:LastCapabilityMismatchLog = $nowMismatch
+                    }
+                }
+            }
         }
 
         if ($null -ne $latestParsed) {
@@ -4348,12 +8247,12 @@ function Process-SerialData {
                 $script:ResumePreserveFirstErrorLogged = $false
                 $script:ResumeAutoReconnectSuppressed = $false
                 Write-Log ("Existing SerialPort resumed without Close/Open; port={0}; firstValidPacketAfterMs={1}" -f $resumedPort, $elapsedMs) 'INFO'
-                Set-Status (T -Key 'StatusConnected' -Args @($resumedPort, [int]$script:Config.connection.expectedSliders)) 'ok'
+                Set-Status (Get-ControllerConnectedStatusText -PortName $resumedPort) 'ok'
                 Update-TrayText
                 Update-DriverStatus
             }
 
-            Apply-SliderValues -Values $latestParsed
+            Apply-SliderValues -Values @($latestParsed.Sliders)
             return
         }
 
@@ -4634,14 +8533,14 @@ function Show-InitialLanguagePicker {
     $description.Size = New-Object System.Drawing.Size(495, 48)
     $languageForm.Controls.Add($description)
 
-    $russianButton = New-Object System.Windows.Forms.Button
+    $russianButton = New-Object MugenDeejWindowing.MugenButton
     $russianButton.Text = 'Русский'
     $russianButton.Location = New-Object System.Drawing.Point(32, 128)
     $russianButton.Size = New-Object System.Drawing.Size(238, 54)
     $russianButton.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 12)
     $languageForm.Controls.Add($russianButton)
 
-    $englishButton = New-Object System.Windows.Forms.Button
+    $englishButton = New-Object MugenDeejWindowing.MugenButton
     $englishButton.Text = 'English'
     $englishButton.Location = New-Object System.Drawing.Point(290, 128)
     $englishButton.Size = New-Object System.Drawing.Size(238, 54)
@@ -4815,13 +8714,49 @@ for ($i = 0; $i -lt 5; $i++) {
     $script:KnobPercentLabels += $percent
 }
 
-$settingsButton = New-Object System.Windows.Forms.Button
+# dev3: leave room for a persistent bilingual mute label.
+foreach ($bar in @($script:KnobProgressBars)) {
+    $bar.Size = [System.Drawing.Size]::new(280, 21)
+}
+foreach ($percent in @($script:KnobPercentLabels)) {
+    $percent.Location = [System.Drawing.Point]::new(480, $percent.Location.Y)
+    $percent.Size = [System.Drawing.Size]::new(126, 23)
+}
+
+$buttonStateGroup = New-Object MugenDeejWindowing.MugenGroupBox
+$buttonStateGroup.Text = Get-ButtonFeatureText -Key 'ButtonStatus'
+$buttonStateGroup.Location = [System.Drawing.Point]::new(24, 356)
+$buttonStateGroup.Size = [System.Drawing.Size]::new(632, 72)
+$buttonStateGroup.Visible = $false
+$form.Controls.Add($buttonStateGroup)
+$script:ButtonStateGroup = $buttonStateGroup
+
+$buttonStateFlow = New-Object System.Windows.Forms.FlowLayoutPanel
+$buttonStateFlow.Location = [System.Drawing.Point]::new(13, 30)
+$buttonStateFlow.Size = [System.Drawing.Size]::new(606, 34)
+$buttonStateFlow.FlowDirection = [System.Windows.Forms.FlowDirection]::LeftToRight
+$buttonStateFlow.WrapContents = $false
+$buttonStateFlow.AutoScroll = $true
+$buttonStateFlow.BackColor = $buttonStateGroup.BackColor
+$buttonStateGroup.Controls.Add($buttonStateFlow)
+$script:ButtonStateFlow = $buttonStateFlow
+
+$settingsButton = New-Object MugenDeejWindowing.MugenButton
 $settingsButton.Text = (T -Key 'ConfigureKnobs')
 $settingsButton.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 10)
 $settingsButton.Tag = 'MugenPrimary'
 $settingsButton.Location = New-Object System.Drawing.Point(24, 360)
 $settingsButton.Size = New-Object System.Drawing.Size(230, 42)
 $form.Controls.Add($settingsButton)
+
+$buttonSettingsButton = New-Object MugenDeejWindowing.MugenButton
+$buttonSettingsButton.Text = Get-ButtonFeatureText -Key 'MainButton'
+$buttonSettingsButton.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 10)
+$buttonSettingsButton.Location = New-Object System.Drawing.Point(272, 360)
+$buttonSettingsButton.Size = New-Object System.Drawing.Size(210, 42)
+$buttonSettingsButton.Visible = $false
+$form.Controls.Add($buttonSettingsButton)
+$script:ButtonSettingsButton = $buttonSettingsButton
 
 $settingsHint = New-Object System.Windows.Forms.Label
 $settingsHint.Text = (T -Key 'ConfigureHint')
@@ -4830,6 +8765,8 @@ $settingsHint.Location = New-Object System.Drawing.Point(272, 358)
 $settingsHint.Size = New-Object System.Drawing.Size(380, 48)
 $settingsHint.TextAlign = 'MiddleLeft'
 $form.Controls.Add($settingsHint)
+$script:SettingsHintControl = $settingsHint
+# dev3 layout hotfix: early button-layout update intentionally deferred
 
 $startupGroup = New-Object MugenDeejWindowing.MugenGroupBox
 $startupGroup.Text = (T -Key 'StartupGroup')
@@ -4861,7 +8798,8 @@ $startupDeleteHint.Size = New-Object System.Drawing.Size(590, 22)
 $startupDeleteHint.TextAlign = 'MiddleLeft'
 $startupGroup.Controls.Add($startupDeleteHint)
 
-$advancedToggle = New-Object System.Windows.Forms.Button
+$advancedToggle = New-Object MugenDeejWindowing.MugenButton
+$advancedToggle.Tag = 'MugenSection'
 $advancedToggle.Text = (T -Key 'DiagnosticsClosed')
 $advancedToggle.Location = New-Object System.Drawing.Point(24, 516)
 $advancedToggle.Size = New-Object System.Drawing.Size(250, 32)
@@ -4897,13 +8835,13 @@ $portCombo.Location = New-Object System.Drawing.Point(220, 58)
 $portCombo.Size = New-Object System.Drawing.Size(125, 29)
 $connectionGroup.Controls.Add($portCombo)
 
-$refreshButton = New-Object System.Windows.Forms.Button
+$refreshButton = New-Object MugenDeejWindowing.MugenButton
 $refreshButton.Text = (T -Key 'RefreshList')
 $refreshButton.Location = New-Object System.Drawing.Point(356, 56)
 $refreshButton.Size = New-Object System.Drawing.Size(145, 32)
 $connectionGroup.Controls.Add($refreshButton)
 
-$connectButton = New-Object System.Windows.Forms.Button
+$connectButton = New-Object MugenDeejWindowing.MugenButton
 $connectButton.Text = (T -Key 'Reconnect')
 $connectButton.Location = New-Object System.Drawing.Point(18, 99)
 $connectButton.Size = New-Object System.Drawing.Size(230, 34)
@@ -4937,13 +8875,13 @@ $driverLabel.Size = New-Object System.Drawing.Size(560, 28)
 $driverLabel.TextAlign = 'MiddleLeft'
 $driverGroup.Controls.Add($driverLabel)
 
-$driverButton = New-Object System.Windows.Forms.Button
+$driverButton = New-Object MugenDeejWindowing.MugenButton
 $driverButton.Text = (T -Key 'InstallDriver')
 $driverButton.Location = New-Object System.Drawing.Point(18, 61)
 $driverButton.Size = New-Object System.Drawing.Size(310, 32)
 $driverGroup.Controls.Add($driverButton)
 
-$logButton = New-Object System.Windows.Forms.Button
+$logButton = New-Object MugenDeejWindowing.MugenButton
 $logButton.Text = (T -Key 'OpenLog')
 $logButton.Location = New-Object System.Drawing.Point(342, 61)
 $logButton.Size = New-Object System.Drawing.Size(170, 32)
@@ -4956,6 +8894,8 @@ $footer.AutoSize = $true
 $footer.Anchor = [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Bottom
 $footer.Location = New-Object System.Drawing.Point(24, 564)
 $form.Controls.Add($footer)
+# dev3 layout hotfix: initialize button layout only after the full main UI exists
+Update-ButtonFeatureUi
 
 $notifyIcon = New-Object System.Windows.Forms.NotifyIcon
 $notifyIcon.Icon = if ($script:AppIcon) { $script:AppIcon } else { [System.Drawing.SystemIcons]::Application }
@@ -5088,29 +9028,125 @@ function Update-ConnectionControls {
     $refreshButton.Enabled = $manual
 }
 
-function Show-MainWindowForeground {
-    Ensure-FormVisible -Form $form -CenterIfOffscreen
+$script:TrayTransitionInProgress = $false
 
-    if ($form.WindowState -eq [System.Windows.Forms.FormWindowState]::Minimized) {
-        $form.WindowState = [System.Windows.Forms.FormWindowState]::Normal
+function Hide-MainWindowToTray {
+    param(
+        [string]$Reason = 'tray hide'
+    )
+
+    if ($null -eq $form -or $form.IsDisposed) {
+        return
     }
 
-    $form.Show()
-    [void][MugenDeejWindowing.Foreground]::ShowWindowAsync($form.Handle, 9)
+    if ($script:TrayTransitionInProgress) {
+        Write-Log (
+            'Tray transition re-entry suppressed while hiding; reason={0}' -f
+            $Reason
+        ) 'DEBUG'
+        return
+    }
 
-    # A process launched from Explorer can otherwise create its WinForms window
-    # behind the folder that started it. Briefly placing the form at the top,
-    # activating it, then restoring the normal z-order makes startup predictable
-    # without leaving Mugen Deej permanently always-on-top.
-    $form.TopMost = $true
-    $form.BringToFront()
-    [void][MugenDeejWindowing.Foreground]::BringWindowToTop($form.Handle)
-    [void][MugenDeejWindowing.Foreground]::SetForegroundWindow($form.Handle)
-    $form.Activate()
-    [System.Windows.Forms.Application]::DoEvents()
-    $form.TopMost = $false
+    $script:TrayTransitionInProgress = $true
+
+    try {
+        # dev13: hide FIRST.
+        #
+        # dev12 normalized WindowState while the form was still visible.
+        # Windows could therefore display one unpainted/restored frame before
+        # Hide() completed. Once invisible, changing WindowState or taskbar
+        # ownership cannot produce that visible empty-shell flash.
+        if ($form.Visible) {
+            $form.Hide()
+        }
+
+        if ($form.WindowState -ne [System.Windows.Forms.FormWindowState]::Normal) {
+            $form.WindowState = [System.Windows.Forms.FormWindowState]::Normal
+        }
+
+        $form.ShowInTaskbar = $false
+
+        Write-Log (
+            'Main window hidden to tray; reason={0}; order=hide-first' -f
+            $Reason
+        ) 'DEBUG'
+    }
+    catch {
+        Write-Log (
+            'Failed to hide main window to tray: reason={0}; error={1}' -f
+            $Reason,
+            $_.Exception.Message
+        ) 'WARN'
+    }
+    finally {
+        $script:TrayTransitionInProgress = $false
+    }
 }
+function Show-MainWindowForeground {
+    if ($null -eq $form -or $form.IsDisposed) {
+        return
+    }
 
+    if ($script:TrayTransitionInProgress) {
+        Write-Log 'Tray transition re-entry suppressed while restoring' 'DEBUG'
+        return
+    }
+
+    $script:TrayTransitionInProgress = $true
+
+    try {
+        if ($form.WindowState -ne [System.Windows.Forms.FormWindowState]::Normal) {
+            $form.WindowState = [System.Windows.Forms.FormWindowState]::Normal
+        }
+
+        $form.ShowInTaskbar = $true
+        $form.Opacity = 1
+
+        if (-not $form.Visible) {
+            $form.Show()
+        }
+
+        Ensure-FormVisible `
+            -Form $form `
+            -CenterIfOffscreen
+
+        [void][MugenDeejWindowing.Foreground]::ShowWindowAsync(
+            $form.Handle,
+            9
+        )
+
+        $form.TopMost = $true
+        $form.BringToFront()
+
+        [void][MugenDeejWindowing.Foreground]::BringWindowToTop(
+            $form.Handle
+        )
+
+        [void][MugenDeejWindowing.Foreground]::SetForegroundWindow(
+            $form.Handle
+        )
+
+        $form.Activate()
+        [System.Windows.Forms.Application]::DoEvents()
+        $form.TopMost = $false
+
+        Write-Log 'Main window restored from tray' 'DEBUG'
+    }
+    catch {
+        Write-Log (
+            'Failed to restore main window from tray: {0}' -f
+            $_.Exception.Message
+        ) 'WARN'
+    }
+    finally {
+        try {
+            $form.TopMost = $false
+        }
+        catch {}
+
+        $script:TrayTransitionInProgress = $false
+    }
+}
 function Update-TrayText {
     $text = if ($script:IsConnected) { "Mugen Deej — $script:ConnectedPort" } else { (T -Key 'TrayDisconnected') }
     if ($text.Length -gt 63) { $text = $text.Substring(0, 63) }
@@ -5126,17 +9162,47 @@ function Refresh-KnobLabels {
 }
 
 function Update-KnobMonitor {
+    Update-ButtonFeatureUi
+
+    $themeName = Get-EffectiveTheme
+    $palette = $script:ThemePalettes[$themeName]
+    $muteColor = Get-MuteStatusColor
+
     for ($i = 0; $i -lt $script:KnobProgressBars.Count; $i++) {
         if ($script:LatestLevels.Count -gt $i) {
-            $level = [Math]::Max(0.0, [Math]::Min(1.0, [double]$script:LatestLevels[$i]))
+            $level = [Math]::Max(
+                0.0,
+                [Math]::Min(1.0, [double]$script:LatestLevels[$i])
+            )
             $script:KnobProgressBars[$i].Value = [int][Math]::Round($level * 1000)
-            $script:KnobPercentLabels[$i].Text = ('{0}%' -f [int][Math]::Round($level * 100))
+
+            if ($script:SoftMutedSliders.ContainsKey($i)) {
+                $script:KnobPercentLabels[$i].Text = Get-ButtonFeatureText -Key 'Muted'
+                $script:KnobPercentLabels[$i].ForeColor = $muteColor
+                $script:KnobPercentLabels[$i].Font = New-Object System.Drawing.Font(
+                    'Segoe UI Semibold',
+                    9
+                )
+            }
+            else {
+                $script:KnobPercentLabels[$i].Text = (
+                    '{0}%' -f [int][Math]::Round($level * 100)
+                )
+                $script:KnobPercentLabels[$i].ForeColor = $palette.Text
+                $script:KnobPercentLabels[$i].Font = New-Object System.Drawing.Font(
+                    'Segoe UI',
+                    10
+                )
+            }
         }
         else {
             $script:KnobProgressBars[$i].Value = 0
             $script:KnobPercentLabels[$i].Text = '—'
+            $script:KnobPercentLabels[$i].ForeColor = $palette.Text
         }
     }
+
+    Update-MainButtonIndicators
 }
 
 function Set-AdvancedExpanded {
@@ -5144,11 +9210,28 @@ function Set-AdvancedExpanded {
         [bool]$Expanded,
         [bool]$Persist = $true
     )
+
     $advancedPanel.Visible = $Expanded
-    $advancedToggle.Text = if ($Expanded) { (T -Key 'DiagnosticsOpen') } else { (T -Key 'DiagnosticsClosed') }
-    $form.ClientSize = if ($Expanded) { New-Object System.Drawing.Size(680, 860) } else { New-Object System.Drawing.Size(680, 592) }
-    # Keep the signature attached to the visible bottom edge in both layouts.
-    $footer.Location = New-Object System.Drawing.Point(24, ($form.ClientSize.Height - 28))
+    $advancedToggle.Text = if ($Expanded) {
+        T -Key 'DiagnosticsOpen'
+    }
+    else {
+        T -Key 'DiagnosticsClosed'
+    }
+
+    $hasButtons = ($script:IsConnected -and $script:DetectedButtonCount -gt 0)
+    $offset = if ($hasButtons) { 84 } else { 0 }
+
+    $form.ClientSize = [System.Drawing.Size]::new(
+        680,
+        $(if ($Expanded) { 860 + $offset } else { 592 + $offset })
+    )
+
+    $footer.Location = [System.Drawing.Point]::new(
+        24,
+        ($form.ClientSize.Height - 28)
+    )
+
     if ($Persist) {
         $script:Config.app.advancedExpanded = $Expanded
         Save-Config -Config $script:Config
@@ -5206,7 +9289,7 @@ $languageCombo.Add_SelectedIndexChanged({
     Apply-MainLocalization
     Update-DriverStatus
     if ($script:IsConnected) {
-        Set-Status (T -Key 'StatusConnected' -Args @($script:ConnectedPort, [int]$script:Config.connection.expectedSliders)) 'ok'
+        Set-Status (Get-ControllerConnectedStatusText -PortName $script:ConnectedPort) 'ok'
     }
     else {
         Set-Status (T -Key 'StatusNotConnected') 'idle'
@@ -5405,6 +9488,7 @@ $connectButton.Add_Click({
     [void](Connect-Controller -ForceFullScan)
 })
 $settingsButton.Add_Click({ Show-SliderSettings })
+$buttonSettingsButton.Add_Click({ Show-ButtonSettings })
 $driverButton.Add_Click({ Install-Ch340Driver })
 $logButton.Add_Click({ Start-Process notepad.exe -ArgumentList ('"{0}"' -f $script:LogPath) })
 
@@ -5420,6 +9504,28 @@ $trayReconnect.Add_Click({
 })
 $trayExit.Add_Click({ Request-AppExit })
 $notifyIcon.Add_DoubleClick({ Show-MainWindowForeground })
+# dev11: normalize the hidden main form BEFORE the legacy Resize handler runs.
+$form.Add_Resize({
+    if (
+        $form.WindowState -eq [System.Windows.Forms.FormWindowState]::Minimized -and
+        [bool]$script:Config.app.minimizeToTray
+    ) {
+        Hide-MainWindowToTray
+    }
+})
+
+# dev11: X-to-tray safety. The existing FormClosing handler still sets Cancel
+# and owns actual shutdown; this pre-handler only guarantees a clean tray state.
+$form.Add_FormClosing({
+    param($sender, $eventArgs)
+
+    if (
+        -not $script:Closing -and
+        [bool]$script:Config.app.minimizeToTray
+    ) {
+        Hide-MainWindowToTray
+    }
+})
 
 $form.Add_Resize({
     if ($form.WindowState -eq [System.Windows.Forms.FormWindowState]::Minimized -and [bool]$script:Config.app.minimizeToTray) {
