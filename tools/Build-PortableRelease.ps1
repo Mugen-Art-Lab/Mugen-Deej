@@ -24,6 +24,17 @@ function Require-File {
     }
 }
 
+function Get-ScriptVersion {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $firstLine = Get-Content -LiteralPath $Path -TotalCount 1 -Encoding UTF8
+    if ($firstLine -notmatch '^# Mugen Deej (?<version>.+)$') {
+        throw "Could not read the application version from $Path."
+    }
+
+    return $Matches['version'].Trim()
+}
+
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $sourceScript = Join-Path $repoRoot 'MugenDeej.ps1'
 $versionFile = Join-Path $repoRoot 'VERSION.txt'
@@ -44,47 +55,6 @@ if ([string]::IsNullOrWhiteSpace($Version)) {
 
 if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$') {
     throw "Invalid release version '$Version'. Expected a value such as 1.0.0, 1.0.0-rc1, or 0.9.0-dev25."
-}
-
-$firstLine = Get-Content -LiteralPath $sourceScript -TotalCount 1 -Encoding UTF8
-if ($firstLine -notmatch '^# Mugen Deej (?<version>.+)$') {
-    throw 'Could not read the application version from the first line of MugenDeej.ps1.'
-}
-$scriptVersion = $Matches['version'].Trim()
-if ($scriptVersion -ne $Version) {
-    throw "Version mismatch: VERSION/build request is '$Version' but MugenDeej.ps1 identifies itself as '$scriptVersion'. Update both before packaging."
-}
-
-# Parse the complete script with Windows PowerShell 5.1 before touching release
-# output. This prevents a newer PowerShell parser from accidentally accepting syntax
-# that the shipped application cannot run.
-$windowsPowerShell = Get-Command 'powershell.exe' -ErrorAction SilentlyContinue
-if ($null -eq $windowsPowerShell) {
-    throw 'powershell.exe (Windows PowerShell 5.1) was not found. Portable releases must be built on Windows.'
-}
-
-$oldParseTarget = $env:MUGEN_DEEJ_PARSE_TARGET
-$env:MUGEN_DEEJ_PARSE_TARGET = $sourceScript
-try {
-    $parseCommand = @'
-$tokens = $null
-$parseErrors = $null
-[System.Management.Automation.Language.Parser]::ParseFile($env:MUGEN_DEEJ_PARSE_TARGET, [ref]$tokens, [ref]$parseErrors) | Out-Null
-if ($parseErrors.Count -gt 0) {
-    foreach ($parseError in $parseErrors) {
-        [Console]::Error.WriteLine(('PowerShell parse error at {0}:{1}: {2}' -f $parseError.Extent.StartLineNumber, $parseError.Extent.StartColumnNumber, $parseError.Message))
-    }
-    exit 2
-}
-exit 0
-'@
-    & $windowsPowerShell.Source -NoProfile -ExecutionPolicy Bypass -Command $parseCommand
-    if ($LASTEXITCODE -ne 0) {
-        throw "MugenDeej.ps1 failed the Windows PowerShell 5.1 parse check with exit code $LASTEXITCODE."
-    }
-}
-finally {
-    $env:MUGEN_DEEJ_PARSE_TARGET = $oldParseTarget
 }
 
 if ([System.IO.Path]::IsPathRooted($OutputDir)) {
@@ -110,6 +80,65 @@ if (Test-Path -LiteralPath $zipChecksumPath) {
 }
 
 New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
+
+# The development branch may intentionally keep a byte-for-byte golden baseline
+# in the repository while a small, reviewable migration patch is being tested.
+# In that case the patch is applied only to the staged portable copy. Once the
+# tested staged script is promoted to the repository, the normal direct-copy path
+# is used again automatically because the source version matches VERSION.txt.
+$stagedScript = Join-Path $stageDir 'MugenDeej.ps1'
+$sourceVersion = Get-ScriptVersion -Path $sourceScript
+
+if ($sourceVersion -eq $Version) {
+    Copy-Item -LiteralPath $sourceScript -Destination $stagedScript -Force
+}
+else {
+    $developmentPatch = Join-Path $repoRoot ("tools\patches\Apply-{0}.ps1" -f $Version)
+    if (-not (Test-Path -LiteralPath $developmentPatch -PathType Leaf)) {
+        throw "Version mismatch: VERSION/build request is '$Version' but MugenDeej.ps1 identifies itself as '$sourceVersion', and no staged development patch exists at '$developmentPatch'."
+    }
+
+    Copy-Item -LiteralPath $sourceScript -Destination $stagedScript -Force
+    Write-Host "Applying staged development patch: $developmentPatch"
+    & $developmentPatch -Path $stagedScript
+
+    $stagedVersion = Get-ScriptVersion -Path $stagedScript
+    if ($stagedVersion -ne $Version) {
+        throw "Development patch did not produce the requested version. Expected '$Version', got '$stagedVersion'."
+    }
+}
+
+# Parse the exact script that will be shipped with Windows PowerShell 5.1 before
+# building the rest of the package. This prevents a newer parser from accepting
+# syntax that the portable application cannot run.
+$windowsPowerShell = Get-Command 'powershell.exe' -ErrorAction SilentlyContinue
+if ($null -eq $windowsPowerShell) {
+    throw 'powershell.exe (Windows PowerShell 5.1) was not found. Portable releases must be built on Windows.'
+}
+
+$oldParseTarget = $env:MUGEN_DEEJ_PARSE_TARGET
+$env:MUGEN_DEEJ_PARSE_TARGET = $stagedScript
+try {
+    $parseCommand = @'
+$tokens = $null
+$parseErrors = $null
+[System.Management.Automation.Language.Parser]::ParseFile($env:MUGEN_DEEJ_PARSE_TARGET, [ref]$tokens, [ref]$parseErrors) | Out-Null
+if ($parseErrors.Count -gt 0) {
+    foreach ($parseError in $parseErrors) {
+        [Console]::Error.WriteLine(('PowerShell parse error at {0}:{1}: {2}' -f $parseError.Extent.StartLineNumber, $parseError.Extent.StartColumnNumber, $parseError.Message))
+    }
+    exit 2
+}
+exit 0
+'@
+    & $windowsPowerShell.Source -NoProfile -ExecutionPolicy Bypass -Command $parseCommand
+    if ($LASTEXITCODE -ne 0) {
+        throw "Staged MugenDeej.ps1 failed the Windows PowerShell 5.1 parse check with exit code $LASTEXITCODE."
+    }
+}
+finally {
+    $env:MUGEN_DEEJ_PARSE_TARGET = $oldParseTarget
+}
 
 $launcherOutput = Join-Path $stageDir 'MugenDeej.exe'
 
@@ -171,7 +200,6 @@ if ((Get-Item -LiteralPath $launcherOutput).Length -lt 100000) {
 }
 
 $copyMap = @(
-    @{ Source = 'MugenDeej.ps1'; Destination = 'MugenDeej.ps1' },
     @{ Source = 'MugenDeej.ico'; Destination = 'MugenDeej.ico' },
     @{ Source = 'MugenDeej-Debug.cmd'; Destination = 'MugenDeej-Debug.cmd' },
     @{ Source = 'LICENSE'; Destination = 'LICENSE' },
