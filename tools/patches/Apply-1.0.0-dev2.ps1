@@ -49,6 +49,7 @@ $newRu = @'
         BackupSaveTitle = 'Создание резервной копии Mugen Deej'
         BackupOpenTitle = 'Восстановление резервной копии Mugen Deej'
         BackupCreated = 'Резервная копия создана:'
+        BackupCreateFailed = 'Не удалось создать резервную копию:'
         BackupRestoreConfirm = 'Текущие настройки будут заменены настройками из резервной копии. Перед восстановлением Mugen Deej автоматически сохранит аварийную копию текущих настроек. Продолжить?'
         BackupRestored = 'Настройки восстановлены. Перезапустите Mugen Deej, чтобы применить их полностью.'
         BackupInvalid = 'Не удалось прочитать резервную копию:'
@@ -67,6 +68,7 @@ $newEn = @'
         BackupSaveTitle = 'Create Mugen Deej backup'
         BackupOpenTitle = 'Restore Mugen Deej backup'
         BackupCreated = 'Backup created:'
+        BackupCreateFailed = 'Could not create the backup:'
         BackupRestoreConfirm = 'Current settings will be replaced with settings from the backup. Before restoring, Mugen Deej will automatically save an emergency copy of the current settings. Continue?'
         BackupRestored = 'Settings restored. Restart Mugen Deej to apply them completely.'
         BackupInvalid = 'Could not read the backup:'
@@ -74,10 +76,12 @@ $newEn = @'
 '@
 $text = Replace-ExactOnce -Text $text -Old ($oldEn.TrimEnd()) -New ($newEn.TrimEnd()) -Label 'EN backup localization'
 
-$text = Replace-ExactOnce -Text $text -Old '$script:ButtonSettingsButton = $null' -New @'
+$runtimeVariables = @'
 $script:ButtonSettingsButton = $null
 $script:BackupMenuButton = $null
-'@.TrimEnd() -Label 'backup menu runtime variable'
+'@
+$runtimeVariables = $runtimeVariables.TrimEnd()
+$text = Replace-ExactOnce -Text $text -Old '$script:ButtonSettingsButton = $null' -New $runtimeVariables -Label 'backup menu runtime variable'
 
 $backupFunctions = @'
 function Get-MugenDeejBackupFileName {
@@ -208,7 +212,7 @@ function Save-MugenDeejBackupInteractive {
         Write-Log ('Backup creation failed: {0}' -f $_.Exception.Message) 'ERROR'
         [System.Windows.Forms.MessageBox]::Show(
             $form,
-            ((T -Key 'BackupRestoreFailed') + "`r`n`r`n" + $_.Exception.Message),
+            ((T -Key 'BackupCreateFailed') + "`r`n`r`n" + $_.Exception.Message),
             'Mugen Deej',
             [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Error
