@@ -32,6 +32,27 @@ function Replace-ExactOnce {
     return $Text.Substring(0, $first) + $New + $Text.Substring($first + $Old.Length)
 }
 
+function Replace-RegexOnceLiteral {
+    param(
+        [Parameter(Mandatory = $true)][string]$Text,
+        [Parameter(Mandatory = $true)][string]$Pattern,
+        [Parameter(Mandatory = $true)][string]$Replacement,
+        [Parameter(Mandatory = $true)][string]$Label
+    )
+
+    $items = [regex]::Matches($Text, $Pattern)
+    if ($items.Count -ne 1) {
+        throw "Expected exactly one $Label block, found $($items.Count)."
+    }
+
+    $item = $items[0]
+
+    # Do not feed PowerShell source code containing $_, $&, $' etc. to
+    # Regex.Replace as a replacement string. .NET treats those sequences as
+    # substitution tokens and can inject large parts of the input script.
+    return $Text.Substring(0, $item.Index) + $Replacement + $Text.Substring($item.Index + $item.Length)
+}
+
 $text = Replace-ExactOnce -Text $text -Old '# Mugen Deej 0.9.0-dev25' -New '# Mugen Deej 1.0.0-dev1' -Label 'header version'
 $oldAppVersion = '$script:AppVersion = ''0.9.0-dev25'''
 $newAppVersion = '$script:AppVersion = ''1.0.0-dev1'''
@@ -205,11 +226,7 @@ function Initialize-ButtonActions {
 function Normalize-ButtonActions {
 '@
 
-$match = [regex]::Matches($text, $initializePattern)
-if ($match.Count -ne 1) {
-    throw "Expected exactly one Initialize-ButtonActions block, found $($match.Count)."
-}
-$text = [regex]::Replace($text, $initializePattern, $initializeReplacement, 1)
+$text = Replace-RegexOnceLiteral -Text $text -Pattern $initializePattern -Replacement $initializeReplacement -Label 'Initialize-ButtonActions'
 
 $savePattern = '(?s)function Save-ButtonActions \{.*?\r?\n\}\r?\n\r?\nfunction Get-MuteStatusColor \{'
 $saveReplacement = @'
@@ -228,11 +245,7 @@ function Save-ButtonActions {
 function Get-MuteStatusColor {
 '@
 
-$match = [regex]::Matches($text, $savePattern)
-if ($match.Count -ne 1) {
-    throw "Expected exactly one Save-ButtonActions block, found $($match.Count)."
-}
-$text = [regex]::Replace($text, $savePattern, $saveReplacement, 1)
+$text = Replace-RegexOnceLiteral -Text $text -Pattern $savePattern -Replacement $saveReplacement -Label 'Save-ButtonActions'
 
 $utf8Bom = New-Object System.Text.UTF8Encoding($true)
 [System.IO.File]::WriteAllText($Path, $text, $utf8Bom)
