@@ -1,0 +1,48 @@
+name: Build portable package
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Optional version confirmation/override; leave empty to use VERSION.txt"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build-portable:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: src/launcher/go.mod
+          cache: false
+
+      - name: Build portable ZIP
+        shell: pwsh
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:REQUESTED_VERSION)) {
+            .\tools\Build-PortableRelease.ps1
+          }
+          else {
+            .\tools\Build-PortableRelease.ps1 -Version $env:REQUESTED_VERSION
+          }
+
+      - name: Upload portable package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mugen-Deej-portable-${{ github.run_number }}
+          path: |
+            artifacts/Mugen-Deej-*-Portable.zip
+            artifacts/Mugen-Deej-*-Portable.zip.sha256
+          if-no-files-found: error
+          retention-days: 14
