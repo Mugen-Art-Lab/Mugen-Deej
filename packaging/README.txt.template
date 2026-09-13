@@ -1,0 +1,45 @@
+Mugen Deej {{VERSION}}
+=====================
+
+RU
+--
+Портативный Windows-клиент для физических USB-аудиоконтроллеров,
+совместимых с deej.
+
+Быстрый старт:
+1. Полностью распакуйте архив в обычную папку.
+2. Подключите совместимый USB-контроллер.
+3. Запустите MugenDeej.exe.
+4. При первом запуске выберите язык и настройте физические регуляторы.
+
+Mugen Deej поддерживает классические контроллеры только с регуляторами.
+Расширенные контроллеры могут также передавать физические кнопки; доступные
+действия и элементы интерфейса зависят от возможностей обнаруженного устройства.
+
+Программа портативная и не требует установки.
+Если включён автозапуск вместе с Windows, сначала отключите его в Mugen Deej,
+а уже затем удаляйте или перемещайте portable-папку.
+
+EN
+--
+Portable Windows client for physical deej-compatible USB audio controllers.
+
+Quick start:
+1. Extract the complete archive to a normal folder.
+2. Connect a compatible USB controller.
+3. Run MugenDeej.exe.
+4. On first launch, choose a language and configure the physical controls.
+
+Mugen Deej supports classic controls-only controllers. Extended controllers may
+also expose physical buttons; available actions and interface elements depend on
+the capabilities detected from the connected device.
+
+Mugen Deej is portable and does not require installation.
+If Windows startup is enabled, disable it in Mugen Deej before deleting or
+moving the portable folder.
+
+Project:
+https://github.com/Mugen-Art-Lab/Mugen-Deej
+
+Releases:
+https://github.com/Mugen-Art-Lab/Mugen-Deej/releases

@@ -28,6 +28,14 @@ Important local development artifacts used to reconstruct the history:
 
 Do not commit personal runtime data from the golden portable folder (`config*.json`, logs, user button mappings, local backups, etc.).
 
+### Consolidation status
+
+The tested `0.9.0-dev25` application script is now committed directly as the root `MugenDeej.ps1` in `release/1.0.0`. Its first-line version and `VERSION.txt` both identify the current baseline as `0.9.0-dev25` until 1.0.0-specific changes begin.
+
+The final tested Arduino reference firmware and the preserved 0.9.0 development history are also present in the branch.
+
+A semi-automatic portable packaging path is available through `tools/Build-PortableRelease.ps1`, `BUILD_PORTABLE.cmd`, and the manually triggered `Build portable package` GitHub Actions workflow. It produces a ZIP and checksum but does not publish a release automatically.
+
 ## Tested 0.9.0 architecture
 
 ### Controller support
@@ -100,23 +108,19 @@ The reference firmware intended for 1.0.0 uses the real tested 5x6 wiring:
 - per-button `BUTTON_DEBOUNCE_MS = 25`;
 - immediate full-state packet after a debounced button-state change.
 
-The older Arduino sketch currently present in the repository is historical and must be updated during consolidation without erasing the development history explaining the earlier approach.
-
 ## 1.0.0 scope still to implement
 
 The 0.9.0 dev line is feature-complete and soak-tested. New work for 1.0.0 is intentionally limited to release/migration infrastructure:
 
-1. Consolidate the known-good dev25 runtime into this branch as a distinct historical baseline commit.
-2. Update the 0.9.0 development history and current reference firmware/documentation.
-3. Rename the button action store to `button-actions.json` with safe one-time migration from `button-actions.dev.json`.
-4. Add a portable backup/restore format, suggested filename:
+1. Rename the button action store to `button-actions.json` with safe one-time migration from `button-actions.dev.json`.
+2. Add a portable backup/restore format, suggested filename:
    `MugenDeej_YYYY-MM-DD_HH-MM-SS.backup`.
-5. Add an explicit backup schema/version independent from the application version.
-6. Backup should contain user settings needed for migration (main config + button actions), not logs or transient machine/runtime files.
-7. Restore flow must be safe: parse -> validate signature/schema -> migrate in memory -> validate result -> preserve current settings -> atomically apply restored settings.
-8. Add the backup/restore UI next to the collapsed `Connection and diagnostics` section on the main window.
-9. Keep RU/EN parity for all new UI text.
-10. Clean release metadata/docs, version strings, examples, ignores and checksums.
+3. Add an explicit backup schema/version independent from the application version.
+4. Backup should contain user settings needed for migration (main config + button actions), not logs or transient machine/runtime files.
+5. Restore flow must be safe: parse -> validate signature/schema -> migrate in memory -> validate result -> preserve current settings -> atomically apply restored settings.
+6. Add the backup/restore UI next to the collapsed `Connection and diagnostics` section on the main window.
+7. Keep RU/EN parity for all new UI text.
+8. Clean release metadata/docs, version strings, examples, screenshots and checksums.
 
 Do not add unrelated new features before 1.0.0.
 
@@ -124,10 +128,10 @@ Do not add unrelated new features before 1.0.0.
 
 Keep changes reviewable instead of making one giant release commit:
 
-1. **Consolidate internal 0.9.0 dev25 baseline** — tested runtime/code and historical docs only; no new backup feature yet.
+1. **Completed: consolidate internal 0.9.0 dev25 baseline** — tested runtime, final reference firmware, historical docs, matching metadata and a reproducible/semi-automatic portable package builder.
 2. **Add 1.0.0 settings migration foundation** — final button-action filename/schema migration.
 3. **Add backup/restore** — `.backup` format, validation, recovery behavior and bilingual UI.
-4. **Release cleanup** — version `1.0.0-rc1`, README/changelog/examples/.gitignore/reference firmware/checksums as appropriate.
+4. **Release cleanup** — version `1.0.0-rc1`, README/changelog/examples/screenshots/checksums as appropriate.
 5. Smoke-test the clean RC on both legacy and extended controllers, including at least one suspend/resume cycle.
 6. Merge `release/1.0.0` into `main`, tag `v1.0.0`, then create the public release only after the smoke test passes.
 

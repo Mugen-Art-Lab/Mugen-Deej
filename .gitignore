@@ -19,6 +19,7 @@ MugenDeej.exe
 *.syso
 dist/
 build/
+artifacts/
 
 # Release archives
 *.zip
