@@ -54,7 +54,15 @@ function Assert-PowerShell51Parse {
         $parseCommand = @'
 $tokens = $null
 $parseErrors = $null
-[System.Management.Automation.Language.Parser]::ParseFile($env:MUGEN_DEEJ_PARSE_TARGET, [ref]$tokens, [ref]$parseErrors) | Out-Null
+$utf8 = New-Object System.Text.UTF8Encoding($false, $true)
+try {
+    $sourceText = [System.IO.File]::ReadAllText($env:MUGEN_DEEJ_PARSE_TARGET, $utf8)
+}
+catch {
+    [Console]::Error.WriteLine(('Could not decode PowerShell source as UTF-8: {0}' -f $_.Exception.Message))
+    exit 3
+}
+[System.Management.Automation.Language.Parser]::ParseInput($sourceText, [ref]$tokens, [ref]$parseErrors) | Out-Null
 if ($parseErrors.Count -gt 0) {
     foreach ($parseError in $parseErrors) {
         [Console]::Error.WriteLine(('PowerShell parse error at {0}:{1}: {2}' -f $parseError.Extent.StartLineNumber, $parseError.Extent.StartColumnNumber, $parseError.Message))
