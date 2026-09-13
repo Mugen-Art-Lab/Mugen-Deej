@@ -35,11 +35,50 @@ function Get-ScriptVersion {
     return $Matches['version'].Trim()
 }
 
+function Get-GoCommand {
+    $go = Get-Command 'go.exe' -ErrorAction SilentlyContinue
+    if ($null -eq $go) { $go = Get-Command 'go' -ErrorAction SilentlyContinue }
+    return $go
+}
+
+function Assert-PowerShell51Parse {
+    param(
+        [Parameter(Mandatory = $true)]$PowerShellCommand,
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$Label
+    )
+
+    $oldParseTarget = $env:MUGEN_DEEJ_PARSE_TARGET
+    $env:MUGEN_DEEJ_PARSE_TARGET = $Path
+    try {
+        $parseCommand = @'
+$tokens = $null
+$parseErrors = $null
+[System.Management.Automation.Language.Parser]::ParseFile($env:MUGEN_DEEJ_PARSE_TARGET, [ref]$tokens, [ref]$parseErrors) | Out-Null
+if ($parseErrors.Count -gt 0) {
+    foreach ($parseError in $parseErrors) {
+        [Console]::Error.WriteLine(('PowerShell parse error at {0}:{1}: {2}' -f $parseError.Extent.StartLineNumber, $parseError.Extent.StartColumnNumber, $parseError.Message))
+    }
+    exit 2
+}
+exit 0
+'@
+        & $PowerShellCommand.Source -NoProfile -ExecutionPolicy Bypass -Command $parseCommand
+        if ($LASTEXITCODE -ne 0) {
+            throw "$Label failed the Windows PowerShell 5.1 parse check with exit code $LASTEXITCODE."
+        }
+    }
+    finally {
+        $env:MUGEN_DEEJ_PARSE_TARGET = $oldParseTarget
+    }
+}
+
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $sourceScript = Join-Path $repoRoot 'MugenDeej.ps1'
 $versionFile = Join-Path $repoRoot 'VERSION.txt'
 $templatePath = Join-Path $repoRoot 'packaging\README.txt.template'
 $launcherDir = Join-Path $repoRoot 'src\launcher'
+$setupDir = Join-Path $repoRoot 'src\setup'
 $iconPath = Join-Path $repoRoot 'MugenDeej.ico'
 
 Require-File $sourceScript
@@ -48,6 +87,9 @@ Require-File $templatePath
 Require-File $iconPath
 Require-File (Join-Path $launcherDir 'main.go')
 Require-File (Join-Path $launcherDir 'go.mod')
+Require-File (Join-Path $setupDir 'main.go')
+Require-File (Join-Path $setupDir 'go.mod')
+Require-File (Join-Path $setupDir 'setup.ps1')
 
 if ([string]::IsNullOrWhiteSpace($Version)) {
     $Version = (Get-Content -LiteralPath $versionFile -Raw -Encoding UTF8).Trim()
@@ -68,24 +110,21 @@ $packageBaseName = "Mugen-Deej-$Version-Portable"
 $stageDir = Join-Path $outputRoot $packageBaseName
 $zipPath = Join-Path $outputRoot ($packageBaseName + '.zip')
 $zipChecksumPath = $zipPath + '.sha256'
+$setupPath = Join-Path $outputRoot ("Mugen-Deej-$Version-Setup.exe")
+$setupChecksumPath = $setupPath + '.sha256'
 
-if (Test-Path -LiteralPath $stageDir) {
-    Remove-Item -LiteralPath $stageDir -Recurse -Force
-}
-if (Test-Path -LiteralPath $zipPath) {
-    Remove-Item -LiteralPath $zipPath -Force
-}
-if (Test-Path -LiteralPath $zipChecksumPath) {
-    Remove-Item -LiteralPath $zipChecksumPath -Force
+foreach ($path in @($stageDir, $zipPath, $zipChecksumPath, $setupPath, $setupChecksumPath)) {
+    if (Test-Path -LiteralPath $path) {
+        if ((Get-Item -LiteralPath $path).PSIsContainer) { Remove-Item -LiteralPath $path -Recurse -Force }
+        else { Remove-Item -LiteralPath $path -Force }
+    }
 }
 
 New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
 
 # The development branch may intentionally keep a byte-for-byte golden baseline
 # in the repository while a small, reviewable migration patch is being tested.
-# In that case the patch is applied only to the staged portable copy. Once the
-# tested staged script is promoted to the repository, the normal direct-copy path
-# is used again automatically because the source version matches VERSION.txt.
+# In that case the patch is applied only to the staged portable copy.
 $stagedScript = Join-Path $stageDir 'MugenDeej.ps1'
 $sourceVersion = Get-ScriptVersion -Path $sourceScript
 
@@ -108,37 +147,13 @@ else {
     }
 }
 
-# Parse the exact script that will be shipped with Windows PowerShell 5.1 before
-# building the rest of the package. This prevents a newer parser from accepting
-# syntax that the portable application cannot run.
 $windowsPowerShell = Get-Command 'powershell.exe' -ErrorAction SilentlyContinue
 if ($null -eq $windowsPowerShell) {
-    throw 'powershell.exe (Windows PowerShell 5.1) was not found. Portable releases must be built on Windows.'
+    throw 'powershell.exe (Windows PowerShell 5.1) was not found. Release packages must be built on Windows.'
 }
 
-$oldParseTarget = $env:MUGEN_DEEJ_PARSE_TARGET
-$env:MUGEN_DEEJ_PARSE_TARGET = $stagedScript
-try {
-    $parseCommand = @'
-$tokens = $null
-$parseErrors = $null
-[System.Management.Automation.Language.Parser]::ParseFile($env:MUGEN_DEEJ_PARSE_TARGET, [ref]$tokens, [ref]$parseErrors) | Out-Null
-if ($parseErrors.Count -gt 0) {
-    foreach ($parseError in $parseErrors) {
-        [Console]::Error.WriteLine(('PowerShell parse error at {0}:{1}: {2}' -f $parseError.Extent.StartLineNumber, $parseError.Extent.StartColumnNumber, $parseError.Message))
-    }
-    exit 2
-}
-exit 0
-'@
-    & $windowsPowerShell.Source -NoProfile -ExecutionPolicy Bypass -Command $parseCommand
-    if ($LASTEXITCODE -ne 0) {
-        throw "Staged MugenDeej.ps1 failed the Windows PowerShell 5.1 parse check with exit code $LASTEXITCODE."
-    }
-}
-finally {
-    $env:MUGEN_DEEJ_PARSE_TARGET = $oldParseTarget
-}
+Assert-PowerShell51Parse -PowerShellCommand $windowsPowerShell -Path $stagedScript -Label 'Staged MugenDeej.ps1'
+Assert-PowerShell51Parse -PowerShellCommand $windowsPowerShell -Path (Join-Path $setupDir 'setup.ps1') -Label 'Setup wizard script'
 
 $launcherOutput = Join-Path $stageDir 'MugenDeej.exe'
 
@@ -148,10 +163,7 @@ if (-not [string]::IsNullOrWhiteSpace($LauncherPath)) {
     Copy-Item -LiteralPath $resolvedLauncher -Destination $launcherOutput -Force
 }
 else {
-    $go = Get-Command 'go.exe' -ErrorAction SilentlyContinue
-    if ($null -eq $go) {
-        $go = Get-Command 'go' -ErrorAction SilentlyContinue
-    }
+    $go = Get-GoCommand
     if ($null -eq $go) {
         throw 'Go was not found in PATH. Install Go 1.20+ or pass -LauncherPath with a trusted prebuilt MugenDeej.exe.'
     }
@@ -163,15 +175,11 @@ else {
 
     Push-Location $launcherDir
     try {
-        if (Test-Path -LiteralPath $resourceFile) {
-            Remove-Item -LiteralPath $resourceFile -Force
-        }
+        if (Test-Path -LiteralPath $resourceFile) { Remove-Item -LiteralPath $resourceFile -Force }
 
-        Write-Host 'Generating Windows icon resource...'
+        Write-Host 'Generating Windows launcher icon resource...'
         & $go.Source run 'github.com/akavel/rsrc@v0.10.2' '-arch' 'amd64' '-ico' $iconPath '-o' $resourceFile
-        if ($LASTEXITCODE -ne 0) {
-            throw "rsrc failed with exit code $LASTEXITCODE"
-        }
+        if ($LASTEXITCODE -ne 0) { throw "rsrc failed with exit code $LASTEXITCODE" }
 
         $env:GOOS = 'windows'
         $env:GOARCH = 'amd64'
@@ -179,15 +187,11 @@ else {
 
         Write-Host 'Building MugenDeej.exe launcher...'
         & $go.Source build '-trimpath' '-ldflags' '-H windowsgui -s -w' '-o' $launcherOutput '.'
-        if ($LASTEXITCODE -ne 0) {
-            throw "go build failed with exit code $LASTEXITCODE"
-        }
+        if ($LASTEXITCODE -ne 0) { throw "go build failed with exit code $LASTEXITCODE" }
     }
     finally {
         Pop-Location
-        if (Test-Path -LiteralPath $resourceFile) {
-            Remove-Item -LiteralPath $resourceFile -Force
-        }
+        if (Test-Path -LiteralPath $resourceFile) { Remove-Item -LiteralPath $resourceFile -Force }
         $env:GOOS = $oldGOOS
         $env:GOARCH = $oldGOARCH
         $env:CGO_ENABLED = $oldCGO
@@ -245,8 +249,66 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zipHash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
 Write-Utf8NoBom -Path $zipChecksumPath -Text ("$zipHash  $([System.IO.Path]::GetFileName($zipPath))`r`n")
 
+# Build a self-contained Setup EXE around the exact portable ZIP produced above.
+# The setup executable only extracts files and can create a desktop shortcut;
+# it does not register an uninstall entry or write application installation keys.
+$goSetup = Get-GoCommand
+if ($null -eq $goSetup) {
+    throw 'Go was not found in PATH. Building the Setup EXE requires Go 1.20+.'
+}
+
+$setupBuildDir = Join-Path $outputRoot ('.setup-build-' + [Guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $setupBuildDir -Force | Out-Null
+try {
+    Copy-Item -LiteralPath (Join-Path $setupDir 'main.go') -Destination (Join-Path $setupBuildDir 'main.go') -Force
+    Copy-Item -LiteralPath (Join-Path $setupDir 'go.mod') -Destination (Join-Path $setupBuildDir 'go.mod') -Force
+    Copy-Item -LiteralPath (Join-Path $setupDir 'setup.ps1') -Destination (Join-Path $setupBuildDir 'setup.ps1') -Force
+    Copy-Item -LiteralPath $zipPath -Destination (Join-Path $setupBuildDir 'payload.zip') -Force
+
+    $setupResource = Join-Path $setupBuildDir 'rsrc_windows_amd64.syso'
+    $oldGOOS = $env:GOOS
+    $oldGOARCH = $env:GOARCH
+    $oldCGO = $env:CGO_ENABLED
+
+    Push-Location $setupBuildDir
+    try {
+        Write-Host 'Generating Windows Setup icon resource...'
+        & $goSetup.Source run 'github.com/akavel/rsrc@v0.10.2' '-arch' 'amd64' '-ico' $iconPath '-o' $setupResource
+        if ($LASTEXITCODE -ne 0) { throw "setup rsrc failed with exit code $LASTEXITCODE" }
+
+        $env:GOOS = 'windows'
+        $env:GOARCH = 'amd64'
+        $env:CGO_ENABLED = '0'
+        $setupLdFlags = "-H windowsgui -s -w -X main.version=$Version"
+
+        Write-Host 'Building self-extracting Setup EXE...'
+        & $goSetup.Source build '-trimpath' '-ldflags' $setupLdFlags '-o' $setupPath '.'
+        if ($LASTEXITCODE -ne 0) { throw "setup go build failed with exit code $LASTEXITCODE" }
+    }
+    finally {
+        Pop-Location
+        $env:GOOS = $oldGOOS
+        $env:GOARCH = $oldGOARCH
+        $env:CGO_ENABLED = $oldCGO
+    }
+}
+finally {
+    if (Test-Path -LiteralPath $setupBuildDir) { Remove-Item -LiteralPath $setupBuildDir -Recurse -Force }
+}
+
+Require-File $setupPath
+if ((Get-Item -LiteralPath $setupPath).Length -lt 500000) {
+    throw 'Built Setup EXE is unexpectedly small; refusing to publish it.'
+}
+
+$setupHash = (Get-FileHash -LiteralPath $setupPath -Algorithm SHA256).Hash.ToLowerInvariant()
+Write-Utf8NoBom -Path $setupChecksumPath -Text ("$setupHash  $([System.IO.Path]::GetFileName($setupPath))`r`n")
+
 Write-Host ''
 Write-Host "Portable package ready: $zipPath"
 Write-Host "Archive SHA-256:      $zipHash"
 Write-Host "Archive checksum:     $zipChecksumPath"
+Write-Host "Setup package ready:  $setupPath"
+Write-Host "Setup SHA-256:        $setupHash"
+Write-Host "Setup checksum:       $setupChecksumPath"
 Write-Host "Staging directory:    $stageDir"
