@@ -33,9 +33,11 @@ function Replace-ExactOnce {
 }
 
 $text = Replace-ExactOnce -Text $text -Old '# Mugen Deej 0.9.0-dev25' -New '# Mugen Deej 1.0.0-dev1' -Label 'header version'
-$text = Replace-ExactOnce -Text $text -Old "$script:AppVersion = '0.9.0-dev25'" -New "$script:AppVersion = '1.0.0-dev1'" -Label 'runtime version'
+$oldAppVersion = '$script:AppVersion = ''0.9.0-dev25'''
+$newAppVersion = '$script:AppVersion = ''1.0.0-dev1'''
+$text = Replace-ExactOnce -Text $text -Old $oldAppVersion -New $newAppVersion -Label 'runtime version'
 
-$oldPathLine = "$script:ButtonActionConfigPath = Join-Path $script:BaseDir 'button-actions.dev.json'"
+$oldPathLine = '$script:ButtonActionConfigPath = Join-Path $script:BaseDir ''button-actions.dev.json'''
 $newPathLines = @'
 $script:ButtonActionConfigPath = Join-Path $script:BaseDir 'button-actions.json'
 $script:LegacyButtonActionConfigPath = Join-Path $script:BaseDir 'button-actions.dev.json'
