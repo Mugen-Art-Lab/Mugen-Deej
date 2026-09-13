@@ -25,45 +25,52 @@ function L {
     return $En
 }
 
-$script:IsDark = $false
+$script:IsDarkTheme = $false
 try {
     $themeValue = (Get-ItemProperty -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize' -Name 'AppsUseLightTheme' -ErrorAction Stop).AppsUseLightTheme
-    $script:IsDark = ([int]$themeValue -eq 0)
+    $script:IsDarkTheme = ([int]$themeValue -eq 0)
 }
 catch { }
 
-if ($script:IsDark) {
-    $script:Back = [System.Drawing.Color]::FromArgb(18, 22, 29)
-    $script:Surface = [System.Drawing.Color]::FromArgb(27, 33, 43)
-    $script:Input = [System.Drawing.Color]::FromArgb(31, 38, 49)
-    $script:Text = [System.Drawing.Color]::FromArgb(245, 247, 252)
-    $script:Muted = [System.Drawing.Color]::FromArgb(175, 185, 202)
-    $script:Border = [System.Drawing.Color]::FromArgb(64, 76, 96)
-    $script:Primary = [System.Drawing.Color]::FromArgb(78, 127, 246)
-    $script:Warning = [System.Drawing.Color]::FromArgb(235, 179, 74)
+# Keep all colours inside one uniquely named palette. Do not use generic
+# script-scope names such as $script:Text or $script:Input: Windows PowerShell
+# is case-insensitive and those names are unnecessarily easy to collide with.
+if ($script:IsDarkTheme) {
+    $script:SetupPalette = @{
+        Back       = [System.Drawing.Color]::FromArgb(18, 22, 29)
+        Surface    = [System.Drawing.Color]::FromArgb(27, 33, 43)
+        InputBack  = [System.Drawing.Color]::FromArgb(31, 38, 49)
+        TextColor  = [System.Drawing.Color]::FromArgb(245, 247, 252)
+        MutedColor = [System.Drawing.Color]::FromArgb(175, 185, 202)
+        Border     = [System.Drawing.Color]::FromArgb(64, 76, 96)
+        Primary    = [System.Drawing.Color]::FromArgb(78, 127, 246)
+        Warning    = [System.Drawing.Color]::FromArgb(235, 179, 74)
+    }
 }
 else {
-    $script:Back = [System.Drawing.Color]::FromArgb(238, 243, 252)
-    $script:Surface = [System.Drawing.Color]::FromArgb(249, 251, 255)
-    $script:Input = [System.Drawing.Color]::White
-    $script:Text = [System.Drawing.Color]::FromArgb(26, 34, 49)
-    $script:Muted = [System.Drawing.Color]::FromArgb(92, 105, 130)
-    $script:Border = [System.Drawing.Color]::FromArgb(195, 205, 224)
-    $script:Primary = [System.Drawing.Color]::FromArgb(68, 112, 240)
-    $script:Warning = [System.Drawing.Color]::FromArgb(157, 104, 0)
+    $script:SetupPalette = @{
+        Back       = [System.Drawing.Color]::FromArgb(238, 243, 252)
+        Surface    = [System.Drawing.Color]::FromArgb(249, 251, 255)
+        InputBack  = [System.Drawing.Color]::White
+        TextColor  = [System.Drawing.Color]::FromArgb(26, 34, 49)
+        MutedColor = [System.Drawing.Color]::FromArgb(92, 105, 130)
+        Border     = [System.Drawing.Color]::FromArgb(195, 205, 224)
+        Primary    = [System.Drawing.Color]::FromArgb(68, 112, 240)
+        Warning    = [System.Drawing.Color]::FromArgb(157, 104, 0)
+    }
 }
 
 function New-SetupButton {
     param(
-        [string]$Text,
+        [string]$Caption,
         [int]$X,
         [int]$Y,
         [int]$Width,
-        [bool]$Primary = $false
+        [bool]$IsPrimary = $false
     )
 
     $button = New-Object System.Windows.Forms.Button
-    $button.Text = $Text
+    $button.Text = $Caption
     $button.Location = New-Object System.Drawing.Point($X, $Y)
     $button.Size = New-Object System.Drawing.Size($Width, 38)
     $button.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
@@ -71,19 +78,19 @@ function New-SetupButton {
     $button.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 9.5)
     $button.Cursor = [System.Windows.Forms.Cursors]::Hand
 
-    if ($Primary) {
-        $button.BackColor = $script:Primary
+    if ($IsPrimary) {
+        $button.BackColor = $script:SetupPalette['Primary']
         $button.ForeColor = [System.Drawing.Color]::White
-        $button.FlatAppearance.BorderColor = $script:Primary
+        $button.FlatAppearance.BorderColor = $script:SetupPalette['Primary']
         $button.FlatAppearance.MouseOverBackColor = [System.Drawing.Color]::FromArgb(92, 140, 255)
         $button.FlatAppearance.MouseDownBackColor = [System.Drawing.Color]::FromArgb(72, 117, 229)
     }
     else {
-        $button.BackColor = $script:Input
-        $button.ForeColor = $script:Text
-        $button.FlatAppearance.BorderColor = $script:Border
-        $button.FlatAppearance.MouseOverBackColor = $script:Surface
-        $button.FlatAppearance.MouseDownBackColor = $script:Surface
+        $button.BackColor = $script:SetupPalette['InputBack']
+        $button.ForeColor = $script:SetupPalette['TextColor']
+        $button.FlatAppearance.BorderColor = $script:SetupPalette['Border']
+        $button.FlatAppearance.MouseOverBackColor = $script:SetupPalette['Surface']
+        $button.FlatAppearance.MouseDownBackColor = $script:SetupPalette['Surface']
     }
 
     return $button
@@ -180,8 +187,8 @@ function Expand-PortablePayload {
 function New-DesktopShortcut {
     param([Parameter(Mandatory = $true)][string]$InstallPath)
 
-    $target = Join-Path $InstallPath 'MugenDeej.exe'
-    if (-not (Test-Path -LiteralPath $target -PathType Leaf)) {
+    $targetExe = Join-Path $InstallPath 'MugenDeej.exe'
+    if (-not (Test-Path -LiteralPath $targetExe -PathType Leaf)) {
         throw (L -Ru 'После распаковки не найден MugenDeej.exe.' -En 'MugenDeej.exe was not found after extraction.')
     }
 
@@ -190,10 +197,10 @@ function New-DesktopShortcut {
     $shell = New-Object -ComObject WScript.Shell
     try {
         $shortcut = $shell.CreateShortcut($shortcutPath)
-        $shortcut.TargetPath = $target
+        $shortcut.TargetPath = $targetExe
         $shortcut.WorkingDirectory = $InstallPath
         $shortcut.Description = 'Mugen Deej'
-        $shortcut.IconLocation = ('{0},0' -f $target)
+        $shortcut.IconLocation = ('{0},0' -f $targetExe)
         $shortcut.Save()
     }
     finally {
@@ -210,8 +217,8 @@ $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $form.MaximizeBox = $false
 $form.MinimizeBox = $false
 $form.ClientSize = New-Object System.Drawing.Size(720, 500)
-$form.BackColor = $script:Back
-$form.ForeColor = $script:Text
+$form.BackColor = $script:SetupPalette['Back']
+$form.ForeColor = $script:SetupPalette['TextColor']
 $form.Font = New-Object System.Drawing.Font('Segoe UI', 9.5)
 
 try {
@@ -221,76 +228,76 @@ try {
 }
 catch { }
 
-$title = New-Object System.Windows.Forms.Label
-$title.Text = 'Mugen Deej'
-$title.Location = New-Object System.Drawing.Point(30, 24)
-$title.Size = New-Object System.Drawing.Size(500, 38)
-$title.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 22)
-$title.ForeColor = $script:Text
-$form.Controls.Add($title)
+$titleLabel = New-Object System.Windows.Forms.Label
+$titleLabel.Text = 'Mugen Deej'
+$titleLabel.Location = New-Object System.Drawing.Point(30, 24)
+$titleLabel.Size = New-Object System.Drawing.Size(500, 38)
+$titleLabel.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 22)
+$titleLabel.ForeColor = $script:SetupPalette['TextColor']
+$form.Controls.Add($titleLabel)
 
 $versionLabel = New-Object System.Windows.Forms.Label
 $versionLabel.Text = ('v{0}' -f $Version)
 $versionLabel.Location = New-Object System.Drawing.Point(566, 34)
 $versionLabel.Size = New-Object System.Drawing.Size(120, 24)
 $versionLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleRight
-$versionLabel.ForeColor = $script:Muted
+$versionLabel.ForeColor = $script:SetupPalette['MutedColor']
 $form.Controls.Add($versionLabel)
 
-$subtitle = New-Object System.Windows.Forms.Label
-$subtitle.Text = (L -Ru 'Portable-установка без регистрации в Windows' -En 'Portable-style setup without Windows registration')
-$subtitle.Location = New-Object System.Drawing.Point(33, 67)
-$subtitle.Size = New-Object System.Drawing.Size(620, 26)
-$subtitle.ForeColor = $script:Muted
-$form.Controls.Add($subtitle)
+$subtitleLabel = New-Object System.Windows.Forms.Label
+$subtitleLabel.Text = (L -Ru 'Portable-установка без регистрации в Windows' -En 'Portable-style setup without Windows registration')
+$subtitleLabel.Location = New-Object System.Drawing.Point(33, 67)
+$subtitleLabel.Size = New-Object System.Drawing.Size(620, 26)
+$subtitleLabel.ForeColor = $script:SetupPalette['MutedColor']
+$form.Controls.Add($subtitleLabel)
 
 $panel = New-Object System.Windows.Forms.Panel
 $panel.Location = New-Object System.Drawing.Point(28, 108)
 $panel.Size = New-Object System.Drawing.Size(664, 300)
-$panel.BackColor = $script:Surface
+$panel.BackColor = $script:SetupPalette['Surface']
 $panel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
 $form.Controls.Add($panel)
 
-$intro = New-Object System.Windows.Forms.Label
-$intro.Text = (L -Ru 'Установщик просто распакует ту же portable-сборку Mugen Deej в выбранную папку. Сам установщик не добавляет программу в список установленных приложений и не создаёт запись удаления.' -En 'Setup simply extracts the same portable Mugen Deej build into the folder you choose. Setup itself does not register the app in Installed Apps and does not create an uninstall entry.')
-$intro.Location = New-Object System.Drawing.Point(20, 18)
-$intro.Size = New-Object System.Drawing.Size(620, 54)
-$intro.ForeColor = $script:Text
-$panel.Controls.Add($intro)
+$introLabel = New-Object System.Windows.Forms.Label
+$introLabel.Text = (L -Ru 'Установщик просто распакует ту же portable-сборку Mugen Deej в выбранную папку. Сам установщик не добавляет программу в список установленных приложений и не создаёт запись удаления.' -En 'Setup simply extracts the same portable Mugen Deej build into the folder you choose. Setup itself does not register the app in Installed Apps and does not create an uninstall entry.')
+$introLabel.Location = New-Object System.Drawing.Point(20, 18)
+$introLabel.Size = New-Object System.Drawing.Size(620, 54)
+$introLabel.ForeColor = $script:SetupPalette['TextColor']
+$panel.Controls.Add($introLabel)
 
 $pathLabel = New-Object System.Windows.Forms.Label
 $pathLabel.Text = (L -Ru 'Папка:' -En 'Folder:')
 $pathLabel.Location = New-Object System.Drawing.Point(20, 83)
 $pathLabel.Size = New-Object System.Drawing.Size(100, 24)
-$pathLabel.ForeColor = $script:Text
+$pathLabel.ForeColor = $script:SetupPalette['TextColor']
 $panel.Controls.Add($pathLabel)
 
 $pathBox = New-Object System.Windows.Forms.TextBox
 $pathBox.Location = New-Object System.Drawing.Point(20, 108)
 $pathBox.Size = New-Object System.Drawing.Size(490, 28)
-$pathBox.BackColor = $script:Input
-$pathBox.ForeColor = $script:Text
+$pathBox.BackColor = $script:SetupPalette['InputBack']
+$pathBox.ForeColor = $script:SetupPalette['TextColor']
 $pathBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
 $pathBox.Text = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Mugen Deej'
 $panel.Controls.Add($pathBox)
 
-$browseButton = New-SetupButton -Text (L -Ru 'Обзор…' -En 'Browse…') -X 522 -Y 105 -Width 118
+$browseButton = New-SetupButton -Caption (L -Ru 'Обзор…' -En 'Browse…') -X 522 -Y 105 -Width 118
 $panel.Controls.Add($browseButton)
 
-$warning = New-Object System.Windows.Forms.Label
-$warning.Location = New-Object System.Drawing.Point(20, 146)
-$warning.Size = New-Object System.Drawing.Size(620, 48)
-$warning.ForeColor = $script:Warning
-$warning.Text = (L -Ru 'Не рекомендуется устанавливать Mugen Deej в Program Files: программа хранит настройки рядом со своими файлами, и Windows может потребовать права администратора.' -En 'Installing Mugen Deej under Program Files is not recommended: the app stores settings next to its files and Windows may require administrator rights.')
-$panel.Controls.Add($warning)
+$warningLabel = New-Object System.Windows.Forms.Label
+$warningLabel.Location = New-Object System.Drawing.Point(20, 146)
+$warningLabel.Size = New-Object System.Drawing.Size(620, 48)
+$warningLabel.ForeColor = $script:SetupPalette['Warning']
+$warningLabel.Text = (L -Ru 'Не рекомендуется устанавливать Mugen Deej в Program Files: программа хранит настройки рядом со своими файлами, и Windows может потребовать права администратора.' -En 'Installing Mugen Deej under Program Files is not recommended: the app stores settings next to its files and Windows may require administrator rights.')
+$panel.Controls.Add($warningLabel)
 
 $shortcutCheck = New-Object System.Windows.Forms.CheckBox
 $shortcutCheck.Text = (L -Ru 'Создать ярлык на рабочем столе' -En 'Create a desktop shortcut')
 $shortcutCheck.Location = New-Object System.Drawing.Point(20, 204)
 $shortcutCheck.Size = New-Object System.Drawing.Size(310, 28)
 $shortcutCheck.Checked = $true
-$shortcutCheck.ForeColor = $script:Text
-$shortcutCheck.BackColor = $script:Surface
+$shortcutCheck.ForeColor = $script:SetupPalette['TextColor']
+$shortcutCheck.BackColor = $script:SetupPalette['Surface']
 $panel.Controls.Add($shortcutCheck)
 
 $launchCheck = New-Object System.Windows.Forms.CheckBox
@@ -298,21 +305,21 @@ $launchCheck.Text = (L -Ru 'Запустить Mugen Deej после устан�
 $launchCheck.Location = New-Object System.Drawing.Point(20, 238)
 $launchCheck.Size = New-Object System.Drawing.Size(350, 28)
 $launchCheck.Checked = $true
-$launchCheck.ForeColor = $script:Text
-$launchCheck.BackColor = $script:Surface
+$launchCheck.ForeColor = $script:SetupPalette['TextColor']
+$launchCheck.BackColor = $script:SetupPalette['Surface']
 $panel.Controls.Add($launchCheck)
 
-$status = New-Object System.Windows.Forms.Label
-$status.Location = New-Object System.Drawing.Point(30, 421)
-$status.Size = New-Object System.Drawing.Size(420, 52)
-$status.ForeColor = $script:Muted
-$status.Text = (L -Ru 'Выберите папку и нажмите «Установить».' -En 'Choose a folder and click Install.')
-$form.Controls.Add($status)
+$statusLabel = New-Object System.Windows.Forms.Label
+$statusLabel.Location = New-Object System.Drawing.Point(30, 421)
+$statusLabel.Size = New-Object System.Drawing.Size(420, 52)
+$statusLabel.ForeColor = $script:SetupPalette['MutedColor']
+$statusLabel.Text = (L -Ru 'Выберите папку и нажмите «Установить».' -En 'Choose a folder and click Install.')
+$form.Controls.Add($statusLabel)
 
-$cancelButton = New-SetupButton -Text (L -Ru 'Отмена' -En 'Cancel') -X 466 -Y 428 -Width 104
+$cancelButton = New-SetupButton -Caption (L -Ru 'Отмена' -En 'Cancel') -X 466 -Y 428 -Width 104
 $form.Controls.Add($cancelButton)
 
-$installButton = New-SetupButton -Text (L -Ru 'Установить' -En 'Install') -X 584 -Y 428 -Width 108 -Primary $true
+$installButton = New-SetupButton -Caption (L -Ru 'Установить' -En 'Install') -X 584 -Y 428 -Width 108 -IsPrimary $true
 $form.Controls.Add($installButton)
 $form.AcceptButton = $installButton
 $form.CancelButton = $cancelButton
@@ -345,20 +352,21 @@ $cancelButton.Add_Click({
 
 $installButton.Add_Click({
     if ($script:InstallCompleted) {
-        $target = ''
+        $targetExe = ''
         if (-not [string]::IsNullOrWhiteSpace($script:InstalledPath)) {
-            $target = Join-Path $script:InstalledPath 'MugenDeej.exe'
+            $targetExe = Join-Path $script:InstalledPath 'MugenDeej.exe'
         }
-        $launch = $script:LaunchAfterFinish
+        $launchAfterFinish = $script:LaunchAfterFinish
         $form.Close()
 
-        if ($launch -and (Test-Path -LiteralPath $target -PathType Leaf)) {
+        if ($launchAfterFinish -and (Test-Path -LiteralPath $targetExe -PathType Leaf)) {
             try {
-                Start-Process -FilePath $target -WorkingDirectory $script:InstalledPath
+                Start-Process -FilePath $targetExe -WorkingDirectory $script:InstalledPath
             }
             catch {
+                $launchError = L -Ru ('Не удалось запустить Mugen Deej:`r`n' + $_.Exception.Message) -En ('Could not launch Mugen Deej:`r`n' + $_.Exception.Message)
                 [System.Windows.Forms.MessageBox]::Show(
-                    (L -Ru ('Не удалось запустить Mugen Deej:`r`n' + $_.Exception.Message) -En ('Could not launch Mugen Deej:`r`n' + $_.Exception.Message)),
+                    $launchError,
                     'Mugen Deej Setup',
                     [System.Windows.Forms.MessageBoxButtons]::OK,
                     [System.Windows.Forms.MessageBoxIcon]::Warning
@@ -427,7 +435,7 @@ $installButton.Add_Click({
     $pathBox.Enabled = $false
     $shortcutCheck.Enabled = $false
     $launchCheck.Enabled = $false
-    $status.Text = (L -Ru 'Распаковка файлов…' -En 'Extracting files…')
+    $statusLabel.Text = (L -Ru 'Распаковка файлов…' -En 'Extracting files…')
     $form.Refresh()
 
     try {
@@ -441,7 +449,7 @@ $installButton.Add_Click({
         $script:InstalledPath = $installPath
         $script:LaunchAfterFinish = [bool]$launchCheck.Checked
 
-        $intro.Text = (L -Ru 'Готово. Mugen Deej распакован в выбранную папку. Установщик не зарегистрировал программу в списке приложений Windows.' -En 'Done. Mugen Deej was extracted to the selected folder. Setup did not register the app in Windows Installed Apps.')
+        $introLabel.Text = (L -Ru 'Готово. Mugen Deej распакован в выбранную папку. Установщик не зарегистрировал программу в списке приложений Windows.' -En 'Done. Mugen Deej was extracted to the selected folder. Setup did not register the app in Windows Installed Apps.')
         $pathLabel.Text = (L -Ru 'Установлено в:' -En 'Installed to:')
         $pathBox.Text = $installPath
         $pathBox.Enabled = $false
@@ -449,18 +457,18 @@ $installButton.Add_Click({
         $shortcutCheck.Visible = $false
         $launchCheck.Visible = $false
 
-        $warning.Location = New-Object System.Drawing.Point(20, 153)
-        $warning.Size = New-Object System.Drawing.Size(620, 100)
-        $warning.Text = (L -Ru 'Удаление: если в Mugen Deej включён «Запускать вместе с Windows», сначала отключите эту галочку в самой программе — автозапуск использует пользовательскую запись Windows. Затем закройте Mugen Deej и просто удалите папку программы. Ярлык на рабочем столе можно удалить отдельно.' -En 'Removal: if “Start Mugen Deej with Windows” is enabled, first turn that option off inside Mugen Deej — startup uses a per-user Windows startup entry. Then close Mugen Deej and simply delete its folder. The desktop shortcut can be deleted separately.')
+        $warningLabel.Location = New-Object System.Drawing.Point(20, 153)
+        $warningLabel.Size = New-Object System.Drawing.Size(620, 100)
+        $warningLabel.Text = (L -Ru 'Удаление: если в Mugen Deej включён «Запускать вместе с Windows», сначала отключите эту галочку в самой программе — автозапуск использует пользовательскую запись Windows. Затем закройте Mugen Deej и просто удалите папку программы. Ярлык на рабочем столе можно удалить отдельно.' -En 'Removal: if “Start Mugen Deej with Windows” is enabled, first turn that option off inside Mugen Deej — startup uses a per-user Windows startup entry. Then close Mugen Deej and simply delete its folder. The desktop shortcut can be deleted separately.')
 
-        $status.Text = (L -Ru 'Установка завершена. Нажмите «Готово».' -En 'Setup is complete. Click Finish.')
+        $statusLabel.Text = (L -Ru 'Установка завершена. Нажмите «Готово».' -En 'Setup is complete. Click Finish.')
         $cancelButton.Visible = $false
         $installButton.Text = (L -Ru 'Готово' -En 'Finish')
         $installButton.Enabled = $true
         $form.AcceptButton = $installButton
     }
     catch {
-        $status.Text = (L -Ru 'Установка не завершена.' -En 'Setup did not complete.')
+        $statusLabel.Text = (L -Ru 'Установка не завершена.' -En 'Setup did not complete.')
         $errorText = L -Ru ('Не удалось распаковать Mugen Deej.`r`n`r`n' + $_.Exception.Message) -En ('Could not extract Mugen Deej.`r`n`r`n' + $_.Exception.Message)
         [System.Windows.Forms.MessageBox]::Show(
             $errorText,
