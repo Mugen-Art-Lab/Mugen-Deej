@@ -25,7 +25,7 @@ jobs:
           go-version-file: src/launcher/go.mod
           cache: false
 
-      - name: Build portable ZIP
+      - name: Build portable ZIP and Setup EXE
         shell: pwsh
         env:
           REQUESTED_VERSION: ${{ inputs.version }}
@@ -37,12 +37,14 @@ jobs:
             .\tools\Build-PortableRelease.ps1 -Version $env:REQUESTED_VERSION
           }
 
-      - name: Upload portable package
+      - name: Upload release packages
         uses: actions/upload-artifact@v4
         with:
-          name: Mugen-Deej-portable-${{ github.run_number }}
+          name: Mugen-Deej-packages-${{ github.run_number }}
           path: |
             artifacts/Mugen-Deej-*-Portable.zip
             artifacts/Mugen-Deej-*-Portable.zip.sha256
+            artifacts/Mugen-Deej-*-Setup.exe
+            artifacts/Mugen-Deej-*-Setup.exe.sha256
           if-no-files-found: error
           retention-days: 14
