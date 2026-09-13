@@ -41,7 +41,8 @@ $oldPathLine = '$script:ButtonActionConfigPath = Join-Path $script:BaseDir ''but
 $newPathLines = @'
 $script:ButtonActionConfigPath = Join-Path $script:BaseDir 'button-actions.json'
 $script:LegacyButtonActionConfigPath = Join-Path $script:BaseDir 'button-actions.dev.json'
-'@.TrimEnd()
+'@
+$newPathLines = $newPathLines.TrimEnd()
 $text = Replace-ExactOnce -Text $text -Old $oldPathLine -New $newPathLines -Label 'button action config path'
 
 $initializePattern = '(?s)function Initialize-ButtonActions \{.*?\r?\n\}\r?\n\r?\nfunction Normalize-ButtonActions \{'
