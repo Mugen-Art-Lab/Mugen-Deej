@@ -1,0 +1,46 @@
+name: Reconstruct golden dev25 baseline
+
+on:
+  push:
+    branches:
+      - release/1.0.0
+    paths:
+      - dev/golden-dev25/READY
+
+permissions:
+  contents: write
+
+jobs:
+  reconstruct:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out release branch
+        uses: actions/checkout@v4
+        with:
+          ref: release/1.0.0
+
+      - name: Reconstruct and verify golden MugenDeej.ps1
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > golden.gz
+          for f in dev/golden-dev25/part*.b64; do
+            base64 -d "$f" >> golden.gz
+          done
+          echo "4604f3aa92fe65514705720ca2b5cb57a4028f5952063e6ccaced63291e1349c  golden.gz" | sha256sum -c -
+          gzip -dc golden.gz > MugenDeej.ps1
+          echo "db54b5685ec2bc7b0555e46374cbf73cb45bf7464dbcf1e409684c639ede0121  MugenDeej.ps1" | sha256sum -c -
+
+      - name: Commit exact tested dev25 runtime source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add MugenDeej.ps1
+          if git diff --cached --quiet; then
+            echo "Golden source already matches branch."
+            exit 0
+          fi
+          git commit -m "chore: consolidate known-good 0.9.0-dev25 runtime baseline"
+          git push origin HEAD:release/1.0.0
