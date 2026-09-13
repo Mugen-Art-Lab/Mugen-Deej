@@ -100,7 +100,7 @@ function New-SetupButton {
 
 function Select-SetupLanguage {
     $languageForm = New-Object System.Windows.Forms.Form
-    $languageForm.Text = 'Mugen Deej — Setup language / Язык установки'
+    $languageForm.Text = 'Mugen Deej — Язык / Language'
     $languageForm.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
     $languageForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
     $languageForm.MaximizeBox = $false
@@ -118,7 +118,7 @@ function Select-SetupLanguage {
     catch { }
 
     $languageTitle = New-Object System.Windows.Forms.Label
-    $languageTitle.Text = 'Выберите язык установки / Choose setup language'
+    $languageTitle.Text = 'Язык установки / Setup language'
     $languageTitle.Location = New-Object System.Drawing.Point(20, 24)
     $languageTitle.Size = New-Object System.Drawing.Size(390, 34)
     $languageTitle.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 15)
@@ -319,7 +319,7 @@ $form.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
 $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $form.MaximizeBox = $false
 $form.MinimizeBox = $false
-$form.ClientSize = New-Object System.Drawing.Size(720, 550)
+$form.ClientSize = New-Object System.Drawing.Size(720, 580)
 $form.BackColor = $script:SetupPalette['Back']
 $form.ForeColor = $script:SetupPalette['TextColor']
 $form.Font = New-Object System.Drawing.Font('Segoe UI', 9.5)
@@ -356,7 +356,7 @@ $form.Controls.Add($subtitleLabel)
 
 $panel = New-Object System.Windows.Forms.Panel
 $panel.Location = New-Object System.Drawing.Point(28, 108)
-$panel.Size = New-Object System.Drawing.Size(664, 328)
+$panel.Size = New-Object System.Drawing.Size(664, 358)
 $panel.BackColor = $script:SetupPalette['Surface']
 $panel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
 $form.Controls.Add($panel)
@@ -429,15 +429,15 @@ $warningTitleLabel.ForeColor = $script:SetupPalette['Warning']
 $panel.Controls.Add($warningTitleLabel)
 
 $warningBodyLabel = New-Object System.Windows.Forms.Label
-$warningBodyLabel.Text = (L -Ru "Не рекомендуется устанавливать в Program Files.`r`nMugen Deej хранит настройки рядом с программой, поэтому Windows может потребовать права администратора." -En "Installing under Program Files is not recommended.`r`nMugen Deej stores settings next to the app, so Windows may require administrator rights.")
+$warningBodyLabel.Text = (L -Ru "Не рекомендуется устанавливать Mugen Deej в Program Files.`r`nНастройки хранятся рядом с программой.`r`nWindows может потребовать права администратора." -En "Installing Mugen Deej under Program Files is not recommended.`r`nSettings are stored next to the application.`r`nWindows may require administrator rights.")
 $warningBodyLabel.Location = New-Object System.Drawing.Point(20, 214)
-$warningBodyLabel.Size = New-Object System.Drawing.Size(620, 42)
+$warningBodyLabel.Size = New-Object System.Drawing.Size(620, 62)
 $warningBodyLabel.ForeColor = $script:SetupPalette['MutedColor']
 $panel.Controls.Add($warningBodyLabel)
 
 $shortcutCheck = New-Object System.Windows.Forms.CheckBox
 $shortcutCheck.Text = (L -Ru 'Создать ярлык на рабочем столе' -En 'Create a desktop shortcut')
-$shortcutCheck.Location = New-Object System.Drawing.Point(20, 264)
+$shortcutCheck.Location = New-Object System.Drawing.Point(20, 284)
 $shortcutCheck.Size = New-Object System.Drawing.Size(310, 26)
 $shortcutCheck.Checked = $true
 $shortcutCheck.ForeColor = $script:SetupPalette['TextColor']
@@ -446,7 +446,7 @@ $panel.Controls.Add($shortcutCheck)
 
 $launchCheck = New-Object System.Windows.Forms.CheckBox
 $launchCheck.Text = (L -Ru 'Запустить Mugen Deej после установки' -En 'Launch Mugen Deej after setup')
-$launchCheck.Location = New-Object System.Drawing.Point(20, 296)
+$launchCheck.Location = New-Object System.Drawing.Point(20, 318)
 $launchCheck.Size = New-Object System.Drawing.Size(350, 26)
 $launchCheck.Checked = $true
 $launchCheck.ForeColor = $script:SetupPalette['TextColor']
@@ -454,16 +454,16 @@ $launchCheck.BackColor = $script:SetupPalette['Surface']
 $panel.Controls.Add($launchCheck)
 
 $statusLabel = New-Object System.Windows.Forms.Label
-$statusLabel.Location = New-Object System.Drawing.Point(30, 454)
+$statusLabel.Location = New-Object System.Drawing.Point(30, 484)
 $statusLabel.Size = New-Object System.Drawing.Size(420, 54)
 $statusLabel.ForeColor = $script:SetupPalette['MutedColor']
 $statusLabel.Text = (L -Ru 'Выберите место установки и нажмите «Установить».' -En 'Choose an installation location and click Install.')
 $form.Controls.Add($statusLabel)
 
-$cancelButton = New-SetupButton -Caption (L -Ru 'Отмена' -En 'Cancel') -X 466 -Y 477 -Width 104
+$cancelButton = New-SetupButton -Caption (L -Ru 'Отмена' -En 'Cancel') -X 466 -Y 507 -Width 104
 $form.Controls.Add($cancelButton)
 
-$installButton = New-SetupButton -Caption (L -Ru 'Установить' -En 'Install') -X 584 -Y 477 -Width 108 -IsPrimary $true
+$installButton = New-SetupButton -Caption (L -Ru 'Установить' -En 'Install') -X 584 -Y 507 -Width 108 -IsPrimary $true
 $form.Controls.Add($installButton)
 $form.AcceptButton = $installButton
 $form.CancelButton = $cancelButton
@@ -612,7 +612,7 @@ $installButton.Add_Click({
 
         $warningTitleLabel.Text = (L -Ru 'Как удалить Mugen Deej' -En 'How to remove Mugen Deej')
         $warningTitleLabel.ForeColor = $script:SetupPalette['TextColor']
-        $warningBodyLabel.Text = (L -Ru "Если включён «Запускать вместе с Windows», сначала отключите его в самой программе.`r`nЗатем закройте Mugen Deej и удалите папку программы. Ярлык можно удалить отдельно." -En "If Start with Windows is enabled, turn it off inside Mugen Deej first.`r`nThen close Mugen Deej and delete its folder. The desktop shortcut can be removed separately.")
+        $warningBodyLabel.Text = (L -Ru "Если включён «Запускать вместе с Windows», сначала отключите его в самой программе.`r`nЗатем закройте Mugen Deej и удалите папку программы.`r`nЯрлык можно удалить отдельно." -En "If Start with Windows is enabled, turn it off inside Mugen Deej first.`r`nThen close Mugen Deej and delete its folder.`r`nThe desktop shortcut can be removed separately.")
 
         $statusLabel.Text = (L -Ru 'Установка завершена. Нажмите «Готово».' -En 'Setup is complete. Click Finish.')
         $cancelButton.Visible = $false
