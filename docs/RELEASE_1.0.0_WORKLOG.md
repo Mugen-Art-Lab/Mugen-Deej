@@ -13,11 +13,11 @@ This document is the continuity anchor for the 1.0.0 release work. Keep it updat
 
 ## Known-good pre-1.0 baseline
 
-The current golden runtime baseline is the tested portable build:
+The golden runtime baseline is the tested portable build:
 
 `Mugen-Deej-0.9.0-dev25-soak-fixed`
 
-It is the source of truth for consolidating the internal 0.9.0 line before new 1.0.0 work begins.
+It is the source of truth for the internal 0.9.0 line and must remain recoverable while 1.0.0 work proceeds.
 
 Important local development artifacts used to reconstruct the history:
 
@@ -30,11 +30,28 @@ Do not commit personal runtime data from the golden portable folder (`config*.js
 
 ### Consolidation status
 
-The tested `0.9.0-dev25` application script is now committed directly as the root `MugenDeej.ps1` in `release/1.0.0`. Its first-line version and `VERSION.txt` both identify the current baseline as `0.9.0-dev25` until 1.0.0-specific changes begin.
-
-The final tested Arduino reference firmware and the preserved 0.9.0 development history are also present in the branch.
+The tested `0.9.0-dev25` application script is committed directly as the root `MugenDeej.ps1` in `release/1.0.0`. The final tested Arduino reference firmware and the preserved 0.9.0 development history are also present in the branch.
 
 A semi-automatic portable packaging path is available through `tools/Build-PortableRelease.ps1`, `BUILD_PORTABLE.cmd`, and the manually triggered `Build portable package` GitHub Actions workflow. It produces a ZIP and checksum but does not publish a release automatically.
+
+The first control build of `0.9.0-dev25` was successfully produced through GitHub Actions before any 1.0.0 runtime changes were introduced.
+
+## Current 1.0.0 development stage
+
+Current development target: `1.0.0-dev1`.
+
+`dev1` is intentionally limited to the button-action settings filename migration:
+
+- final filename: `button-actions.json`;
+- legacy filename: `button-actions.dev.json`;
+- if the final file already exists, it is authoritative and the legacy file is ignored;
+- if only the legacy file exists, it is parsed and schema-validated before migration;
+- the new file is written through a temporary file and read back before migration is accepted;
+- the legacy file is preserved as a rollback copy and is not deleted;
+- if migration cannot write the new file, the legacy mapping can still be loaded for that run and migration is retried on a later launch;
+- saves after migration go only to `button-actions.json` and are verified after writing.
+
+For this first test, the byte-for-byte golden root `MugenDeej.ps1` is deliberately left untouched. `VERSION.txt` is `1.0.0-dev1`, and `tools/patches/Apply-1.0.0-dev1.ps1` transforms a staged copy during portable packaging. This lets the migration be tested on real hardware before the large generated runtime file is promoted back into the repository. Once `dev1` passes, the tested staged `MugenDeej.ps1` should replace the root file and the builder will automatically return to its normal direct-copy path because the source version will match `VERSION.txt`.
 
 ## Tested 0.9.0 architecture
 
@@ -78,8 +95,6 @@ Dynamic button payloads used by the dev line:
 - `url64:<base64>`
 - `command64:<base64>`
 
-The dev filename is currently `button-actions.dev.json`; 1.0.0 will migrate this to `button-actions.json`.
-
 ## Config safety already present
 
 The established `config.json` safety behavior must not be weakened while adding import/restore:
@@ -112,7 +127,7 @@ The reference firmware intended for 1.0.0 uses the real tested 5x6 wiring:
 
 The 0.9.0 dev line is feature-complete and soak-tested. New work for 1.0.0 is intentionally limited to release/migration infrastructure:
 
-1. Rename the button action store to `button-actions.json` with safe one-time migration from `button-actions.dev.json`.
+1. Finish and validate the `button-actions.json` migration in `1.0.0-dev1`.
 2. Add a portable backup/restore format, suggested filename:
    `MugenDeej_YYYY-MM-DD_HH-MM-SS.backup`.
 3. Add an explicit backup schema/version independent from the application version.
@@ -129,11 +144,27 @@ Do not add unrelated new features before 1.0.0.
 Keep changes reviewable instead of making one giant release commit:
 
 1. **Completed: consolidate internal 0.9.0 dev25 baseline** — tested runtime, final reference firmware, historical docs, matching metadata and a reproducible/semi-automatic portable package builder.
-2. **Add 1.0.0 settings migration foundation** — final button-action filename/schema migration.
-3. **Add backup/restore** — `.backup` format, validation, recovery behavior and bilingual UI.
-4. **Release cleanup** — version `1.0.0-rc1`, README/changelog/examples/screenshots/checksums as appropriate.
-5. Smoke-test the clean RC on both legacy and extended controllers, including at least one suspend/resume cycle.
-6. Merge `release/1.0.0` into `main`, tag `v1.0.0`, then create the public release only after the smoke test passes.
+2. **In test: 1.0.0-dev1 settings migration foundation** — final button-action filename/schema migration using a staged patch over the golden runtime.
+3. **Promote tested dev1 runtime** — after the artifact passes migration/restart/button tests, replace root `MugenDeej.ps1` with the tested staged script.
+4. **Add backup/restore** — `.backup` format, validation, recovery behavior and bilingual UI.
+5. **Release cleanup** — version `1.0.0-rc1`, README/changelog/examples/screenshots/checksums as appropriate.
+6. Smoke-test the clean RC on both legacy and extended controllers, including at least one suspend/resume cycle.
+7. Merge `release/1.0.0` into `main`, tag `v1.0.0`, then create the public release only after the smoke test passes.
+
+## dev1 test checklist
+
+Use a copy of a real dev25 portable folder that still contains `button-actions.dev.json`.
+
+- Build/download `Mugen-Deej-1.0.0-dev1-Portable.zip`.
+- Copy the old `button-actions.dev.json` into the fresh dev1 portable folder before first launch.
+- Launch with the extended controller.
+- Verify `button-actions.json` is created automatically.
+- Verify `button-actions.dev.json` remains present and unchanged.
+- Verify all existing button assignments still work.
+- Change at least one button assignment and click Save.
+- Restart Mugen Deej and verify the changed assignment persists from `button-actions.json`.
+- Optionally rename/move the legacy `.dev.json` after successful migration and verify the new file is sufficient by itself.
+- Confirm the main slider configuration, tray/startup behavior, language/theme switching and controller detection are unchanged.
 
 ## Release gate
 
