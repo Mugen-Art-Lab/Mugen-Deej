@@ -14,7 +14,10 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
 $script:IsRussian = $false
-try { $script:IsRussian = ([System.Globalization.CultureInfo]::CurrentUICulture.TwoLetterISOLanguageName -eq 'ru') } catch { }
+try {
+    $script:IsRussian = ([System.Globalization.CultureInfo]::CurrentUICulture.TwoLetterISOLanguageName -eq 'ru')
+}
+catch { }
 
 function L {
     param([string]$Ru, [string]$En)
@@ -50,8 +53,15 @@ else {
     $script:Warning = [System.Drawing.Color]::FromArgb(157, 104, 0)
 }
 
-function New-Button {
-    param([string]$Text, [int]$X, [int]$Y, [int]$Width, [bool]$Primary = $false)
+function New-SetupButton {
+    param(
+        [string]$Text,
+        [int]$X,
+        [int]$Y,
+        [int]$Width,
+        [bool]$Primary = $false
+    )
+
     $button = New-Object System.Windows.Forms.Button
     $button.Text = $Text
     $button.Location = New-Object System.Drawing.Point($X, $Y)
@@ -60,71 +70,121 @@ function New-Button {
     $button.FlatAppearance.BorderSize = 1
     $button.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 9.5)
     $button.Cursor = [System.Windows.Forms.Cursors]::Hand
+
     if ($Primary) {
         $button.BackColor = $script:Primary
         $button.ForeColor = [System.Drawing.Color]::White
         $button.FlatAppearance.BorderColor = $script:Primary
+        $button.FlatAppearance.MouseOverBackColor = [System.Drawing.Color]::FromArgb(92, 140, 255)
+        $button.FlatAppearance.MouseDownBackColor = [System.Drawing.Color]::FromArgb(72, 117, 229)
     }
     else {
         $button.BackColor = $script:Input
         $button.ForeColor = $script:Text
         $button.FlatAppearance.BorderColor = $script:Border
+        $button.FlatAppearance.MouseOverBackColor = $script:Surface
+        $button.FlatAppearance.MouseDownBackColor = $script:Surface
     }
+
     return $button
 }
 
-function Test-UnderPath {
+function Test-PathInside {
     param([string]$Candidate, [string]$Root)
-    if ([string]::IsNullOrWhiteSpace($Candidate) -or [string]::IsNullOrWhiteSpace($Root)) { return $false }
+
+    if ([string]::IsNullOrWhiteSpace($Candidate) -or [string]::IsNullOrWhiteSpace($Root)) {
+        return $false
+    }
+
     try {
         $candidateFull = [System.IO.Path]::GetFullPath($Candidate).TrimEnd('\')
         $rootFull = [System.IO.Path]::GetFullPath($Root).TrimEnd('\')
-        return ($candidateFull.Equals($rootFull, [System.StringComparison]::OrdinalIgnoreCase) -or $candidateFull.StartsWith(($rootFull + '\'), [System.StringComparison]::OrdinalIgnoreCase))
+        return (
+            $candidateFull.Equals($rootFull, [System.StringComparison]::OrdinalIgnoreCase) -or
+            $candidateFull.StartsWith(($rootFull + '\'), [System.StringComparison]::OrdinalIgnoreCase)
+        )
     }
-    catch { return $false }
+    catch {
+        return $false
+    }
 }
 
-function Test-ProtectedPath {
+function Test-ProtectedInstallPath {
     param([string]$Path)
-    $pf = [Environment]::GetFolderPath('ProgramFiles')
-    $pf86 = [Environment]::GetEnvironmentVariable('ProgramFiles(x86)')
-    return ((Test-UnderPath -Candidate $Path -Root $pf) -or (Test-UnderPath -Candidate $Path -Root $pf86))
+
+    $programFiles = [Environment]::GetFolderPath('ProgramFiles')
+    $programFilesX86 = [Environment]::GetEnvironmentVariable('ProgramFiles(x86)')
+
+    return (
+        (Test-PathInside -Candidate $Path -Root $programFiles) -or
+        (Test-PathInside -Candidate $Path -Root $programFilesX86)
+    )
 }
 
-function Expand-Payload {
-    param([string]$ZipPath, [string]$Destination)
+function Expand-PortablePayload {
+    param(
+        [Parameter(Mandatory = $true)][string]$ZipPath,
+        [Parameter(Mandatory = $true)][string]$Destination
+    )
+
     [System.IO.Directory]::CreateDirectory($Destination) | Out-Null
     $root = [System.IO.Path]::GetFullPath($Destination).TrimEnd('\')
-    $prefix = $root + '\'
+    $rootPrefix = $root + '\'
+
     $archive = [System.IO.Compression.ZipFile]::OpenRead($ZipPath)
     try {
         foreach ($entry in $archive.Entries) {
             $relative = $entry.FullName.Replace('/', '\')
             if ([string]::IsNullOrWhiteSpace($relative)) { continue }
-            $targetPath = [System.IO.Path]::GetFullPath((Join-Path $root $relative))
-            if (-not $targetPath.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+
+            $destinationPath = [System.IO.Path]::GetFullPath((Join-Path $root $relative))
+            if (-not $destinationPath.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
                 throw (L -Ru 'Архив содержит недопустимый путь.' -En 'The package contains an invalid path.')
             }
+
             if ([string]::IsNullOrEmpty($entry.Name)) {
-                [System.IO.Directory]::CreateDirectory($targetPath) | Out-Null
+                [System.IO.Directory]::CreateDirectory($destinationPath) | Out-Null
                 continue
             }
-            $parent = [System.IO.Path]::GetDirectoryName($targetPath)
-            if (-not [string]::IsNullOrWhiteSpace($parent)) { [System.IO.Directory]::CreateDirectory($parent) | Out-Null }
+
+            $parent = [System.IO.Path]::GetDirectoryName($destinationPath)
+            if (-not [string]::IsNullOrWhiteSpace($parent)) {
+                [System.IO.Directory]::CreateDirectory($parent) | Out-Null
+            }
+
             $source = $entry.Open()
             try {
-                $target = New-Object System.IO.FileStream($targetPath, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
-                try { $source.CopyTo($target) } finally { $target.Dispose() }
+                $target = New-Object System.IO.FileStream(
+                    $destinationPath,
+                    [System.IO.FileMode]::Create,
+                    [System.IO.FileAccess]::Write,
+                    [System.IO.FileShare]::None
+                )
+                try {
+                    $source.CopyTo($target)
+                }
+                finally {
+                    $target.Dispose()
+                }
             }
-            finally { $source.Dispose() }
+            finally {
+                $source.Dispose()
+            }
         }
     }
-    finally { $archive.Dispose() }
+    finally {
+        $archive.Dispose()
+    }
 }
 
 function New-DesktopShortcut {
-    param([string]$InstallPath)
+    param([Parameter(Mandatory = $true)][string]$InstallPath)
+
     $target = Join-Path $InstallPath 'MugenDeej.exe'
+    if (-not (Test-Path -LiteralPath $target -PathType Leaf)) {
+        throw (L -Ru 'После распаковки не найден MugenDeej.exe.' -En 'MugenDeej.exe was not found after extraction.')
+    }
+
     $desktop = [Environment]::GetFolderPath('DesktopDirectory')
     $shortcutPath = Join-Path $desktop 'Mugen Deej.lnk'
     $shell = New-Object -ComObject WScript.Shell
@@ -137,7 +197,9 @@ function New-DesktopShortcut {
         $shortcut.Save()
     }
     finally {
-        if ($null -ne $shell) { [void][System.Runtime.InteropServices.Marshal]::FinalReleaseComObject($shell) }
+        if ($null -ne $shell) {
+            [void][System.Runtime.InteropServices.Marshal]::FinalReleaseComObject($shell)
+        }
     }
 }
 
@@ -151,7 +213,13 @@ $form.ClientSize = New-Object System.Drawing.Size(720, 500)
 $form.BackColor = $script:Back
 $form.ForeColor = $script:Text
 $form.Font = New-Object System.Drawing.Font('Segoe UI', 9.5)
-try { if (Test-Path -LiteralPath $SetupExePath -PathType Leaf) { $form.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($SetupExePath) } } catch { }
+
+try {
+    if (Test-Path -LiteralPath $SetupExePath -PathType Leaf) {
+        $form.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($SetupExePath)
+    }
+}
+catch { }
 
 $title = New-Object System.Windows.Forms.Label
 $title.Text = 'Mugen Deej'
@@ -206,7 +274,7 @@ $pathBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
 $pathBox.Text = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Mugen Deej'
 $panel.Controls.Add($pathBox)
 
-$browseButton = New-Button -Text (L -Ru 'Обзор…' -En 'Browse…') -X 522 -Y 105 -Width 118
+$browseButton = New-SetupButton -Text (L -Ru 'Обзор…' -En 'Browse…') -X 522 -Y 105 -Width 118
 $panel.Controls.Add($browseButton)
 
 $warning = New-Object System.Windows.Forms.Label
@@ -241,75 +309,137 @@ $status.ForeColor = $script:Muted
 $status.Text = (L -Ru 'Выберите папку и нажмите «Установить».' -En 'Choose a folder and click Install.')
 $form.Controls.Add($status)
 
-$cancelButton = New-Button -Text (L -Ru 'Отмена' -En 'Cancel') -X 466 -Y 428 -Width 104
+$cancelButton = New-SetupButton -Text (L -Ru 'Отмена' -En 'Cancel') -X 466 -Y 428 -Width 104
 $form.Controls.Add($cancelButton)
-$installButton = New-Button -Text (L -Ru 'Установить' -En 'Install') -X 584 -Y 428 -Width 108 -Primary $true
+
+$installButton = New-SetupButton -Text (L -Ru 'Установить' -En 'Install') -X 584 -Y 428 -Width 108 -Primary $true
 $form.Controls.Add($installButton)
 $form.AcceptButton = $installButton
 $form.CancelButton = $cancelButton
 
-$script:Completed = $false
+$script:InstallCompleted = $false
 $script:InstalledPath = ''
-$script:LaunchAfter = $false
+$script:LaunchAfterFinish = $false
 
 $browseButton.Add_Click({
     $picker = New-Object System.Windows.Forms.FolderBrowserDialog
     $picker.Description = (L -Ru 'Выберите папку для Mugen Deej' -En 'Choose a folder for Mugen Deej')
     $picker.ShowNewFolderButton = $true
-    try { if (Test-Path -LiteralPath $pathBox.Text -PathType Container) { $picker.SelectedPath = $pathBox.Text } } catch { }
-    if ($picker.ShowDialog($form) -eq [System.Windows.Forms.DialogResult]::OK) { $pathBox.Text = $picker.SelectedPath }
+
+    try {
+        if (Test-Path -LiteralPath $pathBox.Text -PathType Container) {
+            $picker.SelectedPath = $pathBox.Text
+        }
+    }
+    catch { }
+
+    if ($picker.ShowDialog($form) -eq [System.Windows.Forms.DialogResult]::OK) {
+        $pathBox.Text = $picker.SelectedPath
+    }
     $picker.Dispose()
 })
 
-$cancelButton.Add_Click({ $form.Close() })
+$cancelButton.Add_Click({
+    $form.Close()
+})
 
 $installButton.Add_Click({
-    if ($script:Completed) {
-        $target = if ([string]::IsNullOrWhiteSpace($script:InstalledPath)) { '' } else { Join-Path $script:InstalledPath 'MugenDeej.exe' }
-        $launch = $script:LaunchAfter
+    if ($script:InstallCompleted) {
+        $target = ''
+        if (-not [string]::IsNullOrWhiteSpace($script:InstalledPath)) {
+            $target = Join-Path $script:InstalledPath 'MugenDeej.exe'
+        }
+        $launch = $script:LaunchAfterFinish
         $form.Close()
+
         if ($launch -and (Test-Path -LiteralPath $target -PathType Leaf)) {
-            try { Start-Process -FilePath $target -WorkingDirectory $script:InstalledPath } catch { }
+            try {
+                Start-Process -FilePath $target -WorkingDirectory $script:InstalledPath
+            }
+            catch {
+                [System.Windows.Forms.MessageBox]::Show(
+                    (L -Ru ('Не удалось запустить Mugen Deej:`r`n' + $_.Exception.Message) -En ('Could not launch Mugen Deej:`r`n' + $_.Exception.Message)),
+                    'Mugen Deej Setup',
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Warning
+                ) | Out-Null
+            }
         }
         return
     }
 
     $installPath = $pathBox.Text.Trim()
     if ([string]::IsNullOrWhiteSpace($installPath)) {
-        [System.Windows.Forms.MessageBox]::Show((L -Ru 'Укажите папку для установки.' -En 'Choose an installation folder.'), 'Mugen Deej Setup', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning) | Out-Null
-        return
-    }
-    try { $installPath = [System.IO.Path]::GetFullPath($installPath) }
-    catch {
-        [System.Windows.Forms.MessageBox]::Show((L -Ru 'Указан некорректный путь.' -En 'The selected path is invalid.'), 'Mugen Deej Setup', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning) | Out-Null
+        [System.Windows.Forms.MessageBox]::Show(
+            (L -Ru 'Укажите папку для установки.' -En 'Choose an installation folder.'),
+            'Mugen Deej Setup',
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Warning
+        ) | Out-Null
         return
     }
 
-    if (Test-ProtectedPath -Path $installPath) {
-        $programFilesText = L -Ru 'Выбрана папка Program Files. Mugen Deej хранит настройки рядом с программой, поэтому запись конфигурации может потребовать повышенных прав. Продолжить всё равно?' -En 'A Program Files folder was selected. Mugen Deej stores settings next to the app, so saving configuration may require elevated rights. Continue anyway?'
-        $answer = [System.Windows.Forms.MessageBox]::Show($programFilesText, 'Mugen Deej Setup', [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Warning, [System.Windows.Forms.MessageBoxDefaultButton]::Button2)
-        if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
+    try {
+        $installPath = [System.IO.Path]::GetFullPath($installPath)
+    }
+    catch {
+        [System.Windows.Forms.MessageBox]::Show(
+            (L -Ru 'Указан некорректный путь.' -En 'The selected path is invalid.'),
+            'Mugen Deej Setup',
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Warning
+        ) | Out-Null
+        return
+    }
+
+    if (Test-ProtectedInstallPath -Path $installPath) {
+        $protectedMessage = L -Ru 'Выбрана папка Program Files. Mugen Deej хранит настройки рядом с программой, поэтому запись конфигурации может потребовать повышенных прав. Продолжить всё равно?' -En 'A Program Files folder was selected. Mugen Deej stores settings next to the app, so saving configuration may require elevated rights. Continue anyway?'
+        $answer = [System.Windows.Forms.MessageBox]::Show(
+            $protectedMessage,
+            'Mugen Deej Setup',
+            [System.Windows.Forms.MessageBoxButtons]::YesNo,
+            [System.Windows.Forms.MessageBoxIcon]::Warning,
+            [System.Windows.Forms.MessageBoxDefaultButton]::Button2
+        )
+        if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) {
+            return
+        }
     }
 
     $existingExe = Join-Path $installPath 'MugenDeej.exe'
     if (Test-Path -LiteralPath $existingExe -PathType Leaf) {
-        $updateText = L -Ru 'В выбранной папке уже найден Mugen Deej. Программные файлы будут обновлены. Пользовательские конфиги, логи и резервные копии не входят в установочный payload и удаляться не будут. Продолжить?' -En 'Mugen Deej already exists in the selected folder. Application files will be updated. User config files, logs, and backups are not part of the setup payload and will not be removed. Continue?'
-        $answer = [System.Windows.Forms.MessageBox]::Show($updateText, 'Mugen Deej Setup', [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Question)
-        if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
+        $updateMessage = L -Ru 'В выбранной папке уже найден Mugen Deej. Программные файлы будут обновлены. Пользовательские конфиги, логи и резервные копии не входят в установочный пакет и удаляться не будут. Продолжить?' -En 'Mugen Deej already exists in the selected folder. Application files will be updated. User config files, logs, and backups are not part of the setup payload and will not be removed. Continue?'
+        $answer = [System.Windows.Forms.MessageBox]::Show(
+            $updateMessage,
+            'Mugen Deej Setup',
+            [System.Windows.Forms.MessageBoxButtons]::YesNo,
+            [System.Windows.Forms.MessageBoxIcon]::Question,
+            [System.Windows.Forms.MessageBoxDefaultButton]::Button1
+        )
+        if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) {
+            return
+        }
     }
 
     $installButton.Enabled = $false
     $cancelButton.Enabled = $false
+    $browseButton.Enabled = $false
+    $pathBox.Enabled = $false
+    $shortcutCheck.Enabled = $false
+    $launchCheck.Enabled = $false
     $status.Text = (L -Ru 'Распаковка файлов…' -En 'Extracting files…')
     $form.Refresh()
 
     try {
-        Expand-Payload -ZipPath $PayloadPath -Destination $installPath
-        if ($shortcutCheck.Checked) { New-DesktopShortcut -InstallPath $installPath }
+        Expand-PortablePayload -ZipPath $PayloadPath -Destination $installPath
 
-        $script:Completed = $true
+        if ($shortcutCheck.Checked) {
+            New-DesktopShortcut -InstallPath $installPath
+        }
+
+        $script:InstallCompleted = $true
         $script:InstalledPath = $installPath
-        $script:LaunchAfter = [bool]$launchCheck.Checked
+        $script:LaunchAfterFinish = [bool]$launchCheck.Checked
 
         $intro.Text = (L -Ru 'Готово. Mugen Deej распакован в выбранную папку. Установщик не зарегистрировал программу в списке приложений Windows.' -En 'Done. Mugen Deej was extracted to the selected folder. Setup did not register the app in Windows Installed Apps.')
         $pathLabel.Text = (L -Ru 'Установлено в:' -En 'Installed to:')
@@ -318,20 +448,33 @@ $installButton.Add_Click({
         $browseButton.Visible = $false
         $shortcutCheck.Visible = $false
         $launchCheck.Visible = $false
+
         $warning.Location = New-Object System.Drawing.Point(20, 153)
         $warning.Size = New-Object System.Drawing.Size(620, 100)
         $warning.Text = (L -Ru 'Удаление: если в Mugen Deej включён «Запускать вместе с Windows», сначала отключите эту галочку в самой программе — автозапуск использует пользовательскую запись Windows. Затем закройте Mugen Deej и просто удалите папку программы. Ярлык на рабочем столе можно удалить отдельно.' -En 'Removal: if “Start Mugen Deej with Windows” is enabled, first turn that option off inside Mugen Deej — startup uses a per-user Windows startup entry. Then close Mugen Deej and simply delete its folder. The desktop shortcut can be deleted separately.')
+
         $status.Text = (L -Ru 'Установка завершена. Нажмите «Готово».' -En 'Setup is complete. Click Finish.')
         $cancelButton.Visible = $false
         $installButton.Text = (L -Ru 'Готово' -En 'Finish')
         $installButton.Enabled = $true
+        $form.AcceptButton = $installButton
     }
     catch {
+        $status.Text = (L -Ru 'Установка не завершена.' -En 'Setup did not complete.')
+        $errorText = L -Ru ('Не удалось распаковать Mugen Deej.`r`n`r`n' + $_.Exception.Message) -En ('Could not extract Mugen Deej.`r`n`r`n' + $_.Exception.Message)
+        [System.Windows.Forms.MessageBox]::Show(
+            $errorText,
+            'Mugen Deej Setup',
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        ) | Out-Null
+
         $installButton.Enabled = $true
         $cancelButton.Enabled = $true
-        $status.Text = (L -Ru 'Установка не завершена.' -En 'Setup did not complete.')
-        $errorText = L -Ru ('Не удалось распаковать Mugen Deej. Если программа уже запущена из этой папки, закройте её и повторите попытку.`r`n`r`n' + $_.Exception.Message) -En ('Could not extract Mugen Deej. If the app is already running from this folder, close it and try again.`r`n`r`n' + $_.Exception.Message)
-        [System.Windows.Forms.MessageBox]::Show($errorText, 'Mugen Deej Setup', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null
+        $browseButton.Enabled = $true
+        $pathBox.Enabled = $true
+        $shortcutCheck.Enabled = $true
+        $launchCheck.Enabled = $true
     }
 })
 
