@@ -19,6 +19,8 @@ var payloadZip []byte
 
 var version = "0.0.0-dev"
 
+const createNoWindow = 0x08000000
+
 var (
 	user32                       = syscall.NewLazyDLL("user32.dll")
 	kernel32                     = syscall.NewLazyDLL("kernel32.dll")
@@ -102,7 +104,11 @@ func main() {
 		"-SetupExePath", exePath,
 	)
 	cmd.Dir = tempDir
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+
+	// HideWindow uses SW_HIDE for the child process and also hides the WinForms
+	// window that setup.ps1 creates. CREATE_NO_WINDOW suppresses only the
+	// PowerShell console, while allowing the setup dialog itself to be shown.
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: createNoWindow}
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
