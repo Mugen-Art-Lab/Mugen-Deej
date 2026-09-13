@@ -127,7 +127,7 @@ function Select-SetupLanguage {
     $languageForm.Controls.Add($languageTitle)
 
     $languageHint = New-Object System.Windows.Forms.Label
-    $languageHint.Text = 'Язык установщика можно выбрать независимо от языка Windows.`r`nSetup language can be selected independently of Windows.'
+    $languageHint.Text = "Язык установщика можно выбрать независимо от языка Windows.`r`nSetup language can be selected independently of Windows."
     $languageHint.Location = New-Object System.Drawing.Point(30, 68)
     $languageHint.Size = New-Object System.Drawing.Size(370, 48)
     $languageHint.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
@@ -160,8 +160,9 @@ function Select-SetupLanguage {
         $languageForm.Close()
     })
 
-    [void]$languageForm.ShowDialog()
+    $languageResult = $languageForm.ShowDialog()
     $languageForm.Dispose()
+    return ($languageResult -eq [System.Windows.Forms.DialogResult]::OK)
 }
 
 function Test-PathInside {
@@ -279,8 +280,11 @@ function New-DesktopShortcut {
 }
 
 # Ask explicitly every time the setup starts. Windows UI culture only chooses
-# which button is highlighted/default in this small selector.
-Select-SetupLanguage
+# which button is highlighted/default in this small selector. Closing the
+# selector cancels setup completely.
+if (-not (Select-SetupLanguage)) {
+    return
+}
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = (L -Ru 'Mugen Deej — установка' -En 'Mugen Deej — Setup')
@@ -436,7 +440,7 @@ $installButton.Add_Click({
                 Start-Process -FilePath $targetExe -WorkingDirectory $script:InstalledPath
             }
             catch {
-                $launchError = L -Ru ('Не удалось запустить Mugen Deej:`r`n' + $_.Exception.Message) -En ('Could not launch Mugen Deej:`r`n' + $_.Exception.Message)
+                $launchError = L -Ru ("Не удалось запустить Mugen Deej:`r`n" + $_.Exception.Message) -En ("Could not launch Mugen Deej:`r`n" + $_.Exception.Message)
                 [System.Windows.Forms.MessageBox]::Show(
                     $launchError,
                     'Mugen Deej Setup',
@@ -541,7 +545,7 @@ $installButton.Add_Click({
     }
     catch {
         $statusLabel.Text = (L -Ru 'Установка не завершена.' -En 'Setup did not complete.')
-        $errorText = L -Ru ('Не удалось распаковать Mugen Deej.`r`n`r`n' + $_.Exception.Message) -En ('Could not extract Mugen Deej.`r`n`r`n' + $_.Exception.Message)
+        $errorText = L -Ru ("Не удалось распаковать Mugen Deej.`r`n`r`n" + $_.Exception.Message) -En ("Could not extract Mugen Deej.`r`n`r`n" + $_.Exception.Message)
         [System.Windows.Forms.MessageBox]::Show(
             $errorText,
             'Mugen Deej Setup',
