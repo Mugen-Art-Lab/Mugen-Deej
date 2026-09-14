@@ -1,11 +1,6 @@
 name: Build release packages
 
 on:
-  push:
-    branches:
-      - release/1.0.0
-    paths:
-      - .github/workflows/build-portable.yml
   workflow_dispatch:
     inputs:
       version:
