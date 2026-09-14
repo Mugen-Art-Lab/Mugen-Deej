@@ -23,7 +23,7 @@ jobs:
       - name: Promote tested staged source
         shell: pwsh
         run: |
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Promote-1.0.0-Source.ps1
+          .\tools\Promote-1.0.0-Source.ps1
 
       - name: Verify promoted runtime matches tested package
         shell: pwsh
