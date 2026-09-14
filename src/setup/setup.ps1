@@ -119,6 +119,17 @@ function Show-SetupConfirm {
     $dialog.ForeColor = $script:SetupPalette['TextColor']
     $dialog.Font = New-Object System.Drawing.Font('Segoe UI', 9.5)
 
+    # Size confirmation dialogs from their actual localized text instead of a
+    # fixed Russian/English guess. This keeps future longer translations from
+    # being clipped while preserving the same compact 500 px width.
+    $messageWidth = 394
+    $measureFlags = [System.Windows.Forms.TextFormatFlags]::WordBreak -bor [System.Windows.Forms.TextFormatFlags]::TextBoxControl
+    $proposedSize = New-Object System.Drawing.Size -ArgumentList @($messageWidth, 1000)
+    $measuredSize = [System.Windows.Forms.TextRenderer]::MeasureText($Message, $dialog.Font, $proposedSize, $measureFlags)
+    $messageHeight = [Math]::Max(70, [Math]::Min(320, ($measuredSize.Height + 8)))
+    $buttonY = 22 + $messageHeight + 18
+    $dialog.ClientSize = New-Object System.Drawing.Size -ArgumentList @(500, ($buttonY + 54))
+
     try {
         if (Test-Path -LiteralPath $SetupExePath -PathType Leaf) {
             $dialog.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($SetupExePath)
@@ -138,7 +149,7 @@ function Show-SetupConfirm {
     $messageLabel = New-Object System.Windows.Forms.Label
     $messageLabel.Text = $Message
     $messageLabel.Location = New-Object System.Drawing.Point(78, 22)
-    $messageLabel.Size = New-Object System.Drawing.Size(394, 142)
+    $messageLabel.Size = New-Object System.Drawing.Size -ArgumentList @($messageWidth, $messageHeight)
     $messageLabel.ForeColor = $script:SetupPalette['TextColor']
     $dialog.Controls.Add($messageLabel)
 
@@ -149,8 +160,8 @@ function Show-SetupConfirm {
         $NoCaption = (L -Ru 'Нет' -En 'No')
     }
 
-    $yesButton = New-SetupButton -Caption $YesCaption -X 270 -Y 177 -Width 94 -IsPrimary $DefaultYes
-    $noButton = New-SetupButton -Caption $NoCaption -X 378 -Y 177 -Width 94 -IsPrimary (-not $DefaultYes)
+    $yesButton = New-SetupButton -Caption $YesCaption -X 270 -Y $buttonY -Width 94 -IsPrimary $DefaultYes
+    $noButton = New-SetupButton -Caption $NoCaption -X 378 -Y $buttonY -Width 94 -IsPrimary (-not $DefaultYes)
     $dialog.Controls.Add($yesButton)
     $dialog.Controls.Add($noButton)
 
@@ -677,6 +688,7 @@ $form.CancelButton = $cancelButton
 $script:InstallCompleted = $false
 $script:InstalledPath = ''
 $script:LaunchAfterFinish = $false
+$script:LaunchSuppressedByOtherInstance = $false
 
 $browseButton.Add_Click({
     $picker = New-Object System.Windows.Forms.FolderBrowserDialog
@@ -798,6 +810,7 @@ $installButton.Add_Click({
             return
         }
         $launchCheck.Checked = $false
+        $script:LaunchSuppressedByOtherInstance = $true
     }
 
     $installButton.Enabled = $false
@@ -851,6 +864,50 @@ $installButton.Add_Click({
         $warningBodyLabel.Location = New-Object System.Drawing.Point(20, 216)
         $warningBodyLabel.Size = New-Object System.Drawing.Size(620, 150)
         $warningBodyLabel.Text = (L -Ru "1. Если включена опция «Запускать Mugen Deej вместе с Windows», отключите её в самой программе.`r`n2. Закройте Mugen Deej.`r`n3. Если эта папка используется только для Mugen Deej — удалите её целиком.`r`n4. Если в папке есть другие ваши файлы — удалите только файлы и папки Mugen Deej.`r`n5. Ярлык на рабочем столе можно удалить отдельно." -En "1. If the 'Start Mugen Deej with Windows' option is enabled, turn it off in the app.`r`n2. Close Mugen Deej.`r`n3. If this folder is used only for Mugen Deej, delete the whole folder.`r`n4. If it also contains your own files, delete only Mugen Deej files and folders.`r`n5. The desktop shortcut can be deleted separately.")
+
+        if ($script:LaunchSuppressedByOtherInstance) {
+            $launchHintRu = if ($shortcutCheck.Checked) {
+                'Закройте её, если она ещё запущена, затем запустите установленный Mugen Deej с ярлыка на рабочем столе.'
+            }
+            else {
+                'Закройте её, если она ещё запущена, затем запустите MugenDeej.exe из установленной папки.'
+            }
+            $launchHintEn = if ($shortcutCheck.Checked) {
+                'Close it if it is still running, then start the installed Mugen Deej from the desktop shortcut.'
+            }
+            else {
+                'Close it if it is still running, then start MugenDeej.exe from the installed folder.'
+            }
+
+            # Keep the successful "Done" heading normal. Highlight only the
+            # exceptional launch notice so it catches the eye without making
+            # the installation itself look unsuccessful.
+            $introTitleLabel.Text = (L -Ru 'Готово' -En 'Done')
+            $introTitleLabel.ForeColor = $script:SetupPalette['TextColor']
+            $introBodyLabel.Size = New-Object System.Drawing.Size(620, 42)
+
+            $launchNoticeTitleLabel = New-Object System.Windows.Forms.Label
+            $launchNoticeTitleLabel.Text = (L -Ru 'Mugen Deej не был запущен автоматически.' -En 'Mugen Deej was not launched automatically.')
+            $launchNoticeTitleLabel.Location = New-Object System.Drawing.Point(20, 88)
+            $launchNoticeTitleLabel.Size = New-Object System.Drawing.Size(620, 23)
+            $launchNoticeTitleLabel.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 9.5)
+            $launchNoticeTitleLabel.ForeColor = $script:SetupPalette['Warning']
+            $panel.Controls.Add($launchNoticeTitleLabel)
+
+            $launchNoticeBodyLabel = New-Object System.Windows.Forms.Label
+            $launchNoticeBodyLabel.Text = (L -Ru ("Во время установки уже работала другая копия программы.`r`n" + $launchHintRu) -En ("Another copy of the app was already running during installation.`r`n" + $launchHintEn))
+            $launchNoticeBodyLabel.Location = New-Object System.Drawing.Point(20, 111)
+            $launchNoticeBodyLabel.Size = New-Object System.Drawing.Size(620, 54)
+            $launchNoticeBodyLabel.ForeColor = $script:SetupPalette['Warning']
+            $panel.Controls.Add($launchNoticeBodyLabel)
+
+            $pathLabel.Location = New-Object System.Drawing.Point(20, 171)
+            $pathBox.Location = New-Object System.Drawing.Point(20, 195)
+            $pathHintLabel.Location = New-Object System.Drawing.Point(20, 225)
+            $warningTitleLabel.Location = New-Object System.Drawing.Point(20, 254)
+            $warningBodyLabel.Location = New-Object System.Drawing.Point(20, 280)
+            $warningBodyLabel.Size = New-Object System.Drawing.Size(620, 104)
+        }
 
         $statusLabel.Text = (L -Ru 'Установка завершена. Нажмите «Готово».' -En 'Installation complete. Click Finish.')
         $cancelButton.Visible = $false

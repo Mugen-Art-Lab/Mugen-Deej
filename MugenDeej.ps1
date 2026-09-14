@@ -1,4 +1,4 @@
-﻿# Mugen Deej 0.9.0-dev25
+﻿# Mugen Deej 1.0.0
 # Portable bilingual Windows audio controller for deej-compatible USB serial devices.
 # Requires Windows PowerShell 5.1+ and Windows 10/11.
 
@@ -1834,19 +1834,21 @@ if (-not $createdNew) {
     exit 0
 }
 
-$script:AppVersion = '0.9.0-dev25'
+$script:AppVersion = '1.0.0'
 $script:ControllerProtocol = 'unknown'
 $script:DetectedSliderCount = 0
 $script:DetectedButtonCount = 0
 $script:LatestButtons = @()
 $script:LastButtonStates = @()
 $script:LastCapabilityMismatchLog = [DateTime]::MinValue
-$script:ButtonActionConfigPath = Join-Path $script:BaseDir 'button-actions.dev.json'
+$script:ButtonActionConfigPath = Join-Path $script:BaseDir 'button-actions.json'
+$script:LegacyButtonActionConfigPath = Join-Path $script:BaseDir 'button-actions.dev.json'
 $script:ButtonActionsLoaded = $false
 $script:ButtonActions = @()
 $script:SoftMutedSliders = @{}
 $script:LastButtonActionAt = @{}
 $script:ButtonSettingsButton = $null
+$script:BackupMenuButton = $null
 $script:SettingsHintControl = $null
 $script:ButtonStateGroup = $null
 $script:ButtonStateFlow = $null
@@ -2941,6 +2943,7 @@ $script:CoreAudioCaptureUnavailable = $false
 $script:Closing = $false
 $script:ExitRequested = $false
 $script:ShutdownFinalizing = $false
+$script:RestartRequested = $false
 $script:IsSuspended = $false
 $script:ResumeReconnectAt = [DateTime]::MinValue
 $script:ResumePreferredPort = ''
@@ -2994,6 +2997,22 @@ $script:Strings = @{
         ConfigureHint = 'Переименуйте регуляторы и назначьте им общую громкость, приложения или уровень микрофона.'
         DiagnosticsClosed = 'Подключение и диагностика ▼'
         DiagnosticsOpen = 'Подключение и диагностика ▲'
+        BackupMenu = 'Резервная копия ▼'
+        BackupCreate = 'Создать резервную копию…'
+        BackupRestore = 'Восстановить из резервной копии…'
+        BackupSaveTitle = 'Создание резервной копии Mugen Deej'
+        BackupOpenTitle = 'Восстановление резервной копии Mugen Deej'
+        BackupCreated = 'Резервная копия создана:'
+        BackupCreateFailed = 'Не удалось создать резервную копию:'
+        BackupRestoreConfirm = 'Текущие настройки будут заменены настройками из резервной копии. Перед восстановлением Mugen Deej автоматически сохранит аварийную копию текущих настроек. Продолжить?'
+        BackupRestored = 'Настройки восстановлены.'
+        BackupEmergencyCopy = 'Аварийная копия текущих настроек сохранена:'
+        BackupRestartPrompt = 'Для полного применения резервной копии необходимо перезапустить Mugen Deej. Перезапустить сейчас?'
+        BackupInvalid = 'Не удалось прочитать резервную копию:'
+        BackupRestoreFailed = 'Не удалось восстановить настройки:'
+        DialogYes = 'Да'
+        DialogNo = 'Нет'
+        DialogOK = 'ОК'
         ConnectionGroup = 'Подключение контроллера'
         AutoPort = 'Определять COM-порт автоматически'
         ManualPort = 'Выбрать порт вручную'
@@ -3122,6 +3141,22 @@ $script:Strings = @{
         ConfigureHint = 'Rename controls and assign master volume, applications, or microphone level.'
         DiagnosticsClosed = 'Connection and diagnostics ▼'
         DiagnosticsOpen = 'Connection and diagnostics ▲'
+        BackupMenu = 'Backup & restore ▼'
+        BackupCreate = 'Create backup…'
+        BackupRestore = 'Restore from backup…'
+        BackupSaveTitle = 'Create Mugen Deej backup'
+        BackupOpenTitle = 'Restore Mugen Deej backup'
+        BackupCreated = 'Backup created:'
+        BackupCreateFailed = 'Could not create the backup:'
+        BackupRestoreConfirm = 'Current settings will be replaced with settings from the backup. Before restoring, Mugen Deej will automatically save an emergency copy of the current settings. Continue?'
+        BackupRestored = 'Settings restored.'
+        BackupEmergencyCopy = 'An emergency copy of the current settings was saved:'
+        BackupRestartPrompt = 'Mugen Deej must be restarted to apply the backup completely. Restart now?'
+        BackupInvalid = 'Could not read the backup:'
+        BackupRestoreFailed = 'Could not restore settings:'
+        DialogYes = 'Yes'
+        DialogNo = 'No'
+        DialogOK = 'OK'
         ConnectionGroup = 'Controller connection'
         AutoPort = 'Detect COM port automatically'
         ManualPort = 'Select port manually'
@@ -6439,23 +6474,157 @@ function Invoke-RunCommandAction {
 
     [void][System.Diagnostics.Process]::Start($psi)
 }
+function Read-ButtonActionConfigFile {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $data = Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json
+
+    if ($null -eq $data) {
+        throw 'Button action configuration is empty.'
+    }
+    if ($null -eq $data.PSObject.Properties['version']) {
+        throw 'Button action configuration has no schema version.'
+    }
+    if ([int]$data.version -ne 1) {
+        throw ('Unsupported button action configuration version: {0}' -f $data.version)
+    }
+    if ($null -eq $data.PSObject.Properties['actions']) {
+        throw 'Button action configuration has no actions array.'
+    }
+
+    $actions = @()
+    foreach ($item in @($data.actions)) {
+        if ($null -eq $item) {
+            throw 'Button action configuration contains a null action.'
+        }
+        $actions += [string]$item
+    }
+
+    return [pscustomobject]@{
+        version = 1
+        actions = @($actions)
+    }
+}
+
+function Write-ButtonActionConfigFile {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][object[]]$Actions
+    )
+
+    $tempPath = "$Path.tmp-$PID"
+
+    try {
+        $payload = [pscustomobject]@{
+            version = 1
+            actions = @($Actions | ForEach-Object { [string]$_ })
+        }
+
+        $json = $payload | ConvertTo-Json -Depth 4
+        $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+        [System.IO.File]::WriteAllText($tempPath, $json, $utf8NoBom)
+
+        $verified = Read-ButtonActionConfigFile -Path $tempPath
+        $expected = @($payload.actions)
+        $actual = @($verified.actions)
+
+        if ($actual.Count -ne $expected.Count) {
+            throw 'Button action configuration failed action-count verification.'
+        }
+
+        for ($i = 0; $i -lt $expected.Count; $i++) {
+            if ([string]$actual[$i] -cne [string]$expected[$i]) {
+                throw ('Button action configuration failed verification at action {0}.' -f ($i + 1))
+            }
+        }
+
+        if (Test-Path -LiteralPath $Path) {
+            try {
+                [System.IO.File]::Replace($tempPath, $Path, $null, $true)
+            }
+            catch {
+                Copy-Item -LiteralPath $tempPath -Destination $Path -Force
+                Remove-Item -LiteralPath $tempPath -Force
+            }
+        }
+        else {
+            [System.IO.File]::Move($tempPath, $Path)
+        }
+
+        [void](Read-ButtonActionConfigFile -Path $Path)
+    }
+    catch {
+        if (Test-Path -LiteralPath $tempPath) {
+            Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue
+        }
+        throw
+    }
+}
+
+function Try-MigrateLegacyButtonActionConfig {
+    if (Test-Path -LiteralPath $script:ButtonActionConfigPath) { return $false }
+    if (-not (Test-Path -LiteralPath $script:LegacyButtonActionConfigPath)) { return $false }
+
+    try {
+        $legacy = Read-ButtonActionConfigFile -Path $script:LegacyButtonActionConfigPath
+        Write-ButtonActionConfigFile -Path $script:ButtonActionConfigPath -Actions @($legacy.actions)
+
+        Write-Log (
+            'Button action config migrated safely: {0} -> {1}; actions={2}; legacy file preserved' -f
+            [System.IO.Path]::GetFileName($script:LegacyButtonActionConfigPath),
+            [System.IO.Path]::GetFileName($script:ButtonActionConfigPath),
+            @($legacy.actions).Count
+        ) 'INFO'
+
+        return $true
+    }
+    catch {
+        Write-Log (
+            'Button action config migration failed; legacy file was left untouched: {0}' -f
+            $_.Exception.Message
+        ) 'WARN'
+        return $false
+    }
+}
+
 function Initialize-ButtonActions {
     if ($script:ButtonActionsLoaded) { return }
 
     $script:ButtonActionsLoaded = $true
     $script:ButtonActions = @()
 
-    if (-not (Test-Path -LiteralPath $script:ButtonActionConfigPath)) { return }
+    [void](Try-MigrateLegacyButtonActionConfig)
+
+    $loadPath = ''
+    if (Test-Path -LiteralPath $script:ButtonActionConfigPath) {
+        $loadPath = $script:ButtonActionConfigPath
+    }
+    elseif (Test-Path -LiteralPath $script:LegacyButtonActionConfigPath) {
+        # A migration can fail because the folder is temporarily unwritable.
+        # Keep the user's existing button mappings active without modifying the
+        # legacy file; the migration will be attempted again on the next run.
+        $loadPath = $script:LegacyButtonActionConfigPath
+    }
+    else {
+        return
+    }
 
     try {
-        $data = Get-Content -LiteralPath $script:ButtonActionConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
-        if ($null -ne $data -and $null -ne $data.actions) {
-            $script:ButtonActions = @($data.actions | ForEach-Object { [string]$_ })
-        }
-        Write-Log ('Button action config loaded: actions={0}' -f @($script:ButtonActions).Count) 'DEBUG'
+        $data = Read-ButtonActionConfigFile -Path $loadPath
+        $script:ButtonActions = @($data.actions | ForEach-Object { [string]$_ })
+
+        Write-Log (
+            'Button action config loaded: file={0}; actions={1}' -f
+            [System.IO.Path]::GetFileName($loadPath),
+            @($script:ButtonActions).Count
+        ) 'DEBUG'
     }
     catch {
-        Write-Log ('Failed to load dev button action config: {0}' -f $_.Exception.Message) 'WARN'
+        Write-Log (
+            'Failed to load button action config {0}: {1}' -f
+            [System.IO.Path]::GetFileName($loadPath),
+            $_.Exception.Message
+        ) 'WARN'
         $script:ButtonActions = @()
     }
 }
@@ -6532,15 +6701,348 @@ function Normalize-ButtonActions {
     $script:ButtonActions = @($normalized)
 }
 function Save-ButtonActions {
-    $payload = [pscustomobject]@{
-        version = 1
-        actions = @($script:ButtonActions)
-    }
-    $json = $payload | ConvertTo-Json -Depth 4
-    Set-Content -LiteralPath $script:ButtonActionConfigPath -Value $json -Encoding UTF8
-    Write-Log ('Button actions saved: {0}' -f (@($script:ButtonActions) -join ',')) 'INFO'
+    Write-ButtonActionConfigFile `
+        -Path $script:ButtonActionConfigPath `
+        -Actions @($script:ButtonActions)
+
+    Write-Log (
+        'Button actions saved to {0}: {1}' -f
+        [System.IO.Path]::GetFileName($script:ButtonActionConfigPath),
+        (@($script:ButtonActions) -join ',')
+    ) 'INFO'
 }
 
+function Get-MugenDeejBackupFileName {
+    return ('MugenDeej_{0}.backup' -f (Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'))
+}
+
+function Read-MugenDeejBackupFile {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $data = Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ($null -eq $data) {
+        throw 'Backup file is empty.'
+    }
+    if ([string]$data.format -cne 'MugenDeejBackup') {
+        throw 'This file is not a Mugen Deej backup.'
+    }
+    if ($null -eq $data.PSObject.Properties['schemaVersion']) {
+        throw 'Backup schema version is missing.'
+    }
+    if ([int]$data.schemaVersion -ne 1) {
+        throw ('Unsupported backup schema version: {0}' -f $data.schemaVersion)
+    }
+    if ($null -eq $data.PSObject.Properties['config'] -or $null -eq $data.config) {
+        throw 'Backup does not contain the main configuration.'
+    }
+    if ($null -eq $data.PSObject.Properties['buttonActions'] -or $null -eq $data.buttonActions) {
+        throw 'Backup does not contain button actions.'
+    }
+    if ($null -eq $data.buttonActions.PSObject.Properties['version'] -or [int]$data.buttonActions.version -ne 1) {
+        throw 'Unsupported or missing button-action configuration version in backup.'
+    }
+    if ($null -eq $data.buttonActions.PSObject.Properties['actions']) {
+        throw 'Backup button-action list is missing.'
+    }
+
+    foreach ($item in @($data.buttonActions.actions)) {
+        if ($null -eq $item) {
+            throw 'Backup button-action list contains a null item.'
+        }
+    }
+
+    return $data
+}
+
+function New-MugenDeejBackupSnapshot {
+    Initialize-ButtonActions
+
+    $configClone = $script:Config | ConvertTo-Json -Depth 12 | ConvertFrom-Json
+    $actions = @($script:ButtonActions | ForEach-Object { [string]$_ })
+
+    return [pscustomobject][ordered]@{
+        format = 'MugenDeejBackup'
+        schemaVersion = 1
+        createdAt = (Get-Date).ToString('o')
+        createdBy = $script:AppVersion
+        config = $configClone
+        buttonActions = [pscustomobject][ordered]@{
+            version = 1
+            actions = @($actions)
+        }
+    }
+}
+
+function Write-MugenDeejBackupFile {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)]$Snapshot
+    )
+
+    $tempPath = "$Path.tmp-$PID"
+    try {
+        $json = $Snapshot | ConvertTo-Json -Depth 16
+        $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+        [System.IO.File]::WriteAllText($tempPath, $json, $utf8NoBom)
+
+        [void](Read-MugenDeejBackupFile -Path $tempPath)
+
+        if (Test-Path -LiteralPath $Path) {
+            try {
+                [System.IO.File]::Replace($tempPath, $Path, $null, $true)
+            }
+            catch {
+                Copy-Item -LiteralPath $tempPath -Destination $Path -Force
+                Remove-Item -LiteralPath $tempPath -Force
+            }
+        }
+        else {
+            [System.IO.File]::Move($tempPath, $Path)
+        }
+
+        [void](Read-MugenDeejBackupFile -Path $Path)
+    }
+    catch {
+        if (Test-Path -LiteralPath $tempPath) {
+            Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue
+        }
+        throw
+    }
+}
+
+function Show-MugenDeejStyledDialog {
+    param(
+        [Parameter(Mandatory = $true)][string]$Message,
+        [ValidateSet('OK','YesNo')][string]$Buttons = 'OK',
+        [ValidateSet('Info','Warning','Error')][string]$Kind = 'Info'
+    )
+
+    $dialog = New-Object System.Windows.Forms.Form
+    $dialog.Text = 'Mugen Deej'
+    $dialog.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterParent
+    $dialog.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+    $dialog.MaximizeBox = $false
+    $dialog.MinimizeBox = $false
+    $dialog.ShowInTaskbar = $false
+    $dialog.ClientSize = New-Object System.Drawing.Size(560, 250)
+    $dialog.Font = New-Object System.Drawing.Font('Segoe UI', 9)
+
+    $card = New-Object MugenDeejWindowing.MugenCardPanel
+    $card.Location = New-Object System.Drawing.Point(18, 18)
+    $card.Size = New-Object System.Drawing.Size(524, 158)
+    $dialog.Controls.Add($card)
+
+    $badge = New-Object System.Windows.Forms.Label
+    $badge.AutoSize = $false
+    $badge.Location = New-Object System.Drawing.Point(18, 22)
+    $badge.Size = New-Object System.Drawing.Size(42, 42)
+    $badge.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $badge.Font = New-Object System.Drawing.Font('Segoe UI Symbol', 18)
+    $badge.Text = if ($Kind -eq 'Info') { 'ⓘ' } elseif ($Kind -eq 'Warning') { '⚠' } else { '×' }
+    $card.Controls.Add($badge)
+
+    $messageLabel = New-Object System.Windows.Forms.Label
+    $messageLabel.AutoSize = $false
+    $messageLabel.Location = New-Object System.Drawing.Point(72, 16)
+    $messageLabel.Size = New-Object System.Drawing.Size(432, 126)
+    $messageLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+    $messageLabel.Text = $Message
+    $card.Controls.Add($messageLabel)
+
+    if ($Buttons -eq 'YesNo') {
+        $yesButton = New-Object MugenDeejWindowing.MugenButton
+        $yesButton.Tag = 'MugenPrimary'
+        $yesButton.Text = (T -Key 'DialogYes')
+        $yesButton.Location = New-Object System.Drawing.Point(342, 194)
+        $yesButton.Size = New-Object System.Drawing.Size(92, 36)
+        $yesButton.DialogResult = [System.Windows.Forms.DialogResult]::Yes
+        $dialog.Controls.Add($yesButton)
+
+        $noButton = New-Object MugenDeejWindowing.MugenButton
+        $noButton.Text = (T -Key 'DialogNo')
+        $noButton.Location = New-Object System.Drawing.Point(450, 194)
+        $noButton.Size = New-Object System.Drawing.Size(92, 36)
+        $noButton.DialogResult = [System.Windows.Forms.DialogResult]::No
+        $dialog.Controls.Add($noButton)
+
+        $dialog.AcceptButton = $yesButton
+        $dialog.CancelButton = $noButton
+    }
+    else {
+        $okButton = New-Object MugenDeejWindowing.MugenButton
+        $okButton.Tag = 'MugenPrimary'
+        $okButton.Text = (T -Key 'DialogOK')
+        $okButton.Location = New-Object System.Drawing.Point(450, 194)
+        $okButton.Size = New-Object System.Drawing.Size(92, 36)
+        $okButton.DialogResult = [System.Windows.Forms.DialogResult]::OK
+        $dialog.Controls.Add($okButton)
+
+        $dialog.AcceptButton = $okButton
+        $dialog.CancelButton = $okButton
+    }
+
+    Apply-ThemeToForm -Form $dialog -ThemeName (Get-EffectiveTheme)
+    $dialog.Add_Shown({ Ensure-FormVisible -Form $dialog -CenterIfOffscreen })
+    return $dialog.ShowDialog($form)
+}
+
+function Save-MugenDeejBackupInteractive {
+    $dialog = New-Object System.Windows.Forms.SaveFileDialog
+    $dialog.Title = (T -Key 'BackupSaveTitle')
+    $dialog.Filter = 'Mugen Deej backup (*.backup)|*.backup|All files (*.*)|*.*'
+    $dialog.DefaultExt = 'backup'
+    $dialog.AddExtension = $true
+    $dialog.OverwritePrompt = $true
+    $dialog.FileName = Get-MugenDeejBackupFileName
+
+    if ($dialog.ShowDialog($form) -ne [System.Windows.Forms.DialogResult]::OK) {
+        return
+    }
+
+    try {
+        $snapshot = New-MugenDeejBackupSnapshot
+        Write-MugenDeejBackupFile -Path $dialog.FileName -Snapshot $snapshot
+        Write-Log ('Portable backup created: {0}' -f $dialog.FileName) 'INFO'
+
+        [void](Show-MugenDeejStyledDialog `
+            -Message ((T -Key 'BackupCreated') + "`r`n`r`n" + $dialog.FileName) `
+            -Buttons 'OK' `
+            -Kind 'Info')
+    }
+    catch {
+        Write-Log ('Backup creation failed: {0}' -f $_.Exception.Message) 'ERROR'
+        [void](Show-MugenDeejStyledDialog `
+            -Message ((T -Key 'BackupRestoreFailed') + "`r`n`r`n" + $_.Exception.Message) `
+            -Buttons 'OK' `
+            -Kind 'Error')
+    }
+}
+function Restore-MugenDeejBackupInteractive {
+    $dialog = New-Object System.Windows.Forms.OpenFileDialog
+    $dialog.Title = (T -Key 'BackupOpenTitle')
+    $dialog.Filter = 'Mugen Deej backup (*.backup)|*.backup|All files (*.*)|*.*'
+    $dialog.CheckFileExists = $true
+    $dialog.Multiselect = $false
+
+    if ($dialog.ShowDialog($form) -ne [System.Windows.Forms.DialogResult]::OK) {
+        return
+    }
+
+    try {
+        $backup = Read-MugenDeejBackupFile -Path $dialog.FileName
+    }
+    catch {
+        Write-Log ('Backup validation failed: {0}' -f $_.Exception.Message) 'WARN'
+        [void](Show-MugenDeejStyledDialog `
+            -Message ((T -Key 'BackupInvalid') + "`r`n`r`n" + $_.Exception.Message) `
+            -Buttons 'OK' `
+            -Kind 'Warning')
+        return
+    }
+
+    $confirmation = Show-MugenDeejStyledDialog `
+        -Message (T -Key 'BackupRestoreConfirm') `
+        -Buttons 'YesNo' `
+        -Kind 'Warning'
+
+    if ($confirmation -ne [System.Windows.Forms.DialogResult]::Yes) {
+        return
+    }
+
+    Initialize-ButtonActions
+    $preRestoreSnapshot = New-MugenDeejBackupSnapshot
+    $preRestorePath = Join-Path $script:BaseDir ('MugenDeej_PreRestore_{0}.backup' -f (Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'))
+
+    try {
+        Write-MugenDeejBackupFile -Path $preRestorePath -Snapshot $preRestoreSnapshot
+    }
+    catch {
+        Write-Log ('Restore aborted because emergency backup could not be created: {0}' -f $_.Exception.Message) 'ERROR'
+        [void](Show-MugenDeejStyledDialog `
+            -Message ((T -Key 'BackupRestoreFailed') + "`r`n`r`n" + $_.Exception.Message) `
+            -Buttons 'OK' `
+            -Kind 'Error')
+        return
+    }
+
+    try {
+        $configClone = $backup.config | ConvertTo-Json -Depth 12 | ConvertFrom-Json
+        $restoredConfig = Ensure-ConfigShape -Config $configClone
+        $restoredActions = @($backup.buttonActions.actions | ForEach-Object { [string]$_ })
+
+        Save-Config -Config $restoredConfig
+        Write-ButtonActionConfigFile -Path $script:ButtonActionConfigPath -Actions $restoredActions
+
+        $script:Config = $restoredConfig
+        $script:ButtonActions = @($restoredActions)
+        $script:ButtonActionsLoaded = $true
+
+        Write-Log ('Settings restored from backup: {0}; emergencyBackup={1}' -f $dialog.FileName, $preRestorePath) 'INFO'
+
+        $restartMessage = (
+            (T -Key 'BackupRestored') + "`r`n`r`n" +
+            (T -Key 'BackupEmergencyCopy') + "`r`n" + $preRestorePath + "`r`n`r`n" +
+            (T -Key 'BackupRestartPrompt')
+        )
+
+        $restartResult = Show-MugenDeejStyledDialog `
+            -Message $restartMessage `
+            -Buttons 'YesNo' `
+            -Kind 'Info'
+
+        if ($restartResult -eq [System.Windows.Forms.DialogResult]::Yes) {
+            Write-Log 'Restart requested after backup restore.' 'INFO'
+            $script:RestartRequested = $true
+            $script:Closing = $true
+            $script:ExitRequested = $true
+            $script:ShutdownFinalizing = $true
+            $form.Close()
+        }
+    }
+    catch {
+        $restoreError = $_.Exception.Message
+        Write-Log ('Restore failed; attempting rollback from emergency backup: {0}' -f $restoreError) 'ERROR'
+
+        try {
+            $rollback = Read-MugenDeejBackupFile -Path $preRestorePath
+            $rollbackConfigClone = $rollback.config | ConvertTo-Json -Depth 12 | ConvertFrom-Json
+            $rollbackConfig = Ensure-ConfigShape -Config $rollbackConfigClone
+            $rollbackActions = @($rollback.buttonActions.actions | ForEach-Object { [string]$_ })
+
+            Save-Config -Config $rollbackConfig
+            Write-ButtonActionConfigFile -Path $script:ButtonActionConfigPath -Actions $rollbackActions
+            $script:Config = $rollbackConfig
+            $script:ButtonActions = @($rollbackActions)
+            $script:ButtonActionsLoaded = $true
+            Write-Log 'Rollback after failed restore completed successfully.' 'WARN'
+        }
+        catch {
+            Write-Log ('Rollback after failed restore also failed: {0}' -f $_.Exception.Message) 'ERROR'
+        }
+
+        [void](Show-MugenDeejStyledDialog `
+            -Message ((T -Key 'BackupRestoreFailed') + "`r`n`r`n" + $restoreError) `
+            -Buttons 'OK' `
+            -Kind 'Error')
+    }
+}
+function Show-MugenDeejBackupMenu {
+    param([Parameter(Mandatory = $true)]$OwnerControl)
+
+    $menu = New-Object System.Windows.Forms.ContextMenuStrip
+    $createItem = $menu.Items.Add((T -Key 'BackupCreate'))
+    $restoreItem = $menu.Items.Add((T -Key 'BackupRestore'))
+
+    $createItem.Add_Click({ Save-MugenDeejBackupInteractive })
+    $restoreItem.Add_Click({ Restore-MugenDeejBackupInteractive })
+
+    try {
+        Apply-ToolStripTheme -ToolStrip $menu -ThemeName (Get-EffectiveTheme)
+    }
+    catch { }
+
+    $menu.Show($OwnerControl, (New-Object System.Drawing.Point(0, $OwnerControl.Height)))
+}
 function Get-MuteStatusColor {
     if ((Get-EffectiveTheme) -eq 'dark') {
         return [System.Drawing.Color]::FromArgb(255, 92, 92)
@@ -6654,6 +7156,9 @@ function Set-MainButtonLayout {
 
     $startupGroup.Location = [System.Drawing.Point]::new(24, (414 + $offset))
     $advancedToggle.Location = [System.Drawing.Point]::new(24, (516 + $offset))
+    if ($null -ne $script:BackupMenuButton -and -not $script:BackupMenuButton.IsDisposed) {
+        $script:BackupMenuButton.Location = [System.Drawing.Point]::new(292, (516 + $offset))
+    }
     $advancedPanel.Location = [System.Drawing.Point]::new(0, (550 + $offset))
 
     $collapsedHeight = 592 + $offset
@@ -8609,7 +9114,12 @@ Set-FormAppIcon -Form $form
 # with no taskbar button prevents a visible startup flash. The form is hidden
 # immediately in Shown and restored to normal display properties for later
 # opening from the tray.
-$script:LaunchMinimized = [bool]$script:Config.app.startMinimized
+$script:ForceShowAfterRestore = ($env:MUGEN_DEEJ_SHOW_AFTER_RESTORE -eq '1')
+if ($script:ForceShowAfterRestore) {
+    Remove-Item Env:\MUGEN_DEEJ_SHOW_AFTER_RESTORE -ErrorAction SilentlyContinue
+    Write-Log 'One-shot visible launch requested after backup restore.' 'INFO'
+}
+$script:LaunchMinimized = ([bool]$script:Config.app.startMinimized) -and (-not $script:ForceShowAfterRestore)
 if ($script:LaunchMinimized) {
     $form.Opacity = 0
     $form.ShowInTaskbar = $false
@@ -8804,6 +9314,14 @@ $advancedToggle.Text = (T -Key 'DiagnosticsClosed')
 $advancedToggle.Location = New-Object System.Drawing.Point(24, 516)
 $advancedToggle.Size = New-Object System.Drawing.Size(250, 32)
 $form.Controls.Add($advancedToggle)
+
+$backupMenuButton = New-Object MugenDeejWindowing.MugenButton
+$backupMenuButton.Tag = 'MugenSection'
+$backupMenuButton.Text = (T -Key 'BackupMenu')
+$backupMenuButton.Location = New-Object System.Drawing.Point(292, 516)
+$backupMenuButton.Size = New-Object System.Drawing.Size(250, 32)
+$form.Controls.Add($backupMenuButton)
+$script:BackupMenuButton = $backupMenuButton
 
 $advancedPanel = New-Object System.Windows.Forms.Panel
 $advancedPanel.Location = New-Object System.Drawing.Point(0, 550)
@@ -9003,6 +9521,9 @@ function Apply-MainLocalization {
     $traySettings.Text = (T -Key 'TraySettings')
     $trayReconnect.Text = (T -Key 'TrayReconnect')
     $trayExit.Text = (T -Key 'TrayExit')
+    if ($null -ne $script:BackupMenuButton -and -not $script:BackupMenuButton.IsDisposed) {
+        $script:BackupMenuButton.Text = (T -Key 'BackupMenu')
+    }
     Set-AdvancedExpanded -Expanded $advancedPanel.Visible -Persist $false
     Refresh-KnobLabels
     Update-TrayText
@@ -9477,6 +9998,7 @@ function Request-AppExit {
     $form.Close()
 }
 
+$backupMenuButton.Add_Click({ Show-MugenDeejBackupMenu -OwnerControl $backupMenuButton })
 $advancedToggle.Add_Click({ Set-AdvancedExpanded -Expanded (-not $advancedPanel.Visible) })
 $refreshButton.Add_Click({ Refresh-PortList; Update-DriverStatus })
 $connectButton.Add_Click({
@@ -9715,7 +10237,7 @@ $script:ThemePreferenceBridge = [MugenDeejWindowing.ThemePreferenceBridge]::new(
 Write-Log 'Windows theme preference monitoring initialized' 'DEBUG'
 
 $form.Add_Shown({
-    $startMinimized = [bool]$script:Config.app.startMinimized
+    $startMinimized = ([bool]$script:Config.app.startMinimized) -and (-not $script:ForceShowAfterRestore)
     if ($startMinimized) {
         # Hide before controller discovery/initialization so startup-to-tray does
         # not display the main window while COM probing is in progress.
@@ -9742,3 +10264,19 @@ $form.Add_Shown({
 })
 
 [System.Windows.Forms.Application]::Run($form)
+
+if ($script:RestartRequested) {
+    try {
+        Write-Log ('Restarting Mugen Deej via launcher with one-shot visible window: {0}' -f $script:ExecutablePath) 'INFO'
+        $env:MUGEN_DEEJ_SHOW_AFTER_RESTORE = '1'
+        try {
+            Start-Process -FilePath $script:ExecutablePath -WorkingDirectory $script:BaseDir
+        }
+        finally {
+            Remove-Item Env:\MUGEN_DEEJ_SHOW_AFTER_RESTORE -ErrorAction SilentlyContinue
+        }
+    }
+    catch {
+        Write-Log ('Automatic restart failed: {0}' -f $_.Exception.Message) 'ERROR'
+    }
+}
