@@ -1,6 +1,11 @@
 name: Build release packages
 
 on:
+  push:
+    branches:
+      - release/1.0.0
+    paths:
+      - .github/workflows/build-release.yml
   workflow_dispatch:
     inputs:
       version:
@@ -31,10 +36,10 @@ jobs:
           REQUESTED_VERSION: ${{ inputs.version }}
         run: |
           if ([string]::IsNullOrWhiteSpace($env:REQUESTED_VERSION)) {
-            .\tools\Build-PortableRelease.ps1
+            .\tools\Build-Release.ps1
           }
           else {
-            .\tools\Build-PortableRelease.ps1 -Version $env:REQUESTED_VERSION
+            .\tools\Build-Release.ps1 -Version $env:REQUESTED_VERSION
           }
 
       - name: Upload release packages

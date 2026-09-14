@@ -157,7 +157,7 @@ The tested reference Extended firmware is included in [`arduino/MugenDeejControl
 - `arduino/MugenDeejController/` — tested reference Extended controller firmware and hardware pin profile.
 - `src/launcher/` — small Go launcher used to start the PowerShell application as a Windows GUI executable.
 - `src/setup/` — self-contained Go Setup wrapper plus the bilingual PowerShell/WinForms installer UI.
-- `tools/Build-PortableRelease.ps1` — release builder for the portable ZIP, Setup EXE and SHA-256 checksum files.
+- `tools/Build-Release.ps1` — release builder for the portable ZIP, Setup EXE and SHA-256 checksum files.
 - `packaging/` — files and templates used inside release packages.
 - `config.example.json` — clean default configuration example.
 - `docs/` — building, troubleshooting, development-history and release documentation.

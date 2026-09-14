@@ -2,7 +2,7 @@
 setlocal
 cd /d "%~dp0"
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\tools\Build-PortableRelease.ps1" %*
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\tools\Build-Release.ps1" %*
 set "exitCode=%ERRORLEVEL%"
 
 echo.

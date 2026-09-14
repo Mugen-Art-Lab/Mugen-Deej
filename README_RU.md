@@ -156,7 +156,7 @@ s512|s123|s900|s456|s777|b1|b1|b0|b1|b1|b1
 - `arduino/MugenDeejController/` — проверенная эталонная Extended-прошивка контроллера и профиль распиновки.
 - `src/launcher/` — небольшой Go-лаунчер, запускающий PowerShell-приложение как Windows GUI EXE.
 - `src/setup/` — самостоятельная Go-оболочка Setup и двуязычный PowerShell/WinForms-интерфейс установщика.
-- `tools/Build-PortableRelease.ps1` — сборщик portable ZIP, Setup EXE и файлов контрольных сумм SHA-256.
+- `tools/Build-Release.ps1` — сборщик portable ZIP, Setup EXE и файлов контрольных сумм SHA-256.
 - `packaging/` — файлы и шаблоны, которые используются при формировании релизного пакета.
 - `config.example.json` — чистый пример конфигурации.
 - `docs/` — документация по сборке, диагностике, истории разработки и релизам.

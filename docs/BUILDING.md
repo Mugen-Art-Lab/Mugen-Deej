@@ -17,7 +17,7 @@ The Setup UI source is `src/setup/setup.ps1`. `src/setup/main.go` embeds that sc
 The repository contains one packaging path used both locally and by GitHub Actions:
 
 ```text
-tools/Build-PortableRelease.ps1
+tools/Build-Release.ps1
 ```
 
 The builder intentionally does **not** merge branches, create tags, or publish a GitHub Release. It only creates release packages and checksum files so they can be inspected and smoke-tested first.
@@ -45,13 +45,13 @@ Requirements:
 From the repository root, either double-click:
 
 ```text
-BUILD_PORTABLE.cmd
+BUILD_RELEASE.cmd
 ```
 
 or run:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Build-PortableRelease.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Build-Release.ps1
 ```
 
 Artifacts are written to `artifacts\` and are ignored by Git.
@@ -59,7 +59,7 @@ Artifacts are written to `artifacts\` and are ignored by Git.
 For a controlled build using an already trusted launcher binary, the script also accepts:
 
 ```powershell
-.\tools\Build-PortableRelease.ps1 -LauncherPath C:\Path\To\MugenDeej.exe
+.\tools\Build-Release.ps1 -LauncherPath C:\Path\To\MugenDeej.exe
 ```
 
 `-LauncherPath` replaces only the portable application's small launcher. Building the Setup EXE still requires Go because the Setup wrapper must embed the newly produced portable payload.
