@@ -87,14 +87,14 @@ $newRemovalText = @'
                 'Close it if it is still running, then start MugenDeej.exe from the installed folder.'
             }
 
-            $introBodyLabel.Size = New-Object System.Drawing.Size(620, 100)
+            $introBodyLabel.Size = New-Object System.Drawing.Size(620, 112)
             $introBodyLabel.Text = (L -Ru ("Mugen Deej установлен в выбранную папку.`r`nПрограмма не добавлена в список установленных приложений Windows.`r`n`r`nMugen Deej не был запущен автоматически: во время установки уже работала другая копия.`r`n" + $launchHintRu) -En ("Mugen Deej was installed in the selected folder.`r`nThe app was not added to Windows Installed Apps.`r`n`r`nMugen Deej was not launched automatically because another copy was already running during installation.`r`n" + $launchHintEn))
 
-            $pathLabel.Location = New-Object System.Drawing.Point(20, 145)
-            $pathBox.Location = New-Object System.Drawing.Point(20, 169)
-            $pathHintLabel.Location = New-Object System.Drawing.Point(20, 199)
-            $warningTitleLabel.Location = New-Object System.Drawing.Point(20, 228)
-            $warningBodyLabel.Location = New-Object System.Drawing.Point(20, 254)
+            $pathLabel.Location = New-Object System.Drawing.Point(20, 157)
+            $pathBox.Location = New-Object System.Drawing.Point(20, 181)
+            $pathHintLabel.Location = New-Object System.Drawing.Point(20, 211)
+            $warningTitleLabel.Location = New-Object System.Drawing.Point(20, 246)
+            $warningBodyLabel.Location = New-Object System.Drawing.Point(20, 272)
             $warningBodyLabel.Size = New-Object System.Drawing.Size(620, 112)
         }
 '@
