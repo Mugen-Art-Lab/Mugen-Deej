@@ -116,8 +116,8 @@ try {
 
     $finalAppText = [System.IO.File]::ReadAllText($tempApp)
     foreach ($requiredMarker in @(
-        "$script:AppVersion = '1.0.0'",
-        "button-actions.json",
+        '$script:AppVersion = ''1.0.0''',
+        'button-actions.json',
         'BackupMenu',
         'MugenDeej_PreRestore_'
     )) {
