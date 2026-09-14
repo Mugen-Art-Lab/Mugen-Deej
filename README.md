@@ -123,13 +123,25 @@ Current tested build: **1.0.0**.
 
 ## Controller protocol
 
-A Legacy controller sends newline-terminated values such as:
+Mugen Deej automatically detects two compatible newline-delimited packet formats at `9600` baud.
+
+**Legacy deej format** — numeric fields only:
 
 ```text
 107|246|536|665|1020
 ```
 
-The default configuration expects five values in the `0–1023` range at `9600` baud. Extended firmware can additionally expose button input; Mugen Deej detects the supported controller mode automatically.
+Each field is one physical control value in the `0–1023` range. The number of numeric fields determines the detected slider/control count, so existing slider-only deej hardware can continue to work without firmware changes.
+
+**Extended slider/button format** — prefixed `s` and `b` fields:
+
+```text
+s512|s123|s900|s456|s777|b1|b1|b0|b1|b1|b1
+```
+
+`sN` is a slider value in the `0–1023` range. `b1` means a button is released and `b0` means it is pressed. Slider and button counts are derived from each valid packet; no separate handshake is required.
+
+The tested reference Extended firmware is included in [`arduino/MugenDeejController/`](arduino/MugenDeejController/). Its default profile uses five analog controls and six buttons, sends complete state packets, debounces buttons in firmware, and preserves the classic `9600` baud rate.
 
 ## Quick start
 
@@ -141,11 +153,15 @@ The default configuration expects five values in the `0–1023` range at `9600` 
 
 ## Source layout
 
-- `MugenDeej.ps1` — application UI, serial discovery, Core Audio control, diagnostics.
-- `src/launcher/` — small Go launcher used for the Windows executable.
-- `src/setup/` — self-contained Setup wrapper and bilingual installer UI.
+- `MugenDeej.ps1` — main PowerShell/WinForms application: UI, controller protocol handling, COM discovery, Core Audio integration, configuration, backup/restore, diagnostics, tray and startup behavior.
+- `arduino/MugenDeejController/` — tested reference Extended controller firmware and hardware pin profile.
+- `src/launcher/` — small Go launcher used to start the PowerShell application as a Windows GUI executable.
+- `src/setup/` — self-contained Go Setup wrapper plus the bilingual PowerShell/WinForms installer UI.
+- `tools/Build-PortableRelease.ps1` — release builder for the portable ZIP, Setup EXE and SHA-256 checksum files.
+- `tools/patches/` — staged release/runtime and Setup migration patches used by the 1.0.0 packaging flow.
+- `packaging/` — files and templates used inside release packages.
 - `config.example.json` — clean default configuration example.
-- `docs/` — building, troubleshooting, and release notes.
+- `docs/` — building, troubleshooting and release-development documentation.
 
 ## Requirements
 
