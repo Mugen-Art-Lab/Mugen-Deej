@@ -87,6 +87,7 @@ $versionFile = Join-Path $repoRoot 'VERSION.txt'
 $templatePath = Join-Path $repoRoot 'packaging\README.txt.template'
 $launcherDir = Join-Path $repoRoot 'src\launcher'
 $setupDir = Join-Path $repoRoot 'src\setup'
+$setupUxPatch = Join-Path $repoRoot 'tools\patches\Apply-Setup-UX.ps1'
 $iconPath = Join-Path $repoRoot 'MugenDeej.ico'
 
 Require-File $sourceScript
@@ -98,6 +99,7 @@ Require-File (Join-Path $launcherDir 'go.mod')
 Require-File (Join-Path $setupDir 'main.go')
 Require-File (Join-Path $setupDir 'go.mod')
 Require-File (Join-Path $setupDir 'setup.ps1')
+Require-File $setupUxPatch
 
 if ([string]::IsNullOrWhiteSpace($Version)) {
     $Version = (Get-Content -LiteralPath $versionFile -Raw -Encoding UTF8).Trim()
@@ -272,6 +274,11 @@ try {
     Copy-Item -LiteralPath (Join-Path $setupDir 'go.mod') -Destination (Join-Path $setupBuildDir 'go.mod') -Force
     Copy-Item -LiteralPath (Join-Path $setupDir 'setup.ps1') -Destination (Join-Path $setupBuildDir 'setup.ps1') -Force
     Copy-Item -LiteralPath $zipPath -Destination (Join-Path $setupBuildDir 'payload.zip') -Force
+
+    $stagedSetupScript = Join-Path $setupBuildDir 'setup.ps1'
+    Write-Host "Applying staged Setup UX patch: $setupUxPatch"
+    & $setupUxPatch -Path $stagedSetupScript
+    Assert-PowerShell51Parse -PowerShellCommand $windowsPowerShell -Path $stagedSetupScript -Label 'Staged Setup wizard script'
 
     $setupResource = Join-Path $setupBuildDir 'rsrc_windows_amd64.syso'
     $oldGOOS = $env:GOOS
