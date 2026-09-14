@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.0.0 — 2026-09-15
+
+- Introduced the first public **Extended-controller architecture** while preserving compatibility with classic deej slider-only hardware.
+- Added automatic protocol detection for classic numeric packets and Extended `s...|b...` packets, with slider and button counts discovered from valid controller data instead of being fixed in the desktop client.
+- Added live button state to the main UI and a dedicated bilingual button-settings interface.
+- Added configurable button actions including soft mute, media commands, Windows volume actions, custom hotkeys (including F13–F24), physical hotkey capture, launching programs/files, opening folders or URLs, and running commands.
+- Added a tested reference Extended Arduino firmware under `arduino/MugenDeejController/` for the 5-slider + 6-button Nano-style profile, with non-blocking button debounce and full-state packets at 9600 baud.
+- Finalized button-action storage as `button-actions.json` and added safe migration from the internal-development `button-actions.dev.json` filename without deleting the rollback copy.
+- Added portable **backup and restore** for the main configuration and button actions, including backup validation, a pre-restore emergency snapshot, verified writes, and rollback attempts if restore fails.
+- Added themed restore dialogs and optional automatic restart after a successful restore.
+- Added a one-shot visible post-restore restart so a restored `startMinimized=true` configuration still gives clear confirmation once, while later launches continue to obey the saved start-minimized setting.
+- Added a self-contained bilingual **Setup EXE** alongside the portable ZIP, both generated from the same release payload with SHA-256 sidecar files.
+- Setup can create a dedicated `Mugen Deej` folder, create a desktop shortcut, launch after installation, update an existing copy without replacing user config/logs/backups, and explains manual removal because it does not register an uninstall entry in Windows Installed Apps.
+- Improved Setup behavior around running Mugen Deej instances: same-folder updates wait for the running copy to close, different-folder instances are explained clearly, and launch-after-install is suppressed when the single-instance guard would block the new copy.
+- Improved Setup focus/foreground behavior, bilingual confirmation layouts, dynamic dialog sizing, Program Files warnings, default installation under `%LOCALAPPDATA%\Programs\Mugen Deej`, and final-page guidance.
+- Preserved the existing atomic configuration-save pipeline with `config.previous.json`, `config.last-good.json`, read-back verification, and safe recovery behavior.
+- Reverified real Legacy (5 sliders) and Extended (5 sliders + 6 buttons) controller paths, including physical button actions, backup/restore, reconnect behavior, themes, localization, startup/tray behavior, and the final Setup flow.
+- Updated release automation to current Node 24-based GitHub Actions generations and refreshed bilingual documentation/screenshots for the 1.0.0 interface.
+
 ## 0.8.7 — 2026-08-17
 
 - Added **Auto, Light, and Dark** application themes.
