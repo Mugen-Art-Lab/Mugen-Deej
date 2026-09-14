@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	_ "embed"
 	"fmt"
 	"os"
@@ -25,6 +26,7 @@ var (
 	user32                       = syscall.NewLazyDLL("user32.dll")
 	kernel32                     = syscall.NewLazyDLL("kernel32.dll")
 	procMessageBoxW              = user32.NewProc("MessageBoxW")
+	procAllowSetForegroundWindow = user32.NewProc("AllowSetForegroundWindow")
 	procGetUserDefaultLocaleName = kernel32.NewProc("GetUserDefaultLocaleName")
 )
 
@@ -110,9 +112,26 @@ func main() {
 	// PowerShell console, while allowing the setup dialog itself to be shown.
 	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: createNoWindow}
 
-	output, err := cmd.CombinedOutput()
+	// Explorer gives the EXE foreground-launch permission when the user starts it,
+	// but our visible UI is created by a child PowerShell process. Explicitly pass
+	// that permission to the child so its first WinForms window can come to the
+	// front instead of appearing behind an already-open application.
+	var output bytes.Buffer
+	cmd.Stdout = &output
+	cmd.Stderr = &output
+
+	if err := cmd.Start(); err != nil {
+		messageBox("Mugen Deej Setup", localized(
+			"Не удалось запустить установщик.\n\n"+err.Error(),
+			"Could not start Setup.\n\n"+err.Error(),
+		))
+		return
+	}
+
+	procAllowSetForegroundWindow.Call(uintptr(cmd.Process.Pid))
+	err = cmd.Wait()
 	if err != nil {
-		details := strings.TrimSpace(string(output))
+		details := strings.TrimSpace(output.String())
 		if details == "" {
 			details = err.Error()
 		}
