@@ -486,7 +486,7 @@ $browseButton = New-SetupButton -Caption (L -Ru 'Обзор…' -En 'Browse…')
 $panel.Controls.Add($browseButton)
 
 $createFolderCheck = New-Object System.Windows.Forms.CheckBox
-$createFolderCheck.Text = (L -Ru 'Создать папку «Mugen Deej» в выбранном месте' -En 'Create a “Mugen Deej” folder in the selected location')
+$createFolderCheck.Text = (L -Ru 'Создать папку «Mugen Deej» в выбранном месте' -En 'Create a "Mugen Deej" folder in the selected location')
 $createFolderCheck.Location = New-Object System.Drawing.Point(20, 151)
 $createFolderCheck.Size = New-Object System.Drawing.Size(500, 28)
 $createFolderCheck.Checked = $true
@@ -710,7 +710,7 @@ $installButton.Add_Click({
         $warningTitleLabel.ForeColor = $script:SetupPalette['TextColor']
         $warningBodyLabel.Location = New-Object System.Drawing.Point(20, 216)
         $warningBodyLabel.Size = New-Object System.Drawing.Size(620, 150)
-        $warningBodyLabel.Text = (L -Ru "1. Если включена опция «Запускать Mugen Deej вместе с Windows», отключите её в самой программе.`r`n2. Закройте Mugen Deej.`r`n3. Если эта папка используется только для Mugen Deej — удалите её целиком.`r`n4. Если в папке есть другие ваши файлы — удалите только файлы и папки Mugen Deej.`r`n5. Ярлык на рабочем столе можно удалить отдельно." -En "1. If the “Start Mugen Deej with Windows” option is enabled, turn it off in the app.`r`n2. Close Mugen Deej.`r`n3. If this folder is used only for Mugen Deej, delete the whole folder.`r`n4. If it also contains your own files, delete only Mugen Deej files and folders.`r`n5. The desktop shortcut can be deleted separately.")
+        $warningBodyLabel.Text = (L -Ru "1. Если включена опция «Запускать Mugen Deej вместе с Windows», отключите её в самой программе.`r`n2. Закройте Mugen Deej.`r`n3. Если эта папка используется только для Mugen Deej — удалите её целиком.`r`n4. Если в папке есть другие ваши файлы — удалите только файлы и папки Mugen Deej.`r`n5. Ярлык на рабочем столе можно удалить отдельно." -En "1. If the 'Start Mugen Deej with Windows' option is enabled, turn it off in the app.`r`n2. Close Mugen Deej.`r`n3. If this folder is used only for Mugen Deej, delete the whole folder.`r`n4. If it also contains your own files, delete only Mugen Deej files and folders.`r`n5. The desktop shortcut can be deleted separately.")
 
         $statusLabel.Text = (L -Ru 'Установка завершена. Нажмите «Готово».' -En 'Installation complete. Click Finish.')
         $cancelButton.Visible = $false
