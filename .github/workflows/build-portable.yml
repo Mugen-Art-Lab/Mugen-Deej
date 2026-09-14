@@ -17,10 +17,10 @@ jobs:
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: src/launcher/go.mod
           cache: false
@@ -38,7 +38,7 @@ jobs:
           }
 
       - name: Upload release packages
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Mugen-Deej-packages-${{ github.run_number }}
           path: |
