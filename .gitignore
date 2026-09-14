@@ -1,5 +1,12 @@
 # Runtime data
 config.json
+config.previous.json
+config.last-good.json
+config.json.tmp-*
+config.json.broken-*
+button-actions.dev.json
+button-actions.json
+MugenDeej_*.backup
 logs/
 *.log
 
@@ -12,6 +19,7 @@ MugenDeej.exe
 *.syso
 dist/
 build/
+artifacts/
 
 # Release archives
 *.zip

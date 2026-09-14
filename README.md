@@ -5,7 +5,7 @@
 <h1 align="center">Mugen Deej</h1>
 
 <p align="center">
-  A portable bilingual Windows client for deej-compatible USB audio controllers.
+  A bilingual Windows client for deej-compatible USB audio controllers.
 </p>
 
 <p align="center">
@@ -13,11 +13,11 @@
 </p>
 
 <p align="center">
-  <a href="assets/screenshots/en/main-window.webp">
-    <img src="assets/screenshots/en/main-window.webp" width="330" alt="Mugen Deej main window in Light theme">
+  <a href="assets/screenshots/en/main-window-extended.webp">
+    <img src="assets/screenshots/en/main-window-extended.webp" width="330" alt="Mugen Deej Extended main window in Light theme">
   </a>
-  <a href="assets/screenshots/en/main-window-dark.webp">
-    <img src="assets/screenshots/en/main-window-dark.webp" width="330" alt="Mugen Deej main window in Dark theme">
+  <a href="assets/screenshots/en/main-window-extended-dark.webp">
+    <img src="assets/screenshots/en/main-window-extended-dark.webp" width="330" alt="Mugen Deej Extended main window in Dark theme">
   </a>
 </p>
 
@@ -35,18 +35,21 @@ Mugen Deej turns a deej-compatible USB serial controller with physical controls 
 - Automatically discovers compatible controllers across COM ports.
 - Reconnects after USB disconnects, resets, and COM-port changes.
 - Supports automatic discovery and manual port selection.
+- Supports both **Legacy** controllers with physical sliders/knobs only and **Extended** controllers with additional buttons.
 - Shows live positions for five physical controls by default.
 - Controls Windows master volume, one or more applications, the default microphone, or a selected input device.
 - Lets silent applications be assigned before they create an audio session.
+- Lets Extended-controller buttons perform actions such as soft mute, media play/pause, or launching a file/program.
 - Can start with Windows and optionally launch directly to the notification area.
 - Includes **Auto, Light, and Dark** themes; Auto follows Windows theme changes while the app is running.
 - Includes Russian and English interfaces and a first-run guide.
+- Can back up and restore the application configuration, including button assignments.
 - Provides clearer diagnostics for busy ports, driver problems, and rare COM-number conflicts.
-- Runs portably without an installer.
+- Ships both as a self-contained Setup EXE and as a portable ZIP.
 
 ## Interface tour
 
-The compact main window and configuration dialogs use the refreshed Friendly UI introduced in 0.8.7. Click any screenshot to view it at full size.
+Mugen Deej adapts its main window to the detected controller. Extended firmware can expose buttons in addition to physical volume controls, while Legacy firmware keeps the simpler controls-only layout. Click any screenshot to view it at full size.
 
 ### First-run guide
 
@@ -68,6 +71,16 @@ Rename each control and assign Windows master volume, applications, a microphone
   </a>
 </p>
 
+### Configure Extended-controller buttons
+
+When the connected firmware exposes buttons, assign actions such as soft mute, media play/pause, or launching a file/program.
+
+<p align="center">
+  <a href="assets/screenshots/en/button-settings.webp">
+    <img src="assets/screenshots/en/button-settings.webp" width="900" alt="Mugen Deej button settings in English">
+  </a>
+</p>
+
 ### Select active or currently silent applications
 
 Choose applications that already have an audio session or preselect running applications before they play any sound.
@@ -79,44 +92,75 @@ Choose applications that already have an audio session or preselect running appl
 </p>
 
 <details>
+<summary><strong>Legacy controller without buttons</strong></summary>
+<br>
+Mugen Deej automatically adapts its interface to the detected controller protocol. Legacy controllers expose physical controls only, while Extended controllers can additionally provide buttons.
+<br><br>
+<p align="center">
+  <a href="assets/screenshots/en/main-window-legacy.webp">
+    <img src="assets/screenshots/en/main-window-legacy.webp" width="430" alt="Mugen Deej Legacy main window in English">
+  </a>
+</p>
+</details>
+
+<details>
 <summary><strong>Choose the interface language on first launch</strong></summary>
 <br>
 <p align="center">
-  <a href="assets/screenshots/language-selection.png">
-    <img src="assets/screenshots/language-selection.png" width="562" alt="Mugen Deej bilingual language selection">
+  <a href="assets/screenshots/language-selection.webp">
+    <img src="assets/screenshots/language-selection.webp" width="562" alt="Mugen Deej bilingual language selection">
   </a>
 </p>
 </details>
 
 ## Download
 
-[Download the latest portable release](https://github.com/Mugen-Art-Lab/Mugen-Deej/releases/latest), extract the complete archive, and run `MugenDeej.exe`.
+[Download the latest release](https://github.com/Mugen-Art-Lab/Mugen-Deej/releases/latest).
 
-Current tested build: **0.8.7**.
+For most users, use the **Setup EXE**. It performs a portable-style installation and does not register Mugen Deej in Windows Installed Apps. A **portable ZIP** is also provided if you prefer to extract and run the application manually.
+
+Current tested build: **1.0.0**.
 
 ## Controller protocol
 
-The controller sends newline-terminated values such as:
+Mugen Deej automatically detects two compatible newline-delimited packet formats at `9600` baud.
+
+**Legacy deej format** — numeric fields only:
 
 ```text
 107|246|536|665|1020
 ```
 
-The default configuration expects five values in the `0–1023` range at `9600` baud.
+Each field is one physical control value in the `0–1023` range. The number of numeric fields determines the detected slider/control count, so existing slider-only deej hardware can continue to work without firmware changes.
+
+**Extended slider/button format** — prefixed `s` and `b` fields:
+
+```text
+s512|s123|s900|s456|s777|b1|b1|b0|b1|b1|b1
+```
+
+`sN` is a slider value in the `0–1023` range. `b1` means a button is released and `b0` means it is pressed. Slider and button counts are derived from each valid packet; no separate handshake is required.
+
+The tested reference Extended firmware is included in [`arduino/MugenDeejController/`](arduino/MugenDeejController/). Its default profile uses five analog controls and six buttons, sends complete state packets, debounces buttons in firmware, and preserves the classic `9600` baud rate.
 
 ## Quick start
 
 1. Connect a deej-compatible controller by USB.
-2. Run `MugenDeej.exe` from the release archive.
+2. Run the Setup EXE, or extract the portable ZIP and run `MugenDeej.exe`.
 3. Choose the interface language.
 4. Open **Configure controls** and assign each physical control.
+5. If an Extended controller with buttons is detected, open **Configure buttons** to assign button actions.
 
 ## Source layout
 
-- `MugenDeej.ps1` — application UI, serial discovery, Core Audio control, diagnostics.
-- `src/launcher/` — small Go launcher used for the Windows executable.
+- `MugenDeej.ps1` — main PowerShell/WinForms application: UI, controller protocol handling, COM discovery, Core Audio integration, configuration, backup/restore, diagnostics, tray and startup behavior.
+- `arduino/MugenDeejController/` — tested reference Extended controller firmware and hardware pin profile.
+- `src/launcher/` — small Go launcher used to start the PowerShell application as a Windows GUI executable.
+- `src/setup/` — self-contained Go Setup wrapper plus the bilingual PowerShell/WinForms installer UI.
+- `tools/Build-Release.ps1` — release builder for the portable ZIP, Setup EXE and SHA-256 checksum files.
+- `packaging/` — files and templates used inside release packages.
 - `config.example.json` — clean default configuration example.
-- `docs/` — building, troubleshooting, and release notes.
+- `docs/` — building, troubleshooting, development-history and release documentation.
 
 ## Requirements
 
@@ -127,7 +171,7 @@ The default configuration expects five values in the `0–1023` range at `9600` 
 
 ## Building
 
-See [docs/BUILDING.md](docs/BUILDING.md). The current portable release contains a launcher with the Mugen Deej icon embedded in the executable.
+See [docs/BUILDING.md](docs/BUILDING.md). The release builder produces both the portable ZIP and the self-contained Setup EXE.
 
 ## Contributing
 
