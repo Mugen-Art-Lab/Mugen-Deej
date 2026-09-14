@@ -461,33 +461,33 @@ $introTitleLabel.ForeColor = $script:SetupPalette['TextColor']
 $panel.Controls.Add($introTitleLabel)
 
 $introBodyLabel = New-Object System.Windows.Forms.Label
-$introBodyLabel.Text = (L -Ru "Выберите место установки. По умолчанию внутри будет создана отдельная папка Mugen Deej.`r`nУстановщик не добавляет программу в список установленных приложений Windows." -En "Choose an installation location. By default, the installer creates a separate Mugen Deej folder inside it.`r`nThe installer does not add the app to Windows Installed Apps.")
+$introBodyLabel.Text = (L -Ru "Выберите место установки.`r`nПо умолчанию будет создана отдельная папка Mugen Deej (опционально).`r`nУстановщик не добавляет программу в список установленных приложений Windows." -En "Choose an installation location.`r`nBy default, a separate Mugen Deej folder will be created (optional).`r`nThe installer does not add the app to Windows Installed Apps.")
 $introBodyLabel.Location = New-Object System.Drawing.Point(20, 41)
-$introBodyLabel.Size = New-Object System.Drawing.Size(620, 44)
+$introBodyLabel.Size = New-Object System.Drawing.Size(620, 58)
 $introBodyLabel.ForeColor = $script:SetupPalette['MutedColor']
 $panel.Controls.Add($introBodyLabel)
 
 $pathLabel = New-Object System.Windows.Forms.Label
 $pathLabel.Text = (L -Ru 'Куда установить:' -En 'Install to:')
-$pathLabel.Location = New-Object System.Drawing.Point(20, 92)
+$pathLabel.Location = New-Object System.Drawing.Point(20, 105)
 $pathLabel.Size = New-Object System.Drawing.Size(150, 23)
 $pathLabel.ForeColor = $script:SetupPalette['TextColor']
 $panel.Controls.Add($pathLabel)
 
 $pathBox = New-Object System.Windows.Forms.TextBox
-$pathBox.Location = New-Object System.Drawing.Point(20, 117)
+$pathBox.Location = New-Object System.Drawing.Point(20, 129)
 $pathBox.Size = New-Object System.Drawing.Size(490, 28)
 $pathBox.BackColor = $script:SetupPalette['InputBack']
 $pathBox.ForeColor = $script:SetupPalette['TextColor']
 $pathBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
 $panel.Controls.Add($pathBox)
 
-$browseButton = New-SetupButton -Caption (L -Ru 'Обзор…' -En 'Browse…') -X 522 -Y 114 -Width 118
+$browseButton = New-SetupButton -Caption (L -Ru 'Обзор…' -En 'Browse…') -X 522 -Y 126 -Width 118
 $panel.Controls.Add($browseButton)
 
 $createFolderCheck = New-Object System.Windows.Forms.CheckBox
 $createFolderCheck.Text = (L -Ru 'Создать папку «Mugen Deej» в выбранном месте' -En 'Create a "Mugen Deej" folder in the selected location')
-$createFolderCheck.Location = New-Object System.Drawing.Point(20, 151)
+$createFolderCheck.Location = New-Object System.Drawing.Point(20, 165)
 $createFolderCheck.Size = New-Object System.Drawing.Size(500, 28)
 $createFolderCheck.Checked = $true
 $createFolderCheck.ForeColor = $script:SetupPalette['TextColor']
@@ -495,8 +495,8 @@ $createFolderCheck.BackColor = $script:SetupPalette['Surface']
 $panel.Controls.Add($createFolderCheck)
 
 $pathHintLabel = New-Object System.Windows.Forms.Label
-$pathHintLabel.Location = New-Object System.Drawing.Point(20, 181)
-$pathHintLabel.Size = New-Object System.Drawing.Size(620, 34)
+$pathHintLabel.Location = New-Object System.Drawing.Point(20, 195)
+$pathHintLabel.Size = New-Object System.Drawing.Size(620, 28)
 $pathHintLabel.ForeColor = $script:SetupPalette['MutedColor']
 $panel.Controls.Add($pathHintLabel)
 
@@ -521,7 +521,7 @@ $pathBox.Text = [Environment]::GetFolderPath('LocalApplicationData')
 
 $warningTitleLabel = New-Object System.Windows.Forms.Label
 $warningTitleLabel.Text = (L -Ru 'Важно' -En 'Important')
-$warningTitleLabel.Location = New-Object System.Drawing.Point(20, 220)
+$warningTitleLabel.Location = New-Object System.Drawing.Point(20, 228)
 $warningTitleLabel.Size = New-Object System.Drawing.Size(620, 23)
 $warningTitleLabel.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 9.5)
 $warningTitleLabel.ForeColor = $script:SetupPalette['Warning']
@@ -529,7 +529,7 @@ $panel.Controls.Add($warningTitleLabel)
 
 $warningBodyLabel = New-Object System.Windows.Forms.Label
 $warningBodyLabel.Text = (L -Ru "Не рекомендуется устанавливать Mugen Deej в Program Files.`r`nНастройки хранятся рядом с программой.`r`nWindows может потребовать права администратора." -En "Installing Mugen Deej under Program Files is not recommended.`r`nSettings are stored next to the application.`r`nWindows may require administrator rights.")
-$warningBodyLabel.Location = New-Object System.Drawing.Point(20, 243)
+$warningBodyLabel.Location = New-Object System.Drawing.Point(20, 251)
 $warningBodyLabel.Size = New-Object System.Drawing.Size(620, 62)
 $warningBodyLabel.ForeColor = $script:SetupPalette['MutedColor']
 $panel.Controls.Add($warningBodyLabel)
