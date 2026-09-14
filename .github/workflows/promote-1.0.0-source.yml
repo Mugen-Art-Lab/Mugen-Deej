@@ -47,7 +47,6 @@ jobs:
           if ($unexpected.Count -gt 0 -or $missing.Count -gt 0) {
             throw "Unexpected promotion diff. Changed: $($changed -join ', ')"
           }
-          git diff --check
           Write-Host "Promotion diff contains exactly: $($changed -join ', ')"
 
       - name: Commit promoted source
