@@ -517,7 +517,7 @@ $updateInstallPreview = {
 
 $pathBox.Add_TextChanged($updateInstallPreview)
 $createFolderCheck.Add_CheckedChanged($updateInstallPreview)
-$pathBox.Text = [Environment]::GetFolderPath('LocalApplicationData')
+$pathBox.Text = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Programs'
 
 $warningTitleLabel = New-Object System.Windows.Forms.Label
 $warningTitleLabel.Text = (L -Ru 'Важно' -En 'Important')
