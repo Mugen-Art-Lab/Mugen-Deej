@@ -1,4 +1,4 @@
-name: Build portable package
+name: Build release packages
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 jobs:
-  build-portable:
+  build-release:
     runs-on: windows-latest
 
     steps:

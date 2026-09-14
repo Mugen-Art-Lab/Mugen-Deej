@@ -87,7 +87,6 @@ $versionFile = Join-Path $repoRoot 'VERSION.txt'
 $templatePath = Join-Path $repoRoot 'packaging\README.txt.template'
 $launcherDir = Join-Path $repoRoot 'src\launcher'
 $setupDir = Join-Path $repoRoot 'src\setup'
-$setupUxPatch = Join-Path $repoRoot 'tools\patches\Apply-Setup-UX.ps1'
 $iconPath = Join-Path $repoRoot 'MugenDeej.ico'
 
 Require-File $sourceScript
@@ -99,7 +98,6 @@ Require-File (Join-Path $launcherDir 'go.mod')
 Require-File (Join-Path $setupDir 'main.go')
 Require-File (Join-Path $setupDir 'go.mod')
 Require-File (Join-Path $setupDir 'setup.ps1')
-Require-File $setupUxPatch
 
 if ([string]::IsNullOrWhiteSpace($Version)) {
     $Version = (Get-Content -LiteralPath $versionFile -Raw -Encoding UTF8).Trim()
@@ -107,6 +105,11 @@ if ([string]::IsNullOrWhiteSpace($Version)) {
 
 if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$') {
     throw "Invalid release version '$Version'. Expected a value such as 1.0.0, 1.0.0-rc1, or 0.9.0-dev25."
+}
+
+$sourceVersion = Get-ScriptVersion -Path $sourceScript
+if ($sourceVersion -ne $Version) {
+    throw "Version mismatch: VERSION/build request is '$Version' but MugenDeej.ps1 identifies itself as '$sourceVersion'. Update the source version before packaging."
 }
 
 if ([System.IO.Path]::IsPathRooted($OutputDir)) {
@@ -132,30 +135,8 @@ foreach ($path in @($stageDir, $zipPath, $zipChecksumPath, $setupPath, $setupChe
 
 New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
 
-# The development branch may intentionally keep a byte-for-byte golden baseline
-# in the repository while a small, reviewable migration patch is being tested.
-# In that case the patch is applied only to the staged portable copy.
 $stagedScript = Join-Path $stageDir 'MugenDeej.ps1'
-$sourceVersion = Get-ScriptVersion -Path $sourceScript
-
-if ($sourceVersion -eq $Version) {
-    Copy-Item -LiteralPath $sourceScript -Destination $stagedScript -Force
-}
-else {
-    $developmentPatch = Join-Path $repoRoot ("tools\patches\Apply-{0}.ps1" -f $Version)
-    if (-not (Test-Path -LiteralPath $developmentPatch -PathType Leaf)) {
-        throw "Version mismatch: VERSION/build request is '$Version' but MugenDeej.ps1 identifies itself as '$sourceVersion', and no staged development patch exists at '$developmentPatch'."
-    }
-
-    Copy-Item -LiteralPath $sourceScript -Destination $stagedScript -Force
-    Write-Host "Applying staged development patch: $developmentPatch"
-    & $developmentPatch -Path $stagedScript
-
-    $stagedVersion = Get-ScriptVersion -Path $stagedScript
-    if ($stagedVersion -ne $Version) {
-        throw "Development patch did not produce the requested version. Expected '$Version', got '$stagedVersion'."
-    }
-}
+Copy-Item -LiteralPath $sourceScript -Destination $stagedScript -Force
 
 $windowsPowerShell = Get-Command 'powershell.exe' -ErrorAction SilentlyContinue
 if ($null -eq $windowsPowerShell) {
@@ -276,8 +257,6 @@ try {
     Copy-Item -LiteralPath $zipPath -Destination (Join-Path $setupBuildDir 'payload.zip') -Force
 
     $stagedSetupScript = Join-Path $setupBuildDir 'setup.ps1'
-    Write-Host "Applying staged Setup UX patch: $setupUxPatch"
-    & $setupUxPatch -Path $stagedSetupScript
     Assert-PowerShell51Parse -PowerShellCommand $windowsPowerShell -Path $stagedSetupScript -Label 'Staged Setup wizard script'
 
     $setupResource = Join-Path $setupBuildDir 'rsrc_windows_amd64.syso'

@@ -158,10 +158,9 @@ The tested reference Extended firmware is included in [`arduino/MugenDeejControl
 - `src/launcher/` — small Go launcher used to start the PowerShell application as a Windows GUI executable.
 - `src/setup/` — self-contained Go Setup wrapper plus the bilingual PowerShell/WinForms installer UI.
 - `tools/Build-PortableRelease.ps1` — release builder for the portable ZIP, Setup EXE and SHA-256 checksum files.
-- `tools/patches/` — staged release/runtime and Setup migration patches used by the 1.0.0 packaging flow.
 - `packaging/` — files and templates used inside release packages.
 - `config.example.json` — clean default configuration example.
-- `docs/` — building, troubleshooting and release-development documentation.
+- `docs/` — building, troubleshooting, development-history and release documentation.
 
 ## Requirements
 
