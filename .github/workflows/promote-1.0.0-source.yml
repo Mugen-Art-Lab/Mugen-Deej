@@ -20,6 +20,8 @@ jobs:
         with:
           ref: release/1.0.0
 
+      # Match the tested release builder: apply staged patches under PowerShell 7,
+      # then let the promotion helper validate the final files with PowerShell 5.1.
       - name: Promote tested staged source
         shell: pwsh
         run: |
