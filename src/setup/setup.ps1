@@ -102,7 +102,9 @@ function Show-SetupConfirm {
     param(
         [Parameter(Mandatory = $true)][string]$Message,
         [bool]$IsWarning = $false,
-        [bool]$DefaultYes = $false
+        [bool]$DefaultYes = $false,
+        [string]$YesCaption = '',
+        [string]$NoCaption = ''
     )
 
     $dialog = New-Object System.Windows.Forms.Form
@@ -140,8 +142,15 @@ function Show-SetupConfirm {
     $messageLabel.ForeColor = $script:SetupPalette['TextColor']
     $dialog.Controls.Add($messageLabel)
 
-    $yesButton = New-SetupButton -Caption (L -Ru 'Да' -En 'Yes') -X 270 -Y 177 -Width 94 -IsPrimary $DefaultYes
-    $noButton = New-SetupButton -Caption (L -Ru 'Нет' -En 'No') -X 378 -Y 177 -Width 94 -IsPrimary (-not $DefaultYes)
+    if ([string]::IsNullOrWhiteSpace($YesCaption)) {
+        $YesCaption = (L -Ru 'Да' -En 'Yes')
+    }
+    if ([string]::IsNullOrWhiteSpace($NoCaption)) {
+        $NoCaption = (L -Ru 'Нет' -En 'No')
+    }
+
+    $yesButton = New-SetupButton -Caption $YesCaption -X 270 -Y 177 -Width 94 -IsPrimary $DefaultYes
+    $noButton = New-SetupButton -Caption $NoCaption -X 378 -Y 177 -Width 94 -IsPrimary (-not $DefaultYes)
     $dialog.Controls.Add($yesButton)
     $dialog.Controls.Add($noButton)
 
@@ -276,6 +285,79 @@ function Test-FolderHasContent {
     }
 }
 
+function Test-PathsEqual {
+    param(
+        [string]$First,
+        [string]$Second
+    )
+
+    if ([string]::IsNullOrWhiteSpace($First) -or [string]::IsNullOrWhiteSpace($Second)) {
+        return $false
+    }
+
+    try {
+        $firstFull = [System.IO.Path]::GetFullPath($First).TrimEnd('\')
+        $secondFull = [System.IO.Path]::GetFullPath($Second).TrimEnd('\')
+        return $firstFull.Equals($secondFull, [System.StringComparison]::OrdinalIgnoreCase)
+    }
+    catch {
+        return $false
+    }
+}
+
+function Get-MugenDeejRunState {
+    param([Parameter(Mandatory = $true)][string]$TargetExe)
+
+    $sameTarget = $false
+    $otherTarget = $false
+    $processes = @(Get-Process -Name 'MugenDeej' -ErrorAction SilentlyContinue)
+
+    foreach ($process in $processes) {
+        $processPath = $null
+        try {
+            $processPath = $process.MainModule.FileName
+        }
+        catch { }
+
+        if ([string]::IsNullOrWhiteSpace($processPath)) {
+            # If Windows does not let us inspect the executable path, be
+            # conservative: the instance can still block the post-install launch.
+            $otherTarget = $true
+            continue
+        }
+
+        if (Test-PathsEqual -First $processPath -Second $TargetExe) {
+            $sameTarget = $true
+        }
+        else {
+            $otherTarget = $true
+        }
+    }
+
+    return [pscustomobject]@{
+        SameTarget = $sameTarget
+        OtherTarget = $otherTarget
+    }
+}
+
+function Test-FileInUseException {
+    param([Parameter(Mandatory = $true)]$Exception)
+
+    $current = $Exception
+    while ($null -ne $current) {
+        try {
+            $win32Code = ([int]$current.HResult -band 0xFFFF)
+            if ($win32Code -eq 32 -or $win32Code -eq 33) {
+                return $true
+            }
+        }
+        catch { }
+        $current = $current.InnerException
+    }
+
+    return $false
+}
+
 function Resolve-InstallPath {
     param(
         [Parameter(Mandatory = $true)][string]$SelectedPath,
@@ -368,6 +450,31 @@ function Expand-PortablePayload {
     }
     finally {
         $archive.Dispose()
+    }
+}
+
+function Expand-PortablePayloadWithRetry {
+    param(
+        [Parameter(Mandatory = $true)][string]$ZipPath,
+        [Parameter(Mandatory = $true)][string]$Destination
+    )
+
+    while ($true) {
+        try {
+            Expand-PortablePayload -ZipPath $ZipPath -Destination $Destination
+            return $true
+        }
+        catch {
+            if (-not (Test-FileInUseException -Exception $_.Exception)) {
+                throw
+            }
+
+            $lockedMessage = L -Ru "Один из файлов Mugen Deej сейчас используется.`r`n`r`nЗакройте Mugen Deej и другие программы, которые могут использовать файлы из папки установки, затем нажмите «Повторить»." -En "One of the Mugen Deej files is currently in use.`r`n`r`nClose Mugen Deej and any other program that may be using files in the installation folder, then click Retry."
+            $retry = Show-SetupConfirm -Message $lockedMessage -IsWarning $true -DefaultYes $true -YesCaption (L -Ru 'Повторить' -En 'Retry') -NoCaption (L -Ru 'Отмена' -En 'Cancel')
+            if (-not $retry) {
+                return $false
+            }
+        }
     }
 }
 
@@ -671,6 +778,28 @@ $installButton.Add_Click({
         }
     }
 
+    while ($true) {
+        $runState = Get-MugenDeejRunState -TargetExe $existingExe
+        if (-not $runState.SameTarget) {
+            break
+        }
+
+        $runningMessage = L -Ru "Mugen Deej сейчас запущен из этой папки.`r`n`r`nЗакройте программу, чтобы установщик мог обновить её файлы, затем нажмите «Повторить»." -En "Mugen Deej is currently running from this folder.`r`n`r`nClose the app so the installer can update its files, then click Retry."
+        $retry = Show-SetupConfirm -Message $runningMessage -IsWarning $true -DefaultYes $true -YesCaption (L -Ru 'Повторить' -En 'Retry') -NoCaption (L -Ru 'Отмена' -En 'Cancel')
+        if (-not $retry) {
+            return
+        }
+    }
+
+    $runState = Get-MugenDeejRunState -TargetExe $existingExe
+    if ($runState.OtherTarget -and $launchCheck.Checked) {
+        $otherInstanceMessage = L -Ru "Mugen Deej уже запущен из другой папки.`r`n`r`nУстановку можно продолжить, но новая копия не сможет запуститься, пока работающий Mugen Deej не будет закрыт.`r`n`r`nОпция «Запустить Mugen Deej после установки» будет отключена.`r`n`r`nПродолжить?" -En "Mugen Deej is already running from another folder.`r`n`r`nInstallation can continue, but the new copy cannot start until the running Mugen Deej instance is closed.`r`n`r`nThe 'Launch Mugen Deej after installation' option will be disabled.`r`n`r`nContinue?"
+        if (-not (Show-SetupConfirm -Message $otherInstanceMessage -IsWarning $true -DefaultYes $true -YesCaption (L -Ru 'Продолжить' -En 'Continue') -NoCaption (L -Ru 'Отмена' -En 'Cancel'))) {
+            return
+        }
+        $launchCheck.Checked = $false
+    }
+
     $installButton.Enabled = $false
     $cancelButton.Enabled = $false
     $browseButton.Enabled = $false
@@ -682,7 +811,18 @@ $installButton.Add_Click({
     $form.Refresh()
 
     try {
-        Expand-PortablePayload -ZipPath $PayloadPath -Destination $installPath
+        $extracted = Expand-PortablePayloadWithRetry -ZipPath $PayloadPath -Destination $installPath
+        if (-not $extracted) {
+            $statusLabel.Text = (L -Ru 'Установка отменена.' -En 'Installation cancelled.')
+            $installButton.Enabled = $true
+            $cancelButton.Enabled = $true
+            $browseButton.Enabled = $true
+            $pathBox.Enabled = $true
+            $createFolderCheck.Enabled = $true
+            $shortcutCheck.Enabled = $true
+            $launchCheck.Enabled = $true
+            return
+        }
 
         if ($shortcutCheck.Checked) {
             New-DesktopShortcut -InstallPath $installPath
