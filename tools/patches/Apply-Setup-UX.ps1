@@ -87,17 +87,34 @@ $newRemovalText = @'
                 'Close it if it is still running, then start MugenDeej.exe from the installed folder.'
             }
 
-            $introTitleLabel.Text = (L -Ru 'Готово — Mugen Deej не запущен' -En 'Done — Mugen Deej was not launched')
-            $introTitleLabel.ForeColor = $script:SetupPalette['Warning']
-            $introBodyLabel.Size = New-Object System.Drawing.Size(620, 112)
-            $introBodyLabel.Text = (L -Ru ("Mugen Deej установлен в выбранную папку.`r`nПрограмма не добавлена в список установленных приложений Windows.`r`n`r`nMugen Deej не был запущен автоматически: во время установки уже работала другая копия.`r`n" + $launchHintRu) -En ("Mugen Deej was installed in the selected folder.`r`nThe app was not added to Windows Installed Apps.`r`n`r`nMugen Deej was not launched automatically because another copy was already running during installation.`r`n" + $launchHintEn))
+            # Keep the successful "Done" heading normal. Highlight only the
+            # exceptional launch notice so it catches the eye without making
+            # the installation itself look unsuccessful.
+            $introTitleLabel.Text = (L -Ru 'Готово' -En 'Done')
+            $introTitleLabel.ForeColor = $script:SetupPalette['TextColor']
+            $introBodyLabel.Size = New-Object System.Drawing.Size(620, 42)
 
-            $pathLabel.Location = New-Object System.Drawing.Point(20, 157)
-            $pathBox.Location = New-Object System.Drawing.Point(20, 181)
-            $pathHintLabel.Location = New-Object System.Drawing.Point(20, 211)
-            $warningTitleLabel.Location = New-Object System.Drawing.Point(20, 246)
-            $warningBodyLabel.Location = New-Object System.Drawing.Point(20, 272)
-            $warningBodyLabel.Size = New-Object System.Drawing.Size(620, 112)
+            $launchNoticeTitleLabel = New-Object System.Windows.Forms.Label
+            $launchNoticeTitleLabel.Text = (L -Ru 'Mugen Deej не был запущен автоматически.' -En 'Mugen Deej was not launched automatically.')
+            $launchNoticeTitleLabel.Location = New-Object System.Drawing.Point(20, 88)
+            $launchNoticeTitleLabel.Size = New-Object System.Drawing.Size(620, 23)
+            $launchNoticeTitleLabel.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 9.5)
+            $launchNoticeTitleLabel.ForeColor = $script:SetupPalette['Warning']
+            $panel.Controls.Add($launchNoticeTitleLabel)
+
+            $launchNoticeBodyLabel = New-Object System.Windows.Forms.Label
+            $launchNoticeBodyLabel.Text = (L -Ru ("Во время установки уже работала другая копия программы.`r`n" + $launchHintRu) -En ("Another copy of the app was already running during installation.`r`n" + $launchHintEn))
+            $launchNoticeBodyLabel.Location = New-Object System.Drawing.Point(20, 111)
+            $launchNoticeBodyLabel.Size = New-Object System.Drawing.Size(620, 54)
+            $launchNoticeBodyLabel.ForeColor = $script:SetupPalette['Warning']
+            $panel.Controls.Add($launchNoticeBodyLabel)
+
+            $pathLabel.Location = New-Object System.Drawing.Point(20, 171)
+            $pathBox.Location = New-Object System.Drawing.Point(20, 195)
+            $pathHintLabel.Location = New-Object System.Drawing.Point(20, 225)
+            $warningTitleLabel.Location = New-Object System.Drawing.Point(20, 254)
+            $warningBodyLabel.Location = New-Object System.Drawing.Point(20, 280)
+            $warningBodyLabel.Size = New-Object System.Drawing.Size(620, 104)
         }
 '@
 $text = Replace-ExactOnce -Text $text -Old $oldRemovalText -New $newRemovalText -Label 'completion launch explanation'
