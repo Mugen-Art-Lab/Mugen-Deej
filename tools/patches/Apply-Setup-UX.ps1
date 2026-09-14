@@ -87,6 +87,8 @@ $newRemovalText = @'
                 'Close it if it is still running, then start MugenDeej.exe from the installed folder.'
             }
 
+            $introTitleLabel.Text = (L -Ru 'Готово — Mugen Deej не запущен' -En 'Done — Mugen Deej was not launched')
+            $introTitleLabel.ForeColor = $script:SetupPalette['Warning']
             $introBodyLabel.Size = New-Object System.Drawing.Size(620, 112)
             $introBodyLabel.Text = (L -Ru ("Mugen Deej установлен в выбранную папку.`r`nПрограмма не добавлена в список установленных приложений Windows.`r`n`r`nMugen Deej не был запущен автоматически: во время установки уже работала другая копия.`r`n" + $launchHintRu) -En ("Mugen Deej was installed in the selected folder.`r`nThe app was not added to Windows Installed Apps.`r`n`r`nMugen Deej was not launched automatically because another copy was already running during installation.`r`n" + $launchHintEn))
 
