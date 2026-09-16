@@ -7,6 +7,7 @@ internal static class Program
 {
     private const string DefaultProfile = "xbox-360-wired";
     private const string DefaultIdentity = "mugen-deej-prototype";
+    private const string DisplayName = "Mugen Deej Virtual Gamepad";
 
     private static readonly string LogPath = Path.Combine(
         Path.GetTempPath(),
@@ -56,6 +57,17 @@ internal static class Program
         }
 
         Log("CLEANUP_START");
+
+        try
+        {
+            int recovered = HMOemNameOverride.RecoverOrphans();
+            Log($"OEM_NAME_RECOVERED count={recovered}");
+        }
+        catch (Exception ex)
+        {
+            Log("OEM_NAME_RECOVERY_ERROR " + ex);
+        }
+
         HMContext.RemoveAllVirtualControllers(preserveInstall: true);
         Log("CLEANUP_DONE");
         Console.WriteLine("Mugen virtual controller cleanup completed.");
@@ -84,8 +96,17 @@ internal static class Program
 
         Log($"START profile={profileId}; identity={identityKey}; pipe={pipeName}");
 
+        ushort? overrideVid = null;
+        ushort? overridePid = null;
+
         try
         {
+            int recovered = HMOemNameOverride.RecoverOrphans();
+            if (recovered > 0)
+            {
+                Log($"OEM_NAME_RECOVERED count={recovered}");
+            }
+
             using var context = new HMContext();
             context.LoadDefaultProfiles();
             context.InstallDriver();
@@ -97,6 +118,15 @@ internal static class Program
             }
 
             using var controller = context.CreateController(profile, identityKey);
+
+            // joy.cpl and DirectInput normally display the Xbox profile's
+            // Microsoft OEM label. Claim a crash-safe HIDMaestro OEM-name
+            // override while this virtual controller is live so users can
+            // distinguish the Mugen-created device at a glance.
+            overrideVid = profile.VendorId;
+            overridePid = profile.ProductId;
+            HMOemNameOverride.Set(profile.VendorId, profile.ProductId, DisplayName);
+            Log($"OEM_NAME_SET vid={profile.VendorId:X4}; pid={profile.ProductId:X4}; label={DisplayName}");
 
             // Do not rely on an implicit all-zero struct as a neutral gamepad
             // frame. HIDMaestro's public state model uses normalized [0..1]
@@ -213,6 +243,19 @@ internal static class Program
         }
         finally
         {
+            if (overrideVid.HasValue && overridePid.HasValue)
+            {
+                try
+                {
+                    HMOemNameOverride.Clear(overrideVid.Value, overridePid.Value);
+                    Log($"OEM_NAME_CLEARED vid={overrideVid.Value:X4}; pid={overridePid.Value:X4}");
+                }
+                catch (Exception ex)
+                {
+                    Log("OEM_NAME_CLEAR_ERROR " + ex);
+                }
+            }
+
             // Backstop after normal controller/context disposal. HIDMaestro's
             // explicit orphan sweep is intentionally preserved-install so a
             // Mugen exit never turns into a driver uninstall/reinstall cycle.
