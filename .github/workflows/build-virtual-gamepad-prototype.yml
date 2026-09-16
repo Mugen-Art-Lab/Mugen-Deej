@@ -1,0 +1,80 @@
+name: Build virtual gamepad prototype
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-prototype:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Prepare pinned HIDMaestro dependency
+        shell: pwsh
+        run: .\tools\Prepare-HIDMaestro.ps1
+
+      - name: Publish elevated virtual gamepad host
+        shell: pwsh
+        run: |
+          $stage = Join-Path $PWD 'artifacts\virtual-gamepad-prototype'
+          $hostOut = Join-Path $stage 'host'
+          New-Item -ItemType Directory -Path $hostOut -Force | Out-Null
+
+          dotnet publish .\src\virtual-gamepad-helper\MugenDeej.VirtualGamepadHost.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -o $hostOut
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "dotnet publish failed with exit code $LASTEXITCODE"
+          }
+
+          Copy-Item .\dev\virtual-gamepad\Mugen-VirtualGamepad-Prototype.ps1 $stage -Force
+          Copy-Item .\dev\virtual-gamepad\RUN-VIRTUAL-GAMEPAD-PROTOTYPE.cmd $stage -Force
+          Copy-Item .\dev\virtual-gamepad\README.md $stage -Force
+          Copy-Item .\src\virtual-gamepad-helper\deps\HIDMaestro-LICENSE.txt $stage -Force
+
+          & (Join-Path $hostOut 'MugenDeej.VirtualGamepadHost.exe') --help
+          if ($LASTEXITCODE -ne 0) {
+            throw "Published host smoke check failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Package prototype
+        shell: pwsh
+        run: |
+          $stage = Join-Path $PWD 'artifacts\virtual-gamepad-prototype'
+          $zip = Join-Path $PWD 'artifacts\Mugen-Deej-VirtualGamepad-Prototype.zip'
+          $shaFile = $zip + '.sha256'
+
+          if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -CompressionLevel Optimal
+
+          $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          [System.IO.File]::WriteAllText(
+            $shaFile,
+            "$hash  Mugen-Deej-VirtualGamepad-Prototype.zip`r`n",
+            (New-Object System.Text.UTF8Encoding($false))
+          )
+
+          Write-Host "Prototype SHA-256: $hash"
+
+      - name: Upload prototype artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: Mugen-Deej-VirtualGamepad-Prototype-${{ github.run_number }}
+          path: |
+            artifacts/Mugen-Deej-VirtualGamepad-Prototype.zip
+            artifacts/Mugen-Deej-VirtualGamepad-Prototype.zip.sha256
+          if-no-files-found: error
+          retention-days: 14

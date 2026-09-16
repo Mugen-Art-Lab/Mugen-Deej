@@ -20,6 +20,11 @@ MugenDeej.exe
 dist/
 build/
 artifacts/
+**/bin/
+**/obj/
+
+# Downloaded prototype dependencies
+src/virtual-gamepad-helper/deps/
 
 # Release archives
 *.zip

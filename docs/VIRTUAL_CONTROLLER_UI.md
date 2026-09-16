@@ -1,75 +1,132 @@
-# Virtual controller UI design
+# Virtual controller UI and routing design
 
 Branch: `feature/virtual-gamepad-ui`
 
+Living project/test state is tracked in `docs/PROJECT_STATE.md`. That file is authoritative when this design note and current implementation temporarily differ.
+
 ## Goal
 
-Add a virtual game-controller output path without turning Mugen Deej into a game-specific application.
+Add virtual game-controller output without turning Mugen Deej into a game-specific application.
 
-The physical controller should remain generic:
+The hardware remains generic:
 
-`hardware -> serial protocol -> Mugen Deej -> audio/actions/virtual controller`
+```text
+hardware -> serial protocol -> Mugen Deej -> audio / actions / virtual controller
+```
 
-Legacy controllers remain unchanged. Extended controllers can optionally route buttons and analog controls to a virtual controller.
+Legacy controllers remain unchanged. Extended controllers can optionally route buttons and analog controls to virtual-controller outputs.
 
 ## Product principles
 
-- Keep the main window uncluttered for existing audio-only users.
-- Do not tie UI wording to a specific backend such as vJoy/ViGEm.
-- Treat virtual buttons as stateful outputs: press must stay down until the physical button is released.
-- Treat virtual axes as continuous outputs, not edge-triggered actions.
-- Existing audio and macro actions continue to work exactly as before when virtual output is unused.
-- If the virtual-controller backend is missing or unavailable, Mugen Deej should stay usable and report the problem clearly instead of failing startup.
+- Keep the normal audio-only experience uncluttered.
+- Extended protocol remains auto-detected; do not add a manual "Extended mode" switch.
+- Do not expose implementation/backend names as the primary UX.
+- Normal actions are edge-triggered; virtual buttons are stateful; virtual axes are continuous.
+- Existing audio and macro behavior stays unchanged when virtual output is unused.
+- Backend failure must not prevent Mugen Deej from starting or using normal audio/actions.
+- On disconnect, suspend, helper/backend failure, profile change, or app exit, release every virtual button.
+- Keep game-specific meaning on the PC side so the same cheap DIY hardware can be reused without reflashing.
+
+## User-facing virtual-controller types
+
+Do not present `DInput`, `XInput`, and `X360` as three equivalent peer modes. Xbox 360 is a concrete XInput/XUSB-style device profile.
+
+Initial user-facing types:
+
+### Xbox 360 / XInput
+
+Compatibility-first mode for games expecting a conventional Xbox-style pad.
+
+The logical control set is fixed by the Xbox controller shape, for example:
+
+- A / B / X / Y
+- LB / RB
+- Back / Start
+- stick clicks
+- D-pad
+- left/right sticks
+- triggers
+
+This mode is useful for ordinary games and an eventual Arcade/Fight Pad preset.
+
+### Generic / DirectInput
+
+Flexible mode for DIY panels, simulators, many buttons, and arbitrary axes.
+
+This is the natural target for the planned 5 controls + 30 buttons hardware.
+
+The backend may expose the same virtual device to several Windows APIs, but the UI should describe the controller shape/compatibility goal rather than make the user understand implementation details.
 
 ## Button settings
 
-Add one new configurable action to the existing physical-button action list:
+Add a virtual-controller mapping alongside the existing physical-button actions.
+
+Possible UI entry:
 
 - RU: `Виртуальный контроллер…`
 - EN: `Virtual controller…`
 
-Selecting it opens a small editor:
+For Generic/DirectInput mapping, selecting it can open a small editor:
 
-- title: `Виртуальная кнопка` / `Virtual button`
 - physical source: read-only `Кнопка N` / `Button N`
-- output: `Button 1 ... Button 64`
-- convenience option: `Использовать тот же номер` / `Use physical button number`
+- output: `Button 1 ... Button N`
+- convenience: `Использовать тот же номер` / `Use physical button number`
 - Save / Cancel
 
-Saved display text in the normal button list:
+Example persisted action:
 
-- RU: `Виртуальная кнопка 17`
-- EN: `Virtual button 17`
+```text
+virtual:button:17
+```
 
-Proposed persisted action string:
+This can remain compatible with the existing `button-actions.json` idea for an early implementation, although the final profile system may move complete mappings into profile-owned data.
 
-`virtual:button:17`
+### Stateful runtime semantics
 
-This can remain in `button-actions.json`, so current backup/restore naturally carries the mapping.
+The current normal button-action path calls an action only when a physical button becomes pressed.
 
-### Important runtime semantic difference
+Virtual mappings must receive both transitions:
 
-Normal actions are edge-triggered on physical press.
+```text
+physical b0 -> virtual button DOWN
+physical b1 -> virtual button UP
+```
 
-A virtual-button mapping must instead receive both transitions:
+Therefore virtual button routing must happen in physical-state transition processing, not only through the existing press-only `Invoke-ButtonAction` dispatcher.
 
-- physical `b0` -> virtual button DOWN
-- physical `b1` -> virtual button UP
+## Xbox mapping UI
 
-Therefore the runtime path must handle `virtual:button:N` inside button-state transition processing, rather than calling it only through the existing press-only action dispatcher.
+For `Xbox 360 / XInput`, output choices should use controller names rather than numbered generic buttons:
 
-On disconnect, suspend, backend failure, or app exit, all virtual buttons must be released to prevent stuck inputs.
+```text
+A
+B
+X
+Y
+Left Bumper
+Right Bumper
+Back
+Start
+Left Stick Click
+Right Stick Click
+D-pad Up
+D-pad Down
+D-pad Left
+D-pad Right
+```
+
+Triggers and stick axes belong in analog-control mapping rather than the normal physical-button action list unless a future preset deliberately supports digital-to-analog behavior.
 
 ## Analog-control settings
 
-Add one mode to the existing control-mode combo:
+Add a mode:
 
 - RU: `Виртуальная ось`
 - EN: `Virtual axis`
 
-When selected, the current application/microphone chooser area becomes an axis selector.
+When selected, the current target area becomes an axis selector.
 
-Initial axis set:
+For Generic/DirectInput an initial set can include:
 
 - X
 - Y
@@ -80,119 +137,186 @@ Initial axis set:
 - Slider 1
 - Slider 2
 
-No backend-specific names should appear here.
+For Xbox mode, user-facing names should be semantic:
 
-Proposed slider property:
+- Left Stick X
+- Left Stick Y
+- Right Stick X
+- Right Stick Y
+- Left Trigger
+- Right Trigger
 
-`virtualAxis: "x"`
+Proposed early slider property:
 
-When `virtualAxis` is non-empty, the slider is routed to that virtual axis. For the first implementation this mode is exclusive with normal audio targets, which keeps the UI and runtime behavior unambiguous.
+```json
+"virtualAxis": "x"
+```
 
-The current global invert-sliders option continues to affect the normalized value before virtual-axis output. Per-axis calibration/inversion is intentionally deferred.
+For the first implementation, virtual-axis mode can be exclusive with normal audio targets to keep behavior obvious. Mixed routing can be reconsidered later if there is a real use case.
 
-On disconnect or backend shutdown, axes should be returned to a defined neutral policy chosen by the backend implementation.
+## Virtual-controller status / global settings
 
-## Virtual controller status / global settings
+Do not add a permanent large card for users who never enable virtual output.
 
-Do not add a permanent top-level card to the normal main window.
+A settings/diagnostics entry can open a dialog with:
 
-Place a `Virtual controller...` entry in the existing advanced/diagnostics area.
+- enable virtual-controller output;
+- controller type;
+- status: Disabled / Ready / Backend unavailable / Error;
+- mapped buttons/axes summary;
+- backend/version as diagnostic text only.
 
-The dialog should contain:
+Default is OFF.
 
-- `Enable virtual controller output` checkbox
-- status line:
-  - Disabled
-  - Ready
-  - Backend not available
-  - Error
-- backend name/version shown as diagnostic text only
-- a small summary derived from saved mappings, for example:
-  - `18 mapped buttons`
-  - `3 mapped axes`
-- `Test` section in a later pass
+Mappings may be edited while output is disabled. Missing backend support should produce a clear warning, not delete mappings.
 
-Default is OFF so existing users never get a surprise virtual device.
+## Profiles
 
-Mappings may be configured while output is disabled. If mappings exist but the backend is unavailable, save them normally and show an amber warning/status instead of discarding them.
+Profiles are now part of the intended architecture, but backend proof comes first.
+
+Terminology:
+
+- **Profile** = complete user configuration for the control surface.
+- **Preset** = optional built-in template from which a profile can be created.
+
+For Extended hardware, a compact main-window control may eventually look like:
+
+```text
+Profile: [ Desktop                 v ] [ Manage... ]
+```
+
+Profile management:
+
+- New
+- Duplicate
+- Rename
+- Delete
+- Select
+
+A permanent `Default` profile preserves current 1.0.0 behavior and migration safety.
+
+A profile should eventually own:
+
+- physical-button actions;
+- analog-control destinations;
+- virtual-controller enable state;
+- virtual-controller type (`Xbox 360 / XInput`, `Generic / DirectInput`);
+- virtual button/axis mappings;
+- source hardware shape metadata (detected control/button count).
+
+If a profile was built for a larger controller than the one currently connected, unavailable mappings are skipped with a warning. If the connected controller has extra controls, they remain unassigned until configured.
+
+Manual profile switching comes first. Foreground-game automatic switching is deferred.
+
+## Presets
+
+Possible later presets:
+
+- Desktop / Audio
+- Streaming
+- Xbox Gamepad
+- Arcade / Fight Pad
+- Generic 30-button panel
+- Elite Dangerous
+- MSFS / simulator base
+
+A preset is only a starting template. It must not hard-wire the physical Arduino firmware to a particular game.
+
+## Backend architecture
+
+Current prototype candidate: HIDMaestro 1.8.0 (MIT).
+
+HIDMaestro supports built-in controller profiles plus custom HID descriptors. It can therefore cover both the Xbox compatibility case and later arbitrary multi-button Generic/DirectInput devices.
+
+Important Windows constraint: creating the HID device requires elevation. Do not elevate the entire Mugen Deej UI just for this feature.
+
+Prototype architecture:
+
+```text
+Mugen / prototype bridge (normal user)
+        |
+        v named pipe
+MugenDeej.VirtualGamepadHost (elevated)
+        |
+        v
+HIDMaestro
+        |
+        v
+virtual HID / Xbox controller
+```
+
+The final broker lifecycle and installation UX remain open until this path has passed real hardware tests.
 
 ## Main-window behavior
 
-Keep the existing physical-button indicator strip unchanged for the first pass. It represents physical input state, not virtual output state.
+The existing physical-button indicators represent physical input, not virtual output.
 
-For 30-button hardware this strip already scrolls horizontally. A matrix-style visualization can be designed separately after the 5x6 prototype proves useful.
+For the first backend proof they remain unchanged.
 
-## Data model draft
-
-`button-actions.json`:
-
-```json
-{
-  "schemaVersion": 1,
-  "actions": [
-    "virtual:button:1",
-    "virtual:button:2",
-    "media:playpause"
-  ]
-}
-```
-
-`config.json` additions:
-
-```json
-{
-  "virtualController": {
-    "enabled": false,
-    "backend": "auto"
-  },
-  "sliders": [
-    {
-      "name": "Control 1",
-      "targets": [],
-      "virtualAxis": "x"
-    }
-  ]
-}
-```
-
-`backend` is deliberately abstract in the config/UI draft. Backend selection should be decided after checking the best maintained Windows virtual-controller option for generic multi-button joystick use.
+For 30-button hardware, the current one-line scrolling strip is functionally valid but poor UX. A grid/matrix view should be designed after real 5x6 hardware is available and useful, rather than guessed in advance.
 
 ## Runtime routing model
 
 ```text
 serial packet
     |
-    +-- sliders --------+--> audio targets
-    |                   \--> virtual axes
+    +-- analog controls ----+--> audio targets
+    |                       \--> virtual axes
     |
-    +-- buttons --------+--> edge-triggered actions
-                        \--> stateful virtual buttons
+    +-- buttons ------------+--> press-triggered actions
+                            \--> stateful virtual buttons
 ```
 
-This is intentionally routing, not a separate "game mode". A future controller may mix audio controls, macros, and virtual-game-controller outputs at the same time.
+This is routing, not a single exclusive "game mode". One physical panel may eventually mix audio, macros and game-controller outputs.
 
-## First implementation milestone
+## Current first milestone
 
-Before profiles, layers, game presets, or special simulator integrations:
+Before integrating full profiles or axes, prove the backend end-to-end using the already-tested 5+6 Extended hardware.
 
-1. Detect the existing Extended controller normally.
-2. Save `virtual:button:N` mappings from the UI.
-3. Enable the virtual-controller backend.
-4. Press/release a physical button.
-5. Verify the matching virtual button changes state in `joy.cpl`.
-6. Map that button inside a real game.
+The branch contains a standalone prototype harness that temporarily maps:
 
-Only after that path is reliable should virtual axes be enabled and tested.
+```text
+button 1 -> Xbox A
+button 2 -> Xbox B
+button 3 -> Xbox X
+button 4 -> Xbox Y
+button 5 -> Xbox LB
+button 6 -> Xbox RB
+```
 
-## Explicitly deferred
+Acceptance:
 
-- profiles per game
-- layers/pages
-- automatic foreground-game switching
-- LEDs/displays/feedback from games
-- force feedback
-- custom kernel driver
-- Xbox-specific controller emulation
-- matrix layout editor
+1. physical Extended controller is recognized;
+2. virtual Xbox controller appears in `joy.cpl`;
+3. physical press produces virtual DOWN;
+4. holding remains held;
+5. release produces virtual UP;
+6. teardown releases everything;
+7. a real game accepts at least one binding.
 
-These are separate features, not requirements for the first virtual-controller implementation.
+Only after that path is physically PASS should it be integrated into normal Mugen Deej button settings.
+
+## Next implementation order
+
+1. Backend/joy.cpl physical proof.
+2. Real-game bind proof.
+3. Normal Mugen Deej backend abstraction and lifecycle.
+4. Virtual button mappings in UI.
+5. Safe release paths.
+6. Virtual axes.
+7. Custom Generic/DirectInput many-button device.
+8. 5x6 hardware test.
+9. User profiles and profile manager.
+10. Better matrix UI if real usage justifies it.
+
+## Deferred
+
+- automatic foreground-game/profile switching;
+- layers/pages;
+- game telemetry back to hardware;
+- LEDs/displays driven from games;
+- force feedback;
+- custom Mugen virtual-device driver;
+- per-key LCD/OLED UI;
+- plugin marketplace;
+- matrix-layout editor.
