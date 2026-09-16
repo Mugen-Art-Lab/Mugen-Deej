@@ -168,34 +168,34 @@ The mapping exists only to prove press/release propagation with the already-test
 PASS — CI build/package smoke test:
 
 - workflow: `Build virtual gamepad prototype`
-- run: `35098373733` / run number `1`
-- head: `fbc80b6d5f820c1baf4b6b1107f13bc75554bf01`
 - dependency download/hash verification: PASS
 - .NET 10 self-contained helper publish: PASS
 - helper `--help` launch smoke test: PASS
 - packaging/upload: PASS
-- artifact: `Mugen-Deej-VirtualGamepad-Prototype-1`
-- inner prototype ZIP SHA-256: `41cbb69970ffdac66a356091e9518db235bd3a96e1056615dc011057d84c5bc2`
 
-This is only a build PASS. Virtual HID creation and physical controller routing are still NOT TESTED on user hardware.
+Latest tested package came from run `35104680482` / run number `4`, artifact `Mugen-Deej-VirtualGamepad-Prototype-4`, inner ZIP SHA-256 `cee785912cd67d78bc29dc069d3c7a3ab9569fb6e07e757d067f0788d7ada22c`.
 
-### Prototype 0 acceptance test
+### Prototype 0 real-hardware status
 
-NOT TESTED yet.
+PARTIAL PASS — core end-to-end virtual button path is proven on real hardware.
 
-Required PASS sequence:
+Confirmed with the existing 5-control / 6-button Extended controller on COM10:
 
-1. Close normal Mugen Deej so the prototype can own the COM port.
-2. Run the prototype and accept UAC for the helper.
-3. Extended controller is detected.
-4. Virtual Xbox 360 controller appears in `joy.cpl`.
-5. Physical button DOWN lights the corresponding virtual button.
-6. Holding the physical button keeps the virtual button held.
-7. Physical button UP clears the corresponding virtual button.
-8. Exiting the prototype releases all buttons and removes the virtual controller.
-9. Bind at least one physical button in a real game.
+- Extended controller detection: PASS
+- elevated helper startup: PASS
+- HIDMaestro virtual Xbox 360 creation: PASS
+- `joy.cpl` sees `Controller (XBOX 360 For Windows)` with OK status: PASS
+- physical buttons 1–6 all drive virtual button activity in `joy.cpl`: PASS
+- observed bridge masks include `0x01`, `0x02`, `0x04`, `0x08`, `0x10`, and `0x20`: PASS
 
-Do not mark this milestone hardware PASS until it has been tested with real hardware.
+Still pending before Prototype 0 is fully PASS:
+
+- hold-state verification over several seconds;
+- immediate release verification;
+- Q/Esc clean shutdown removes/releases the virtual controller without an orphan;
+- at least one successful button bind in a real game.
+
+No extra host log is required for the successful `joy.cpl` result unless one of these remaining checks misbehaves. Full attempt-by-attempt history is in `docs/VIRTUAL_CONTROLLER_TEST_LOG.md`.
 
 ## Profiles: planned architecture
 
@@ -237,16 +237,15 @@ Manual profile switching comes first. Automatic switching by foreground game/pro
 
 ## Planned integration after prototype 0
 
-1. Prove physical press/release through HIDMaestro in `joy.cpl`.
-2. Prove a real game accepts the virtual Xbox controller input.
-3. Add a minimal virtual-controller service abstraction to Mugen Deej.
-4. Integrate `virtual:button:N` mappings into Extended button settings.
-5. Route virtual button state from `Update-ButtonStates`, not the press-only action dispatcher.
-6. Add safe release on disconnect/suspend/app exit/backend failure.
-7. Add `Virtual axis` mode for analog controls.
-8. Build a custom Generic/DirectInput profile for many-button hardware and test 30 buttons.
-9. Add user profiles and profile management.
-10. Rework the 30-button UI from a long strip/list into a more suitable matrix/grid only after real 5x6 hardware proves useful.
+1. Finish hold/release/clean-exit/real-game validation for the current Xbox prototype.
+2. Add a minimal virtual-controller service abstraction to Mugen Deej.
+3. Integrate `virtual:button:N` mappings into Extended button settings.
+4. Route virtual button state from `Update-ButtonStates`, not the press-only action dispatcher.
+5. Add safe release on disconnect/suspend/app exit/backend failure.
+6. Add `Virtual axis` mode for analog controls.
+7. Build a custom Generic/DirectInput profile for many-button hardware and test 30 buttons.
+8. Add user profiles and profile management.
+9. Rework the 30-button UI from a long strip/list into a more suitable matrix/grid only after real 5x6 hardware proves useful.
 
 ## Deferred / explicitly not first-pass work
 
