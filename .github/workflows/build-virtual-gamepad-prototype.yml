@@ -50,6 +50,7 @@ jobs:
 
           Copy-Item .\dev\virtual-gamepad\Mugen-VirtualGamepad-Prototype.ps1 $stage -Force
           Copy-Item .\dev\virtual-gamepad\RUN-VIRTUAL-GAMEPAD-PROTOTYPE.cmd $stage -Force
+          Copy-Item .\dev\virtual-gamepad\RUN-VIRTUAL-GAMEPAD-CLEANUP.cmd $stage -Force
           Copy-Item .\dev\virtual-gamepad\README.md $stage -Force
           Copy-Item .\src\virtual-gamepad-helper\deps\HIDMaestro-LICENSE.txt $stage -Force
 
