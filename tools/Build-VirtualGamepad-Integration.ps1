@@ -50,7 +50,9 @@ if (Test-Path -LiteralPath $virtualGamepadModulePath -PathType Leaf) {
 # press-only action dispatcher.
 $text = Replace-RegexExactlyOnce `
     -Text $text `
-    -Pattern "(?ms)(    if \(\r?\n        \[string\]::IsNullOrWhiteSpace\(\$action\) -or\r?\n        \$action -eq 'none'\r?\n    \) \{\r?\n        return\r?\n    \}\r?\n)" `
+    -Pattern @'
+(?ms)(    if \(\r?\n        \[string\]::IsNullOrWhiteSpace\(\$action\) -or\r?\n        \$action -eq 'none'\r?\n    \) \{\r?\n        return\r?\n    \}\r?\n)
+'@ `
     -Replacement @'
 $1
     if (
