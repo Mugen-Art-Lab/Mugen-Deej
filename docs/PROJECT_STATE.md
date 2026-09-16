@@ -163,24 +163,39 @@ First six physical buttons are temporarily mapped as:
 
 The mapping exists only to prove press/release propagation with the already-tested 5+6 Extended controller.
 
+### Prototype 0 build status
+
+PASS — CI build/package smoke test:
+
+- workflow: `Build virtual gamepad prototype`
+- run: `35098373733` / run number `1`
+- head: `fbc80b6d5f820c1baf4b6b1107f13bc75554bf01`
+- dependency download/hash verification: PASS
+- .NET 10 self-contained helper publish: PASS
+- helper `--help` launch smoke test: PASS
+- packaging/upload: PASS
+- artifact: `Mugen-Deej-VirtualGamepad-Prototype-1`
+- inner prototype ZIP SHA-256: `41cbb69970ffdac66a356091e9518db235bd3a96e1056615dc011057d84c5bc2`
+
+This is only a build PASS. Virtual HID creation and physical controller routing are still NOT TESTED on user hardware.
+
 ### Prototype 0 acceptance test
 
 NOT TESTED yet.
 
 Required PASS sequence:
 
-1. Build the feature-branch prototype Action artifact.
-2. Close normal Mugen Deej so the prototype can own the COM port.
-3. Run the prototype and accept UAC for the helper.
-4. Extended controller is detected.
-5. Virtual Xbox 360 controller appears in `joy.cpl`.
-6. Physical button DOWN lights the corresponding virtual button.
-7. Holding the physical button keeps the virtual button held.
-8. Physical button UP clears the corresponding virtual button.
-9. Exiting the prototype releases all buttons and removes the virtual controller.
-10. Bind at least one physical button in a real game.
+1. Close normal Mugen Deej so the prototype can own the COM port.
+2. Run the prototype and accept UAC for the helper.
+3. Extended controller is detected.
+4. Virtual Xbox 360 controller appears in `joy.cpl`.
+5. Physical button DOWN lights the corresponding virtual button.
+6. Holding the physical button keeps the virtual button held.
+7. Physical button UP clears the corresponding virtual button.
+8. Exiting the prototype releases all buttons and removes the virtual controller.
+9. Bind at least one physical button in a real game.
 
-Do not mark this milestone PASS until it has been tested with real hardware.
+Do not mark this milestone hardware PASS until it has been tested with real hardware.
 
 ## Profiles: planned architecture
 
