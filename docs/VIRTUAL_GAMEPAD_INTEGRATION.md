@@ -6,7 +6,7 @@ Living implementation/test note for the product integration phase on `feature/vi
 
 Prototype 0 backend proof: **PASS**.
 
-First integrated Mugen Deej development package: **CI PASS / REAL-HARDWARE TEST PENDING**.
+Integrated Mugen Deej milestone 1: **PARTIAL REAL-HARDWARE PASS / NONBLOCKING STARTUP HARDWARE RE-TEST PENDING**.
 
 The stable `main` / v1.0.0 source and release are not modified by this experiment.
 
@@ -115,7 +115,46 @@ Fixes:
 - artifact ID: `10459379492`
 - inner development ZIP SHA-256: `95634c6036fccbfee44c012e171f1209c75c7b65401403d882afb21a7ffe73d6`
 
-This remains **CI PASS / hardware re-test pending**. Do not call integrated milestone 1 a hardware PASS until the fixed package is exercised on the physical controller.
+### Run 10 real-hardware re-test
+
+Run 10 fixed the catastrophic integration failure:
+
+- exactly one elevated helper startup was logged;
+- COM10 stayed connected instead of entering the disconnect/reconnect loop;
+- `Mugen Deej Virtual Gamepad` appeared in `joy.cpl` with neutral axes;
+- physical button mappings A/B were routed successfully;
+- reopening Button Settings preserved the saved mappings;
+- adding another mapping after the gamepad was already active did not reproduce the startup lag.
+
+One UX problem remained: first-time virtual-controller creation still blocked the Mugen UI while the helper performed HID/PnP setup. The log measured the blocking window from `00:07:15.908` (`Starting elevated virtual controller helper`) to `00:07:32.685` (`Virtual controller ready`), about **16.8 seconds** on the test PC. The controller itself could already trigger a Windows/Stream Deck device notification before Mugen's synchronous wait returned.
+
+### Nonblocking startup fix
+
+Commit `7308b73f2507d795cb1a0fd4c43dce11bb8ea5cc` changes the Mugen-side startup path from a synchronous `DoEvents()` / `Start-Sleep` wait loop to an asynchronous named-pipe wait polled by a WinForms timer.
+
+Expected behavior:
+
+- Save returns immediately after the UAC launch step;
+- Mugen remains responsive while HIDMaestro creates/enumerates the Xbox device;
+- serial processing continues normally during the 10–20 second Windows HID/PnP setup;
+- while startup is pending, further full-state serial packets see the existing `starting` guard and do not launch another helper;
+- once the helper connects, Mugen finalizes the pipe and immediately pushes the freshest full button state.
+
+### Run 11
+
+- workflow run ID: `35133757062`
+- run number: `11`
+- head: `7308b73f2507d795cb1a0fd4c43dce11bb8ea5cc`
+- result: **PASS**
+- staging: PASS
+- Windows PowerShell 5.1 parser check: PASS
+- helper publish/smoke test: PASS
+- launcher build/package: PASS
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-11`
+- artifact ID: `10462991104`
+- inner development ZIP SHA-256: `d7e082d69f87bf0e73393760a7dfcf466c64ad7ddf88db00578988dfb761258e`
+
+Run 11 is **CI PASS / nonblocking-start hardware re-test pending**. Do not call the startup-lag issue fixed on hardware until the user verifies that the actual Mugen UI stays interactive during first virtual-controller creation.
 
 ## First real-hardware test plan
 
@@ -129,18 +168,19 @@ Use the already-tested Extended 5-control / 6-button controller.
 6. Select `Xbox 360 / XInput`.
 7. Map several physical buttons through `Choose gamepad button...`.
 8. Save and accept UAC.
-9. Confirm exactly one helper startup occurs and the physical COM connection stays stable.
-10. Confirm `joy.cpl` shows `Mugen Deej Virtual Gamepad`.
-11. Confirm press, hold, release and simultaneous button states work.
-12. Reopen Button Settings and confirm virtual mappings are still present.
-13. Force a physical-controller reconnect and confirm mappings survive capability re-detection.
-14. Confirm ordinary non-gamepad button actions can coexist with virtual mappings on different physical buttons.
-15. Close Mugen normally and verify the virtual controller disappears and does not return.
-16. Start again with the saved configuration and verify persistence/reconnect behavior.
-17. Hard-close once and verify bridge-loss cleanup still removes the virtual controller without reboot.
-18. Re-check a real XInput game after integrated runtime validation.
+9. Confirm Mugen remains responsive while the virtual HID is being created and exactly one helper startup occurs.
+10. Confirm the physical COM connection stays stable throughout startup.
+11. Confirm `joy.cpl` shows `Mugen Deej Virtual Gamepad`.
+12. Confirm press, hold, release and simultaneous button states work.
+13. Reopen Button Settings and confirm virtual mappings are still present.
+14. Force a physical-controller reconnect and confirm mappings survive capability re-detection.
+15. Confirm ordinary non-gamepad button actions can coexist with virtual mappings on different physical buttons.
+16. Close Mugen normally and verify the virtual controller disappears and does not return.
+17. Start again with the saved configuration and verify persistence/reconnect behavior.
+18. Hard-close once and verify bridge-loss cleanup still removes the virtual controller without reboot.
+19. Re-check a real XInput game after integrated runtime validation.
 
-Do not call integrated milestone 1 a hardware PASS until the above path has been tested on the real controller.
+Do not call integrated milestone 1 a complete hardware PASS until the above path has been tested on the real controller.
 
 ## Next after milestone 1 hardware PASS
 
