@@ -63,6 +63,42 @@ CI after fix:
 - artifact ID: `10449596226`
 - inner prototype ZIP SHA-256: `b8a46e795d700055cd2e957a5b22f1714c23d94a833b79a10b9e0d5168b94d9f`
 
+## 2026-09-16 — Prototype 0, attempt 2
+
+Result: FAIL before the bridge wait began.
+
+What passed again:
+
+- Extended controller detection on COM10: 5 controls / 6 buttons;
+- elevated helper launched after UAC;
+- helper log reached `START` for the new pipe name.
+
+Observed PowerShell error:
+
+```text
+Exception calling "BeginWaitForConnection" with "2" argument(s):
+"The pipe has not been opened in asynchronous mode."
+```
+
+Observed helper log tail:
+
+```text
+2026-09-16T19:50:07.5920629+06:00 START profile=xbox-360-wired; identity=mugen-deej-prototype; pipe=MugenDeejVirtualGamepad-bc48044fc8434e7d9a6a70dbe1155b05
+```
+
+### Diagnosis / fix
+
+This is a prototype-harness bug, not a HIDMaestro/backend failure. The reversed pipe server was created with `PipeOptions.None`, but the PowerShell harness uses `BeginWaitForConnection(...)`, which requires an asynchronous `NamedPipeServerStream`.
+
+Fix:
+
+- create the bridge-side server with `PipeOptions.Asynchronous`;
+- keep the existing timeout/process-exit handling around `BeginWaitForConnection(...)`.
+
+Fix commit:
+
+- `66928682b4409fd4c24d9a7a1b3b365585261fb2` — create async named pipe server for prototype wait
+
 ## Next test
 
 Status: WAITING FOR RETEST.
