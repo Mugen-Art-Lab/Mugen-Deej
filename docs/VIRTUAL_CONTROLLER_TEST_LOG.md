@@ -99,6 +99,17 @@ Fix commit:
 
 - `66928682b4409fd4c24d9a7a1b3b365585261fb2` — create async named pipe server for prototype wait
 
+CI after this fix:
+
+- workflow: `Build virtual gamepad prototype`
+- run ID: `35104680482`
+- run number: `4`
+- head: `66928682b4409fd4c24d9a7a1b3b365585261fb2`
+- result: PASS
+- artifact: `Mugen-Deej-VirtualGamepad-Prototype-4`
+- artifact ID: `10449403249`
+- inner prototype ZIP SHA-256: `cee785912cd67d78bc29dc069d3c7a3ab9569fb6e07e757d067f0788d7ada22c`
+
 ## Next test
 
 Status: WAITING FOR RETEST.
