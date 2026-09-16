@@ -28,6 +28,11 @@ internal static class Program
                 return RunServer(args.Skip(1).ToArray());
             }
 
+            if (args[0].Equals("cleanup", StringComparison.OrdinalIgnoreCase))
+            {
+                return RunCleanup();
+            }
+
             Console.Error.WriteLine($"Unknown command: {args[0]}");
             PrintUsage();
             return 2;
@@ -38,6 +43,23 @@ internal static class Program
             Console.Error.WriteLine(ex.ToString());
             return 1;
         }
+    }
+
+    private static int RunCleanup()
+    {
+        if (!IsAdministrator())
+        {
+            const string message = "Virtual controller cleanup must run elevated.";
+            Log("ERROR " + message);
+            Console.Error.WriteLine(message);
+            return 5;
+        }
+
+        Log("CLEANUP_START");
+        HMContext.RemoveAllVirtualControllers(preserveInstall: true);
+        Log("CLEANUP_DONE");
+        Console.WriteLine("Mugen virtual controller cleanup completed.");
+        return 0;
     }
 
     private static int RunServer(string[] args)
@@ -62,120 +84,140 @@ internal static class Program
 
         Log($"START profile={profileId}; identity={identityKey}; pipe={pipeName}");
 
-        using var context = new HMContext();
-        context.LoadDefaultProfiles();
-        context.InstallDriver();
-
-        var profile = context.GetProfile(profileId);
-        if (profile is null)
-        {
-            throw new InvalidOperationException($"HIDMaestro profile not found: {profileId}");
-        }
-
-        using var controller = context.CreateController(profile, identityKey);
-
-        var state = new HMGamepadState
-        {
-            Buttons = HMButton.None
-        };
-        controller.SubmitState(in state);
-
-        // The unelevated Mugen-side bridge owns the named-pipe server.
-        // This elevated helper connects as the client. A lower-integrity
-        // process can be blocked from opening an object created by the
-        // elevated process even when both tokens belong to the same user;
-        // reversing ownership avoids that UAC integrity boundary.
-        using var pipe = new NamedPipeClientStream(
-            ".",
-            pipeName,
-            PipeDirection.InOut,
-            PipeOptions.None
-        );
-
-        Log("CONNECTING_TO_BRIDGE");
-        pipe.Connect(60000);
-        Log("BRIDGE_CONNECTED");
-
-        var utf8 = new UTF8Encoding(false);
-        using var reader = new StreamReader(pipe, utf8, false, 4096, leaveOpen: true);
-        using var writer = new StreamWriter(pipe, utf8, 4096, leaveOpen: true)
-        {
-            AutoFlush = true,
-            NewLine = "\n"
-        };
-
-        writer.WriteLine($"READY|{profileId}");
-
         try
         {
-            while (pipe.IsConnected)
+            using var context = new HMContext();
+            context.LoadDefaultProfiles();
+            context.InstallDriver();
+
+            var profile = context.GetProfile(profileId);
+            if (profile is null)
             {
-                string? line = reader.ReadLine();
-                if (line is null)
-                {
-                    break;
-                }
+                throw new InvalidOperationException($"HIDMaestro profile not found: {profileId}");
+            }
 
-                line = line.Trim();
-                if (line.Length == 0)
-                {
-                    writer.WriteLine("OK");
-                    continue;
-                }
+            using var controller = context.CreateController(profile, identityKey);
 
-                if (line.Equals("ping", StringComparison.OrdinalIgnoreCase))
-                {
-                    writer.WriteLine("PONG");
-                    continue;
-                }
+            var state = new HMGamepadState
+            {
+                Buttons = HMButton.None
+            };
+            controller.SubmitState(in state);
 
-                if (line.Equals("release", StringComparison.OrdinalIgnoreCase))
-                {
-                    state.Buttons = HMButton.None;
-                    controller.SubmitState(in state);
-                    writer.WriteLine("OK");
-                    continue;
-                }
+            // The unelevated Mugen-side bridge owns the named-pipe server.
+            // This elevated helper connects as the client. A lower-integrity
+            // process can be blocked from opening an object created by the
+            // elevated process even when both tokens belong to the same user;
+            // reversing ownership avoids that UAC integrity boundary.
+            using var pipe = new NamedPipeClientStream(
+                ".",
+                pipeName,
+                PipeDirection.InOut,
+                PipeOptions.None
+            );
 
-                if (line.Equals("quit", StringComparison.OrdinalIgnoreCase))
-                {
-                    state.Buttons = HMButton.None;
-                    controller.SubmitState(in state);
-                    writer.WriteLine("BYE");
-                    break;
-                }
+            Log("CONNECTING_TO_BRIDGE");
+            pipe.Connect(60000);
+            Log("BRIDGE_CONNECTED");
 
-                if (line.StartsWith("buttons ", StringComparison.OrdinalIgnoreCase))
+            var utf8 = new UTF8Encoding(false);
+            using var reader = new StreamReader(pipe, utf8, false, 4096, leaveOpen: true);
+            using var writer = new StreamWriter(pipe, utf8, 4096, leaveOpen: true)
+            {
+                AutoFlush = true,
+                NewLine = "\n"
+            };
+
+            writer.WriteLine($"READY|{profileId}");
+
+            try
+            {
+                while (pipe.IsConnected)
                 {
-                    string valueText = line.Substring("buttons ".Length).Trim();
-                    if (!uint.TryParse(valueText, out uint mask))
+                    string? line = reader.ReadLine();
+                    if (line is null)
                     {
-                        writer.WriteLine("ERR|invalid button mask");
+                        Log("BRIDGE_DISCONNECTED");
+                        break;
+                    }
+
+                    line = line.Trim();
+                    if (line.Length == 0)
+                    {
+                        writer.WriteLine("OK");
                         continue;
                     }
 
-                    state.Buttons = (HMButton)mask;
+                    if (line.Equals("ping", StringComparison.OrdinalIgnoreCase))
+                    {
+                        writer.WriteLine("PONG");
+                        continue;
+                    }
+
+                    if (line.Equals("release", StringComparison.OrdinalIgnoreCase))
+                    {
+                        state.Buttons = HMButton.None;
+                        controller.SubmitState(in state);
+                        writer.WriteLine("OK");
+                        continue;
+                    }
+
+                    if (line.Equals("quit", StringComparison.OrdinalIgnoreCase))
+                    {
+                        state.Buttons = HMButton.None;
+                        controller.SubmitState(in state);
+                        writer.WriteLine("BYE");
+                        break;
+                    }
+
+                    if (line.StartsWith("buttons ", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string valueText = line.Substring("buttons ".Length).Trim();
+                        if (!uint.TryParse(valueText, out uint mask))
+                        {
+                            writer.WriteLine("ERR|invalid button mask");
+                            continue;
+                        }
+
+                        state.Buttons = (HMButton)mask;
+                        controller.SubmitState(in state);
+                        writer.WriteLine("OK");
+                        continue;
+                    }
+
+                    writer.WriteLine("ERR|unknown command");
+                }
+            }
+            finally
+            {
+                try
+                {
+                    state.Buttons = HMButton.None;
                     controller.SubmitState(in state);
-                    writer.WriteLine("OK");
-                    continue;
+                }
+                catch
+                {
+                    // Best-effort release during teardown.
                 }
 
-                writer.WriteLine("ERR|unknown command");
+                Log("STOP");
             }
         }
         finally
         {
+            // Backstop after normal controller/context disposal. HIDMaestro's
+            // explicit orphan sweep is intentionally preserved-install so a
+            // Mugen exit never turns into a driver uninstall/reinstall cycle.
             try
             {
-                state.Buttons = HMButton.None;
-                controller.SubmitState(in state);
+                Log("EXIT_SWEEP_START");
+                HMContext.RemoveAllVirtualControllers(preserveInstall: true);
+                Log("EXIT_SWEEP_DONE");
             }
-            catch
+            catch (Exception ex)
             {
-                // Best-effort release during teardown.
+                Log("EXIT_SWEEP_ERROR " + ex);
             }
-
-            Log("STOP");
         }
 
         return 0;
@@ -210,6 +252,7 @@ internal static class Program
         Console.WriteLine();
         Console.WriteLine("Usage:");
         Console.WriteLine("  MugenDeej.VirtualGamepadHost.exe server --pipe <name> [--profile xbox-360-wired] [--identity key]");
+        Console.WriteLine("  MugenDeej.VirtualGamepadHost.exe cleanup");
     }
 
     private static void Log(string message)
