@@ -110,20 +110,50 @@ CI after this fix:
 - artifact ID: `10449403249`
 - inner prototype ZIP SHA-256: `cee785912cd67d78bc29dc069d3c7a3ab9569fb6e07e757d067f0788d7ada22c`
 
+## 2026-09-16 — Prototype 0, attempt 3
+
+Result: PARTIAL PASS — end-to-end virtual Xbox button routing proven in `joy.cpl`.
+
+Observed on the real Extended controller:
+
+- controller detected on COM10 as 5 controls / 6 buttons;
+- UAC helper startup completed;
+- harness printed `Virtual Xbox 360 controller is ready.`;
+- Windows `joy.cpl` listed `Controller (XBOX 360 For Windows)` with status OK;
+- physical buttons 1 through 6 all produced corresponding virtual button activity in `joy.cpl`;
+- console masks changed through `0x01`, `0x02`, `0x04`, `0x08`, `0x10`, and `0x20`, confirming all six mapped inputs reached the bridge/backend path.
+
+This proves the current chain works on real hardware:
+
+```text
+Extended Mugen controller
+    -> serial parser
+    -> PowerShell bridge
+    -> named pipe
+    -> elevated helper
+    -> HIDMaestro
+    -> virtual Xbox 360 controller
+    -> joy.cpl
+```
+
+Still to verify before calling Prototype 0 fully PASS:
+
+1. Hold behavior: virtual button remains down for the full duration of a physical hold.
+2. Release behavior: virtual button clears immediately on physical release.
+3. Clean shutdown: Q/Esc releases all buttons and removes the virtual controller without leaving an orphan device.
+4. Real game binding: at least one physical Mugen button is accepted by a game as a gamepad input.
+
+No additional log is required for the successful `joy.cpl` button-routing result unless one of the remaining checks behaves incorrectly.
+
 ## Next test
 
-Status: WAITING FOR RETEST.
+Status: JOY.CPL ROUTING PASS / FINAL ACCEPTANCE CHECKS PENDING.
 
 Required observations:
 
-1. Extended 5+6 controller is detected.
-2. UAC accepted.
-3. Host log reaches `CONNECTING_TO_BRIDGE` then `BRIDGE_CONNECTED`.
-4. Harness prints `Virtual Xbox 360 controller is ready.`
-5. `joy.cpl` shows the virtual Xbox controller.
-6. Physical buttons 1–6 drive A/B/X/Y/LB/RB.
-7. Holding a physical button keeps the matching virtual input held.
-8. Releasing clears it.
-9. Q/Esc cleanly removes the virtual controller.
+1. Hold one physical button for several seconds and verify its virtual button stays held the entire time.
+2. Release it and verify the virtual state clears immediately.
+3. Press Q or Esc and verify the virtual Xbox controller disappears from `joy.cpl` or is otherwise cleanly removed.
+4. Launch one real game, enter its control-binding screen, and bind any one of physical buttons 1–6.
 
-Do not mark Prototype 0 hardware PASS until all relevant observations are confirmed on the real controller.
+Do not mark Prototype 0 fully hardware PASS until these remaining observations are confirmed.
