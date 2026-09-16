@@ -12,6 +12,10 @@ $script:VirtualGamepadStarting = $false
 $script:VirtualGamepadStartWaitHandle = $null
 $script:VirtualGamepadStartDeadline = [DateTime]::MinValue
 $script:VirtualGamepadStartTimer = $null
+$script:VirtualGamepadUiState = 'disabled'
+$script:VirtualGamepadUiTimer = $null
+$script:VirtualGamepadStatusDot = $null
+$script:VirtualGamepadStatusLabel = $null
 $script:VirtualGamepadLastMask = [uint32]::MaxValue
 $script:VirtualGamepadLastStartFailure = [DateTime]::MinValue
 $script:VirtualGamepadStartFailureCooldownSeconds = 20
@@ -29,6 +33,135 @@ $script:VirtualGamepadActionBits = @{
     'virtual:xbox:r3' = [uint32]512
 }
 
+function Ensure-MugenVirtualGamepadStatusUi {
+    $panelVariable = Get-Variable -Name statusPanel -Scope Script -ErrorAction SilentlyContinue
+    $labelVariable = Get-Variable -Name statusLabel -Scope Script -ErrorAction SilentlyContinue
+    $dotVariable = Get-Variable -Name statusDot -Scope Script -ErrorAction SilentlyContinue
+
+    if ($null -eq $panelVariable -or $null -eq $labelVariable -or $null -eq $dotVariable) {
+        return $false
+    }
+
+    $panel = $panelVariable.Value
+    $physicalLabel = $labelVariable.Value
+    $physicalDot = $dotVariable.Value
+
+    if (
+        $null -eq $panel -or $panel.IsDisposed -or
+        $null -eq $physicalLabel -or $physicalLabel.IsDisposed -or
+        $null -eq $physicalDot -or $physicalDot.IsDisposed
+    ) {
+        return $false
+    }
+
+    if ($null -eq $script:VirtualGamepadStatusDot -or $script:VirtualGamepadStatusDot.IsDisposed) {
+        $script:VirtualGamepadStatusDot = New-Object System.Windows.Forms.Label
+        $script:VirtualGamepadStatusDot.Text = '●'
+        $script:VirtualGamepadStatusDot.Font = New-Object System.Drawing.Font('Segoe UI', 11)
+        $script:VirtualGamepadStatusDot.AutoSize = $true
+        $script:VirtualGamepadStatusDot.Location = [System.Drawing.Point]::new(16, 31)
+        $script:VirtualGamepadStatusDot.Visible = $false
+        $panel.Controls.Add($script:VirtualGamepadStatusDot)
+    }
+
+    if ($null -eq $script:VirtualGamepadStatusLabel -or $script:VirtualGamepadStatusLabel.IsDisposed) {
+        $script:VirtualGamepadStatusLabel = New-Object System.Windows.Forms.Label
+        $script:VirtualGamepadStatusLabel.AutoSize = $false
+        $script:VirtualGamepadStatusLabel.Size = [System.Drawing.Size]::new(560, 25)
+        $script:VirtualGamepadStatusLabel.Location = [System.Drawing.Point]::new(46, 30)
+        $script:VirtualGamepadStatusLabel.TextAlign = 'MiddleLeft'
+        $script:VirtualGamepadStatusLabel.ForeColor = $physicalLabel.ForeColor
+        $script:VirtualGamepadStatusLabel.Visible = $false
+        $panel.Controls.Add($script:VirtualGamepadStatusLabel)
+    }
+
+    return $true
+}
+
+function Update-MugenVirtualGamepadStatusUi {
+    if (-not (Ensure-MugenVirtualGamepadStatusUi)) { return }
+
+    $physicalLabel = (Get-Variable -Name statusLabel -Scope Script).Value
+    $physicalDot = (Get-Variable -Name statusDot -Scope Script).Value
+
+    $enabled = (
+        $script:VirtualGamepadConfigLoaded -and
+        $null -ne $script:VirtualGamepadConfig -and
+        [bool]$script:VirtualGamepadConfig.enabled
+    )
+
+    if (-not $enabled) {
+        $script:VirtualGamepadStatusDot.Visible = $false
+        $script:VirtualGamepadStatusLabel.Visible = $false
+        $physicalDot.Location = [System.Drawing.Point]::new(14, 12)
+        $physicalLabel.Location = [System.Drawing.Point]::new(46, 10)
+        $physicalLabel.Size = [System.Drawing.Size]::new(560, 38)
+        return
+    }
+
+    $physicalDot.Location = [System.Drawing.Point]::new(14, 0)
+    $physicalLabel.Location = [System.Drawing.Point]::new(46, 0)
+    $physicalLabel.Size = [System.Drawing.Size]::new(560, 29)
+
+    $script:VirtualGamepadStatusDot.Visible = $true
+    $script:VirtualGamepadStatusLabel.Visible = $true
+    $script:VirtualGamepadStatusLabel.ForeColor = $physicalLabel.ForeColor
+
+    $ru = ($script:Language -eq 'ru')
+    $text = if ($ru) { 'Виртуальный геймпад: ожидает контроллер' } else { 'Virtual gamepad: waiting for controller' }
+    $color = [System.Drawing.Color]::Gray
+
+    switch ($script:VirtualGamepadUiState) {
+        'starting' {
+            $text = if ($ru) { 'Виртуальный геймпад: подключается…' } else { 'Virtual gamepad: connecting…' }
+            $color = [System.Drawing.Color]::RoyalBlue
+        }
+        'ready' {
+            $text = if ($ru) { 'Mugen Deej Virtual Gamepad: подключён' } else { 'Mugen Deej Virtual Gamepad: connected' }
+            $color = [System.Drawing.Color]::SeaGreen
+        }
+        'error' {
+            $text = if ($ru) { 'Виртуальный геймпад: ошибка запуска' } else { 'Virtual gamepad: startup failed' }
+            $color = [System.Drawing.Color]::Firebrick
+        }
+        default {
+            $text = if ($ru) { 'Виртуальный геймпад: ожидает контроллер' } else { 'Virtual gamepad: waiting for controller' }
+            $color = [System.Drawing.Color]::Gray
+        }
+    }
+
+    if ($script:VirtualGamepadStatusLabel.Text -ne $text) {
+        $script:VirtualGamepadStatusLabel.Text = $text
+    }
+    $script:VirtualGamepadStatusDot.ForeColor = $color
+}
+
+function Set-MugenVirtualGamepadUiState {
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('disabled','waiting','starting','ready','error')]
+        [string]$State
+    )
+
+    $script:VirtualGamepadUiState = $State
+    try { Update-MugenVirtualGamepadStatusUi } catch { }
+}
+
+function Ensure-MugenVirtualGamepadUiTimer {
+    if ($null -ne $script:VirtualGamepadUiTimer) { return }
+
+    $script:VirtualGamepadUiTimer = New-Object System.Windows.Forms.Timer
+    $script:VirtualGamepadUiTimer.Interval = 500
+    $script:VirtualGamepadUiTimer.Add_Tick({
+        try {
+            Initialize-MugenVirtualGamepadConfig
+            Update-MugenVirtualGamepadStatusUi
+        }
+        catch { }
+    })
+    $script:VirtualGamepadUiTimer.Start()
+}
+
 function New-MugenVirtualGamepadConfig {
     return [pscustomobject][ordered]@{
         configVersion = 1
@@ -44,6 +177,7 @@ function Initialize-MugenVirtualGamepadConfig {
     $script:VirtualGamepadConfig = New-MugenVirtualGamepadConfig
 
     if (-not (Test-Path -LiteralPath $script:VirtualGamepadConfigPath -PathType Leaf)) {
+        $script:VirtualGamepadUiState = 'disabled'
         return
     }
 
@@ -64,10 +198,12 @@ function Initialize-MugenVirtualGamepadConfig {
             enabled = $enabled
             type = $type
         }
+        $script:VirtualGamepadUiState = $(if ($enabled) { 'waiting' } else { 'disabled' })
     }
     catch {
         Write-Log ('Virtual controller config could not be read; using defaults: {0}' -f $_.Exception.Message) 'WARN'
         $script:VirtualGamepadConfig = New-MugenVirtualGamepadConfig
+        $script:VirtualGamepadUiState = 'disabled'
     }
 }
 
@@ -112,6 +248,19 @@ function Set-MugenVirtualGamepadEnabled {
     Initialize-MugenVirtualGamepadConfig
     $script:VirtualGamepadConfig.enabled = $Enabled
     Save-MugenVirtualGamepadConfig
+
+    if (-not $Enabled) {
+        Set-MugenVirtualGamepadUiState -State 'disabled'
+    }
+    elseif ($script:VirtualGamepadActive) {
+        Set-MugenVirtualGamepadUiState -State 'ready'
+    }
+    elseif ($script:VirtualGamepadStarting) {
+        Set-MugenVirtualGamepadUiState -State 'starting'
+    }
+    else {
+        Set-MugenVirtualGamepadUiState -State 'waiting'
+    }
 
     Write-Log ('Virtual controller setting changed: enabled={0}; type={1}' -f $Enabled, $script:VirtualGamepadConfig.type) 'INFO'
 }
@@ -197,6 +346,7 @@ function Fail-MugenVirtualGamepadStart {
     Clear-MugenVirtualGamepadStartWait
     Write-Log ('Virtual controller start failed: {0}' -f $Message) 'WARN'
     Reset-MugenVirtualGamepadBridgeObjects
+    Set-MugenVirtualGamepadUiState -State 'error'
 }
 
 function Complete-MugenVirtualGamepadStart {
@@ -248,6 +398,7 @@ function Complete-MugenVirtualGamepadStart {
         $script:VirtualGamepadLastMask = [uint32]::MaxValue
         $script:VirtualGamepadLastStartFailure = [DateTime]::MinValue
         Stop-MugenVirtualGamepadStartTimer
+        Set-MugenVirtualGamepadUiState -State 'ready'
         Write-Log 'Virtual controller ready: Mugen Deej Virtual Gamepad (Xbox 360 / XInput).' 'INFO'
 
         # Push the freshest full button state immediately after the bridge comes
@@ -316,7 +467,10 @@ function Start-MugenVirtualGamepad {
     if (-not [bool]$script:VirtualGamepadConfig.enabled) { return $false }
     if ($script:VirtualGamepadActive) { return $true }
     if ($script:VirtualGamepadStarting) { return $false }
-    if (-not $script:IsConnected -or $script:DetectedButtonCount -le 0) { return $false }
+    if (-not $script:IsConnected -or $script:DetectedButtonCount -le 0) {
+        Set-MugenVirtualGamepadUiState -State 'waiting'
+        return $false
+    }
 
     if (
         $script:VirtualGamepadLastStartFailure -ne [DateTime]::MinValue -and
@@ -329,10 +483,12 @@ function Start-MugenVirtualGamepad {
     if (-not (Test-Path -LiteralPath $hostPath -PathType Leaf)) {
         Write-Log ('Virtual controller host is missing: {0}' -f $hostPath) 'WARN'
         $script:VirtualGamepadLastStartFailure = Get-Date
+        Set-MugenVirtualGamepadUiState -State 'error'
         return $false
     }
 
     $script:VirtualGamepadStarting = $true
+    Set-MugenVirtualGamepadUiState -State 'starting'
     Reset-MugenVirtualGamepadBridgeObjects
 
     try {
@@ -403,6 +559,7 @@ function Update-MugenVirtualGamepadButtonStates {
         if ($script:VirtualGamepadActive -or $script:VirtualGamepadStarting) {
             Stop-MugenVirtualGamepad -Reason 'virtual controller disabled'
         }
+        Set-MugenVirtualGamepadUiState -State 'disabled'
         return
     }
 
@@ -410,6 +567,7 @@ function Update-MugenVirtualGamepadButtonStates {
         if ($script:VirtualGamepadActive -or $script:VirtualGamepadStarting) {
             Stop-MugenVirtualGamepad -Reason 'physical controller unavailable'
         }
+        Set-MugenVirtualGamepadUiState -State 'waiting'
         return
     }
 
@@ -435,10 +593,12 @@ function Sync-MugenVirtualGamepadState {
 
     if (-not [bool]$script:VirtualGamepadConfig.enabled) {
         Stop-MugenVirtualGamepad -Reason 'virtual controller disabled in settings'
+        Set-MugenVirtualGamepadUiState -State 'disabled'
         return $true
     }
 
     if (-not $script:IsConnected -or $script:DetectedButtonCount -le 0) {
+        Set-MugenVirtualGamepadUiState -State 'waiting'
         return $false
     }
 
@@ -450,3 +610,5 @@ function Sync-MugenVirtualGamepadState {
     [void](Start-MugenVirtualGamepad)
     return $script:VirtualGamepadActive
 }
+
+Ensure-MugenVirtualGamepadUiTimer
