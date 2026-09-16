@@ -167,7 +167,7 @@ Latest tested package came from run `35104680482` / run number `4`, artifact `Mu
 
 ### Prototype 0 real-hardware status
 
-CORE INPUT PATH PASS / CLEANUP BUG FOUND.
+CORE INPUT PATH PASS / TEARDOWN BEHAVIOR NOT YET ACCEPTABLE.
 
 Confirmed with the existing 5-control / 6-button Extended controller on COM10:
 
@@ -182,12 +182,22 @@ Confirmed with the existing 5-control / 6-button Extended controller on COM10:
 
 Observed bridge masks included `0x01`, `0x02`, `0x04`, `0x08`, `0x10`, and `0x20`.
 
-Known bug: closing the terminal window directly bypasses the PowerShell `finally` cleanup. Button routing stops, but the virtual Xbox device can remain visible in `joy.cpl` as an orphan. This is a prototype robustness bug, not user error.
+Known teardown findings:
 
-Remaining before Prototype 0 is fully PASS:
+- hard-closing the terminal bypasses the PowerShell `finally` path and can orphan the virtual controller;
+- restarting the prototype can recover/recreate the controller path, but this does not prove graceful removal;
+- exiting with `Q` releases input state and closes the helper, but while `joy.cpl` was open Windows kept the device enumerated and raised a restart-required notification for `Controller (XBOX 360 For Windows)`;
+- repeated full close/reopen of `joy.cpl` did not remove the entry, so this was a real Windows PnP pending-removal state, not a UI cache artifact;
+- HIDMaestro source confirms its removal path can report `Removed on reboot`, and `HMContext.RemoveAllVirtualControllers(bool preserveInstall)` is available for explicit consumer cleanup.
 
-- helper-side bridge-process watchdog / hard-close cleanup;
-- Q/Esc clean shutdown removes the virtual controller;
+Next cleanup experiment after one Windows reboot: run the controller again, verify it, close all `joy.cpl`/properties windows before pressing Q, then reopen `joy.cpl`. This will distinguish an open-consumer-handle veto from a backend teardown defect/limitation.
+
+Planned hardening before integration:
+
+- explicit elevated cleanup command using `HMContext.RemoveAllVirtualControllers(preserveInstall: true)`;
+- helper-side bridge-loss watchdog / hard-close cleanup;
+- best-effort virtual-button release on every teardown path;
+- no claim of Prototype 0 full PASS until virtual device removal no longer leaves an unexpected reboot requirement in the normal path;
 - at least one successful button bind in a real game.
 
 Full attempt-by-attempt history is in `docs/VIRTUAL_CONTROLLER_TEST_LOG.md`.
@@ -231,7 +241,7 @@ Manual profile switching comes first. Automatic switching by foreground game/pro
 
 ## Planned integration after prototype 0
 
-1. Fix hard-close/orphan cleanup and verify Q/Esc cleanup.
+1. Resolve no-reboot teardown behavior, add explicit cleanup, and verify hard-close recovery.
 2. Prove a real game accepts the virtual Xbox controller input.
 3. Add a minimal virtual-controller service abstraction to Mugen Deej.
 4. Integrate `virtual:button:N` mappings into Extended button settings.
