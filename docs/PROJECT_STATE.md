@@ -1,6 +1,6 @@
 # Mugen Deej — living project state
 
-Last updated: 2026-09-16
+Last updated: 2026-09-17
 
 This is the authoritative short handoff for active development. Detailed prototype history is in `docs/VIRTUAL_CONTROLLER_TEST_LOG.md`; current product-integration work is in `docs/VIRTUAL_GAMEPAD_INTEGRATION.md`.
 
@@ -141,7 +141,7 @@ The standalone harness is now a development fixture, not the intended product UI
 
 ## Integrated product milestone 1 — current work
 
-Status: **CI PASS / HARDWARE RE-TEST REQUIRED AFTER FIRST INTEGRATION FAILURE.**
+Status: **PARTIAL REAL-HARDWARE PASS / NONBLOCKING STARTUP HARDWARE RE-TEST PENDING.**
 
 The integrated development build routes the proven Xbox backend through the actual Mugen Deej Button Settings/runtime while leaving the stable source/release untouched.
 
@@ -163,25 +163,38 @@ First integrated real-hardware attempt exposed two bugs:
 1. Helper startup was reentrant because `Start-MugenVirtualGamepad` used `Application.DoEvents()` while waiting for UAC/helper connection. Full-state serial packets could re-enter startup before the first helper became active, spawning dozens of helpers and starving COM processing until the controller timed out/reconnected.
 2. The stable v1.0.0 `Normalize-ButtonActions` function did not know `virtual:xbox:*`, so capability re-detection rewrote valid virtual mappings to `none`.
 
-Fixes now on the branch:
+Fixes:
 
 - `aafb1c85784568228023e659bbeae4c0543e5fe1` — single-start guard for the virtual helper;
 - `d255724b6e75e980289ad03cab38591b0690ff6a` — preserve virtual mappings through normalization using literal source patching;
-- `5bc2fee8db9a98c130b288a4142a4c88c9d0921a` — CI now reports PowerShell parser errors correctly instead of using the read-only `$Error` variable.
+- `5bc2fee8db9a98c130b288a4142a4c88c9d0921a` — CI reports PowerShell parser errors correctly instead of using the read-only `$Error` variable.
+
+Run #10 real-hardware re-test proved the catastrophic integration bugs fixed:
+
+- only one elevated helper startup;
+- COM10 remained connected;
+- `Mugen Deej Virtual Gamepad` enumerated in `joy.cpl` with neutral axes;
+- A/B mappings worked and remained present when Button Settings was reopened;
+- adding another mapping after the virtual gamepad was already active was responsive.
+
+Remaining UX issue from run #10: the first virtual-controller creation blocked the Mugen UI for about 16.8 seconds while HIDMaestro/Windows completed HID/PnP setup. The user observed the device notification before Mugen became responsive again.
+
+Nonblocking startup fix:
+
+- `7308b73f2507d795cb1a0fd4c43dce11bb8ea5cc` — replace the synchronous `DoEvents()` / sleep wait loop with `BeginWaitForConnection` plus a WinForms timer, so startup is pending in the background while the UI and serial processing remain responsive.
 
 Latest integration CI:
 
-- run #10 `35128191508`: **PASS**;
-- head: `d255724b6e75e980289ad03cab38591b0690ff6a`;
+- run #11 `35133757062`: **PASS**;
+- head: `7308b73f2507d795cb1a0fd4c43dce11bb8ea5cc`;
 - Windows PowerShell 5.1 parse check: PASS;
-- reentrant-start guard static check: PASS;
 - helper publish/smoke test: PASS;
 - launcher build/package: PASS;
-- artifact: `Mugen-Deej-VirtualGamepad-Integrated-10`;
-- artifact ID: `10459379492`;
-- inner dev ZIP SHA-256: `95634c6036fccbfee44c012e171f1209c75c7b65401403d882afb21a7ffe73d6`.
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-11`;
+- artifact ID: `10462991104`;
+- inner dev ZIP SHA-256: `d7e082d69f87bf0e73393760a7dfcf466c64ad7ddf88db00578988dfb761258e`.
 
-Do not call integrated milestone 1 a hardware PASS yet. The fixed run #10 package must be re-tested on the physical Extended controller.
+Do not call the startup-lag issue hardware PASS until run #11 is exercised on the physical Extended controller.
 
 Implementation files:
 
@@ -232,11 +245,11 @@ Manual profile switching comes first. Automatic switching by game/process is def
 
 ## Next steps
 
-1. Re-test integrated milestone 1 run #10 on the existing Extended 5+6 controller.
-2. Verify enabling XInput causes exactly one helper startup and the physical COM connection stays stable.
-3. Verify saved virtual mappings remain present after reopen/reconnect/capability re-detection.
-4. Verify `Mugen Deej Virtual Gamepad` stateful button output, normal close and one hard-close cleanup.
-5. Re-check a real XInput game.
+1. Hardware-test run #11 and verify the Mugen UI stays responsive throughout first XInput creation.
+2. Confirm COM10 remains stable while virtual startup is pending and exactly one helper is launched.
+3. Reopen/reconnect and confirm saved virtual mappings remain intact.
+4. Verify normal close and one hard-close cleanup from the integrated runtime.
+5. Re-check a real XInput game from the integrated runtime.
 6. After PASS, consolidate integration into normal source and remove the temporary runtime patcher.
 7. Add analog control → virtual axis routing.
 8. Introduce Profiles and move virtual config/mappings into them.
