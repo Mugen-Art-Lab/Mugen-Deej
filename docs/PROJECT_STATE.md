@@ -90,6 +90,8 @@ A physical element can eventually route to one of several destinations. The impo
 
 On disconnect, suspend, backend failure, profile change, app exit, or bridge failure, all virtual buttons must be released and the virtual device must be torn down so a game never sees stuck or orphaned input.
 
+**A reboot requirement for normal creation/removal/recovery is not acceptable product behavior.** Mugen is expected to coexist with long-running PCs, sleep/hibernate cycles, and unrelated uptime tests. Any backend or integration path that routinely needs Windows restart for virtual-controller teardown is a blocker, not an acceptable cleanup instruction.
+
 ### Compatibility modes
 
 Planned user-facing virtual-controller types:
@@ -130,6 +132,7 @@ Files:
 - `tools/Prepare-HIDMaestro.ps1` — downloads HIDMaestro 1.8.0, verifies the pinned archive hash, extracts the SDK DLL/license for the build.
 - `dev/virtual-gamepad/Mugen-VirtualGamepad-Prototype.ps1` — serial bridge test harness.
 - `dev/virtual-gamepad/RUN-VIRTUAL-GAMEPAD-PROTOTYPE.cmd` — test launcher.
+- `dev/virtual-gamepad/RUN-VIRTUAL-GAMEPAD-CLEANUP.cmd` — explicit live cleanup launcher.
 - `.github/workflows/build-virtual-gamepad-prototype.yml` — isolated prototype artifact build.
 
 Prototype behavior:
@@ -163,7 +166,20 @@ First six physical buttons are temporarily mapped as:
 
 PASS — CI build/package smoke test.
 
-Latest tested package came from run `35104680482` / run number `4`, artifact `Mugen-Deej-VirtualGamepad-Prototype-4`, inner ZIP SHA-256 `cee785912cd67d78bc29dc069d3c7a3ab9569fb6e07e757d067f0788d7ada22c`.
+Latest cleanup-hardened package:
+
+- workflow run: `35110165971` / run number `8`
+- head: `98902bebf7b7eaaf84e52b904348836cff295da6`
+- artifact: `Mugen-Deej-VirtualGamepad-Prototype-8`
+- artifact ID: `10452027277`
+- inner ZIP SHA-256: `37bebc2cc315f2cb54dc0a87b359cd1f4a6866f66f249d4b40e3cb9738173cfa`
+
+Changes in this build:
+
+- helper command `cleanup` calls `HMContext.RemoveAllVirtualControllers(preserveInstall: true)`;
+- normal helper exit now runs the same preserve-install sweep as a teardown backstop after controller/context disposal;
+- bridge disconnect is logged explicitly;
+- packaged `RUN-VIRTUAL-GAMEPAD-CLEANUP.cmd` elevates and runs the cleanup command without uninstalling the backend.
 
 ### Prototype 0 real-hardware status
 
@@ -184,20 +200,19 @@ Observed bridge masks included `0x01`, `0x02`, `0x04`, `0x08`, `0x10`, and `0x20
 
 Known teardown findings:
 
-- hard-closing the terminal bypasses the PowerShell `finally` path and can orphan the virtual controller;
-- restarting the prototype can recover/recreate the controller path, but this does not prove graceful removal;
-- exiting with `Q` releases input state and closes the helper, but while `joy.cpl` was open Windows kept the device enumerated and raised a restart-required notification for `Controller (XBOX 360 For Windows)`;
-- repeated full close/reopen of `joy.cpl` did not remove the entry, so this was a real Windows PnP pending-removal state, not a UI cache artifact;
-- HIDMaestro source confirms its removal path can report `Removed on reboot`, and `HMContext.RemoveAllVirtualControllers(bool preserveInstall)` is available for explicit consumer cleanup.
+- hard-closing the terminal can leave the virtual controller enumerated after the bridge/helper process disappears;
+- exiting with `Q` released input state, but Windows later reported restart-required for the virtual Xbox device;
+- repeated full close/reopen of `joy.cpl` did not remove the entry, so this was not a stale applet cache;
+- the user is deliberately maintaining a multi-day hibernation/uptime test and rebooting just to clean a virtual controller is explicitly unacceptable;
+- current recovery target is therefore live cleanup on the running Windows session, not reboot-based recovery.
 
-Next cleanup experiment after one Windows reboot: run the controller again, verify it, close all `joy.cpl`/properties windows before pressing Q, then reopen `joy.cpl`. This will distinguish an open-consumer-handle veto from a backend teardown defect/limitation.
+Next test: use prototype build 8's `RUN-VIRTUAL-GAMEPAD-CLEANUP.cmd` against the currently orphaned controller. If it removes the controller immediately, mark the emergency cleanup path PASS and then retest normal exit/hard-close behavior with the new exit sweep. If it still leaves Windows pending reboot, HIDMaestro's Xbox teardown path is not suitable as-is and needs deeper investigation or a backend change before product integration.
 
-Planned hardening before integration:
+Remaining before Prototype 0 is fully PASS:
 
-- explicit elevated cleanup command using `HMContext.RemoveAllVirtualControllers(preserveInstall: true)`;
-- helper-side bridge-loss watchdog / hard-close cleanup;
-- best-effort virtual-button release on every teardown path;
-- no claim of Prototype 0 full PASS until virtual device removal no longer leaves an unexpected reboot requirement in the normal path;
+- explicit cleanup removes current orphan without reboot;
+- normal Q/Esc teardown removes the virtual controller immediately;
+- hard-close/bridge-loss recovery removes the virtual controller without reboot;
 - at least one successful button bind in a real game.
 
 Full attempt-by-attempt history is in `docs/VIRTUAL_CONTROLLER_TEST_LOG.md`.
