@@ -80,17 +80,21 @@ internal static class Program
         };
         controller.SubmitState(in state);
 
-        using var pipe = new NamedPipeServerStream(
+        // The unelevated Mugen-side bridge owns the named-pipe server.
+        // This elevated helper connects as the client. A lower-integrity
+        // process can be blocked from opening an object created by the
+        // elevated process even when both tokens belong to the same user;
+        // reversing ownership avoids that UAC integrity boundary.
+        using var pipe = new NamedPipeClientStream(
+            ".",
             pipeName,
             PipeDirection.InOut,
-            1,
-            PipeTransmissionMode.Byte,
             PipeOptions.None
         );
 
-        Log("WAITING_FOR_CLIENT");
-        pipe.WaitForConnection();
-        Log("CLIENT_CONNECTED");
+        Log("CONNECTING_TO_BRIDGE");
+        pipe.Connect(60000);
+        Log("BRIDGE_CONNECTED");
 
         var utf8 = new UTF8Encoding(false);
         using var reader = new StreamReader(pipe, utf8, false, 4096, leaveOpen: true);
