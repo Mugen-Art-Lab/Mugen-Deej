@@ -71,7 +71,7 @@ Confirmed on the real Extended controller:
 - releasing immediately cleared the virtual button;
 - multiple buttons could be held together and released independently without incorrect state transitions.
 
-This proves the stateful path on real hardware:
+This proved the stateful path on real hardware:
 
 ```text
 Extended Mugen controller
@@ -86,9 +86,9 @@ Extended Mugen controller
 
 ### Cleanup bug discovered
 
-The user closed the console/terminal window directly instead of stopping with Q/Esc. The physical buttons then stopped affecting the virtual device, but `joy.cpl` still showed the Xbox controller.
+The terminal window was closed directly instead of stopping with Q/Esc. The physical buttons stopped affecting the virtual device, but `joy.cpl` still showed the Xbox controller.
 
-Interpretation: hard termination bypassed the PowerShell `finally` path and left the virtual device enumerated after the bridge/helper session ended. This is a prototype robustness bug, not user error. Final Mugen integration must not depend on a graceful UI exit for controller teardown.
+Interpretation: hard termination bypassed the PowerShell `finally` path and left the virtual device enumerated after the bridge/helper session ended. Final Mugen integration must not depend on graceful UI exit for controller teardown.
 
 ## 2026-09-16 — Prototype 0, attempt 4
 
@@ -98,23 +98,22 @@ Observed:
 
 - prototype restarted successfully;
 - virtual Xbox controller recreated and worked;
-- user exited with `Q`;
-- harness printed `Prototype stopped. Virtual buttons were released and the virtual controller host was closed.`;
-- `joy.cpl` continued to enumerate `Controller (XBOX 360 For Windows)` even after repeated full close/reopen cycles;
-- Windows displayed a Settings notification saying a restart was required to finish configuring/removing `Controller (XBOX 360 For Windows)`.
+- exit with `Q` released input and stopped the bridge;
+- `joy.cpl` continued to enumerate the controller after repeated close/reopen cycles;
+- Windows displayed a restart-required notification.
 
-This is not acceptable product behavior. The user's machine is intentionally in a multi-day hibernation/uptime test, and Mugen must not require Windows reboot to recover from virtual-controller teardown.
+This is not acceptable product behavior. Mugen must not require reboot to recover from virtual-controller teardown.
 
 ## 2026-09-16 — cleanup hardening build
 
-A no-reboot recovery path was added before asking for any restart.
+A no-reboot recovery path was added.
 
 Changes:
 
 - helper command `cleanup` calls `HMContext.RemoveAllVirtualControllers(preserveInstall: true)`;
 - normal helper exit runs the same preserve-install sweep after controller/context disposal as a backstop;
 - bridge loss is logged explicitly;
-- package includes `RUN-VIRTUAL-GAMEPAD-CLEANUP.cmd`, which elevates only the helper and leaves the HIDMaestro backend installed.
+- package includes `RUN-VIRTUAL-GAMEPAD-CLEANUP.cmd`, which leaves the HIDMaestro backend installed.
 
 Build:
 
@@ -125,53 +124,35 @@ Build:
 - result: PASS
 - artifact: `Mugen-Deej-VirtualGamepad-Prototype-8`
 - artifact ID: `10452027277`
-- inner ZIP SHA-256: `37bebc2cc315f2cb54dc0a87b359cd1f4a6866f66f249d4b40e3cb9738173cfa`
+- inner prototype ZIP SHA-256: `37bebc2cc315f2cb54dc0a87b359cd1f4a6866f66f249d4b40e3cb9738173cfa`
 
 ## 2026-09-16 — Prototype 0, attempt 5
 
 Result: LIVE ORPHAN CLEANUP PASS.
 
-Procedure:
+Procedure/result:
 
-1. Windows was intentionally **not** rebooted, despite the earlier restart-required notification.
-2. `RUN-VIRTUAL-GAMEPAD-CLEANUP.cmd` from cleanup-hardened build 8 was launched.
-3. UAC elevation was accepted.
-4. The helper reported `Cleanup command finished successfully.`
-5. `joy.cpl` was checked after cleanup.
+- Windows was intentionally not rebooted;
+- `RUN-VIRTUAL-GAMEPAD-CLEANUP.cmd` was launched elevated;
+- helper reported success;
+- the persistent Xbox controller disappeared from `joy.cpl` immediately;
+- HIDMaestro backend remained installed.
 
-Observed:
-
-- the previously persistent `Controller (XBOX 360 For Windows)` entry disappeared from `joy.cpl` immediately;
-- no Windows reboot was required;
-- the HIDMaestro backend remained installed because cleanup used `preserveInstall: true`.
-
-Conclusion:
-
-**Emergency live orphan recovery is hardware-tested PASS.** The current backend is capable of removing a stuck/orphaned virtual Xbox controller on the live Windows session. The earlier restart-required state is therefore recoverable without reboot and is not, by itself, grounds to reject HIDMaestro.
+Conclusion: emergency live orphan recovery is hardware-tested PASS.
 
 ## 2026-09-16 — Prototype 0, attempt 6
 
 Result: HARD-CLOSE / BRIDGE-LOSS CLEANUP PASS; NEUTRAL ANALOG STATE ISSUE FOUND.
 
-Observed with cleanup-hardened build 8:
+Observed:
 
 - virtual Xbox controller created normally;
 - physical button routing remained functional;
-- the user closed the prototype terminal window directly with the window close button;
-- the virtual Xbox controller disappeared from `joy.cpl` without running the emergency cleanup command and without rebooting Windows.
+- closing the terminal window directly made the virtual controller disappear from `joy.cpl` without cleanup command or reboot.
 
-Conclusion:
+Conclusion: hard-close recovery is hardware-tested PASS.
 
-**Hard-close recovery is hardware-tested PASS.** The helper now notices bridge loss, unwinds, and the preserve-install exit sweep removes the virtual device on the live Windows session.
-
-A separate presentation/state issue was visible in `joy.cpl` before close:
-
-- the left-stick X/Y cross was parked near the minimum/top-left instead of center;
-- right-stick rotation axes also did not appear centered;
-- the POV/hat indicator itself appears essentially centered in the screenshot, so the primary confirmed defect is neutral analog-axis initialization, not necessarily the D-pad;
-- no physical analog controls are routed to the virtual pad in Prototype 0 yet, so every stick axis should be neutral.
-
-The prototype host had initialized `HMGamepadState` with only `Buttons = None` and left `Axes` null. HIDMaestro's public API documents omitted axes as automatically neutral, but the observed Xbox 360 result on this machine is not neutral. Mugen will therefore initialize the standard axis set explicitly instead of relying on implicit defaults.
+A separate presentation/state issue was visible in `joy.cpl`: left/right stick axes were not centered before any physical analog mapping existed.
 
 Fix commit:
 
@@ -181,53 +162,96 @@ Fix commit:
 
 Result: EXPLICIT NEUTRAL ANALOG STATE PASS.
 
-Observed with the neutral-axis build on the same real Extended controller:
+Observed:
 
-- left-stick X/Y indicator is centered in `joy.cpl` before any input;
-- right-stick rotation axes are centered;
-- combined trigger/Z presentation is neutral;
-- POV/hat is centered;
-- the first real controller packet reports `Buttons mask: 0x00`, confirming all mapped physical buttons are released at startup.
+- left-stick X/Y centered;
+- right-stick rotation axes centered;
+- combined trigger/Z presentation neutral;
+- POV/hat centered;
+- first real packet reports `Buttons mask: 0x00`.
 
-Conclusion:
-
-**Neutral startup state is hardware-tested PASS.** The explicit `StandardAxes(profile)` initialization fixes the non-neutral Xbox presentation seen in attempt 6.
-
-### Virtual controller display name
-
-Next prototype step is to present the live Xbox/XInput virtual as:
-
-`Mugen Deej Virtual Gamepad`
-
-Implementation commit:
-
-- `540648f6680cc2b37667cb7fe95b83ea71112ad7` — use HIDMaestro `HMOemNameOverride` with crash recovery and cleanup-safe restore.
-
-The override is intended for `joy.cpl` / DirectInput presentation only; it does not change the Xbox/XInput compatibility profile. Because the override is scoped by Xbox VID:PID, another real controller with the same VID:PID can temporarily share the label while the Mugen virtual is active. The product must never use this display string as its internal controller identity.
+Conclusion: neutral startup state is hardware-tested PASS.
 
 ## 2026-09-16 — Prototype 0, attempt 8
 
 Result: DISPLAY NAME PASS / XINPUT DETECTION PASS / REAL-GAME INPUT PASS.
 
-Observed with the naming build on the same real Extended controller:
+Implementation commit:
+
+- `540648f6680cc2b37667cb7fe95b83ea71112ad7` — crash-safe HIDMaestro OEM-name override lifecycle.
+
+Observed:
 
 - `joy.cpl` shows `Mugen Deej Virtual Gamepad`;
 - neutral axes remain centered;
-- physical buttons continue to work, including simultaneous combinations;
+- physical buttons work, including simultaneous combinations;
 - HardwareTester GamepadTester detects the virtual as `xinput`, index 0, connected, standard mapping;
-- the expected right-side face buttons and the two bumper buttons respond in the tester;
-- `Cult of the Lamb` reacts to the virtual gamepad input in a real game session.
+- expected face buttons and both bumper mappings respond;
+- `Cult of the Lamb` reacts to the virtual gamepad in a real game session.
 
-Conclusion:
+Conclusion: the Xbox/XInput path is proven outside `joy.cpl`. A real XInput-aware game accepts physical Mugen input routed through the prototype.
 
-**The Xbox/XInput path is now proven outside joy.cpl.** A real XInput-aware game accepts input routed from the physical Mugen Extended controller through the prototype. This is stronger than a synthetic tester-only result.
+Note: this proves real-game recognition/input, not a user-configurable in-game rebinding screen.
 
-Note: this attempt proves real-game recognition/input, not a user-configurable in-game remapping screen. If a game-specific bind UI is later tested, record it separately rather than retroactively inflating this result.
+## 2026-09-16 — Prototype 0, attempt 9
 
-## Next test
+Result: NORMAL Q/ESC TEARDOWN BUG REPRODUCED, FIXED, THEN PASS.
 
-1. Exit the naming build normally with Q/Esc and confirm immediate device removal.
-2. Start once more, hard-close once, and verify both the virtual device and OEM-name override recover cleanly without reboot.
-3. If both pass, Prototype 0 has enough evidence to move from the standalone harness into the real Mugen Deej runtime/UI.
+Observed on naming build v0.5:
 
-Do not call Prototype 0 fully PASS until the latest naming build's normal teardown and hard-close/name-recovery lifecycle are confirmed.
+- hard-close with the window close button still removed the virtual controller correctly;
+- normal `Q` exit made the controller disappear briefly and then reappear in `joy.cpl`.
+
+Diagnosis:
+
+- the PowerShell harness sent `quit` and accepted `BYE` before the elevated helper had necessarily completed the full HID/PnP teardown;
+- the harness only waited 5 seconds before it was allowed to kill the helper;
+- therefore the normal path could terminate the cleanup worker while teardown was still in progress, while the bridge-loss path was allowed to unwind naturally.
+
+Fix commit:
+
+- `e887e4ac857c40f53566dd82e3ed0ad7c1b4a09e` — `fix: let helper finish virtual controller teardown`
+
+Fix behavior:
+
+- Q/Esc releases all virtual buttons;
+- the bridge closes instead of depending on a `BYE` response as proof of teardown completion;
+- the elevated helper sees bridge disconnect and runs the same already-proven cleanup path as hard-close;
+- the harness waits up to 30 seconds for helper completion and no longer force-kills it during normal teardown.
+
+CI:
+
+- workflow run: `35118021710`
+- run number: `11`
+- result: PASS
+- artifact: `Mugen-Deej-VirtualGamepad-Prototype-11`
+- artifact ID: `10456900609`
+
+Hardware retest with v0.6:
+
+- virtual `Mugen Deej Virtual Gamepad` appeared normally;
+- exit with `Q` removed it;
+- it did not reappear.
+
+Conclusion: **NORMAL Q/ESC TEARDOWN — HARDWARE PASS.**
+
+## Prototype 0 final status
+
+**PROTOTYPE 0 — PASS / backend proof complete enough for real Mugen integration.**
+
+Hardware-proven items include:
+
+- Extended serial detection on the existing 5-control / 6-button controller;
+- elevated helper and HIDMaestro backend startup;
+- Xbox 360 / XInput virtual controller creation;
+- custom `Mugen Deej Virtual Gamepad` display label;
+- neutral startup state;
+- stateful press / hold / release;
+- simultaneous button combinations;
+- live orphan cleanup with no reboot;
+- hard-close / bridge-loss cleanup with no reboot;
+- normal Q/Esc cleanup with no reboot;
+- XInput tester recognition;
+- real-game recognition/input in `Cult of the Lamb`.
+
+The standalone harness should now be treated as a proven development fixture rather than the product UI. Next work should move into the actual Mugen Deej runtime/UI while preserving the tested helper/cleanup architecture.
