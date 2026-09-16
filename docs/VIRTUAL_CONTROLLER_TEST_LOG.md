@@ -205,12 +205,29 @@ Implementation commit:
 
 The override is intended for `joy.cpl` / DirectInput presentation only; it does not change the Xbox/XInput compatibility profile. Because the override is scoped by Xbox VID:PID, another real controller with the same VID:PID can temporarily share the label while the Mugen virtual is active. The product must never use this display string as its internal controller identity.
 
+## 2026-09-16 — Prototype 0, attempt 8
+
+Result: DISPLAY NAME PASS / XINPUT DETECTION PASS / REAL-GAME INPUT PASS.
+
+Observed with the naming build on the same real Extended controller:
+
+- `joy.cpl` shows `Mugen Deej Virtual Gamepad`;
+- neutral axes remain centered;
+- physical buttons continue to work, including simultaneous combinations;
+- HardwareTester GamepadTester detects the virtual as `xinput`, index 0, connected, standard mapping;
+- the expected right-side face buttons and the two bumper buttons respond in the tester;
+- `Cult of the Lamb` reacts to the virtual gamepad input in a real game session.
+
+Conclusion:
+
+**The Xbox/XInput path is now proven outside joy.cpl.** A real XInput-aware game accepts input routed from the physical Mugen Extended controller through the prototype. This is stronger than a synthetic tester-only result.
+
+Note: this attempt proves real-game recognition/input, not a user-configurable in-game remapping screen. If a game-specific bind UI is later tested, record it separately rather than retroactively inflating this result.
+
 ## Next test
 
-1. Run the naming build and confirm `joy.cpl` shows `Mugen Deej Virtual Gamepad` after closing/reopening any old joy.cpl window.
-2. Verify buttons 1–6 and neutral axes still behave normally.
-3. Exit normally with Q/Esc and confirm immediate device removal.
-4. Start once more, hard-close once, and verify both the device and OEM-name override recover cleanly without reboot.
-5. Bind at least one physical Mugen button in a real game.
+1. Exit the naming build normally with Q/Esc and confirm immediate device removal.
+2. Start once more, hard-close once, and verify both the virtual device and OEM-name override recover cleanly without reboot.
+3. If both pass, Prototype 0 has enough evidence to move from the standalone harness into the real Mugen Deej runtime/UI.
 
-Do not call Prototype 0 fully PASS until the display-name lifecycle, normal Q/Esc teardown, and a real-game bind are confirmed.
+Do not call Prototype 0 fully PASS until the latest naming build's normal teardown and hard-close/name-recovery lifecycle are confirmed.
