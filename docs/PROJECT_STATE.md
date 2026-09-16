@@ -164,9 +164,9 @@ First six physical buttons are temporarily mapped as:
 
 ### Prototype 0 build status
 
-PASS — CI build/package smoke test.
+PASS — CI build/package smoke test for cleanup-hardened build 8.
 
-Latest cleanup-hardened package:
+Last hardware-tested package before the neutral-axis fix:
 
 - workflow run: `35110165971` / run number `8`
 - head: `98902bebf7b7eaaf84e52b904348836cff295da6`
@@ -174,16 +174,20 @@ Latest cleanup-hardened package:
 - artifact ID: `10452027277`
 - inner ZIP SHA-256: `37bebc2cc315f2cb54dc0a87b359cd1f4a6866f66f249d4b40e3cb9738173cfa`
 
-Changes in this build:
+Changes already present in that build:
 
 - helper command `cleanup` calls `HMContext.RemoveAllVirtualControllers(preserveInstall: true)`;
-- normal helper exit now runs the same preserve-install sweep as a teardown backstop after controller/context disposal;
+- normal helper exit runs the same preserve-install sweep as a teardown backstop after controller/context disposal;
 - bridge disconnect is logged explicitly;
 - packaged `RUN-VIRTUAL-GAMEPAD-CLEANUP.cmd` elevates and runs the cleanup command without uninstalling the backend.
 
+Current branch also contains a not-yet-hardware-tested neutral-axis fix:
+
+- commit `487592fe3a23986bfb3a9be63754a92a651e5ef2` initializes `HMGamepadStateHelpers.StandardAxes(profile)` and explicit `HMHat.None` before the first state submit.
+
 ### Prototype 0 real-hardware status
 
-CORE INPUT PATH PASS / LIVE ORPHAN CLEANUP PASS / NORMAL TEARDOWN STILL PENDING RETEST.
+CORE INPUT PATH PASS / LIVE ORPHAN CLEANUP PASS / HARD-CLOSE CLEANUP PASS / NEUTRAL ANALOG STATE RETEST PENDING.
 
 Confirmed with the existing 5-control / 6-button Extended controller on COM10:
 
@@ -196,24 +200,21 @@ Confirmed with the existing 5-control / 6-button Extended controller on COM10:
 - immediate release: PASS
 - multiple simultaneous button holds and independent releases: PASS
 - explicit no-reboot orphan cleanup using `RUN-VIRTUAL-GAMEPAD-CLEANUP.cmd`: PASS
+- hard-close / bridge-loss cleanup after closing the terminal window with the close button: PASS; the virtual controller disappeared from `joy.cpl` without manual cleanup or reboot.
 
 Observed bridge masks included `0x01`, `0x02`, `0x04`, `0x08`, `0x10`, and `0x20`.
 
-Teardown findings so far:
+Neutral-state finding:
 
-- hard-closing the terminal can leave the virtual controller enumerated after the bridge/helper process disappears;
-- an earlier `Q` exit released input state but left Windows in a pending-removal / restart-required state;
-- repeated full close/reopen of `joy.cpl` confirmed this was not an applet cache artifact;
-- build 8 added an explicit preserve-install cleanup command and the same cleanup sweep as a normal-exit backstop;
-- on real hardware, against the already-stuck controller and **without rebooting Windows**, `RUN-VIRTUAL-GAMEPAD-CLEANUP.cmd` completed successfully and the Xbox controller disappeared from `joy.cpl` immediately;
-- therefore live orphan recovery is proven and a reboot is not required to recover the backend/device state.
-
-The previous pending-reboot outcome is still a bug to eliminate from the normal product path. The next test is a fresh build-8 normal run followed by `Q`/`Esc`; if the controller disappears immediately, the new exit sweep fixes the normal path too.
+- before any physical analog control was mapped to the virtual pad, `joy.cpl` showed the left-stick X/Y indicator near minimum/top-left and right-stick rotation axes not centered;
+- the POV/hat indicator in the same screenshot appears essentially centered, so the confirmed problem is analog neutral initialization rather than a proven D-pad direction error;
+- Prototype 0 had initialized only `Buttons = HMButton.None`, leaving `Axes` null;
+- HIDMaestro documentation states omitted axes should auto-center/release, but the observed Xbox 360 result on this machine did not, so Mugen now seeds the standard neutral axis dictionary explicitly.
 
 Remaining before Prototype 0 is fully PASS:
 
-- normal Q/Esc teardown removes the virtual controller immediately without manual cleanup;
-- hard-close/bridge-loss recovery is robust and requires no reboot;
+- explicit-neutral build shows centered sticks/released triggers in `joy.cpl`;
+- normal Q/Esc teardown gets a fresh PASS on the hardened build;
 - at least one successful button bind in a real game.
 
 Full attempt-by-attempt history is in `docs/VIRTUAL_CONTROLLER_TEST_LOG.md`.
@@ -257,7 +258,7 @@ Manual profile switching comes first. Automatic switching by foreground game/pro
 
 ## Planned integration after prototype 0
 
-1. Verify build-8 normal no-reboot teardown and hard-close recovery.
+1. Verify explicit neutral axes, then retest normal no-reboot teardown.
 2. Prove a real game accepts the virtual Xbox controller input.
 3. Add a minimal virtual-controller service abstraction to Mugen Deej.
 4. Integrate `virtual:button:N` mappings into Extended button settings.
