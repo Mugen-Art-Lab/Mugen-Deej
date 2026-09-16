@@ -278,9 +278,15 @@ try {
     }
 }
 finally {
+    # The helper-side bridge-loss path is the teardown path that has already
+    # passed the hard-close hardware test. On normal Q/Esc shutdown, first
+    # release every virtual button, then close the pipe and let the helper see
+    # EOF and run that same cleanup path. Do not send the old 'quit' command:
+    # it acknowledged before HID/PnP teardown had actually finished, after
+    # which the prototype waited only 5 seconds and could kill the helper in
+    # the middle of device removal.
     if ($null -ne $writer -and $null -ne $reader) {
         try { [void](Send-HostCommand -Writer $writer -Reader $reader -Command 'release') } catch { }
-        try { [void](Send-HostCommand -Writer $writer -Reader $reader -Command 'quit') } catch { }
     }
 
     if ($null -ne $writer) { try { $writer.Dispose() } catch { } }
@@ -296,15 +302,15 @@ finally {
     if ($null -ne $helperProcess) {
         try {
             if (-not $helperProcess.HasExited) {
-                $helperProcess.WaitForExit(5000) | Out-Null
+                $helperProcess.WaitForExit(30000) | Out-Null
             }
             if (-not $helperProcess.HasExited) {
-                $helperProcess.Kill()
+                Write-Host 'Virtual-controller host is still finishing cleanup; it was left running instead of being force-killed.' -ForegroundColor DarkYellow
             }
         }
         catch { }
     }
 
     Write-Host ''
-    Write-Host 'Prototype stopped. Virtual buttons were released and the virtual controller host was closed.' -ForegroundColor DarkGray
+    Write-Host 'Prototype stopped. Virtual buttons were released and the virtual controller host cleanup was requested.' -ForegroundColor DarkGray
 }
