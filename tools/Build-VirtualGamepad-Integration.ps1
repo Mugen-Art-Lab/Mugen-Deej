@@ -143,16 +143,16 @@ function Show-MugenVirtualGamepadButtonPicker {
     $picker.Controls.Add($hint)
 
     $choices = @(
-        @('LB',         'virtual:xbox:lb',    28, 101, 218, 42),
-        @('RB',         'virtual:xbox:rb',   274, 101, 218, 42),
-        @('Back / View','virtual:xbox:back',  28, 151, 218, 42),
-        @('Start / Menu','virtual:xbox:start',274, 151, 218, 42),
-        @('L3',         'virtual:xbox:l3',    28, 201, 218, 42),
-        @('R3',         'virtual:xbox:r3',   274, 201, 218, 42),
-        @('A',          'virtual:xbox:a',     28, 258, 105, 44),
-        @('B',          'virtual:xbox:b',    148, 258, 105, 44),
-        @('X',          'virtual:xbox:x',    268, 258, 105, 44),
-        @('Y',          'virtual:xbox:y',    388, 258, 105, 44)
+        @('LB',          'virtual:xbox:lb',     28, 101, 218, 42),
+        @('RB',          'virtual:xbox:rb',    274, 101, 218, 42),
+        @('Back / View', 'virtual:xbox:back',   28, 151, 218, 42),
+        @('Start / Menu','virtual:xbox:start', 274, 151, 218, 42),
+        @('L3',          'virtual:xbox:l3',     28, 201, 218, 42),
+        @('R3',          'virtual:xbox:r3',    274, 201, 218, 42),
+        @('A',           'virtual:xbox:a',      28, 258, 105, 44),
+        @('B',           'virtual:xbox:b',     148, 258, 105, 44),
+        @('X',           'virtual:xbox:x',     268, 258, 105, 44),
+        @('Y',           'virtual:xbox:y',     388, 258, 105, 44)
     )
 
     foreach ($choice in $choices) {
@@ -309,7 +309,7 @@ $1
 
 $text = Replace-RegexExactlyOnce `
     -Text $text `
-    -Pattern "(?m)^(                        \\$mappedAction -match '\\^hotkey:' -or\r?)$" `
+    -Pattern "(?m)^(                        \`$mappedAction -match '\^hotkey:' -or\r?)$" `
     -Replacement @'
                         (Test-MugenVirtualGamepadAction -Action $mappedAction) -or
 $1
@@ -318,7 +318,7 @@ $1
 
 $text = Replace-RegexExactlyOnce `
     -Text $text `
-    -Pattern "(?m)^                \\$display = if \\(\r?\n                    \\$configuredAction -match '\\^hotkey:'\r?\n                \\) \\{\r?$" `
+    -Pattern "(?m)^                \`$display = if \(\r?\n                    \`$configuredAction -match '\^hotkey:'\r?\n                \) \{\r?$" `
     -Replacement @'
                 $display = if (
                     Test-MugenVirtualGamepadAction -Action $configuredAction
