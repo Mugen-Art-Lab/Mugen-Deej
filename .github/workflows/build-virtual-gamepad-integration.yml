@@ -1,0 +1,176 @@
+name: Build virtual gamepad integration
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/virtual-gamepad-ui
+    paths:
+      - '.github/workflows/build-virtual-gamepad-integration.yml'
+      - 'MugenDeej.ps1'
+      - 'MugenDeej-Debug.cmd'
+      - 'MugenDeej.ico'
+      - 'src/launcher/**'
+      - 'src/virtual-gamepad-helper/**'
+      - 'src/virtual-gamepad-integration/**'
+      - 'tools/Prepare-HIDMaestro.ps1'
+      - 'tools/Build-VirtualGamepad-Integration.ps1'
+
+permissions:
+  contents: read
+
+jobs:
+  build-integration:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.25.x'
+
+      - name: Prepare pinned HIDMaestro dependency
+        shell: pwsh
+        run: .\tools\Prepare-HIDMaestro.ps1
+
+      - name: Stage integrated runtime
+        shell: pwsh
+        run: |
+          $stage = Join-Path $PWD 'artifacts\Mugen-Deej-VirtualGamepad-Integrated-Dev'
+          $vgRoot = Join-Path $stage 'virtual-gamepad'
+          $hostOut = Join-Path $vgRoot 'host'
+          New-Item -ItemType Directory -Path $hostOut -Force | Out-Null
+
+          .\tools\Build-VirtualGamepad-Integration.ps1 `
+            -SourcePath .\MugenDeej.ps1 `
+            -OutputPath (Join-Path $stage 'MugenDeej.ps1')
+
+          Copy-Item .\src\virtual-gamepad-integration\MugenDeej.VirtualGamepad.ps1 $vgRoot -Force
+          Copy-Item .\src\virtual-gamepad-helper\deps\HIDMaestro-LICENSE.txt $vgRoot -Force
+          Copy-Item .\MugenDeej.ico $stage -Force
+          Copy-Item .\MugenDeej-Debug.cmd $stage -Force
+          Copy-Item .\LICENSE $stage -Force
+          Copy-Item .\THIRD_PARTY_NOTICES.md $stage -Force
+
+          dotnet publish .\src\virtual-gamepad-helper\MugenDeej.VirtualGamepadHost.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -o $hostOut
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "dotnet publish failed with exit code $LASTEXITCODE"
+          }
+
+          & (Join-Path $hostOut 'MugenDeej.VirtualGamepadHost.exe') --help
+          if ($LASTEXITCODE -ne 0) {
+            throw "Published helper smoke check failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Parse-check PowerShell 5.1 runtime
+        shell: powershell
+        run: |
+          $paths = @(
+            '.\artifacts\Mugen-Deej-VirtualGamepad-Integrated-Dev\MugenDeej.ps1',
+            '.\artifacts\Mugen-Deej-VirtualGamepad-Integrated-Dev\virtual-gamepad\MugenDeej.VirtualGamepad.ps1'
+          )
+
+          foreach ($path in $paths) {
+            $tokens = $null
+            $errors = $null
+            $text = [System.IO.File]::ReadAllText((Resolve-Path $path), (New-Object System.Text.UTF8Encoding($false, $true)))
+            [System.Management.Automation.Language.Parser]::ParseInput($text, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              foreach ($error in $errors) {
+                Write-Error ("{0}:{1}: {2}" -f $error.Extent.StartLineNumber, $error.Extent.StartColumnNumber, $error.Message)
+              }
+              throw "PowerShell 5.1 parse check failed for $path"
+            }
+          }
+
+      - name: Build Mugen Deej launcher
+        shell: pwsh
+        run: |
+          $stage = Join-Path $PWD 'artifacts\Mugen-Deej-VirtualGamepad-Integrated-Dev'
+          $launcherDir = Join-Path $PWD 'src\launcher'
+          $resource = Join-Path $launcherDir 'rsrc_windows_amd64.syso'
+
+          Push-Location $launcherDir
+          try {
+            if (Test-Path $resource) { Remove-Item $resource -Force }
+            go run github.com/akavel/rsrc@v0.10.2 -arch amd64 -ico (Join-Path $PWD '..\..\MugenDeej.ico') -o $resource
+            if ($LASTEXITCODE -ne 0) { throw "rsrc failed with exit code $LASTEXITCODE" }
+
+            $env:GOOS = 'windows'
+            $env:GOARCH = 'amd64'
+            $env:CGO_ENABLED = '0'
+            go build -trimpath -ldflags '-H windowsgui -s -w' -o (Join-Path $stage 'MugenDeej.exe') .
+            if ($LASTEXITCODE -ne 0) { throw "go build failed with exit code $LASTEXITCODE" }
+          }
+          finally {
+            Pop-Location
+            if (Test-Path $resource) { Remove-Item $resource -Force }
+          }
+
+      - name: Add dev package notes
+        shell: pwsh
+        run: |
+          $stage = Join-Path $PWD 'artifacts\Mugen-Deej-VirtualGamepad-Integrated-Dev'
+          $text = @'
+          Mugen Deej — Virtual Gamepad Integrated Dev Build
+
+          Experimental feature branch build. Stable v1.0.0 is not modified.
+
+          Test path:
+          1. Close any other Mugen Deej instance so this build can own the controller COM port.
+          2. Start MugenDeej.exe.
+          3. Connect the tested Extended controller.
+          4. Open Configure buttons.
+          5. Set Virtual controller to Xbox 360 / XInput.
+          6. Map physical buttons to Gamepad — A/B/X/Y/LB/RB/etc.
+          7. Click Save and accept UAC.
+          8. Check joy.cpl for Mugen Deej Virtual Gamepad.
+
+          The virtual controller is OFF by default. Its setting is stored in virtual-controller.json next to the app.
+          Current integrated milestone routes buttons only. Analog virtual axes and profiles come next.
+          '@
+          [System.IO.File]::WriteAllText(
+            (Join-Path $stage 'VIRTUAL-GAMEPAD-DEV.txt'),
+            $text,
+            (New-Object System.Text.UTF8Encoding($false))
+          )
+
+      - name: Package integrated dev build
+        shell: pwsh
+        run: |
+          $stage = Join-Path $PWD 'artifacts\Mugen-Deej-VirtualGamepad-Integrated-Dev'
+          $zip = Join-Path $PWD 'artifacts\Mugen-Deej-VirtualGamepad-Integrated-Dev.zip'
+          $shaFile = $zip + '.sha256'
+
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -CompressionLevel Optimal
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          [System.IO.File]::WriteAllText(
+            $shaFile,
+            "$hash  Mugen-Deej-VirtualGamepad-Integrated-Dev.zip`r`n",
+            (New-Object System.Text.UTF8Encoding($false))
+          )
+          Write-Host "Integrated dev ZIP SHA-256: $hash"
+
+      - name: Upload integrated dev artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: Mugen-Deej-VirtualGamepad-Integrated-${{ github.run_number }}
+          path: |
+            artifacts/Mugen-Deej-VirtualGamepad-Integrated-Dev.zip
+            artifacts/Mugen-Deej-VirtualGamepad-Integrated-Dev.zip.sha256
+          if-no-files-found: error
+          retention-days: 14
