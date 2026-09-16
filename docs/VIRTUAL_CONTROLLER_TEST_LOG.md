@@ -177,13 +177,40 @@ Fix commit:
 
 - `487592fe3a23986bfb3a9be63754a92a651e5ef2` — initialize `HMGamepadStateHelpers.StandardAxes(profile)` and `HMHat.None` before the first submit.
 
+## 2026-09-16 — Prototype 0, attempt 7
+
+Result: EXPLICIT NEUTRAL ANALOG STATE PASS.
+
+Observed with the neutral-axis build on the same real Extended controller:
+
+- left-stick X/Y indicator is centered in `joy.cpl` before any input;
+- right-stick rotation axes are centered;
+- combined trigger/Z presentation is neutral;
+- POV/hat is centered;
+- the first real controller packet reports `Buttons mask: 0x00`, confirming all mapped physical buttons are released at startup.
+
+Conclusion:
+
+**Neutral startup state is hardware-tested PASS.** The explicit `StandardAxes(profile)` initialization fixes the non-neutral Xbox presentation seen in attempt 6.
+
+### Virtual controller display name
+
+Next prototype step is to present the live Xbox/XInput virtual as:
+
+`Mugen Deej Virtual Gamepad`
+
+Implementation commit:
+
+- `540648f6680cc2b37667cb7fe95b83ea71112ad7` — use HIDMaestro `HMOemNameOverride` with crash recovery and cleanup-safe restore.
+
+The override is intended for `joy.cpl` / DirectInput presentation only; it does not change the Xbox/XInput compatibility profile. Because the override is scoped by Xbox VID:PID, another real controller with the same VID:PID can temporarily share the label while the Mugen virtual is active. The product must never use this display string as its internal controller identity.
+
 ## Next test
 
-1. Build/run the explicit-neutral-axis prototype.
-2. Open controller Properties in `joy.cpl` before pressing anything.
-3. Verify left and right stick axes are centered and triggers are released/neutral.
-4. Verify buttons 1–6 still work normally.
-5. Exit normally with Q/Esc once and confirm immediate device removal.
-6. Bind at least one physical Mugen button in a real game.
+1. Run the naming build and confirm `joy.cpl` shows `Mugen Deej Virtual Gamepad` after closing/reopening any old joy.cpl window.
+2. Verify buttons 1–6 and neutral axes still behave normally.
+3. Exit normally with Q/Esc and confirm immediate device removal.
+4. Start once more, hard-close once, and verify both the device and OEM-name override recover cleanly without reboot.
+5. Bind at least one physical Mugen button in a real game.
 
-Do not call Prototype 0 fully PASS until the neutral state is correct, normal Q/Esc teardown has a fresh PASS on the hardened build, and a real-game bind is confirmed.
+Do not call Prototype 0 fully PASS until the display-name lifecycle, normal Q/Esc teardown, and a real-game bind are confirmed.
