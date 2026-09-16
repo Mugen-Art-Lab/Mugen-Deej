@@ -52,12 +52,18 @@ $startWithWindowsCheck.Enabled = $false
 # The stable 1.0.0 action normalizer does not know the experimental virtual
 # action namespace. Preserve validated virtual mappings instead of silently
 # rewriting them to "none" when controller capabilities are re-detected.
-$text = Replace-RegexExactlyOnce `
-    -Text $text `
-    -Pattern @'
-(?ms)^        \$valid = \(\r?\n            \$action -eq 'none' -or\r?\n            \$action -match '\^mute:\\d\+\$' -or\r?\n            \$validFixedActions -contains \$action\r?\n        \)
-'@ `
-    -Replacement @'
+# Use literal string replacement here: .NET Regex.Replace interprets '$name'
+# sequences in replacement text as group references, which corrupts source
+# containing PowerShell variables such as $action and $script:... .
+$oldNormalizeBlock = @'
+        $valid = (
+            $action -eq 'none' -or
+            $action -match '^mute:\d+$' -or
+            $validFixedActions -contains $action
+        )
+'@
+
+$newNormalizeBlock = @'
         $valid = (
             $action -eq 'none' -or
             $action -match '^mute:\d+$' -or
@@ -67,8 +73,14 @@ $text = Replace-RegexExactlyOnce `
                 (Test-MugenVirtualGamepadAction -Action $action)
             )
         )
-'@ `
-    -Label 'preserve virtual button mappings'
+'@
+
+$firstNormalize = $text.IndexOf($oldNormalizeBlock, [System.StringComparison]::Ordinal)
+$lastNormalize = $text.LastIndexOf($oldNormalizeBlock, [System.StringComparison]::Ordinal)
+if ($firstNormalize -lt 0 -or $firstNormalize -ne $lastNormalize) {
+    throw "Dev runtime hardening 'preserve virtual button mappings' expected exactly one literal match."
+}
+$text = $text.Replace($oldNormalizeBlock, $newNormalizeBlock)
 
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 [System.IO.File]::WriteAllText($resolved, $text, $utf8)
