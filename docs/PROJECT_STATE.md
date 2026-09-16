@@ -120,7 +120,11 @@ Pinned release archive SHA-256:
 
 Important constraint verified from HIDMaestro source: Windows requires elevation both to install its driver and to create virtual controllers. Therefore the prototype uses an elevated helper process and a named-pipe bridge instead of elevating the whole Mugen Deej UI.
 
-HIDMaestro also supports overriding the joy.cpl / DirectInput display label through `HMOemNameOverride.Set(...)`, and custom profiles can define their own `Name` / `ProductString`. For Xbox/XInput mode, a custom joy.cpl label does not change the fact that games see an Xbox-compatible XInput device. The override is per VID:PID, so it is not a unique per-instance identity and can affect another device with the same VID:PID while active.
+HIDMaestro supports overriding the joy.cpl / DirectInput display label through `HMOemNameOverride.Set(...)`. For Xbox/XInput mode the current target label is:
+
+`Mugen Deej Virtual Gamepad`
+
+This is presentation only; it does not change the Xbox/XInput compatibility profile. The override is scoped by VID:PID, so another real controller with the same Xbox 360 VID/PID can temporarily share the label while the Mugen virtual is active. Mugen must not use the display string as its internal device identity.
 
 ## Current implementation milestone: prototype 0
 
@@ -164,57 +168,50 @@ First six physical buttons are temporarily mapped as:
 
 ### Prototype 0 build status
 
-PASS — CI build/package smoke test for cleanup-hardened build 8.
+CI/package smoke tests are passing through the explicit-neutral build.
 
-Last hardware-tested package before the neutral-axis fix:
+Hardware-tested neutral build:
 
-- workflow run: `35110165971` / run number `8`
-- head: `98902bebf7b7eaaf84e52b904348836cff295da6`
-- artifact: `Mugen-Deej-VirtualGamepad-Prototype-8`
-- artifact ID: `10452027277`
-- inner ZIP SHA-256: `37bebc2cc315f2cb54dc0a87b359cd1f4a6866f66f249d4b40e3cb9738173cfa`
+- workflow run: `35111667400` / run number `9`
+- head: `487592fe3a23986bfb3a9be63754a92a651e5ef2`
+- artifact: `Mugen-Deej-VirtualGamepad-Prototype-9`
+- artifact ID: `10452641812`
 
-Changes already present in that build:
+Current branch additionally contains the display-name lifecycle implementation:
 
-- helper command `cleanup` calls `HMContext.RemoveAllVirtualControllers(preserveInstall: true)`;
-- normal helper exit runs the same preserve-install sweep as a teardown backstop after controller/context disposal;
-- bridge disconnect is logged explicitly;
-- packaged `RUN-VIRTUAL-GAMEPAD-CLEANUP.cmd` elevates and runs the cleanup command without uninstalling the backend.
+- commit `540648f6680cc2b37667cb7fe95b83ea71112ad7`
+- label: `Mugen Deej Virtual Gamepad`
+- startup calls `HMOemNameOverride.RecoverOrphans()` before claiming a new label;
+- clean teardown calls `HMOemNameOverride.Clear(...)`;
+- explicit cleanup also recovers orphaned OEM-name overrides.
 
-Current branch also contains a not-yet-hardware-tested neutral-axis fix:
-
-- commit `487592fe3a23986bfb3a9be63754a92a651e5ef2` initializes `HMGamepadStateHelpers.StandardAxes(profile)` and explicit `HMHat.None` before the first state submit.
+The naming build is pending hardware validation.
 
 ### Prototype 0 real-hardware status
 
-CORE INPUT PATH PASS / LIVE ORPHAN CLEANUP PASS / HARD-CLOSE CLEANUP PASS / NEUTRAL ANALOG STATE RETEST PENDING.
+CORE INPUT PATH PASS / LIVE ORPHAN CLEANUP PASS / HARD-CLOSE CLEANUP PASS / NEUTRAL ANALOG STATE PASS.
 
 Confirmed with the existing 5-control / 6-button Extended controller on COM10:
 
 - Extended controller detection: PASS
 - elevated helper startup: PASS
 - HIDMaestro virtual Xbox 360 creation: PASS
-- `joy.cpl` sees `Controller (XBOX 360 For Windows)` with OK status: PASS
-- physical buttons 1–6 all drive virtual button activity: PASS
+- `joy.cpl` enumeration/status OK: PASS
+- physical buttons 1–6 drive virtual button activity: PASS
 - hold state over several seconds: PASS
 - immediate release: PASS
 - multiple simultaneous button holds and independent releases: PASS
 - explicit no-reboot orphan cleanup using `RUN-VIRTUAL-GAMEPAD-CLEANUP.cmd`: PASS
-- hard-close / bridge-loss cleanup after closing the terminal window with the close button: PASS; the virtual controller disappeared from `joy.cpl` without manual cleanup or reboot.
+- hard-close / bridge-loss cleanup after closing the terminal window with the close button: PASS; the virtual controller disappeared from `joy.cpl` without manual cleanup or reboot
+- explicit neutral startup state: PASS; left/right stick axes center correctly, trigger/Z presentation is neutral, POV/hat is centered
+- first real controller packet reports `Buttons mask: 0x00`, confirming all mapped buttons released at startup
 
-Observed bridge masks included `0x01`, `0x02`, `0x04`, `0x08`, `0x10`, and `0x20`.
-
-Neutral-state finding:
-
-- before any physical analog control was mapped to the virtual pad, `joy.cpl` showed the left-stick X/Y indicator near minimum/top-left and right-stick rotation axes not centered;
-- the POV/hat indicator in the same screenshot appears essentially centered, so the confirmed problem is analog neutral initialization rather than a proven D-pad direction error;
-- Prototype 0 had initialized only `Buttons = HMButton.None`, leaving `Axes` null;
-- HIDMaestro documentation states omitted axes should auto-center/release, but the observed Xbox 360 result on this machine did not, so Mugen now seeds the standard neutral axis dictionary explicitly.
+Observed bridge masks include `0x00`, `0x01`, `0x02`, `0x04`, `0x08`, `0x10`, and `0x20`.
 
 Remaining before Prototype 0 is fully PASS:
 
-- explicit-neutral build shows centered sticks/released triggers in `joy.cpl`;
-- normal Q/Esc teardown gets a fresh PASS on the hardened build;
+- naming build shows `Mugen Deej Virtual Gamepad` and restores the prior OEM label cleanly after exit/crash recovery;
+- normal Q/Esc teardown gets a fresh PASS on the latest hardened build;
 - at least one successful button bind in a real game.
 
 Full attempt-by-attempt history is in `docs/VIRTUAL_CONTROLLER_TEST_LOG.md`.
@@ -258,7 +255,7 @@ Manual profile switching comes first. Automatic switching by foreground game/pro
 
 ## Planned integration after prototype 0
 
-1. Verify explicit neutral axes, then retest normal no-reboot teardown.
+1. Validate the new display-name lifecycle and latest normal Q/Esc teardown.
 2. Prove a real game accepts the virtual Xbox controller input.
 3. Add a minimal virtual-controller service abstraction to Mugen Deej.
 4. Integrate `virtual:button:N` mappings into Extended button settings.
