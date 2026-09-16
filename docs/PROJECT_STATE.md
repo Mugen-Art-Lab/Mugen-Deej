@@ -10,7 +10,7 @@ This file is the authoritative handoff/state note for active development. Update
 - Stable branch: `main`
 - Stable squash commit: `214273e0c845ba9932544521da856af4a7a4fe24`
 - Release page: `https://github.com/Mugen-Art-Lab/Mugen-Deej/releases/tag/v1.0.0`
-- Stable Windows runtime remains Windows PowerShell 5.1 + small Go launcher.
+- Stable runtime: Windows PowerShell 5.1 + small Go launcher.
 - Stable 1.0.0 must not be modified while experimental virtual-controller work is being developed.
 
 ### 1.0.0 hardware status
@@ -68,7 +68,7 @@ Planned experimental hardware:
 
 - 5 analog controls
 - 5 x 6 button matrix = 30 buttons
-- total Extended packet fields = 35, so this fits the existing 64-field parser limit
+- total Extended packet fields = 35, so this fits the existing parser limit
 - Arduino Nano prototype hardware has been ordered
 - 30 switches and 1N4148 matrix diodes are planned
 
@@ -88,11 +88,9 @@ A physical element can eventually route to one of several destinations. The impo
 - virtual buttons are stateful and must receive both press and release;
 - virtual axes are continuous values.
 
-On disconnect, suspend, backend failure, profile change, or app exit, all virtual buttons must be released so a game never sees a stuck input.
+On disconnect, suspend, backend failure, profile change, app exit, or bridge failure, all virtual buttons must be released and the virtual device must be torn down so a game never sees stuck or orphaned input.
 
 ### Compatibility modes
-
-Do not expose confusing low-level terminology as three separate equivalent modes. `Xbox 360` is an XInput/XUSB-style controller profile, not a third peer API beside XInput and DirectInput.
 
 Planned user-facing virtual-controller types:
 
@@ -120,7 +118,7 @@ Pinned release archive SHA-256:
 
 Important constraint verified from HIDMaestro source: Windows requires elevation both to install its driver and to create virtual controllers. Therefore the prototype uses an elevated helper process and a named-pipe bridge instead of elevating the whole Mugen Deej UI.
 
-This helper architecture is experimental and can change after physical testing.
+HIDMaestro also supports overriding the joy.cpl / DirectInput display label through `HMOemNameOverride.Set(...)`, and custom profiles can define their own `Name` / `ProductString`. For Xbox/XInput mode, a custom joy.cpl label does not change the fact that games see an Xbox-compatible XInput device. The override is per VID:PID, so it is not a unique per-instance identity and can affect another device with the same VID:PID while active.
 
 ## Current implementation milestone: prototype 0
 
@@ -161,23 +159,15 @@ First six physical buttons are temporarily mapped as:
 5. Left Bumper
 6. Right Bumper
 
-The mapping exists only to prove press/release propagation with the already-tested 5+6 Extended controller.
-
 ### Prototype 0 build status
 
-PASS — CI build/package smoke test:
-
-- workflow: `Build virtual gamepad prototype`
-- dependency download/hash verification: PASS
-- .NET 10 self-contained helper publish: PASS
-- helper `--help` launch smoke test: PASS
-- packaging/upload: PASS
+PASS — CI build/package smoke test.
 
 Latest tested package came from run `35104680482` / run number `4`, artifact `Mugen-Deej-VirtualGamepad-Prototype-4`, inner ZIP SHA-256 `cee785912cd67d78bc29dc069d3c7a3ab9569fb6e07e757d067f0788d7ada22c`.
 
 ### Prototype 0 real-hardware status
 
-PARTIAL PASS — core end-to-end virtual button path is proven on real hardware.
+CORE INPUT PATH PASS / CLEANUP BUG FOUND.
 
 Confirmed with the existing 5-control / 6-button Extended controller on COM10:
 
@@ -185,21 +175,24 @@ Confirmed with the existing 5-control / 6-button Extended controller on COM10:
 - elevated helper startup: PASS
 - HIDMaestro virtual Xbox 360 creation: PASS
 - `joy.cpl` sees `Controller (XBOX 360 For Windows)` with OK status: PASS
-- physical buttons 1–6 all drive virtual button activity in `joy.cpl`: PASS
-- observed bridge masks include `0x01`, `0x02`, `0x04`, `0x08`, `0x10`, and `0x20`: PASS
+- physical buttons 1–6 all drive virtual button activity: PASS
+- hold state over several seconds: PASS
+- immediate release: PASS
+- multiple simultaneous button holds and independent releases: PASS
 
-Still pending before Prototype 0 is fully PASS:
+Observed bridge masks included `0x01`, `0x02`, `0x04`, `0x08`, `0x10`, and `0x20`.
 
-- hold-state verification over several seconds;
-- immediate release verification;
-- Q/Esc clean shutdown removes/releases the virtual controller without an orphan;
+Known bug: closing the terminal window directly bypasses the PowerShell `finally` cleanup. Button routing stops, but the virtual Xbox device can remain visible in `joy.cpl` as an orphan. This is a prototype robustness bug, not user error.
+
+Remaining before Prototype 0 is fully PASS:
+
+- helper-side bridge-process watchdog / hard-close cleanup;
+- Q/Esc clean shutdown removes the virtual controller;
 - at least one successful button bind in a real game.
 
-No extra host log is required for the successful `joy.cpl` result unless one of these remaining checks misbehaves. Full attempt-by-attempt history is in `docs/VIRTUAL_CONTROLLER_TEST_LOG.md`.
+Full attempt-by-attempt history is in `docs/VIRTUAL_CONTROLLER_TEST_LOG.md`.
 
 ## Profiles: planned architecture
-
-User-created profiles are now part of the intended design, but they come after the first joy.cpl/backend proof.
 
 Terminology:
 
@@ -229,7 +222,8 @@ A profile should eventually own the full logical routing of the device, includin
 - virtual-controller enabled state;
 - virtual-controller type (`Xbox 360 / XInput`, `Generic / DirectInput`);
 - virtual button/axis mappings;
-- controller shape metadata such as detected control/button counts.
+- controller shape metadata such as detected control/button counts;
+- virtual-controller display name where the selected backend/profile supports it safely.
 
 If a profile was created for 5+30 hardware and a 5+6 controller is connected, Mugen should warn that unavailable mappings will be skipped rather than fail. Extra physical controls not present in the profile should default to unassigned.
 
@@ -237,15 +231,16 @@ Manual profile switching comes first. Automatic switching by foreground game/pro
 
 ## Planned integration after prototype 0
 
-1. Finish hold/release/clean-exit/real-game validation for the current Xbox prototype.
-2. Add a minimal virtual-controller service abstraction to Mugen Deej.
-3. Integrate `virtual:button:N` mappings into Extended button settings.
-4. Route virtual button state from `Update-ButtonStates`, not the press-only action dispatcher.
-5. Add safe release on disconnect/suspend/app exit/backend failure.
-6. Add `Virtual axis` mode for analog controls.
-7. Build a custom Generic/DirectInput profile for many-button hardware and test 30 buttons.
-8. Add user profiles and profile management.
-9. Rework the 30-button UI from a long strip/list into a more suitable matrix/grid only after real 5x6 hardware proves useful.
+1. Fix hard-close/orphan cleanup and verify Q/Esc cleanup.
+2. Prove a real game accepts the virtual Xbox controller input.
+3. Add a minimal virtual-controller service abstraction to Mugen Deej.
+4. Integrate `virtual:button:N` mappings into Extended button settings.
+5. Route virtual button state from `Update-ButtonStates`, not the press-only action dispatcher.
+6. Add safe release on disconnect/suspend/app exit/backend failure.
+7. Add `Virtual axis` mode for analog controls.
+8. Build a custom Generic/DirectInput profile for many-button hardware and test 30 buttons.
+9. Add user profiles and profile management.
+10. Rework the 30-button UI into a matrix/grid only after real 5x6 hardware proves useful.
 
 ## Deferred / explicitly not first-pass work
 
