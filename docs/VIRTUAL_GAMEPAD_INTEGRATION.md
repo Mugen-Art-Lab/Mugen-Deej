@@ -21,17 +21,7 @@ Current scope:
 - Button Settings gains a `Virtual controller` selector with:
   - `Off`
   - `Xbox 360 / XInput`
-- physical button destinations gain:
-  - Gamepad — A
-  - Gamepad — B
-  - Gamepad — X
-  - Gamepad — Y
-  - Gamepad — LB
-  - Gamepad — RB
-  - Gamepad — Back / View
-  - Gamepad — Start / Menu
-  - Gamepad — L3
-  - Gamepad — R3
+- physical button destinations gain Xbox button mappings through a dedicated visual picker;
 - virtual button output is stateful and is updated from `Update-ButtonStates`, before the existing press-edge action dispatcher;
 - virtual mappings are ignored by the old press-only `Invoke-ButtonAction` path;
 - physical-controller disconnect tears down the virtual controller;
@@ -55,6 +45,7 @@ Not in milestone 1:
 - `src/virtual-gamepad-helper/` — proven elevated .NET/HIDMaestro helper.
 - `src/virtual-gamepad-integration/MugenDeej.VirtualGamepad.ps1` — Mugen-side virtual-controller service.
 - `tools/Build-VirtualGamepad-Integration.ps1` — experimental patch/staging step that injects the integration hooks into a development copy of `MugenDeej.ps1`.
+- `tools/Harden-VirtualGamepad-DevRuntime.ps1` — dev-only isolation plus staged compatibility fixes.
 - `.github/workflows/build-virtual-gamepad-integration.yml` — isolated development package build.
 
 The patch/staging approach is temporary. Before this work is release-ready, the validated changes should be consolidated into normal source and the experimental patcher removed, matching the source-cleanliness approach used for v1.0.0.
@@ -87,7 +78,44 @@ Fix:
 - outer Actions artifact digest: `sha256:64b4b32e4c3c94ef830ca138dd87892212dd1dccd80d1119d95a644be8ce46fa`
 - inner development ZIP SHA-256: `2cc5b32ea56abbf5c82868fdcfe8ca9ed2fc2c65401313d87a3fb86ee43f327a`
 
-CI proves that the development package stages, parses under Windows PowerShell 5.1, builds the launcher/helper and packages successfully. It does **not** prove the integrated UI/runtime on physical hardware yet.
+### First real-hardware integration attempt
+
+Real hardware: existing Extended 5-control / 6-button controller on COM10.
+
+Observed after saving `Button 1 -> A`, `Button 2 -> B` and enabling Xbox/XInput:
+
+- UI became severely laggy;
+- virtual gamepad repeatedly appeared/disappeared;
+- physical controller repeatedly disconnected/reconnected;
+- saved virtual button mappings later appeared as `none`.
+
+The log proved two independent integration bugs:
+
+1. **Reentrant helper startup.** While `Start-MugenVirtualGamepad` waited for the elevated helper it called `Application.DoEvents()`. Incoming full-state serial packets re-entered `Update-MugenVirtualGamepadButtonStates`, which called `Start-MugenVirtualGamepad` again because the first startup had not yet marked the bridge active. Dozens of elevated helpers were started within seconds, starving normal serial processing until the 2500 ms controller timeout fired.
+2. **Virtual mappings rejected by the stable action normalizer.** `Normalize-ButtonActions` from v1.0.0 did not recognize `virtual:xbox:*`, so capability re-detection rewrote valid saved virtual mappings to `none`.
+
+Fixes:
+
+- commit `aafb1c85784568228023e659bbeae4c0543e5fe1` — add a startup-in-progress guard so only one virtual-controller startup may exist at a time;
+- commit `0e2ff9cc3086de1581d886410b9ad411c367bcb9` / follow-up `d255724b6e75e980289ad03cab38591b0690ff6a` — preserve validated virtual mappings through the existing action normalizer using literal source patching;
+- commit `5bc2fee8db9a98c130b288a4142a4c88c9d0921a` — make Windows PowerShell 5.1 CI parser errors report correctly instead of colliding with the read-only `$Error` variable.
+
+### Run 10
+
+- workflow run ID: `35128191508`
+- run number: `10`
+- head: `d255724b6e75e980289ad03cab38591b0690ff6a`
+- result: **PASS**
+- staging: PASS
+- Windows PowerShell 5.1 parser check: PASS
+- reentrant-start guard static check: PASS
+- helper publish/smoke test: PASS
+- launcher build/package: PASS
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-10`
+- artifact ID: `10459379492`
+- inner development ZIP SHA-256: `95634c6036fccbfee44c012e171f1209c75c7b65401403d882afb21a7ffe73d6`
+
+This remains **CI PASS / hardware re-test pending**. Do not call integrated milestone 1 a hardware PASS until the fixed package is exercised on the physical controller.
 
 ## First real-hardware test plan
 
@@ -99,15 +127,18 @@ Use the already-tested Extended 5-control / 6-button controller.
 4. Open Button Settings.
 5. Confirm the new `Virtual controller` row is present and defaults to `Off` on a clean folder.
 6. Select `Xbox 360 / XInput`.
-7. Map several physical buttons to Gamepad A/B/X/Y/LB/RB.
+7. Map several physical buttons through `Choose gamepad button...`.
 8. Save and accept UAC.
-9. Confirm `joy.cpl` shows `Mugen Deej Virtual Gamepad`.
-10. Confirm press, hold, release and simultaneous button states work.
-11. Confirm ordinary non-gamepad button actions can coexist with virtual mappings on different physical buttons.
-12. Close Mugen normally and verify the virtual controller disappears and does not return.
-13. Start again with the saved configuration and verify persistence/reconnect behavior.
-14. Hard-close once and verify bridge-loss cleanup still removes the virtual controller without reboot.
-15. Re-check a real XInput game after integrated runtime validation.
+9. Confirm exactly one helper startup occurs and the physical COM connection stays stable.
+10. Confirm `joy.cpl` shows `Mugen Deej Virtual Gamepad`.
+11. Confirm press, hold, release and simultaneous button states work.
+12. Reopen Button Settings and confirm virtual mappings are still present.
+13. Force a physical-controller reconnect and confirm mappings survive capability re-detection.
+14. Confirm ordinary non-gamepad button actions can coexist with virtual mappings on different physical buttons.
+15. Close Mugen normally and verify the virtual controller disappears and does not return.
+16. Start again with the saved configuration and verify persistence/reconnect behavior.
+17. Hard-close once and verify bridge-loss cleanup still removes the virtual controller without reboot.
+18. Re-check a real XInput game after integrated runtime validation.
 
 Do not call integrated milestone 1 a hardware PASS until the above path has been tested on the real controller.
 
