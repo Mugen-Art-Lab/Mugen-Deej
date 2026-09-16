@@ -15,6 +15,7 @@ on:
       - 'src/virtual-gamepad-integration/**'
       - 'tools/Prepare-HIDMaestro.ps1'
       - 'tools/Build-VirtualGamepad-Integration.ps1'
+      - 'tools/Harden-VirtualGamepad-DevRuntime.ps1'
       - 'tools/Ensure-WindowsPowerShellUtf8Bom.ps1'
 
 permissions:
@@ -56,6 +57,10 @@ jobs:
           .\tools\Build-VirtualGamepad-Integration.ps1 `
             -SourcePath .\MugenDeej.ps1 `
             -OutputPath $runtimePath
+
+          # The throwaway dev build must never steal the stable portable app's
+          # HKCU Run registration merely because both share the Mugen Deej name.
+          .\tools\Harden-VirtualGamepad-DevRuntime.ps1 -Path $runtimePath
 
           Copy-Item .\src\virtual-gamepad-integration\MugenDeej.VirtualGamepad.ps1 $integrationModulePath -Force
 
@@ -115,10 +120,19 @@ jobs:
             [System.Management.Automation.Language.Parser]::ParseInput($text, [ref]$tokens, [ref]$errors) | Out-Null
             if ($errors.Count -gt 0) {
               foreach ($error in $errors) {
-                Write-Error ("{0}:{1}: {2}" -f $error.Extent.StartLineNumber, $error.Extent.StartColumnNumber, $error.Message)
+                Write-Error ("{0}:{1}: {2}" -f $error.Extent.StartLineNumber,$error.Extent.StartColumnNumber,$error.Message)
               }
               throw "PowerShell 5.1 parse check failed for $path"
             }
+          }
+
+          $runtime = '.\artifacts\Mugen-Deej-VirtualGamepad-Integrated-Dev\MugenDeej.ps1'
+          $runtimeText = [System.IO.File]::ReadAllText((Resolve-Path $runtime), [System.Text.Encoding]::UTF8)
+          if ($runtimeText -match '(?m)^Sync-StartupRegistrationPath\s*$') {
+            throw 'Development runtime still contains active startup registration sync.'
+          }
+          if ($runtimeText -notmatch "Development build: Windows startup registration sync suppressed") {
+            throw 'Development runtime is missing the startup-isolation marker.'
           }
 
       - name: Build Mugen Deej launcher
@@ -160,11 +174,12 @@ jobs:
           3. Connect the tested Extended controller.
           4. Open Configure buttons.
           5. Set Virtual controller to Xbox 360 / XInput.
-          6. Map physical buttons to Gamepad — A/B/X/Y/LB/RB/etc.
+          6. Use Choose gamepad button... for each physical button you want to map.
           7. Click Save and accept UAC.
           8. Check joy.cpl for Mugen Deej Virtual Gamepad.
 
           The virtual controller is OFF by default. Its setting is stored in virtual-controller.json next to the app.
+          Windows startup registration is intentionally disabled in this development package so it cannot replace the stable Mugen Deej autostart path.
           Current integrated milestone routes buttons only. Analog virtual axes and profiles come next.
           '@
           [System.IO.File]::WriteAllText(
