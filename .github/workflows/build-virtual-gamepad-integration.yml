@@ -64,6 +64,20 @@ jobs:
 
           Copy-Item .\src\virtual-gamepad-integration\MugenDeej.VirtualGamepad.ps1 $integrationModulePath -Force
 
+          # The hardware-proven HIDMaestro teardown takes about ten seconds on
+          # the test machine. Append the dev-stage override after the core
+          # module so Stop-MugenVirtualGamepad becomes nonblocking while still
+          # preventing a new controller from starting until cleanup completes.
+          $asyncStopOverlay = [System.IO.File]::ReadAllText(
+            (Resolve-Path '.\src\virtual-gamepad-integration\MugenDeej.VirtualGamepad.AsyncStop.ps1'),
+            [System.Text.Encoding]::UTF8
+          )
+          [System.IO.File]::AppendAllText(
+            $integrationModulePath,
+            ("`r`n" + $asyncStopOverlay),
+            (New-Object System.Text.UTF8Encoding($false))
+          )
+
           # Windows PowerShell 5.1 treats UTF-8 source without a BOM as the
           # active ANSI code page. Both files contain Cyrillic UI strings, so
           # a missing BOM corrupts tokens before execution and causes launcher
@@ -148,6 +162,12 @@ jobs:
           if ($integrationText -notmatch 'if \(\$script:VirtualGamepadStarting\) \{ return \$false \}') {
             throw 'Integration module does not block reentrant virtual-controller startup.'
           }
+          if ($integrationText -notmatch '\$script:VirtualGamepadStopping = \$false') {
+            throw 'Integration module is missing the nonblocking teardown state.'
+          }
+          if ($integrationText -notmatch 'Virtual controller teardown is pending in the background; UI remains responsive') {
+            throw 'Integration module is missing the nonblocking teardown implementation.'
+          }
 
       - name: Build Mugen Deej launcher
         shell: pwsh
@@ -189,7 +209,7 @@ jobs:
           4. Open Configure buttons.
           5. Set Virtual controller to Xbox 360 / XInput.
           6. Use Choose gamepad button... for each physical button you want to map.
-          7. Click Save and accept UAC.
+          7. Click Save and accept UAC if Windows shows it.
           8. Check joy.cpl for Mugen Deej Virtual Gamepad.
 
           The virtual controller is OFF by default. Its setting is stored in virtual-controller.json next to the app.
