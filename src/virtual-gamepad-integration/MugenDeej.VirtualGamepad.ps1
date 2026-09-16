@@ -8,6 +8,7 @@ $script:VirtualGamepadReader = $null
 $script:VirtualGamepadWriter = $null
 $script:VirtualGamepadHelperProcess = $null
 $script:VirtualGamepadActive = $false
+$script:VirtualGamepadStarting = $false
 $script:VirtualGamepadLastMask = [uint32]::MaxValue
 $script:VirtualGamepadLastStartFailure = [DateTime]::MinValue
 $script:VirtualGamepadStartFailureCooldownSeconds = 20
@@ -207,6 +208,7 @@ function Start-MugenVirtualGamepad {
 
     if (-not [bool]$script:VirtualGamepadConfig.enabled) { return $false }
     if ($script:VirtualGamepadActive) { return $true }
+    if ($script:VirtualGamepadStarting) { return $false }
     if (-not $script:IsConnected -or $script:DetectedButtonCount -le 0) { return $false }
 
     if (
@@ -223,6 +225,7 @@ function Start-MugenVirtualGamepad {
         return $false
     }
 
+    $script:VirtualGamepadStarting = $true
     Reset-MugenVirtualGamepadBridgeObjects
 
     try {
@@ -297,6 +300,9 @@ function Start-MugenVirtualGamepad {
         Write-Log ('Virtual controller start failed: {0}' -f $_.Exception.Message) 'WARN'
         Reset-MugenVirtualGamepadBridgeObjects
         return $false
+    }
+    finally {
+        $script:VirtualGamepadStarting = $false
     }
 }
 
