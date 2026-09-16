@@ -149,15 +149,41 @@ Conclusion:
 
 **Emergency live orphan recovery is hardware-tested PASS.** The current backend is capable of removing a stuck/orphaned virtual Xbox controller on the live Windows session. The earlier restart-required state is therefore recoverable without reboot and is not, by itself, grounds to reject HIDMaestro.
 
-This does not yet prove that the normal Q/Esc teardown path is correct. Build 8 added the same preserve-install sweep to normal helper exit, so that path now needs a fresh real-hardware test.
+## 2026-09-16 — Prototype 0, attempt 6
+
+Result: HARD-CLOSE / BRIDGE-LOSS CLEANUP PASS; NEUTRAL ANALOG STATE ISSUE FOUND.
+
+Observed with cleanup-hardened build 8:
+
+- virtual Xbox controller created normally;
+- physical button routing remained functional;
+- the user closed the prototype terminal window directly with the window close button;
+- the virtual Xbox controller disappeared from `joy.cpl` without running the emergency cleanup command and without rebooting Windows.
+
+Conclusion:
+
+**Hard-close recovery is hardware-tested PASS.** The helper now notices bridge loss, unwinds, and the preserve-install exit sweep removes the virtual device on the live Windows session.
+
+A separate presentation/state issue was visible in `joy.cpl` before close:
+
+- the left-stick X/Y cross was parked near the minimum/top-left instead of center;
+- right-stick rotation axes also did not appear centered;
+- the POV/hat indicator itself appears essentially centered in the screenshot, so the primary confirmed defect is neutral analog-axis initialization, not necessarily the D-pad;
+- no physical analog controls are routed to the virtual pad in Prototype 0 yet, so every stick axis should be neutral.
+
+The prototype host had initialized `HMGamepadState` with only `Buttons = None` and left `Axes` null. HIDMaestro's public API documents omitted axes as automatically neutral, but the observed Xbox 360 result on this machine is not neutral. Mugen will therefore initialize the standard axis set explicitly instead of relying on implicit defaults.
+
+Fix commit:
+
+- `487592fe3a23986bfb3a9be63754a92a651e5ef2` — initialize `HMGamepadStateHelpers.StandardAxes(profile)` and `HMHat.None` before the first submit.
 
 ## Next test
 
-1. Start cleanup-hardened build 8 normally.
-2. Verify the Xbox controller appears and the physical buttons still work.
-3. Exit with `Q` or `Esc`.
-4. Reopen `joy.cpl` and confirm the virtual controller disappeared immediately, without manually running cleanup.
-5. If normal exit passes, deliberately hard-close the prototype once and confirm the helper-side recovery / explicit cleanup path removes the orphan without reboot.
+1. Build/run the explicit-neutral-axis prototype.
+2. Open controller Properties in `joy.cpl` before pressing anything.
+3. Verify left and right stick axes are centered and triggers are released/neutral.
+4. Verify buttons 1–6 still work normally.
+5. Exit normally with Q/Esc once and confirm immediate device removal.
 6. Bind at least one physical Mugen button in a real game.
 
-Do not call Prototype 0 fully PASS until normal no-reboot teardown, hard-close recovery, and a real-game bind are confirmed.
+Do not call Prototype 0 fully PASS until the neutral state is correct, normal Q/Esc teardown has a fresh PASS on the hardened build, and a real-game bind is confirmed.
