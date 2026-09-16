@@ -9,6 +9,9 @@ $script:VirtualGamepadWriter = $null
 $script:VirtualGamepadHelperProcess = $null
 $script:VirtualGamepadActive = $false
 $script:VirtualGamepadStarting = $false
+$script:VirtualGamepadStartWaitHandle = $null
+$script:VirtualGamepadStartDeadline = [DateTime]::MinValue
+$script:VirtualGamepadStartTimer = $null
 $script:VirtualGamepadLastMask = [uint32]::MaxValue
 $script:VirtualGamepadLastStartFailure = [DateTime]::MinValue
 $script:VirtualGamepadStartFailureCooldownSeconds = 20
@@ -159,6 +162,20 @@ function Send-MugenVirtualGamepadCommand {
     return $response
 }
 
+function Stop-MugenVirtualGamepadStartTimer {
+    if ($null -ne $script:VirtualGamepadStartTimer) {
+        try { $script:VirtualGamepadStartTimer.Stop() } catch { }
+    }
+}
+
+function Clear-MugenVirtualGamepadStartWait {
+    if ($null -ne $script:VirtualGamepadStartWaitHandle) {
+        try { $script:VirtualGamepadStartWaitHandle.AsyncWaitHandle.Close() } catch { }
+    }
+    $script:VirtualGamepadStartWaitHandle = $null
+    $script:VirtualGamepadStartDeadline = [DateTime]::MinValue
+}
+
 function Reset-MugenVirtualGamepadBridgeObjects {
     if ($null -ne $script:VirtualGamepadWriter) { try { $script:VirtualGamepadWriter.Dispose() } catch { } }
     if ($null -ne $script:VirtualGamepadReader) { try { $script:VirtualGamepadReader.Dispose() } catch { } }
@@ -171,10 +188,100 @@ function Reset-MugenVirtualGamepadBridgeObjects {
     $script:VirtualGamepadLastMask = [uint32]::MaxValue
 }
 
+function Fail-MugenVirtualGamepadStart {
+    param([Parameter(Mandatory = $true)][string]$Message)
+
+    $script:VirtualGamepadLastStartFailure = Get-Date
+    $script:VirtualGamepadStarting = $false
+    Stop-MugenVirtualGamepadStartTimer
+    Clear-MugenVirtualGamepadStartWait
+    Write-Log ('Virtual controller start failed: {0}' -f $Message) 'WARN'
+    Reset-MugenVirtualGamepadBridgeObjects
+}
+
+function Complete-MugenVirtualGamepadStart {
+    if (-not $script:VirtualGamepadStarting) {
+        Stop-MugenVirtualGamepadStartTimer
+        return
+    }
+
+    try {
+        if ($null -ne $script:VirtualGamepadHelperProcess) {
+            try {
+                if ($script:VirtualGamepadHelperProcess.HasExited) {
+                    throw 'Virtual controller helper exited before connecting.'
+                }
+            }
+            catch [System.InvalidOperationException] { }
+        }
+
+        if (
+            $script:VirtualGamepadStartDeadline -ne [DateTime]::MinValue -and
+            (Get-Date) -ge $script:VirtualGamepadStartDeadline
+        ) {
+            throw 'Timed out waiting for the virtual controller helper. The UAC prompt may have been cancelled.'
+        }
+
+        if ($null -eq $script:VirtualGamepadStartWaitHandle -or -not $script:VirtualGamepadStartWaitHandle.IsCompleted) {
+            return
+        }
+
+        $script:VirtualGamepadPipe.EndWaitForConnection($script:VirtualGamepadStartWaitHandle)
+        Clear-MugenVirtualGamepadStartWait
+
+        $utf8 = New-Object System.Text.UTF8Encoding($false)
+        $script:VirtualGamepadReader = New-Object System.IO.StreamReader($script:VirtualGamepadPipe, $utf8, $false, 4096, $true)
+        $script:VirtualGamepadWriter = New-Object System.IO.StreamWriter($script:VirtualGamepadPipe, $utf8, 4096, $true)
+        $script:VirtualGamepadWriter.AutoFlush = $true
+        $script:VirtualGamepadWriter.NewLine = "`n"
+
+        # The helper only connects after HID creation is complete, then writes
+        # READY immediately. Keeping this final read synchronous avoids adding
+        # another state machine while moving the expensive wait off the UI path.
+        $ready = $script:VirtualGamepadReader.ReadLine()
+        if ($null -eq $ready -or -not $ready.StartsWith('READY|')) {
+            throw ('Virtual controller helper did not become ready. Response: ' + [string]$ready)
+        }
+
+        $script:VirtualGamepadActive = $true
+        $script:VirtualGamepadStarting = $false
+        $script:VirtualGamepadLastMask = [uint32]::MaxValue
+        $script:VirtualGamepadLastStartFailure = [DateTime]::MinValue
+        Stop-MugenVirtualGamepadStartTimer
+        Write-Log 'Virtual controller ready: Mugen Deej Virtual Gamepad (Xbox 360 / XInput).' 'INFO'
+
+        # Push the freshest full button state immediately after the bridge comes
+        # online. If no frame is available yet, the next serial frame will do it.
+        if ($script:IsConnected -and @($script:LatestButtons).Count -gt 0) {
+            Update-MugenVirtualGamepadButtonStates -Values @($script:LatestButtons)
+        }
+    }
+    catch {
+        Fail-MugenVirtualGamepadStart -Message $_.Exception.Message
+    }
+}
+
+function Ensure-MugenVirtualGamepadStartTimer {
+    if ($null -ne $script:VirtualGamepadStartTimer) { return }
+
+    $script:VirtualGamepadStartTimer = New-Object System.Windows.Forms.Timer
+    $script:VirtualGamepadStartTimer.Interval = 100
+    $script:VirtualGamepadStartTimer.Add_Tick({
+        Complete-MugenVirtualGamepadStart
+    })
+}
+
 function Stop-MugenVirtualGamepad {
     param([string]$Reason = 'stop requested')
 
     $wasActive = $script:VirtualGamepadActive
+    $wasStarting = $script:VirtualGamepadStarting
+
+    if ($wasStarting) {
+        $script:VirtualGamepadStarting = $false
+        Stop-MugenVirtualGamepadStartTimer
+        Clear-MugenVirtualGamepadStartWait
+    }
 
     if ($wasActive) {
         try { [void](Send-MugenVirtualGamepadCommand -Command 'release') } catch { }
@@ -198,7 +305,7 @@ function Stop-MugenVirtualGamepad {
 
     $script:VirtualGamepadHelperProcess = $null
 
-    if ($wasActive) {
+    if ($wasActive -or $wasStarting) {
         Write-Log ('Virtual controller stopped: {0}' -f $Reason) 'INFO'
     }
 }
@@ -245,7 +352,7 @@ function Start-MugenVirtualGamepad {
             '--identity', 'mugen-deej-main'
         )
 
-        Write-Log 'Starting elevated virtual controller helper.' 'INFO'
+        Write-Log 'Starting elevated virtual controller helper asynchronously.' 'INFO'
         $script:VirtualGamepadHelperProcess = Start-Process `
             -FilePath $hostPath `
             -ArgumentList $helperArgs `
@@ -253,56 +360,17 @@ function Start-MugenVirtualGamepad {
             -WindowStyle Hidden `
             -PassThru
 
-        $waitHandle = $script:VirtualGamepadPipe.BeginWaitForConnection($null, $null)
-        try {
-            $deadline = (Get-Date).AddSeconds(75)
-            while (-not $waitHandle.IsCompleted) {
-                try {
-                    if ($script:VirtualGamepadHelperProcess.HasExited) {
-                        throw 'Virtual controller helper exited before connecting.'
-                    }
-                }
-                catch [System.InvalidOperationException] { }
+        $script:VirtualGamepadStartWaitHandle = $script:VirtualGamepadPipe.BeginWaitForConnection($null, $null)
+        $script:VirtualGamepadStartDeadline = (Get-Date).AddSeconds(75)
 
-                if ((Get-Date) -ge $deadline) {
-                    throw 'Timed out waiting for the virtual controller helper. The UAC prompt may have been cancelled.'
-                }
-
-                try { [System.Windows.Forms.Application]::DoEvents() } catch { }
-                Start-Sleep -Milliseconds 80
-            }
-
-            $script:VirtualGamepadPipe.EndWaitForConnection($waitHandle)
-        }
-        finally {
-            try { $waitHandle.AsyncWaitHandle.Close() } catch { }
-        }
-
-        $utf8 = New-Object System.Text.UTF8Encoding($false)
-        $script:VirtualGamepadReader = New-Object System.IO.StreamReader($script:VirtualGamepadPipe, $utf8, $false, 4096, $true)
-        $script:VirtualGamepadWriter = New-Object System.IO.StreamWriter($script:VirtualGamepadPipe, $utf8, 4096, $true)
-        $script:VirtualGamepadWriter.AutoFlush = $true
-        $script:VirtualGamepadWriter.NewLine = "`n"
-
-        $ready = $script:VirtualGamepadReader.ReadLine()
-        if ($null -eq $ready -or -not $ready.StartsWith('READY|')) {
-            throw ('Virtual controller helper did not become ready. Response: ' + [string]$ready)
-        }
-
-        $script:VirtualGamepadActive = $true
-        $script:VirtualGamepadLastMask = [uint32]::MaxValue
-        $script:VirtualGamepadLastStartFailure = [DateTime]::MinValue
-        Write-Log 'Virtual controller ready: Mugen Deej Virtual Gamepad (Xbox 360 / XInput).' 'INFO'
-        return $true
-    }
-    catch {
-        $script:VirtualGamepadLastStartFailure = Get-Date
-        Write-Log ('Virtual controller start failed: {0}' -f $_.Exception.Message) 'WARN'
-        Reset-MugenVirtualGamepadBridgeObjects
+        Ensure-MugenVirtualGamepadStartTimer
+        $script:VirtualGamepadStartTimer.Start()
+        Write-Log 'Virtual controller startup is pending in the background; UI remains responsive.' 'DEBUG'
         return $false
     }
-    finally {
-        $script:VirtualGamepadStarting = $false
+    catch {
+        Fail-MugenVirtualGamepadStart -Message $_.Exception.Message
+        return $false
     }
 }
 
@@ -332,14 +400,14 @@ function Update-MugenVirtualGamepadButtonStates {
     Initialize-MugenVirtualGamepadConfig
 
     if (-not [bool]$script:VirtualGamepadConfig.enabled) {
-        if ($script:VirtualGamepadActive) {
+        if ($script:VirtualGamepadActive -or $script:VirtualGamepadStarting) {
             Stop-MugenVirtualGamepad -Reason 'virtual controller disabled'
         }
         return
     }
 
     if (-not $script:IsConnected -or $script:DetectedButtonCount -le 0 -or @($Values).Count -eq 0) {
-        if ($script:VirtualGamepadActive) {
+        if ($script:VirtualGamepadActive -or $script:VirtualGamepadStarting) {
             Stop-MugenVirtualGamepad -Reason 'physical controller unavailable'
         }
         return
@@ -374,8 +442,11 @@ function Sync-MugenVirtualGamepadState {
         return $false
     }
 
-    if (-not (Start-MugenVirtualGamepad)) { return $false }
+    if ($script:VirtualGamepadActive) {
+        Update-MugenVirtualGamepadButtonStates -Values @($Values)
+        return $true
+    }
 
-    Update-MugenVirtualGamepadButtonStates -Values @($Values)
+    [void](Start-MugenVirtualGamepad)
     return $script:VirtualGamepadActive
 }
