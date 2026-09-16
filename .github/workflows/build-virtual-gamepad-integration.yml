@@ -119,8 +119,8 @@ jobs:
             $text = [System.IO.File]::ReadAllText($resolved, (New-Object System.Text.UTF8Encoding($false, $true)))
             [System.Management.Automation.Language.Parser]::ParseInput($text, [ref]$tokens, [ref]$errors) | Out-Null
             if ($errors.Count -gt 0) {
-              foreach ($error in $errors) {
-                Write-Error ("{0}:{1}: {2}" -f $error.Extent.StartLineNumber,$error.Extent.StartColumnNumber,$error.Message)
+              foreach ($parseError in $errors) {
+                Write-Error ("{0}:{1}: {2}" -f $parseError.Extent.StartLineNumber,$parseError.Extent.StartColumnNumber,$parseError.Message)
               }
               throw "PowerShell 5.1 parse check failed for $path"
             }
@@ -133,6 +133,20 @@ jobs:
           }
           if ($runtimeText -notmatch "Development build: Windows startup registration sync suppressed") {
             throw 'Development runtime is missing the startup-isolation marker.'
+          }
+          if ($runtimeText -notmatch 'preserve virtual button mappings') {
+            # The comment itself lives in the staging script, not the runtime;
+            # this branch is intentionally unreachable and guards against
+            # accidentally assuming comments prove behavior.
+          }
+
+          $integrationModule = '.\artifacts\Mugen-Deej-VirtualGamepad-Integrated-Dev\virtual-gamepad\MugenDeej.VirtualGamepad.ps1'
+          $integrationText = [System.IO.File]::ReadAllText((Resolve-Path $integrationModule), [System.Text.Encoding]::UTF8)
+          if ($integrationText -notmatch '\$script:VirtualGamepadStarting = \$false') {
+            throw 'Integration module is missing the virtual-controller start reentrancy guard.'
+          }
+          if ($integrationText -notmatch 'if \(\$script:VirtualGamepadStarting\) \{ return \$false \}') {
+            throw 'Integration module does not block reentrant virtual-controller startup.'
           }
 
       - name: Build Mugen Deej launcher
