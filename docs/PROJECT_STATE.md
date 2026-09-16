@@ -183,7 +183,7 @@ Changes in this build:
 
 ### Prototype 0 real-hardware status
 
-CORE INPUT PATH PASS / TEARDOWN BEHAVIOR NOT YET ACCEPTABLE.
+CORE INPUT PATH PASS / LIVE ORPHAN CLEANUP PASS / NORMAL TEARDOWN STILL PENDING RETEST.
 
 Confirmed with the existing 5-control / 6-button Extended controller on COM10:
 
@@ -195,24 +195,25 @@ Confirmed with the existing 5-control / 6-button Extended controller on COM10:
 - hold state over several seconds: PASS
 - immediate release: PASS
 - multiple simultaneous button holds and independent releases: PASS
+- explicit no-reboot orphan cleanup using `RUN-VIRTUAL-GAMEPAD-CLEANUP.cmd`: PASS
 
 Observed bridge masks included `0x01`, `0x02`, `0x04`, `0x08`, `0x10`, and `0x20`.
 
-Known teardown findings:
+Teardown findings so far:
 
 - hard-closing the terminal can leave the virtual controller enumerated after the bridge/helper process disappears;
-- exiting with `Q` released input state, but Windows later reported restart-required for the virtual Xbox device;
-- repeated full close/reopen of `joy.cpl` did not remove the entry, so this was not a stale applet cache;
-- the user is deliberately maintaining a multi-day hibernation/uptime test and rebooting just to clean a virtual controller is explicitly unacceptable;
-- current recovery target is therefore live cleanup on the running Windows session, not reboot-based recovery.
+- an earlier `Q` exit released input state but left Windows in a pending-removal / restart-required state;
+- repeated full close/reopen of `joy.cpl` confirmed this was not an applet cache artifact;
+- build 8 added an explicit preserve-install cleanup command and the same cleanup sweep as a normal-exit backstop;
+- on real hardware, against the already-stuck controller and **without rebooting Windows**, `RUN-VIRTUAL-GAMEPAD-CLEANUP.cmd` completed successfully and the Xbox controller disappeared from `joy.cpl` immediately;
+- therefore live orphan recovery is proven and a reboot is not required to recover the backend/device state.
 
-Next test: use prototype build 8's `RUN-VIRTUAL-GAMEPAD-CLEANUP.cmd` against the currently orphaned controller. If it removes the controller immediately, mark the emergency cleanup path PASS and then retest normal exit/hard-close behavior with the new exit sweep. If it still leaves Windows pending reboot, HIDMaestro's Xbox teardown path is not suitable as-is and needs deeper investigation or a backend change before product integration.
+The previous pending-reboot outcome is still a bug to eliminate from the normal product path. The next test is a fresh build-8 normal run followed by `Q`/`Esc`; if the controller disappears immediately, the new exit sweep fixes the normal path too.
 
 Remaining before Prototype 0 is fully PASS:
 
-- explicit cleanup removes current orphan without reboot;
-- normal Q/Esc teardown removes the virtual controller immediately;
-- hard-close/bridge-loss recovery removes the virtual controller without reboot;
+- normal Q/Esc teardown removes the virtual controller immediately without manual cleanup;
+- hard-close/bridge-loss recovery is robust and requires no reboot;
 - at least one successful button bind in a real game.
 
 Full attempt-by-attempt history is in `docs/VIRTUAL_CONTROLLER_TEST_LOG.md`.
@@ -256,7 +257,7 @@ Manual profile switching comes first. Automatic switching by foreground game/pro
 
 ## Planned integration after prototype 0
 
-1. Resolve no-reboot teardown behavior, add explicit cleanup, and verify hard-close recovery.
+1. Verify build-8 normal no-reboot teardown and hard-close recovery.
 2. Prove a real game accepts the virtual Xbox controller input.
 3. Add a minimal virtual-controller service abstraction to Mugen Deej.
 4. Integrate `virtual:button:N` mappings into Extended button settings.
