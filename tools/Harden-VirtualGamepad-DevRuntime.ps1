@@ -49,6 +49,27 @@ $startWithWindowsCheck.Enabled = $false
 '@ `
     -Label 'disable startup checkbox'
 
+# The stable 1.0.0 action normalizer does not know the experimental virtual
+# action namespace. Preserve validated virtual mappings instead of silently
+# rewriting them to "none" when controller capabilities are re-detected.
+$text = Replace-RegexExactlyOnce `
+    -Text $text `
+    -Pattern @'
+(?ms)^        \$valid = \(\r?\n            \$action -eq 'none' -or\r?\n            \$action -match '\^mute:\\d\+\$' -or\r?\n            \$validFixedActions -contains \$action\r?\n        \)
+'@ `
+    -Replacement @'
+        $valid = (
+            $action -eq 'none' -or
+            $action -match '^mute:\d+$' -or
+            $validFixedActions -contains $action -or
+            (
+                $script:VirtualGamepadFeatureAvailable -and
+                (Test-MugenVirtualGamepadAction -Action $action)
+            )
+        )
+'@ `
+    -Label 'preserve virtual button mappings'
+
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 [System.IO.File]::WriteAllText($resolved, $text, $utf8)
-Write-Host "Hardened development runtime against Windows startup registration changes: $resolved"
+Write-Host "Hardened development runtime against Windows startup registration changes and virtual mapping loss: $resolved"
