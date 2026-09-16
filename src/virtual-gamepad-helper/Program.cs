@@ -98,9 +98,17 @@ internal static class Program
 
             using var controller = context.CreateController(profile, identityKey);
 
+            // Do not rely on an implicit all-zero struct as a neutral gamepad
+            // frame. HIDMaestro's public state model uses normalized [0..1]
+            // axes, where 0.5 is center for signed stick axes and 0.0 is the
+            // released value for unsigned trigger axes. Seeding the complete
+            // standard axis set keeps joy.cpl and games neutral before we ever
+            // route a physical analog control.
             var state = new HMGamepadState
             {
-                Buttons = HMButton.None
+                Axes = HMGamepadStateHelpers.StandardAxes(profile),
+                Buttons = HMButton.None,
+                Hat = HMHat.None
             };
             controller.SubmitState(in state);
 
