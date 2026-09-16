@@ -2,6 +2,14 @@ name: Build virtual gamepad prototype
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feature/virtual-gamepad-ui
+    paths:
+      - '.github/workflows/build-virtual-gamepad-prototype.yml'
+      - 'src/virtual-gamepad-helper/**'
+      - 'tools/Prepare-HIDMaestro.ps1'
+      - 'dev/virtual-gamepad/**'
 
 permissions:
   contents: read
