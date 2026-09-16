@@ -127,16 +127,37 @@ Build:
 - artifact ID: `10452027277`
 - inner ZIP SHA-256: `37bebc2cc315f2cb54dc0a87b359cd1f4a6866f66f249d4b40e3cb9738173cfa`
 
+## 2026-09-16 — Prototype 0, attempt 5
+
+Result: LIVE ORPHAN CLEANUP PASS.
+
+Procedure:
+
+1. Windows was intentionally **not** rebooted, despite the earlier restart-required notification.
+2. `RUN-VIRTUAL-GAMEPAD-CLEANUP.cmd` from cleanup-hardened build 8 was launched.
+3. UAC elevation was accepted.
+4. The helper reported `Cleanup command finished successfully.`
+5. `joy.cpl` was checked after cleanup.
+
+Observed:
+
+- the previously persistent `Controller (XBOX 360 For Windows)` entry disappeared from `joy.cpl` immediately;
+- no Windows reboot was required;
+- the HIDMaestro backend remained installed because cleanup used `preserveInstall: true`.
+
+Conclusion:
+
+**Emergency live orphan recovery is hardware-tested PASS.** The current backend is capable of removing a stuck/orphaned virtual Xbox controller on the live Windows session. The earlier restart-required state is therefore recoverable without reboot and is not, by itself, grounds to reject HIDMaestro.
+
+This does not yet prove that the normal Q/Esc teardown path is correct. Build 8 added the same preserve-install sweep to normal helper exit, so that path now needs a fresh real-hardware test.
+
 ## Next test
 
-1. Do **not** reboot Windows.
-2. Run `RUN-VIRTUAL-GAMEPAD-CLEANUP.cmd` from build 8 and accept UAC.
-3. Close/reopen `joy.cpl` and check whether the existing orphan disappears immediately.
-4. If live cleanup succeeds, mark emergency orphan recovery PASS.
-5. Then start build 8 normally, verify buttons, exit with Q, and confirm the controller disappears without reboot.
-6. After that, deliberately hard-close the prototype once and run cleanup again to validate hard-close recovery.
-7. Bind at least one physical Mugen button in a real game.
+1. Start cleanup-hardened build 8 normally.
+2. Verify the Xbox controller appears and the physical buttons still work.
+3. Exit with `Q` or `Esc`.
+4. Reopen `joy.cpl` and confirm the virtual controller disappeared immediately, without manually running cleanup.
+5. If normal exit passes, deliberately hard-close the prototype once and confirm the helper-side recovery / explicit cleanup path removes the orphan without reboot.
+6. Bind at least one physical Mugen button in a real game.
 
-If explicit preserve-install cleanup still leaves the controller pending reboot, stop treating this as a harness issue and investigate HIDMaestro's Xbox teardown path or replace the backend before integrating it into Mugen Deej.
-
-Do not call Prototype 0 fully PASS until no-reboot cleanup, normal teardown, hard-close recovery, and a real-game bind are confirmed.
+Do not call Prototype 0 fully PASS until normal no-reboot teardown, hard-close recovery, and a real-game bind are confirmed.
