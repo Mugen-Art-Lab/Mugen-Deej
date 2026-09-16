@@ -72,7 +72,6 @@ function Open-ExtendedController {
             $serial.WriteTimeout = 250
             $serial.Open()
 
-            # Classic Nano/USB-serial boards often reset when the port opens.
             Start-Sleep -Milliseconds 1400
             try { $serial.DiscardInBuffer() } catch { }
 
@@ -139,6 +138,7 @@ $helperProcess = $null
 $pipe = $null
 $reader = $null
 $writer = $null
+$waitHandle = $null
 
 try {
     Write-Host ''
@@ -159,6 +159,19 @@ try {
     ) -ForegroundColor Green
 
     $pipeName = 'MugenDeejVirtualGamepad-' + [Guid]::NewGuid().ToString('N')
+
+    # The unelevated bridge creates the pipe. The elevated helper connects
+    # down to it after UAC. This direction is intentional: the first prototype
+    # did the opposite and Windows' UAC integrity boundary prevented the
+    # unelevated process from opening the elevated helper's pipe.
+    $pipe = New-Object System.IO.Pipes.NamedPipeServerStream(
+        $pipeName,
+        [System.IO.Pipes.PipeDirection]::InOut,
+        1,
+        [System.IO.Pipes.PipeTransmissionMode]::Byte,
+        [System.IO.Pipes.PipeOptions]::None
+    )
+
     $helperArgs = @(
         'server',
         '--pipe', $pipeName,
@@ -176,20 +189,28 @@ try {
         -WindowStyle Hidden `
         -PassThru
 
-    $pipe = New-Object System.IO.Pipes.NamedPipeClientStream(
-        '.',
-        $pipeName,
-        [System.IO.Pipes.PipeDirection]::InOut,
-        [System.IO.Pipes.PipeOptions]::None
-    )
+    $waitHandle = $pipe.BeginWaitForConnection($null, $null)
+    $deadline = (Get-Date).AddSeconds(75)
 
-    try {
-        $pipe.Connect(45000)
+    while (-not $waitHandle.IsCompleted) {
+        try {
+            if ($helperProcess.HasExited) {
+                $logHint = if (Test-Path -LiteralPath $hostLogPath) { " Host log: $hostLogPath" } else { '' }
+                throw ('Virtual-controller host exited before connecting to Mugen.' + $logHint)
+            }
+        }
+        catch [System.InvalidOperationException] { }
+
+        if ((Get-Date) -ge $deadline) {
+            $logHint = if (Test-Path -LiteralPath $hostLogPath) { " Host log: $hostLogPath" } else { '' }
+            throw ('Timed out waiting for the virtual-controller host to connect. The UAC prompt may have been cancelled or the backend may have failed.' + $logHint)
+        }
+
+        Start-Sleep -Milliseconds 100
     }
-    catch {
-        $logHint = if (Test-Path -LiteralPath $hostLogPath) { " Host log: $hostLogPath" } else { '' }
-        throw ('Could not connect to the virtual-controller host. The UAC prompt may have been cancelled or the backend failed.' + $logHint)
-    }
+
+    $pipe.EndWaitForConnection($waitHandle)
+    $waitHandle = $null
 
     $utf8 = New-Object System.Text.UTF8Encoding($false)
     $reader = New-Object System.IO.StreamReader($pipe, $utf8, $false, 4096, $true)
@@ -245,7 +266,6 @@ try {
         [uint32]$mask = 0
         $mappedCount = [Math]::Min(6, @($packet.Buttons).Count)
         for ($i = 0; $i -lt $mappedCount; $i++) {
-            # Mugen Extended buttons are active-low: b0 = pressed, b1 = released.
             if ([int]$packet.Buttons[$i] -eq 0) {
                 $mask = $mask -bor ([uint32]1 -shl $i)
             }
@@ -266,6 +286,7 @@ finally {
 
     if ($null -ne $writer) { try { $writer.Dispose() } catch { } }
     if ($null -ne $reader) { try { $reader.Dispose() } catch { } }
+    if ($null -ne $waitHandle) { try { $waitHandle.AsyncWaitHandle.Close() } catch { } }
     if ($null -ne $pipe) { try { $pipe.Dispose() } catch { } }
 
     if ($null -ne $controller) {
