@@ -6,7 +6,7 @@ Living implementation/test note for the product integration phase on `feature/vi
 
 Prototype 0 backend proof: **PASS**.
 
-Integrated Mugen Deej milestone 1: **PARTIAL REAL-HARDWARE PASS / NONBLOCKING STARTUP HARDWARE RE-TEST PENDING**.
+Integrated Mugen Deej milestone 1: **PARTIAL REAL-HARDWARE PASS / NONBLOCKING TEARDOWN HARDWARE RE-TEST PENDING**.
 
 The stable `main` / v1.0.0 source and release are not modified by this experiment.
 
@@ -25,8 +25,11 @@ Current scope:
 - virtual button output is stateful and is updated from `Update-ButtonStates`, before the existing press-edge action dispatcher;
 - virtual mappings are ignored by the old press-only `Invoke-ButtonAction` path;
 - physical-controller disconnect tears down the virtual controller;
+- virtual-controller creation is nonblocking on the Mugen UI thread;
+- virtual-controller teardown is also staged as background cleanup in the current dev build;
+- a second status row is shown in the main connection card only while virtual-controller output is enabled;
+- the status row reports waiting / connecting / connected / startup error and is bilingual;
 - the proven elevated helper / named-pipe / HIDMaestro lifecycle is reused;
-- normal stop waits for helper cleanup and does not force-kill the helper during HID/PnP teardown;
 - display label remains `Mugen Deej Virtual Gamepad`;
 - virtual-controller setting is temporarily stored in `virtual-controller.json` next to the app.
 
@@ -44,11 +47,12 @@ Not in milestone 1:
 
 - `src/virtual-gamepad-helper/` — proven elevated .NET/HIDMaestro helper.
 - `src/virtual-gamepad-integration/MugenDeej.VirtualGamepad.ps1` — Mugen-side virtual-controller service.
+- `src/virtual-gamepad-integration/MugenDeej.VirtualGamepad.AsyncStop.ps1` — temporary dev-stage override that moves slow helper teardown off the WinForms UI thread and blocks restart until cleanup finishes.
 - `tools/Build-VirtualGamepad-Integration.ps1` — experimental patch/staging step that injects the integration hooks into a development copy of `MugenDeej.ps1`.
 - `tools/Harden-VirtualGamepad-DevRuntime.ps1` — dev-only isolation plus staged compatibility fixes.
 - `.github/workflows/build-virtual-gamepad-integration.yml` — isolated development package build.
 
-The patch/staging approach is temporary. Before this work is release-ready, the validated changes should be consolidated into normal source and the experimental patcher removed, matching the source-cleanliness approach used for v1.0.0.
+The patch/staging approach is temporary. Before this work is release-ready, the validated changes should be consolidated into normal source and the experimental patcher/overlay removed, matching the source-cleanliness approach used for v1.0.0.
 
 ## CI history
 
@@ -134,7 +138,7 @@ Commit `7308b73f2507d795cb1a0fd4c43dce11bb8ea5cc` changes the Mugen-side startup
 
 Expected behavior:
 
-- Save returns immediately after the UAC launch step;
+- Save returns immediately after the elevation launch step;
 - Mugen remains responsive while HIDMaestro creates/enumerates the Xbox device;
 - serial processing continues normally during the 10–20 second Windows HID/PnP setup;
 - while startup is pending, further full-state serial packets see the existing `starting` guard and do not launch another helper;
@@ -154,38 +158,99 @@ Expected behavior:
 - artifact ID: `10462991104`
 - inner development ZIP SHA-256: `d7e082d69f87bf0e73393760a7dfcf466c64ad7ddf88db00578988dfb761258e`
 
-Run 11 is **CI PASS / nonblocking-start hardware re-test pending**. Do not call the startup-lag issue fixed on hardware until the user verifies that the actual Mugen UI stays interactive during first virtual-controller creation.
+### Run 11 real-hardware re-test
 
-## First real-hardware test plan
+**NONBLOCKING STARTUP — HARDWARE PASS.**
+
+On the same Extended 5+6 controller, enabling Xbox/XInput left the Button Settings window responsive while the helper continued HID/PnP creation in the background. The main log recorded asynchronous start at `00:53:11.821`, immediate return to background wait at `00:53:12.001`, and `Virtual controller ready` at `00:53:28.408` — roughly **16.6 seconds** of Windows/HID setup without freezing the Mugen UI. COM10 stayed connected.
+
+### Main-window status UI
+
+Run 12 added a second row to the main connection card only while virtual-controller output is enabled.
+
+Real-hardware/UI observation:
+
+- Russian `подключается…` shown during HID creation;
+- Russian `Mugen Deej Virtual Gamepad: подключён` shown after READY;
+- English `Mugen Deej Virtual Gamepad: connected` updates correctly after language change;
+- when virtual-controller output is Off, the extra status row is removed and the physical-controller status returns to the single-row layout.
+
+**MAIN STATUS UI — HARDWARE/UI PASS.**
+
+### Teardown timing finding
+
+Run 12 exposed the mirror-image startup problem on disable and application exit: Mugen still synchronously waited for the helper process to finish HIDMaestro teardown.
+
+The user-visible freeze is directly visible in both logs:
+
+- disable saved at `00:54:58.362`;
+- helper saw `BRIDGE_DISCONNECTED` / `STOP` at `00:54:58.368`;
+- HIDMaestro/controller disposal did not reach `OEM_NAME_CLEARED` until `00:55:08.630`;
+- orphan sweep itself then finished almost immediately at `00:55:08.645`;
+- Mugen logged `Virtual controller stopped` at `00:55:08.678`.
+
+So roughly **10.3 seconds** are spent in the actual controller/HID disposal path before the OEM-name clear. The explicit `EXIT_SWEEP` is only a few milliseconds and is not the source of the delay.
+
+Normal application exit showed the same pattern: request at `00:56:37.233`, helper `STOP` at `00:56:37.236`, cleanup reached OEM-name clear at `00:56:47.483`, and Mugen finally exited at `00:56:47.543`.
+
+The Mugen-side cause of the visible freeze was the synchronous `WaitForExit(30000)` in `Stop-MugenVirtualGamepad`. The cleanup must still be allowed to finish, but the WinForms thread does not need to wait for it.
+
+The helper log also records a secondary cleanup-noise issue: after successful `EXIT_SWEEP_DONE`, disposing the already-broken pipe writer can throw `System.IO.IOException: Pipe is broken`, which is currently logged as `FATAL`. Cleanup has already completed at that point; this false-fatal log entry should be cleaned up separately before release.
+
+### Nonblocking teardown fix — Run 14
+
+The dev-stage teardown override was added in `src/virtual-gamepad-integration/MugenDeej.VirtualGamepad.AsyncStop.ps1` and appended after the core module during experimental packaging.
+
+Behavior:
+
+- release buttons immediately;
+- close the Mugen side of the pipe so the helper begins the already-proven cleanup path;
+- return to the UI immediately instead of calling `WaitForExit`;
+- poll the helper process with a WinForms timer only for bookkeeping;
+- prevent a new virtual controller from starting while the previous helper is still removing HID/PnP state;
+- if the user re-enables during cleanup, start the fresh controller only after the old helper exits;
+- application exit no longer needs to keep the Mugen UI/process alive while the elevated helper finishes its own cleanup.
+
+CI:
+
+- workflow run ID: `35138005925`;
+- run number: `14`;
+- head: `c39f4fb31a259905d99a63fb1e7c3d29d2ef497f`;
+- result: **PASS**;
+- Windows PowerShell 5.1 parser: PASS;
+- nonblocking-teardown static markers: PASS;
+- helper publish/smoke: PASS;
+- launcher/package: PASS;
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-14`;
+- artifact ID: `10463797250`;
+- inner development ZIP SHA-256: `4581329c6065f14f7de08704ef9006650d9c413527d25549f290692e9b267ddb`.
+
+Run 14 is **CI PASS / nonblocking-teardown hardware re-test pending**.
+
+## Remaining real-hardware test plan for milestone 1
 
 Use the already-tested Extended 5-control / 6-button controller.
 
-1. Close the stable Mugen Deej instance so the development build owns the COM port.
-2. Run the integrated development `MugenDeej.exe` from a separate folder.
-3. Confirm ordinary Mugen connection/audio behavior is still intact before enabling virtual output.
-4. Open Button Settings.
-5. Confirm the new `Virtual controller` row is present and defaults to `Off` on a clean folder.
-6. Select `Xbox 360 / XInput`.
-7. Map several physical buttons through `Choose gamepad button...`.
-8. Save and accept UAC.
-9. Confirm Mugen remains responsive while the virtual HID is being created and exactly one helper startup occurs.
-10. Confirm the physical COM connection stays stable throughout startup.
-11. Confirm `joy.cpl` shows `Mugen Deej Virtual Gamepad`.
-12. Confirm press, hold, release and simultaneous button states work.
-13. Reopen Button Settings and confirm virtual mappings are still present.
-14. Force a physical-controller reconnect and confirm mappings survive capability re-detection.
-15. Confirm ordinary non-gamepad button actions can coexist with virtual mappings on different physical buttons.
-16. Close Mugen normally and verify the virtual controller disappears and does not return.
-17. Start again with the saved configuration and verify persistence/reconnect behavior.
-18. Hard-close once and verify bridge-loss cleanup still removes the virtual controller without reboot.
-19. Re-check a real XInput game after integrated runtime validation.
+1. Confirm ordinary Mugen connection/audio behavior remains intact.
+2. Enable Xbox/XInput and confirm startup remains nonblocking and exactly one helper is launched.
+3. Confirm the main status row transitions from connecting to connected and language switching remains correct.
+4. Confirm `joy.cpl` shows `Mugen Deej Virtual Gamepad` and mapped press/hold/release/combinations still work.
+5. Reopen Button Settings and confirm virtual mappings remain present.
+6. Set Virtual controller to Off, click Save, and confirm the settings/main UI remains responsive immediately while the device disappears after background cleanup.
+7. Re-enable immediately after disabling once to verify restart waits safely for the previous cleanup instead of racing HIDMaestro.
+8. Exit Mugen while the virtual controller is active and confirm the Mugen window/process closes promptly while the helper removes the gamepad shortly afterward.
+9. Confirm no orphaned virtual controller remains after background cleanup; no reboot is acceptable.
+10. Force a physical-controller reconnect and confirm mappings survive capability re-detection.
+11. Confirm ordinary non-gamepad button actions can coexist with virtual mappings on different physical buttons.
+12. Hard-close once and verify bridge-loss cleanup still removes the virtual controller without reboot.
+13. Re-check a real XInput game after integrated runtime validation.
 
-Do not call integrated milestone 1 a complete hardware PASS until the above path has been tested on the real controller.
+Do not call integrated milestone 1 a complete hardware PASS until the remaining teardown/reconnect path has been tested on real hardware.
 
 ## Next after milestone 1 hardware PASS
 
-1. Fold the proven integration into normal source instead of build-time patching.
-2. Add a small user-facing status for the virtual controller if useful.
+1. Fold the proven integration into normal source instead of build-time patching/overlays.
+2. Fix the helper's expected broken-pipe disposal being logged as `FATAL` after successful cleanup.
 3. Add analog-control → virtual-axis routing.
 4. Introduce the Profile model (Default + New/Duplicate/Rename/Delete/select).
 5. Move virtual enabled/type/mappings into profiles.
