@@ -161,15 +161,14 @@ try {
     $pipeName = 'MugenDeejVirtualGamepad-' + [Guid]::NewGuid().ToString('N')
 
     # The unelevated bridge creates the pipe. The elevated helper connects
-    # down to it after UAC. This direction is intentional: the first prototype
-    # did the opposite and Windows' UAC integrity boundary prevented the
-    # unelevated process from opening the elevated helper's pipe.
+    # down to it after UAC. The server is explicitly asynchronous because
+    # BeginWaitForConnection requires PipeOptions.Asynchronous on Windows.
     $pipe = New-Object System.IO.Pipes.NamedPipeServerStream(
         $pipeName,
         [System.IO.Pipes.PipeDirection]::InOut,
         1,
         [System.IO.Pipes.PipeTransmissionMode]::Byte,
-        [System.IO.Pipes.PipeOptions]::None
+        [System.IO.Pipes.PipeOptions]::Asynchronous
     )
 
     $helperArgs = @(
