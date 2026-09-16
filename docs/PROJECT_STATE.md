@@ -2,7 +2,7 @@
 
 Last updated: 2026-09-16
 
-This file is the authoritative handoff/state note for active development. Update it whenever a meaningful implementation or hardware-test milestone changes. If an older design note conflicts with this file, this file wins until the older note is revised.
+This is the authoritative short handoff for active development. Detailed prototype history is in `docs/VIRTUAL_CONTROLLER_TEST_LOG.md`; current product-integration work is in `docs/VIRTUAL_GAMEPAD_INTEGRATION.md`.
 
 ## Stable baseline
 
@@ -10,34 +10,20 @@ This file is the authoritative handoff/state note for active development. Update
 - Stable branch: `main`
 - Stable squash commit: `214273e0c845ba9932544521da856af4a7a4fe24`
 - Release page: `https://github.com/Mugen-Art-Lab/Mugen-Deej/releases/tag/v1.0.0`
-- Stable runtime: Windows PowerShell 5.1 + small Go launcher.
-- Stable 1.0.0 must not be modified while experimental virtual-controller work is developed.
+- Runtime: Windows PowerShell 5.1 + small Go launcher.
+- Stable v1.0.0 stays frozen while virtual-controller work is developed in a feature branch.
 
-### Stable hardware status
+Hardware-tested stable behavior:
 
-PASS — Legacy controller:
+- Legacy: 5 sliders / 0 buttons — PASS.
+- Extended: 5 sliders / 6 buttons — PASS.
+- Real audio control, Extended button actions, Setup, backup/restore and release packaging — PASS.
 
-- 5 sliders / 0 buttons
-- COM detection and reconnect
-- real Windows/application volume control
-- Setup install
-- backup/restore and emergency pre-restore backup
-- post-restore visible one-shot launch
+## Active branch
 
-PASS — Extended controller:
+`feature/virtual-gamepad-ui`
 
-- 5 sliders / 6 buttons
-- real slider/audio control
-- physical button actions including mute, play/pause and script launch
-- setup/backup/restore paths tested
-
-## Active development branch
-
-- Branch: `feature/virtual-gamepad-ui`
-- Base: stable `main` 1.0.0
-- Goal: add optional virtual game-controller output while preserving Mugen Deej as a generic low-cost DIY controller router.
-
-Core model:
+Goal: keep Mugen Deej a generic low-cost DIY controller router while adding optional game-controller output on the PC side.
 
 ```text
 physical DIY hardware
@@ -52,213 +38,216 @@ Mugen Deej routing / profiles
 audio      actions     virtual controller
 ```
 
-The microcontroller should stay simple. Game-specific meaning belongs on the PC side so the same hardware can be reused without reflashing.
+The microcontroller should remain simple. The same physical hardware should be reusable without reflashing when the user changes what controls mean.
 
-## Current protocol / hardware facts
+## Protocol / future hardware facts
 
-Stable Extended packets are dynamic, for example:
+Extended packets are dynamic, e.g.:
 
 ```text
 s512|s123|s900|s456|s777|b1|b1|b0|b1|b1|b1
 ```
 
-Current parser accepts at most 64 total fields.
+The current parser accepts at most 64 total fields.
 
-Planned experimental hardware:
+Planned matrix prototype:
 
-- 5 analog controls
-- 5 x 6 switch matrix = 30 buttons
-- total Extended packet fields = 35, which fits the parser limit
-- Arduino Nano prototype hardware has been ordered
-- 1N4148 matrix diodes are planned
+- 5 analog controls;
+- 5×6 switch matrix = 30 buttons;
+- 35 total packet fields, within the parser limit;
+- Arduino Nano-class hardware;
+- 1N4148 diodes for the switch matrix.
 
-NOT TESTED — 5 controls + 30 buttons on real hardware.
+5+30 is **NOT hardware-tested yet**.
 
-Serial bandwidth note: a full 35-field packet is much larger than the current 5+6 packet. At 9600 baud a roughly 115–120-byte packet takes about 120 ms on the wire with 8N1 framing, so the current 60 ms full-state cadence cannot remain unchanged for 5+30 hardware. Before the matrix firmware is finalized, either add a higher configurable baud rate or deliberately reduce the full-state cadence.
+Bandwidth warning: a roughly 115–120 byte full-state packet needs about 120 ms at 9600 baud with 8N1, so the current 60 ms cadence cannot be reused unchanged. Before final matrix firmware, add configurable/higher baud or deliberately lower the full-state cadence.
 
-## Virtual controller direction
+## Virtual controller architecture
 
-### Product behavior
+Virtual output is optional and must be OFF by default for existing users.
 
-Virtual output is optional. Existing audio-only users must not get a surprise game controller.
+Semantics:
 
-Element semantics:
+- ordinary Mugen button actions are press-edge-triggered;
+- virtual buttons are stateful (press + hold + release);
+- virtual axes are continuous.
 
-- normal button actions are edge-triggered on press;
-- virtual buttons are stateful and require press + release;
-- virtual axes are continuous values.
+Cleanup requirement: disconnect, app exit, bridge failure, backend failure, profile switch and hard-close must never leave stuck input or an orphaned gamepad. Reboot as a normal recovery path is unacceptable.
 
-On disconnect, suspend, backend failure, profile change, app exit or bridge failure, all virtual input must be released and the virtual device must be torn down.
+Planned user-facing modes:
 
-**Reboot requirement for normal creation/removal/recovery is not acceptable product behavior.** Live cleanup without reboot is a hard requirement.
-
-### Planned compatibility modes
-
-- `Xbox 360 / XInput` — compatibility-first mode for modern games; fixed Xbox-style control set.
-- `Generic / DirectInput` — arbitrary DIY controller shape for simulator panels, many buttons and custom axes.
-
-Possible later presets can sit on top of those controller types, e.g. Arcade/Fight Pad. A preset is not necessarily a different backend.
-
-## Backend choice under test
+- `Xbox 360 / XInput` — compatibility-first, fixed Xbox control set;
+- `Generic / DirectInput` — arbitrary DIY shapes, many buttons and custom axes.
 
 Current backend: HIDMaestro 1.8.0.
 
-Why it is being used:
+Why it is currently accepted for development:
 
 - active project;
 - MIT license;
-- user-mode UMDF2 implementation;
+- user-mode UMDF2;
 - built-in Xbox 360 profile;
-- supports XInput/DirectInput/GameInput/WGI/SDL-visible devices;
-- SDK can also build arbitrary custom HID controllers with chosen button/axis counts.
+- supports XInput/DirectInput/GameInput/WGI/SDL visibility;
+- SDK can create custom HID layouts.
 
-Pinned release archive SHA-256:
+Pinned HIDMaestro release archive SHA-256:
 
 `1e5f5019c20e4be8f922c7aa5a86ee87eb01f7aa851fe38daea14d0ce4fd8240`
 
-Important verified constraint: Windows requires elevation to install the HIDMaestro driver and to create virtual controllers. Therefore Mugen uses an elevated helper process with a named-pipe bridge instead of elevating the whole UI.
+Windows elevation is required for the virtual HID operations, so Mugen keeps its UI unelevated and uses an elevated helper connected by a named pipe.
 
-Current Xbox/XInput display label:
+Current Xbox display label:
 
 `Mugen Deej Virtual Gamepad`
 
-This is presentation only; it does not change XInput compatibility. The OEM-name override is VID:PID scoped, so another real device with the same Xbox VID/PID can temporarily share the label. Mugen must never use the display name as its internal identity.
+The label is presentation only and must not be used as internal identity; HIDMaestro's OEM-name override is VID:PID-scoped.
 
-## Prototype 0 — completed backend proof
+## Prototype 0 — backend proof
 
-The standalone prototype intentionally does not modify stable `MugenDeej.ps1`. It exists to prove the backend/cleanup architecture before real UI integration.
+**PASS / COMPLETE ENOUGH FOR PRODUCT INTEGRATION.**
 
-Important files:
+Real hardware: existing Extended 5-control / 6-button controller on COM10.
 
-- `src/virtual-gamepad-helper/` — .NET 10 x64 elevated helper using HIDMaestro
-- `tools/Prepare-HIDMaestro.ps1` — pinned SDK preparation
-- `dev/virtual-gamepad/Mugen-VirtualGamepad-Prototype.ps1` — serial bridge harness
-- `dev/virtual-gamepad/RUN-VIRTUAL-GAMEPAD-PROTOTYPE.cmd`
-- `dev/virtual-gamepad/RUN-VIRTUAL-GAMEPAD-CLEANUP.cmd`
-- `.github/workflows/build-virtual-gamepad-prototype.yml`
+Hardware-proven:
 
-Temporary 5+6 button mapping:
+- Extended detection;
+- elevated helper startup;
+- Xbox/XInput virtual device creation;
+- `joy.cpl` enumeration;
+- display name `Mugen Deej Virtual Gamepad`;
+- neutral axes/triggers/POV;
+- stateful press/hold/release;
+- simultaneous button combinations;
+- emergency live orphan cleanup without reboot;
+- hard-close / bridge-loss cleanup without reboot;
+- normal Q/Esc teardown without reboot;
+- HardwareTester recognition as XInput / standard mapping;
+- real-game recognition/input in `Cult of the Lamb`.
 
-1. A
-2. B
-3. X
-4. Y
-5. Left Bumper
-6. Right Bumper
+Important commits:
 
-### Prototype 0 final result
+- `487592fe3a23986bfb3a9be63754a92a651e5ef2` — explicit neutral axes.
+- `540648f6680cc2b37667cb7fe95b83ea71112ad7` — crash-safe display-name lifecycle.
+- `e887e4ac857c40f53566dd82e3ed0ad7c1b4a09e` — safe normal teardown using proven bridge-disconnect cleanup.
 
-**PASS — backend proof complete enough to move into the real Mugen runtime/UI.**
+Latest validated standalone prototype:
 
-Hardware-tested with the existing Extended 5-control / 6-button controller on COM10:
+- workflow run `35118021710`, run #11;
+- artifact ID `10456900609`;
+- CI PASS;
+- normal Q teardown hardware PASS.
 
-- Extended detection: PASS
-- elevated helper startup: PASS
-- virtual Xbox 360 creation: PASS
-- `joy.cpl` enumeration/status: PASS
-- display name `Mugen Deej Virtual Gamepad`: PASS
-- neutral startup axes/triggers/POV: PASS
-- first real state packet `Buttons mask: 0x00`: PASS
-- physical buttons 1–6: PASS
-- hold/release state: PASS
-- simultaneous button combinations: PASS
-- emergency live orphan cleanup without reboot: PASS
-- hard-close / bridge-loss cleanup without reboot: PASS
-- normal Q/Esc cleanup without reboot: PASS after teardown fix
-- HardwareTester detection as XInput, connected, standard mapping: PASS
-- real-game recognition/input in `Cult of the Lamb`: PASS
+The standalone harness is now a development fixture, not the intended product UI.
 
-Observed button masks include `0x00`, `0x01`, `0x02`, `0x04`, `0x08`, `0x10`, `0x20`, and combinations such as `0x21` / `0x31`.
+## Integrated product milestone 1 — current work
 
-Important implementation commits:
+Status: **CI PASS / REAL-HARDWARE TEST PENDING.**
 
-- `487592fe3a23986bfb3a9be63754a92a651e5ef2` — explicit neutral axis initialization
-- `540648f6680cc2b37667cb7fe95b83ea71112ad7` — crash-safe display-name override lifecycle
-- `e887e4ac857c40f53566dd82e3ed0ad7c1b4a09e` — normal teardown uses bridge-disconnect cleanup path and waits for helper completion
+The first integrated development build now routes the proven Xbox backend through the actual Mugen Deej Button Settings/runtime while leaving the stable source/release untouched.
 
-Latest validated prototype build:
+Current integrated behavior:
 
-- workflow run `35118021710`
-- run number `11`
-- artifact `Mugen-Deej-VirtualGamepad-Prototype-11`
-- artifact ID `10456900609`
-- CI: PASS
-- real normal-Q teardown retest: PASS; controller disappeared and did not reappear
+- virtual output defaults to `Off`;
+- Button Settings gains `Virtual controller: Off / Xbox 360 / XInput`;
+- physical button destinations gain A, B, X, Y, LB, RB, Back/View, Start/Menu, L3 and R3;
+- virtual actions are stateful and are fed from `Update-ButtonStates` before press-edge detection;
+- virtual mappings do not fall through to the old press-only action executor;
+- controller disconnect tears down the virtual gamepad;
+- normal helper teardown uses the proven no-force-kill cleanup lifecycle;
+- setting is temporarily stored in `virtual-controller.json` next to the app;
+- analog virtual axes, D-pad, triggers, DirectInput and Profiles are not in this milestone yet.
 
-Detailed attempt-by-attempt history: `docs/VIRTUAL_CONTROLLER_TEST_LOG.md`.
+Implementation files:
 
-The standalone harness should now be treated as a proven development fixture, not as the product UI.
+- `src/virtual-gamepad-integration/MugenDeej.VirtualGamepad.ps1`
+- `tools/Build-VirtualGamepad-Integration.ps1`
+- `.github/workflows/build-virtual-gamepad-integration.yml`
 
-## Profiles: planned architecture
+The build-time patcher is temporary. Once the integrated path is hardware-proven, consolidate it into normal source before any release/merge, then remove the experimental patch chain.
+
+Integration CI:
+
+- run #1 `35120305651`: FAIL during staging because a regex pattern accidentally interpolated `$action` under StrictMode;
+- fixed in commit `0f423de80bdeee2142cf3c5b971e7b4c4b3874b8`;
+- run #2 `35120553251`: **PASS**;
+- Windows PowerShell 5.1 parse check: PASS;
+- helper publish/smoke test: PASS;
+- launcher build: PASS;
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-2`;
+- artifact ID: `10457004970`;
+- inner dev ZIP SHA-256: `2cc5b32ea56abbf5c82868fdcfe8ca9ed2fc2c65401313d87a3fb86ee43f327a`.
+
+This is only a build/parse PASS. Do not call integrated milestone 1 a hardware PASS until the user tests the actual Mugen UI/runtime package.
+
+Detailed current test plan: `docs/VIRTUAL_GAMEPAD_INTEGRATION.md`.
+
+## Profiles — planned architecture
 
 Terminology:
 
 - **Profile** = complete user configuration for a connected control surface.
-- **Preset** = optional built-in template used to create a profile, e.g. Xbox Gamepad, Arcade Pad, 30-button DirectInput, Streaming.
+- **Preset** = optional template used to create a profile, e.g. Xbox Gamepad, Arcade Pad, 30-button DirectInput, Streaming.
 
-Planned Extended-controller UI concept:
+Planned UI concept:
 
 ```text
 Profile: [ Desktop v ]  [ Manage... ]
 ```
 
-Profile management should support:
+Profile management:
 
-- New
-- Duplicate
-- Rename
-- Delete
-- Select from dropdown
+- New;
+- Duplicate;
+- Rename;
+- Delete;
+- select from dropdown.
 
-A permanent `Default` profile must preserve current Mugen Deej behavior and provide safe migration from 1.0.0.
+A permanent `Default` profile must preserve migrated 1.0.0 behavior.
 
-A profile should eventually own:
+Eventually a profile owns:
 
-- button actions;
-- analog-control destinations;
-- virtual-controller enabled state;
-- virtual-controller type (`Xbox 360 / XInput`, `Generic / DirectInput`);
+- ordinary button actions;
+- analog destinations;
+- virtual controller enabled/type;
 - virtual button/axis mappings;
-- controller-shape metadata such as detected control/button counts;
-- virtual-controller display name where safe/supported.
+- controller-shape metadata;
+- optional safe display-name settings.
 
-If a profile was created for 5+30 hardware and a 5+6 controller is connected, Mugen should warn that unavailable mappings will be skipped rather than fail. Extra physical controls not present in the profile default to unassigned.
+Hardware mismatch must degrade gracefully: a 5+30 profile used with 5+6 hardware skips unavailable mappings; extra physical controls default unassigned.
 
-Manual profile switching comes first. Automatic game/process switching is deferred.
+Manual profile switching comes first. Automatic switching by game/process is deferred.
 
-## Next implementation phase
+## Next steps
 
-1. Add a minimal virtual-controller service abstraction to real Mugen Deej.
-2. Keep virtual output disabled by default so 1.0.0 behavior remains unchanged.
-3. Add `Xbox 360 / XInput` controller mode using the proven elevated helper architecture.
-4. Integrate virtual-button mappings into Extended button settings.
-5. Route virtual button state from the state-update path, not the press-only action dispatcher.
-6. Preserve safe release on disconnect/suspend/app exit/backend failure/profile change.
-7. Add virtual-axis routing for analog controls.
-8. Add user profiles and management: New / Duplicate / Rename / Delete / select.
-9. Store virtual-controller enabled/type/mappings per profile.
-10. Build a custom Generic/DirectInput virtual profile for many-button hardware.
-11. Test future 5+30 matrix hardware physically.
-12. Rework 30-button UI into a matrix/grid only after real matrix hardware proves useful.
+1. Hardware-test integrated milestone 1 on the existing Extended 5+6 controller.
+2. Verify normal Mugen audio/action behavior still works before and after virtual mode is enabled.
+3. Verify UI mapping → UAC → `Mugen Deej Virtual Gamepad` → stateful button output.
+4. Verify normal close, reconnect/restart persistence and one hard-close cleanup.
+5. After PASS, consolidate integration into normal source and remove the temporary runtime patcher.
+6. Add analog control → virtual axis routing.
+7. Introduce Profiles and move virtual config/mappings into them.
+8. Add Generic / DirectInput.
+9. Build/test the future 5+30 matrix controller.
+10. Rework large-button UI into a matrix/grid only after real 5×6 hardware proves useful.
 
-## Deferred / not first pass
+## Deferred
 
 - automatic game/profile switching;
 - telemetry back to LEDs/displays;
 - bidirectional simulator panels;
 - force feedback;
-- custom Mugen kernel/UMDF driver;
-- layers/pages for static-keycap hardware;
+- custom Mugen driver;
+- layers/pages;
 - OLED/LCD per-key displays;
-- plugin marketplace/ecosystem;
+- plugin marketplace;
 - matrix-layout designer.
 
 ## Design principles
 
-- Stable Legacy behavior must remain intact.
-- Extended remains auto-detected; do not make users manually toggle a protocol mode.
-- Hardware should remain cheap/simple; intelligence lives in Mugen Deej.
-- Static/custom keycaps or printed labels are preferred over expensive per-key displays for the low-cost deck concept.
-- Do not call theoretical support a PASS. Code inspection and calculated limits are not hardware validation.
-- Keep experimental work off `main` until real-hardware smoke tests pass.
-- Update this file after each major implementation/test milestone so a new chat can resume from the repository without reconstructing context.
+- Do not break stable Legacy behavior.
+- Extended stays auto-detected.
+- Hardware stays cheap/simple; intelligence lives in Mugen Deej.
+- Static/custom keycaps or printed labels remain preferred for the low-cost deck idea.
+- Do not call theoretical/code-inspection support a PASS.
+- Experimental work stays off `main` until real-hardware smoke tests pass.
+- Keep this file and the integration/test notes current so a new chat can resume from the repository.
