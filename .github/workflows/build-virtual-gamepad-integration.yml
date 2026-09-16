@@ -15,6 +15,7 @@ on:
       - 'src/virtual-gamepad-integration/**'
       - 'tools/Prepare-HIDMaestro.ps1'
       - 'tools/Build-VirtualGamepad-Integration.ps1'
+      - 'tools/Ensure-WindowsPowerShellUtf8Bom.ps1'
 
 permissions:
   contents: read
@@ -49,11 +50,24 @@ jobs:
           $hostOut = Join-Path $vgRoot 'host'
           New-Item -ItemType Directory -Path $hostOut -Force | Out-Null
 
+          $runtimePath = Join-Path $stage 'MugenDeej.ps1'
+          $integrationModulePath = Join-Path $vgRoot 'MugenDeej.VirtualGamepad.ps1'
+
           .\tools\Build-VirtualGamepad-Integration.ps1 `
             -SourcePath .\MugenDeej.ps1 `
-            -OutputPath (Join-Path $stage 'MugenDeej.ps1')
+            -OutputPath $runtimePath
 
-          Copy-Item .\src\virtual-gamepad-integration\MugenDeej.VirtualGamepad.ps1 $vgRoot -Force
+          Copy-Item .\src\virtual-gamepad-integration\MugenDeej.VirtualGamepad.ps1 $integrationModulePath -Force
+
+          # Windows PowerShell 5.1 treats UTF-8 source without a BOM as the
+          # active ANSI code page. Both files contain Cyrillic UI strings, so
+          # a missing BOM corrupts tokens before execution and causes launcher
+          # parse errors on Russian Windows installations.
+          .\tools\Ensure-WindowsPowerShellUtf8Bom.ps1 -Path @(
+            $runtimePath,
+            $integrationModulePath
+          )
+
           Copy-Item .\src\virtual-gamepad-helper\deps\HIDMaestro-LICENSE.txt $vgRoot -Force
           Copy-Item .\MugenDeej.ico $stage -Force
           Copy-Item .\MugenDeej-Debug.cmd $stage -Force
@@ -84,9 +98,20 @@ jobs:
           )
 
           foreach ($path in $paths) {
+            $resolved = (Resolve-Path $path).Path
+            $bytes = [System.IO.File]::ReadAllBytes($resolved)
+            if (
+              $bytes.Length -lt 3 -or
+              $bytes[0] -ne 0xEF -or
+              $bytes[1] -ne 0xBB -or
+              $bytes[2] -ne 0xBF
+            ) {
+              throw "Windows PowerShell runtime is missing UTF-8 BOM: $path"
+            }
+
             $tokens = $null
             $errors = $null
-            $text = [System.IO.File]::ReadAllText((Resolve-Path $path), (New-Object System.Text.UTF8Encoding($false, $true)))
+            $text = [System.IO.File]::ReadAllText($resolved, (New-Object System.Text.UTF8Encoding($false, $true)))
             [System.Management.Automation.Language.Parser]::ParseInput($text, [ref]$tokens, [ref]$errors) | Out-Null
             if ($errors.Count -gt 0) {
               foreach ($error in $errors) {
