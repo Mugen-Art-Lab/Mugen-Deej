@@ -90,17 +90,42 @@ The user closed the console/terminal window directly instead of stopping with Q/
 
 Interpretation: hard termination bypassed the PowerShell `finally` path and left the elevated virtual-controller helper / virtual device orphaned. This is a prototype robustness bug, not user error. The final Mugen integration must not depend on a graceful UI exit for controller teardown.
 
-Required fix direction:
+## 2026-09-16 — Prototype 0, attempt 4
 
-- helper must detect that its bridge process disappeared and self-teardown;
-- all virtual buttons must be released before teardown;
-- stale virtual devices must be recoverable/cleanable on the next start;
-- normal Q/Esc shutdown still needs a clean-removal test after the hard-close fix.
+Result: NORMAL Q SHUTDOWN RELEASED INPUT STATE, BUT DEVICE REMOVAL WENT PENDING-REBOOT.
+
+Observed:
+
+- prototype restarted successfully;
+- virtual Xbox controller recreated and worked;
+- user exited with `Q`;
+- harness printed `Prototype stopped. Virtual buttons were released and the virtual controller host was closed.`;
+- `joy.cpl` continued to enumerate `Controller (XBOX 360 For Windows)` even after repeated full close/reopen cycles;
+- Windows then displayed a Settings notification: restart is required to complete configuration for `Controller (XBOX 360 For Windows)`.
+
+Important detail: `joy.cpl` was open while the prototype was being torn down. HIDMaestro teardown uses PnP removal and its own source explicitly treats a `Removed on reboot` result as a possible removal outcome. The current evidence therefore indicates a real pending-removal device state, not a stale `joy.cpl` window cache.
+
+Next cleanup test after reboot:
+
+1. Confirm the pending Xbox controller is gone after Windows restarts.
+2. Start the prototype again.
+3. Open `joy.cpl`, confirm the controller exists and inputs work.
+4. Close **all** `joy.cpl` / controller-properties windows before pressing Q.
+5. Press Q, wait for clean shutdown, then reopen `joy.cpl`.
+6. If the controller disappears immediately, an open consumer handle was provoking pending-reboot removal; if it still remains, treat this as a backend teardown defect/limitation that must be solved before integration.
+
+Planned hardening regardless of result:
+
+- add an explicit elevated `cleanup` command using `HMContext.RemoveAllVirtualControllers(preserveInstall: true)`;
+- add helper-side bridge-loss detection so hard-closing Mugen cannot strand an active state publisher;
+- keep virtual-button release best-effort on every teardown path;
+- do not call Prototype 0 fully PASS until no-reboot teardown behavior is understood and a real-game bind is confirmed.
 
 ## Remaining Prototype 0 acceptance checks
 
-1. Fix and verify hard-close/orphan cleanup.
-2. Verify Q/Esc clean shutdown removes the virtual controller.
-3. Bind at least one physical Mugen button in a real game.
+1. Reboot once to clear the current Windows pending-removal state.
+2. Run the clean-exit test with all consumers closed before Q.
+3. Fix/verify hard-close/orphan cleanup.
+4. Bind at least one physical Mugen button in a real game.
 
 Do not call Prototype 0 fully PASS until cleanup and a real-game bind are confirmed.
