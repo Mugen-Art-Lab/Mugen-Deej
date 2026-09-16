@@ -141,43 +141,56 @@ The standalone harness is now a development fixture, not the intended product UI
 
 ## Integrated product milestone 1 — current work
 
-Status: **CI PASS / REAL-HARDWARE TEST PENDING.**
+Status: **CI PASS / HARDWARE RE-TEST REQUIRED AFTER FIRST INTEGRATION FAILURE.**
 
-The first integrated development build now routes the proven Xbox backend through the actual Mugen Deej Button Settings/runtime while leaving the stable source/release untouched.
+The integrated development build routes the proven Xbox backend through the actual Mugen Deej Button Settings/runtime while leaving the stable source/release untouched.
 
 Current integrated behavior:
 
 - virtual output defaults to `Off`;
 - Button Settings gains `Virtual controller: Off / Xbox 360 / XInput`;
-- physical button destinations gain A, B, X, Y, LB, RB, Back/View, Start/Menu, L3 and R3;
+- physical gamepad mappings use a dedicated Xbox-button picker instead of a long flat action list;
 - virtual actions are stateful and are fed from `Update-ButtonStates` before press-edge detection;
 - virtual mappings do not fall through to the old press-only action executor;
 - controller disconnect tears down the virtual gamepad;
 - normal helper teardown uses the proven no-force-kill cleanup lifecycle;
 - setting is temporarily stored in `virtual-controller.json` next to the app;
+- dev builds suppress Windows startup registration so they cannot steal the stable app's HKCU Run path;
 - analog virtual axes, D-pad, triggers, DirectInput and Profiles are not in this milestone yet.
+
+First integrated real-hardware attempt exposed two bugs:
+
+1. Helper startup was reentrant because `Start-MugenVirtualGamepad` used `Application.DoEvents()` while waiting for UAC/helper connection. Full-state serial packets could re-enter startup before the first helper became active, spawning dozens of helpers and starving COM processing until the controller timed out/reconnected.
+2. The stable v1.0.0 `Normalize-ButtonActions` function did not know `virtual:xbox:*`, so capability re-detection rewrote valid virtual mappings to `none`.
+
+Fixes now on the branch:
+
+- `aafb1c85784568228023e659bbeae4c0543e5fe1` — single-start guard for the virtual helper;
+- `d255724b6e75e980289ad03cab38591b0690ff6a` — preserve virtual mappings through normalization using literal source patching;
+- `5bc2fee8db9a98c130b288a4142a4c88c9d0921a` — CI now reports PowerShell parser errors correctly instead of using the read-only `$Error` variable.
+
+Latest integration CI:
+
+- run #10 `35128191508`: **PASS**;
+- head: `d255724b6e75e980289ad03cab38591b0690ff6a`;
+- Windows PowerShell 5.1 parse check: PASS;
+- reentrant-start guard static check: PASS;
+- helper publish/smoke test: PASS;
+- launcher build/package: PASS;
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-10`;
+- artifact ID: `10459379492`;
+- inner dev ZIP SHA-256: `95634c6036fccbfee44c012e171f1209c75c7b65401403d882afb21a7ffe73d6`.
+
+Do not call integrated milestone 1 a hardware PASS yet. The fixed run #10 package must be re-tested on the physical Extended controller.
 
 Implementation files:
 
 - `src/virtual-gamepad-integration/MugenDeej.VirtualGamepad.ps1`
 - `tools/Build-VirtualGamepad-Integration.ps1`
+- `tools/Harden-VirtualGamepad-DevRuntime.ps1`
 - `.github/workflows/build-virtual-gamepad-integration.yml`
 
 The build-time patcher is temporary. Once the integrated path is hardware-proven, consolidate it into normal source before any release/merge, then remove the experimental patch chain.
-
-Integration CI:
-
-- run #1 `35120305651`: FAIL during staging because a regex pattern accidentally interpolated `$action` under StrictMode;
-- fixed in commit `0f423de80bdeee2142cf3c5b971e7b4c4b3874b8`;
-- run #2 `35120553251`: **PASS**;
-- Windows PowerShell 5.1 parse check: PASS;
-- helper publish/smoke test: PASS;
-- launcher build: PASS;
-- artifact: `Mugen-Deej-VirtualGamepad-Integrated-2`;
-- artifact ID: `10457004970`;
-- inner dev ZIP SHA-256: `2cc5b32ea56abbf5c82868fdcfe8ca9ed2fc2c65401313d87a3fb86ee43f327a`.
-
-This is only a build/parse PASS. Do not call integrated milestone 1 a hardware PASS until the user tests the actual Mugen UI/runtime package.
 
 Detailed current test plan: `docs/VIRTUAL_GAMEPAD_INTEGRATION.md`.
 
@@ -219,16 +232,16 @@ Manual profile switching comes first. Automatic switching by game/process is def
 
 ## Next steps
 
-1. Hardware-test integrated milestone 1 on the existing Extended 5+6 controller.
-2. Verify normal Mugen audio/action behavior still works before and after virtual mode is enabled.
-3. Verify UI mapping → UAC → `Mugen Deej Virtual Gamepad` → stateful button output.
-4. Verify normal close, reconnect/restart persistence and one hard-close cleanup.
-5. After PASS, consolidate integration into normal source and remove the temporary runtime patcher.
-6. Add analog control → virtual axis routing.
-7. Introduce Profiles and move virtual config/mappings into them.
-8. Add Generic / DirectInput.
-9. Build/test the future 5+30 matrix controller.
-10. Rework large-button UI into a matrix/grid only after real 5×6 hardware proves useful.
+1. Re-test integrated milestone 1 run #10 on the existing Extended 5+6 controller.
+2. Verify enabling XInput causes exactly one helper startup and the physical COM connection stays stable.
+3. Verify saved virtual mappings remain present after reopen/reconnect/capability re-detection.
+4. Verify `Mugen Deej Virtual Gamepad` stateful button output, normal close and one hard-close cleanup.
+5. Re-check a real XInput game.
+6. After PASS, consolidate integration into normal source and remove the temporary runtime patcher.
+7. Add analog control → virtual axis routing.
+8. Introduce Profiles and move virtual config/mappings into them.
+9. Add Generic / DirectInput.
+10. Build/test the future 5+30 matrix controller.
 
 ## Deferred
 
