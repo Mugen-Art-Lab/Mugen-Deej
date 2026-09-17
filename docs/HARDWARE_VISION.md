@@ -39,6 +39,78 @@ buttons / toggles / encoders / analog controls
 
 Changing what a control does should normally be a profile/configuration change, not a firmware change.
 
+## Arbitrary DIY controllers instead of firmware-defined HID devices
+
+A major long-term goal is that a DIY device does **not** need to implement its own USB HID game-controller personality at all.
+
+For the Windows implementation, the microcontroller's job should normally stop at reporting physical inputs over the Mugen serial protocol. Mugen Deej then owns the difficult PC-side responsibilities:
+
+- physical-input discovery;
+- mapping and profiles;
+- XInput / virtual gamepad output;
+- future Generic / DirectInput-style virtual devices;
+- axis/button/hat semantics;
+- virtual-device lifecycle and cleanup.
+
+That should make very different low-cost devices possible without writing a different HID firmware for every project. Examples include:
+
+- DDR / metal dance pads;
+- arcade panels and fight controls;
+- sim-racing button boxes;
+- flight-sim switch and encoder panels;
+- space-sim cockpit panels;
+- large macro/button decks;
+- unusual one-off game controllers built around whatever physical controls are useful.
+
+The intended mental model is:
+
+```text
+custom physical controller
+        |
+        | simple serial input description/state
+        v
+     Mugen Deej
+        |
+        | profile-defined routing
+        v
+Windows audio / actions / virtual game controller
+```
+
+The firmware should know **what physical inputs exist and what state they are in**, but normally should not need to know what game they belong to or what Windows control they eventually become.
+
+This concept is currently proven only in part: the existing Nano/Extended controller can already travel through Mugen serial input into a real Xbox/XInput virtual controller recognized by Windows and a real game. Arbitrary Generic/DirectInput layouts and portable profile exchange are still planned work, not completed features.
+
+## Portable profiles and sharing
+
+Profiles should eventually be portable enough that a user can configure a physical controller once, export the profile, and import it on another Windows system running Mugen Deej.
+
+A profile must therefore describe **logical hardware capabilities and mappings**, not transient machine details such as `COM10`.
+
+The export/import design should aim to carry at least:
+
+- profile name and schema version;
+- expected physical-control shape/capabilities;
+- button actions;
+- analog destinations and calibration/inversion data where appropriate;
+- encoder and toggle mappings once those become first-class inputs;
+- virtual-controller enabled/type;
+- virtual button/axis/hat mappings;
+- optional presentation metadata such as control labels.
+
+Machine-specific resources need careful handling. A profile may refer to an application, executable, file, folder, URL, audio device or another local resource that does not exist on a second PC. Import should preserve what can be preserved, clearly mark unresolved machine-specific targets, and let the user repair them without losing the rest of the profile.
+
+Hardware compatibility should be capability-based and degrade gracefully:
+
+- the COM-port number is never the controller identity;
+- a compatible controller with the same logical shape should be able to use the imported profile even if Windows assigns another COM port;
+- missing physical controls should leave the corresponding mappings unavailable instead of breaking the profile;
+- extra physical controls should appear unassigned until the user maps them;
+- future typed inputs such as encoders and toggles should be matched by type and logical position/identity rather than being flattened permanently into ordinary buttons.
+
+A practical end-state example is a DIY metal dance pad: wire the switches to a cheap MCU, let the firmware report them to Mugen, map the directions and service buttons once, save/export a `DDR Pad` profile, and reuse that profile on another Windows installation without teaching the microcontroller anything about HID descriptors or game APIs.
+
+Profile export/import is therefore a core architectural capability, not merely a backup convenience.
+
 ## Candidate first large prototype
 
 The first large prototype target is now concrete:
