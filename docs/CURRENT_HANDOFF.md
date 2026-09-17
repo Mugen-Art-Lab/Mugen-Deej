@@ -85,7 +85,7 @@ Observed in the real Mugen runtime:
 
 The five analog values also appeared correctly in the main UI (0%, 25%, 50%, 75%, 100%).
 
-This proves the current 115200 autodetection and Adaptive capability parser on real hardware. It does **not** yet prove live toggle/encoder UI interaction; that is the immediate next hardware test.
+This proves the current 115200 autodetection and Adaptive capability parser on real hardware.
 
 ## Adaptive high-button-count UI
 
@@ -100,74 +100,89 @@ Current staged behavior:
 
 ## Toggle / encoder live status UI
 
-A new main-window block is staged for Adaptive typed controls.
+### First functional version — hardware/UI observation
 
-Design:
+Integrated #25 successfully launched on the real Adaptive Uno after the `$Host` fix. The main window showed:
 
-- group title RU: `Тумблеры и энкодеры`;
-- group title EN: `Toggles and encoders`;
-- toggle tiles show `1 · ВКЛ` / `1 · ВЫКЛ` (`ON` / `OFF` in English);
-- active toggle uses the normal Mugen accent color;
-- encoder position is shown as a cumulative value, e.g. `1   ↺ 0 ↻`;
-- encoder push is a separate `Кнопка` / `Push` tile;
-- the push tile lights only while physically held;
-- no awkward `нажатие отпущено` wording is used;
-- layout is dynamic for multiple toggles/encoders and wraps to more rows when needed;
-- the whole block is hidden when the connected controller reports no toggles/encoders.
+- the 29-button wrapped grid;
+- a `Тумблеры и энкодеры` block;
+- two toggle states;
+- one encoder cumulative position;
+- a separate encoder push tile.
 
-Implementation patcher:
+So typed-control UI construction is now real-hardware/UI proven enough to proceed. However, the first presentation was intentionally functional and the tester judged it visually too blocky/top-heavy: toggle states looked like ordinary buttons and the encoder line (`1 ↺ 0 ↻` plus another rectangular `Кнопка`) did not visually read as a physical rotary control.
 
-`tools/Apply-AdaptiveInputStatusUi.ps1`
+### Polished presentation now staged
 
-## Run #24 hardware finding
+New patcher:
 
-CI run #24 succeeded, but real launch after Adaptive detection produced a WinForms/.NET unhandled exception.
+`tools/Polish-AdaptiveInputStatusUi.ps1`
 
-Root cause:
+It runs after `Apply-AdaptiveInputStatusUi.ps1` and changes presentation only; Adaptive transport semantics stay unchanged.
 
-The new encoder UI used local variable `$host` for a panel. PowerShell variable names are case-insensitive, so this collided with the built-in read-only `$Host` variable and threw:
+New design:
 
-`SessionStateUnauthorizedAccessException: Cannot overwrite variable Host because it is read-only or constant.`
+- each toggle is shown as a real switch metaphor rather than a button tile;
+- toggle number is a plain label;
+- switch track moves left/right and uses the normal Mugen accent when ON;
+- adjacent state text is `Вкл / Выкл` (`On / Off`), not shouty all-caps button text;
+- each encoder is shown with a small drawn rotary knob;
+- the knob marker rotates one 15-degree step per cumulative detent so direction/movement is visible;
+- the cumulative signed position is still shown numerically and remains the source of truth;
+- encoder push remains a separate `Кнопка / Push` state chip and lights only while physically held;
+- layout remains dynamic for multiple toggles/encoders;
+- the typed-control block remains hidden for hardware without those capabilities.
 
-Important point: the exception happened **after** the controller had already been correctly identified as Adaptive 5/29/2/1, so this was UI construction only, not a serial/protocol failure.
+Important implementation note: endless encoders have no absolute min/max. The visual knob therefore wraps its marker every 24 detents; it is only a movement cue. The numeric cumulative position is authoritative.
 
-## Current fix / build
+## `$Host` collision history
+
+Run #24 produced a WinForms/.NET unhandled exception after Adaptive detection because the first encoder UI used local variable `$host`. PowerShell variable names are case-insensitive, so that collided with the built-in read-only `$Host` automatic variable.
+
+The transport had already been correctly detected as Adaptive 5/29/2/1; the failure was UI construction only.
 
 Fix commit:
 
 `6dd026e5668eb4f7c9a79f0316a546588cb8c69d`
 
-Change:
+Run #25 then succeeded and launched correctly on the real Uno.
 
-- rename the encoder panel variable from `$host` to `$encoderHost` in the staged runtime patcher.
+The old compatibility repair in `Run-OptimizedLargeButtonSettings.ps1` expected exactly eight `$host` references in the staged encoder block. Once the polished UI already used `$encoderItemHost`, run #26 correctly exposed that stale assumption and failed staging with `expected 8 $host references, found 0`. The compatibility guard is now tolerant of either old unsafe staged code (repair it) or already-safe newer code (skip the repair).
 
-Integrated build:
+## Current successful build
 
-- workflow: `Build virtual gamepad integration`
-- run number: **#25**
-- run ID: `35258185903`
+Workflow: `Build virtual gamepad integration`
+
+Latest polished build:
+
+- run number: **#28**
+- run ID: `35259422264`
+- head: `c3cbf3fb7cc612c9dab7f352541964d01634f708`
 - result: **SUCCESS**
-- artifact: `Mugen-Deej-VirtualGamepad-Integrated-25`
-- artifact ID: `10513084569`
-- outer Actions digest: `sha256:6d1c6a16e8887156fa464fed75509c258ad48841da4400905c0d550fbdf12579`
+- staged Adaptive protocol: PASS
+- polished toggle/encoder UI staging: PASS
+- Windows PowerShell 5.1 parse check: PASS
+- launcher/package: PASS
 
-Run #25 is the build to use for the next Adaptive hardware/UI test. Run #24 should be considered superseded because of the `$Host` collision.
+The setup-go cache warning seen in earlier runs is also cleaned up by explicitly using `src/launcher/go.mod` as the cache dependency path.
+
+Run #28 supersedes #25 for the next UI test.
 
 ## Immediate next hardware test
 
 With the Uno Adaptive test firmware still loaded:
 
-1. Launch Integrated #25 and confirm no .NET exception after COM14 detection.
-2. Confirm the normal button grid appears for all 29 buttons.
-3. Confirm the new `Тумблеры и энкодеры` block appears.
-4. Ground D3 and D4 one at a time and verify the two toggle tiles visibly change between ВКЛ/ВЫКЛ.
-5. Ground D5 and verify only the encoder `Кнопка` tile lights while held, then returns to idle on release.
-6. Pulse D6 / D7 and verify the encoder cumulative position moves in opposite directions without losing state.
-7. Ground D2 and verify ordinary button state still updates independently.
-8. Switch RU/EN while connected and verify the typed-control labels relocalize correctly.
-9. Disconnect/reconnect the Uno and verify the typed-control block is rebuilt correctly without stale values or duplicate controls.
+1. Launch Integrated #28 and confirm the polished typed-control block appears after COM14 detection.
+2. Confirm the two toggles now look like switches rather than ordinary buttons.
+3. Ground D3 / D4 and verify each switch moves and changes `Вкл / Выкл` independently.
+4. Pulse D6 / D7 and verify the numeric encoder position moves in opposite directions and the small knob marker rotates.
+5. Ground D5 and verify only the `Кнопка` chip lights while held, then returns to idle on release.
+6. Ground D2 and verify ordinary button state still updates independently.
+7. Switch RU/EN while connected and verify typed-control labels relocalize correctly.
+8. Disconnect/reconnect the Uno and verify the typed-control block is rebuilt correctly without stale values or duplicate controls.
+9. Judge the visual proportions/spacing on the real main window; further polish is allowed before mapping UI work.
 
-Do not call toggle/encoder UI hardware PASS until these checks are performed on the physical Uno.
+Do not call live toggle/encoder interaction a complete hardware PASS until D3–D7 behavior is physically exercised.
 
 ## Virtual Xbox integration status
 
@@ -186,14 +201,6 @@ Already hardware-proven before Adaptive work:
 - real-game recognition in `Cult of the Lamb`.
 
 Nonblocking teardown code exists and has CI coverage, but its final real-hardware re-test is still pending in the older integration milestone notes. Do not silently convert that pending item into PASS.
-
-## Known CI warning
-
-`actions/setup-go` can show a yellow cache warning because it looks for `go.mod` at the repository root while the launcher module actually lives at:
-
-`src/launcher/go.mod`
-
-This warning does not fail the build. It can later be cleaned up by setting the setup-go cache dependency path explicitly. Avoid changing the workflow only for cosmetic reasons in the middle of a hardware test unless another build is already needed.
 
 ## Working rules
 
