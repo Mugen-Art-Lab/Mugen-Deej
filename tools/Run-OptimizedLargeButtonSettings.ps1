@@ -183,7 +183,7 @@ if ($hostCount -eq 8) {
 
     Write-Host 'Fixed Adaptive encoder UI collision with PowerShell automatic $Host variable.'
 }
-elif ($hostCount -eq 0 -and $encoderBlock -match '\$encoder(?:Item)?Host\b') {
+elseif ($hostCount -eq 0 -and $encoderBlock -match '\$encoder(?:Item)?Host\b') {
     Write-Host 'Adaptive encoder UI already uses a safe host variable; legacy Host-collision repair skipped.'
 }
 else {
