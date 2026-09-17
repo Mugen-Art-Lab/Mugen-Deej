@@ -18,6 +18,7 @@ on:
       - 'tools/Harden-VirtualGamepad-DevRuntime.ps1'
       - 'tools/Apply-AdaptiveButtonUi.ps1'
       - 'tools/Optimize-LargeButtonSettings.ps1'
+      - 'tools/Run-OptimizedLargeButtonSettings.ps1'
       - 'tools/Ensure-WindowsPowerShellUtf8Bom.ps1'
 
 permissions:
@@ -72,7 +73,7 @@ jobs:
           # most of them. The optimized large-controller editor creates one
           # shared action editor plus lightweight selector tiles and a fixed
           # assignment overview.
-          .\tools\Optimize-LargeButtonSettings.ps1 -Path $runtimePath
+          .\tools\Run-OptimizedLargeButtonSettings.ps1 -Path $runtimePath
 
           Copy-Item .\src\virtual-gamepad-integration\MugenDeej.VirtualGamepad.ps1 $integrationModulePath -Force
 
