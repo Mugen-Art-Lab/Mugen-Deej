@@ -12,64 +12,42 @@ if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
 
 $text = [System.IO.File]::ReadAllText($source, [System.Text.Encoding]::UTF8)
 
-$oldTail = @'
-$text = Replace-LiteralExactlyOnce `
-    -Text $text `
-    -OldText 'function Show-ButtonSettings {' `
-    -NewText ($largeEditor + "function Show-ButtonSettings {") `
-    -Label 'insert optimized large button editor'
-
-$dispatchOld = @'
-function Show-ButtonSettings {
-    if (
-        -not $script:IsConnected -or
-        $script:DetectedButtonCount -le 0
-'@
-$dispatchNew = @'
-function Show-ButtonSettings {
-    if ($script:IsConnected -and $script:DetectedButtonCount -gt 12) {
-        Show-LargeButtonSettings
-        return
-    }
-
-    if (
-        -not $script:IsConnected -or
-        $script:DetectedButtonCount -le 0
-'@
-$text = Replace-LiteralExactlyOnce `
-    -Text $text `
-    -OldText $dispatchOld `
-    -NewText $dispatchNew `
-    -Label 'dispatch large controllers to optimized editor'
-'@
-
-$newTail = @'
-$largeDispatch = @'
-function Show-ButtonSettings {
-    if ($script:IsConnected -and $script:DetectedButtonCount -gt 12) {
-        Show-LargeButtonSettings
-        return
-    }
-'@
-
-$text = Replace-LiteralExactlyOnce `
-    -Text $text `
-    -OldText 'function Show-ButtonSettings {' `
-    -NewText ($largeEditor + $largeDispatch) `
-    -Label 'insert optimized large button editor and dispatch'
-'@
-
-$first = $text.IndexOf($oldTail, [System.StringComparison]::Ordinal)
-$last = $text.LastIndexOf($oldTail, [System.StringComparison]::Ordinal)
-if ($first -lt 0 -or $first -ne $last) {
-    throw 'Optimizer runner expected exactly one dispatch-tail anchor.'
+# The first optimizer version tried to patch the beginning of Show-ButtonSettings
+# after v17 had already rewritten that function. Replace only the optimizer's own
+# final dispatch block with a simpler insertion that does not depend on the old
+# function body at all.
+$tailStart = $text.LastIndexOf("`n`$text = Replace-LiteralExactlyOnce", [System.StringComparison]::Ordinal)
+$tailEnd = $text.LastIndexOf("`n`$utf8 = New-Object System.Text.UTF8Encoding", [System.StringComparison]::Ordinal)
+if ($tailStart -lt 0 -or $tailEnd -le $tailStart) {
+    throw 'Optimizer runner could not locate the final dispatch block.'
 }
 
-$text = $text.Substring(0, $first) + $newTail + $text.Substring($first + $oldTail.Length)
+$newTail = @(
+    '$largeDispatch = ('
+    "    'function Show-ButtonSettings {' + \"`n\" +"
+    "    '    if (`$script:IsConnected -and `$script:DetectedButtonCount -gt 12) {' + \"`n\" +"
+    "    '        Show-LargeButtonSettings' + \"`n\" +"
+    "    '        return' + \"`n\" +"
+    "    '    }' + \"`n\" +"
+    "    '' + \"`n\""
+    ')'
+    ''
+    '$text = Replace-LiteralExactlyOnce `'
+    '    -Text $text `'
+    "    -OldText 'function Show-ButtonSettings {' `"
+    '    -NewText ($largeEditor + $largeDispatch) `'
+    "    -Label 'insert optimized large button editor and dispatch'"
+) -join "`n"
+
+$text = $text.Substring(0, $tailStart + 1) + $newTail + $text.Substring($tailEnd)
 
 $temp = Join-Path ([System.IO.Path]::GetTempPath()) ('MugenDeej-OptimizeLargeButtons-' + [Guid]::NewGuid().ToString('N') + '.ps1')
 try {
-    [System.IO.File]::WriteAllText($temp, $text, (New-Object System.Text.UTF8Encoding($false)))
+    [System.IO.File]::WriteAllText(
+        $temp,
+        $text,
+        (New-Object System.Text.UTF8Encoding($false))
+    )
     & $temp -Path $Path
 }
 finally {
