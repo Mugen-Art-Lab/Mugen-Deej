@@ -22,22 +22,23 @@ if ($tailStart -lt 0 -or $tailEnd -le $tailStart) {
     throw 'Optimizer runner could not locate the final dispatch block.'
 }
 
-$newTail = @(
-    '$largeDispatch = ('
-    "    'function Show-ButtonSettings {' + \"`n\" +"
-    "    '    if (`$script:IsConnected -and `$script:DetectedButtonCount -gt 12) {' + \"`n\" +"
-    "    '        Show-LargeButtonSettings' + \"`n\" +"
-    "    '        return' + \"`n\" +"
-    "    '    }' + \"`n\" +"
-    "    '' + \"`n\""
-    ')'
+$newTail = @'
+$largeDispatch = @(
+    'function Show-ButtonSettings {'
+    '    if ($script:IsConnected -and $script:DetectedButtonCount -gt 12) {'
+    '        Show-LargeButtonSettings'
+    '        return'
+    '    }'
     ''
-    '$text = Replace-LiteralExactlyOnce `'
-    '    -Text $text `'
-    "    -OldText 'function Show-ButtonSettings {' `"
-    '    -NewText ($largeEditor + $largeDispatch) `'
-    "    -Label 'insert optimized large button editor and dispatch'"
 ) -join "`n"
+$largeDispatch += "`n"
+
+$text = Replace-LiteralExactlyOnce `
+    -Text $text `
+    -OldText 'function Show-ButtonSettings {' `
+    -NewText ($largeEditor + $largeDispatch) `
+    -Label 'insert optimized large button editor and dispatch'
+'@
 
 $text = $text.Substring(0, $tailStart + 1) + $newTail + $text.Substring($tailEnd)
 
