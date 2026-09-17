@@ -18,6 +18,7 @@ on:
       - 'tools/Harden-VirtualGamepad-DevRuntime.ps1'
       - 'tools/Apply-AdaptiveProtocol.ps1'
       - 'tools/Apply-AdaptiveButtonUi.ps1'
+      - 'tools/Apply-AdaptiveInputStatusUi.ps1'
       - 'tools/Optimize-LargeButtonSettings.ps1'
       - 'tools/Run-OptimizedLargeButtonSettings.ps1'
       - 'tools/Ensure-WindowsPowerShellUtf8Bom.ps1'
@@ -74,6 +75,10 @@ jobs:
           # Large DIY panels need a live wrapped button grid rather than the
           # old single horizontal strip and 30+ vertically stacked editor rows.
           .\tools\Apply-AdaptiveButtonUi.ps1 -Path $runtimePath
+
+          # Keep first-class toggles and encoders visible as their own live
+          # controls instead of flattening them into momentary-button status.
+          .\tools\Apply-AdaptiveInputStatusUi.ps1 -Path $runtimePath
 
           # v17 still built one expensive editor row for every button and hid
           # most of them. The optimized large-controller editor creates one
@@ -182,6 +187,12 @@ jobs:
           if ($runtimeText -notmatch 'function Get-AdaptiveButtonLayoutMetrics') {
             throw 'Development runtime is missing adaptive main-window button layout.'
           }
+          if ($runtimeText -notmatch 'function Get-AdaptiveInputUiText') {
+            throw 'Development runtime is missing Adaptive toggle/encoder status UI.'
+          }
+          if ($runtimeText -notmatch "'Push' \{") {
+            throw 'Development runtime is missing encoder push-state presentation.'
+          }
           if ($runtimeText -notmatch '\$compactButtonMode = \(\$script:DetectedButtonCount -gt 12\)') {
             throw 'Development runtime is missing the staged compact high-button settings foundation.'
           }
@@ -258,10 +269,11 @@ jobs:
 
           Protocol generations in this dev build: Legacy, Extended, Adaptive v3.
           Adaptive v3 packets begin with v3 and can report sliders, momentary buttons, latching toggles and cumulative-position rotary encoders as first-class input types.
+          Adaptive builds also show live first-class toggle states plus encoder position and encoder-push state on the main window without pretending they are ordinary buttons.
           For controllers with more than 12 buttons, Button Settings uses a compact live selector grid, one shared action editor and a fixed-height assignment overview. Pressing a physical button should automatically select the matching numbered tile.
           The virtual controller is OFF by default. Its setting is stored in virtual-controller.json next to the app.
           Windows startup registration is intentionally disabled in this development package so it cannot replace the stable Mugen Deej autostart path.
-          Current integrated milestone routes momentary buttons to virtual-gamepad buttons. First-class toggle/encoder mapping UI comes after Adaptive transport validation.
+          Current integrated milestone routes momentary buttons to virtual-gamepad buttons. First-class toggle/encoder mapping actions come after live-state hardware validation.
           '@
           [System.IO.File]::WriteAllText(
             (Join-Path $stage 'VIRTUAL-GAMEPAD-DEV.txt'),
