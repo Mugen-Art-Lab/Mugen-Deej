@@ -19,6 +19,7 @@ on:
       - 'tools/Apply-AdaptiveProtocol.ps1'
       - 'tools/Apply-AdaptiveButtonUi.ps1'
       - 'tools/Apply-AdaptiveInputStatusUi.ps1'
+      - 'tools/Polish-AdaptiveInputStatusUi.ps1'
       - 'tools/Optimize-LargeButtonSettings.ps1'
       - 'tools/Run-OptimizedLargeButtonSettings.ps1'
       - 'tools/Ensure-WindowsPowerShellUtf8Bom.ps1'
@@ -43,6 +44,7 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version: '1.25.x'
+          cache-dependency-path: src/launcher/go.mod
 
       - name: Prepare pinned HIDMaestro dependency
         shell: pwsh
@@ -79,6 +81,11 @@ jobs:
           # Keep first-class toggles and encoders visible as their own live
           # controls instead of flattening them into momentary-button status.
           .\tools\Apply-AdaptiveInputStatusUi.ps1 -Path $runtimePath
+
+          # The first functional status UI used button-like rectangles. Polish
+          # it into switch metaphors and a live rotary-knob indicator while
+          # retaining the cumulative encoder position as the source of truth.
+          .\tools\Polish-AdaptiveInputStatusUi.ps1 -Path $runtimePath
 
           # v17 still built one expensive editor row for every button and hid
           # most of them. The optimized large-controller editor creates one
@@ -193,6 +200,9 @@ jobs:
           if ($runtimeText -notmatch "'Push' \{") {
             throw 'Development runtime is missing encoder push-state presentation.'
           }
+          if ($runtimeText -notmatch 'Endless encoders have no absolute min/max') {
+            throw 'Development runtime is missing polished encoder-knob visualization.'
+          }
           if ($runtimeText -notmatch '\$compactButtonMode = \(\$script:DetectedButtonCount -gt 12\)') {
             throw 'Development runtime is missing the staged compact high-button settings foundation.'
           }
@@ -269,7 +279,7 @@ jobs:
 
           Protocol generations in this dev build: Legacy, Extended, Adaptive v3.
           Adaptive v3 packets begin with v3 and can report sliders, momentary buttons, latching toggles and cumulative-position rotary encoders as first-class input types.
-          Adaptive builds also show live first-class toggle states plus encoder position and encoder-push state on the main window without pretending they are ordinary buttons.
+          Adaptive builds show live first-class toggle switches plus a rotary-knob position indicator and encoder-push state on the main window without pretending they are ordinary buttons.
           For controllers with more than 12 buttons, Button Settings uses a compact live selector grid, one shared action editor and a fixed-height assignment overview. Pressing a physical button should automatically select the matching numbered tile.
           The virtual controller is OFF by default. Its setting is stored in virtual-controller.json next to the app.
           Windows startup registration is intentionally disabled in this development package so it cannot replace the stable Mugen Deej autostart path.
