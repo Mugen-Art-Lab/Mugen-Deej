@@ -147,3 +147,40 @@ try {
 finally {
     Remove-Item -LiteralPath $temp -Force -ErrorAction SilentlyContinue
 }
+
+# Adaptive status UI v24 accidentally used $host as a local panel variable.
+# PowerShell variable names are case-insensitive, so this collides with the
+# built-in read-only $Host automatic variable and throws as soon as an encoder
+# indicator is created. Fix only the generated encoder-indicator function block
+# so normal uses of the automatic $Host variable elsewhere remain untouched.
+$runtime = [System.IO.File]::ReadAllText((Resolve-Path -LiteralPath $Path).Path, [System.Text.Encoding]::UTF8)
+$encoderStartMarker = 'function Ensure-MainEncoderIndicators {'
+$encoderEndMarker = 'function Update-AdaptiveInputIndicators {'
+$encoderStart = $runtime.IndexOf($encoderStartMarker, [System.StringComparison]::Ordinal)
+$encoderEnd = if ($encoderStart -ge 0) {
+    $runtime.IndexOf($encoderEndMarker, $encoderStart, [System.StringComparison]::Ordinal)
+}
+else {
+    -1
+}
+
+if ($encoderStart -lt 0 -or $encoderEnd -le $encoderStart) {
+    throw 'Adaptive encoder Host-collision fix could not locate the generated encoder indicator block.'
+}
+
+$encoderBlock = $runtime.Substring($encoderStart, $encoderEnd - $encoderStart)
+$hostCount = [regex]::Matches($encoderBlock, '\$host\b').Count
+if ($hostCount -ne 8) {
+    throw "Adaptive encoder Host-collision fix expected 8 `$host references, found $hostCount."
+}
+
+$fixedEncoderBlock = $encoderBlock.Replace('$host', '$encoderHost')
+$runtime = $runtime.Substring(0, $encoderStart) + $fixedEncoderBlock + $runtime.Substring($encoderEnd)
+
+[System.IO.File]::WriteAllText(
+    (Resolve-Path -LiteralPath $Path).Path,
+    $runtime,
+    (New-Object System.Text.UTF8Encoding($false))
+)
+
+Write-Host 'Fixed Adaptive encoder UI collision with PowerShell automatic $Host variable.'
