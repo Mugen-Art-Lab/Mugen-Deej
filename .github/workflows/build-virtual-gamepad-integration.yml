@@ -17,6 +17,7 @@ on:
       - 'tools/Build-VirtualGamepad-Integration.ps1'
       - 'tools/Harden-VirtualGamepad-DevRuntime.ps1'
       - 'tools/Apply-AdaptiveButtonUi.ps1'
+      - 'tools/Optimize-LargeButtonSettings.ps1'
       - 'tools/Ensure-WindowsPowerShellUtf8Bom.ps1'
 
 permissions:
@@ -66,6 +67,12 @@ jobs:
           # Large DIY panels need a live wrapped button grid rather than the
           # old single horizontal strip and 30+ vertically stacked editor rows.
           .\tools\Apply-AdaptiveButtonUi.ps1 -Path $runtimePath
+
+          # v17 still built one expensive editor row for every button and hid
+          # most of them. The optimized large-controller editor creates one
+          # shared action editor plus lightweight selector tiles and a fixed
+          # assignment overview.
+          .\tools\Optimize-LargeButtonSettings.ps1 -Path $runtimePath
 
           Copy-Item .\src\virtual-gamepad-integration\MugenDeej.VirtualGamepad.ps1 $integrationModulePath -Force
 
@@ -157,7 +164,16 @@ jobs:
             throw 'Development runtime is missing adaptive main-window button layout.'
           }
           if ($runtimeText -notmatch '\$compactButtonMode = \(\$script:DetectedButtonCount -gt 12\)') {
-            throw 'Development runtime is missing the compact high-button settings editor.'
+            throw 'Development runtime is missing the staged compact high-button settings foundation.'
+          }
+          if ($runtimeText -notmatch 'function Show-LargeButtonSettings') {
+            throw 'Development runtime is missing the optimized large-button settings editor.'
+          }
+          if ($runtimeText -notmatch 'Large button settings UI prepared') {
+            throw 'Development runtime is missing large-button editor timing diagnostics.'
+          }
+          if ($runtimeText -notmatch 'Assignments: \{0\} of \{1\}') {
+            throw 'Development runtime is missing the scalable assignment overview.'
           }
           if ($runtimeText -notmatch 'Press a physical button and Mugen will select it in the grid') {
             throw 'Development runtime is missing physical-button auto-selection guidance.'
@@ -221,7 +237,7 @@ jobs:
           7. Click Save and accept elevation if Windows shows it.
           8. Check joy.cpl for Mugen Deej Virtual Gamepad.
 
-          For controllers with more than 12 buttons, Button Settings uses a compact live selector grid. Pressing a physical button should automatically select the matching numbered tile.
+          For controllers with more than 12 buttons, Button Settings uses a compact live selector grid, one shared action editor and a fixed-height assignment overview. Pressing a physical button should automatically select the matching numbered tile.
           The virtual controller is OFF by default. Its setting is stored in virtual-controller.json next to the app.
           Windows startup registration is intentionally disabled in this development package so it cannot replace the stable Mugen Deej autostart path.
           Current integrated milestone routes buttons only. Analog virtual axes and profiles come next.
