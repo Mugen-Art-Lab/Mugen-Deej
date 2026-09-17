@@ -5,6 +5,23 @@ param(
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
+function Replace-OptimizerLiteralExactlyOnce {
+    param(
+        [Parameter(Mandatory = $true)][string]$Text,
+        [Parameter(Mandatory = $true)][string]$OldText,
+        [Parameter(Mandatory = $true)][string]$NewText,
+        [Parameter(Mandatory = $true)][string]$Label
+    )
+
+    $first = $Text.IndexOf($OldText, [System.StringComparison]::Ordinal)
+    $last = $Text.LastIndexOf($OldText, [System.StringComparison]::Ordinal)
+    if ($first -lt 0 -or $first -ne $last) {
+        throw "Optimizer runner patch '$Label' expected exactly one literal match."
+    }
+
+    return $Text.Substring(0, $first) + $NewText + $Text.Substring($first + $OldText.Length)
+}
+
 $source = Join-Path $PSScriptRoot 'Optimize-LargeButtonSettings.ps1'
 if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
     throw "Missing optimizer script: $source"
@@ -41,6 +58,82 @@ $text = Replace-LiteralExactlyOnce `
 '@
 
 $text = $text.Substring(0, $tailStart + 1) + $newTail + $text.Substring($tailEnd)
+
+# v21 linked ListView.SelectedIndexChanged -> selectButton -> item.Selected = $true
+# -> SelectedIndexChanged again. Windows PowerShell therefore recursed until its
+# script call-depth limit was exhausted. Add an explicit selection-synchronizing
+# guard before staging the optimizer so programmatic list selection cannot re-enter
+# the same handler.
+$stateOld = @'
+        ActionMap = New-Object System.Collections.ArrayList
+        SuppressCombo = $false
+    }
+'@
+$stateNew = @'
+        ActionMap = New-Object System.Collections.ArrayList
+        SuppressCombo = $false
+        SuppressListSelection = $false
+    }
+'@
+$text = Replace-OptimizerLiteralExactlyOnce `
+    -Text $text `
+    -OldText $stateOld `
+    -NewText $stateNew `
+    -Label 'add assignment-list selection guard state'
+
+$selectOld = @'
+        foreach ($item in $assignmentList.Items) {
+            if ([int]$item.Tag -eq $Index) {
+                $item.Selected = $true
+                $item.EnsureVisible()
+                break
+            }
+        }
+'@
+$selectNew = @'
+        $state.SuppressListSelection = $true
+        try {
+            foreach ($item in $assignmentList.Items) {
+                if ([int]$item.Tag -eq $Index) {
+                    if (-not $item.Selected) {
+                        $item.Selected = $true
+                    }
+                    $item.EnsureVisible()
+                    break
+                }
+            }
+        }
+        finally {
+            $state.SuppressListSelection = $false
+        }
+'@
+$text = Replace-OptimizerLiteralExactlyOnce `
+    -Text $text `
+    -OldText $selectOld `
+    -NewText $selectNew `
+    -Label 'guard programmatic assignment-list selection'
+
+$listHandlerOld = @'
+    $assignmentList.Add_SelectedIndexChanged({
+        if ($assignmentList.SelectedItems.Count -eq 0) { return }
+        & $selectButton -Index ([int]$assignmentList.SelectedItems[0].Tag)
+    })
+'@
+$listHandlerNew = @'
+    $assignmentList.Add_SelectedIndexChanged({
+        if ($state.SuppressListSelection) { return }
+        if ($assignmentList.SelectedItems.Count -eq 0) { return }
+
+        $targetIndex = [int]$assignmentList.SelectedItems[0].Tag
+        if ($targetIndex -eq [int]$state.Selected) { return }
+        & $selectButton -Index $targetIndex
+    })
+'@
+$text = Replace-OptimizerLiteralExactlyOnce `
+    -Text $text `
+    -OldText $listHandlerOld `
+    -NewText $listHandlerNew `
+    -Label 'block recursive assignment-list SelectedIndexChanged'
 
 $temp = Join-Path ([System.IO.Path]::GetTempPath()) ('MugenDeej-OptimizeLargeButtons-' + [Guid]::NewGuid().ToString('N') + '.ps1')
 try {
