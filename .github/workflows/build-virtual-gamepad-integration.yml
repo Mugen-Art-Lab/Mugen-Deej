@@ -16,6 +16,7 @@ on:
       - 'tools/Prepare-HIDMaestro.ps1'
       - 'tools/Build-VirtualGamepad-Integration.ps1'
       - 'tools/Harden-VirtualGamepad-DevRuntime.ps1'
+      - 'tools/Apply-AdaptiveProtocol.ps1'
       - 'tools/Apply-AdaptiveButtonUi.ps1'
       - 'tools/Optimize-LargeButtonSettings.ps1'
       - 'tools/Run-OptimizedLargeButtonSettings.ps1'
@@ -64,6 +65,11 @@ jobs:
           # The throwaway dev build must never steal the stable portable app's
           # HKCU Run registration merely because both share the Mugen Deej name.
           .\tools\Harden-VirtualGamepad-DevRuntime.ps1 -Path $runtimePath
+
+          # Adaptive v3 is the self-describing typed-input protocol generation.
+          # It keeps Legacy and Extended parsing intact while adding first-class
+          # toggles and encoders for future DIY panels.
+          .\tools\Apply-AdaptiveProtocol.ps1 -Path $runtimePath
 
           # Large DIY panels need a live wrapped button grid rather than the
           # old single horizontal strip and 30+ vertically stacked editor rows.
@@ -161,6 +167,18 @@ jobs:
           if ($runtimeText -notmatch "Development build: Windows startup registration sync suppressed") {
             throw 'Development runtime is missing the startup-isolation marker.'
           }
+          if ($runtimeText -notmatch "Protocol = 'adaptive'") {
+            throw 'Development runtime is missing Adaptive v3 protocol parsing.'
+          }
+          if ($runtimeText -notmatch '\$script:DetectedToggleCount = 0') {
+            throw 'Development runtime is missing typed toggle capability state.'
+          }
+          if ($runtimeText -notmatch '\$script:DetectedEncoderCount = 0') {
+            throw 'Development runtime is missing typed encoder capability state.'
+          }
+          if ($runtimeText -notmatch 'eN\[:P\] reports a cumulative signed detent position') {
+            throw 'Development runtime is missing Adaptive encoder-position semantics.'
+          }
           if ($runtimeText -notmatch 'function Get-AdaptiveButtonLayoutMetrics') {
             throw 'Development runtime is missing adaptive main-window button layout.'
           }
@@ -231,17 +249,19 @@ jobs:
           Test path:
           1. Close any other Mugen Deej instance so this build can own the controller COM port.
           2. Start MugenDeej.exe.
-          3. Connect the tested Extended controller.
+          3. Connect the tested Extended controller or an Adaptive v3 test fixture.
           4. Open Configure buttons.
           5. Set Virtual controller to Xbox 360 / XInput.
           6. Use Choose gamepad button... for each physical button you want to map.
           7. Click Save and accept elevation if Windows shows it.
           8. Check joy.cpl for Mugen Deej Virtual Gamepad.
 
+          Protocol generations in this dev build: Legacy, Extended, Adaptive v3.
+          Adaptive v3 packets begin with v3 and can report sliders, momentary buttons, latching toggles and cumulative-position rotary encoders as first-class input types.
           For controllers with more than 12 buttons, Button Settings uses a compact live selector grid, one shared action editor and a fixed-height assignment overview. Pressing a physical button should automatically select the matching numbered tile.
           The virtual controller is OFF by default. Its setting is stored in virtual-controller.json next to the app.
           Windows startup registration is intentionally disabled in this development package so it cannot replace the stable Mugen Deej autostart path.
-          Current integrated milestone routes buttons only. Analog virtual axes and profiles come next.
+          Current integrated milestone routes momentary buttons to virtual-gamepad buttons. First-class toggle/encoder mapping UI comes after Adaptive transport validation.
           '@
           [System.IO.File]::WriteAllText(
             (Join-Path $stage 'VIRTUAL-GAMEPAD-DEV.txt'),
@@ -258,6 +278,7 @@ jobs:
 
           if (Test-Path $zip) { Remove-Item $zip -Force }
           Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -CompressionLevel Optimal
+
           $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
           [System.IO.File]::WriteAllText(
             $shaFile,
