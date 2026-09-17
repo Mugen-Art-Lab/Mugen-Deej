@@ -1,45 +1,32 @@
 /*
-  Mugen Deej Uno Adaptive v3 Test
-  ================================
+  Mugen Deej Uno Adaptive v3 topology test
+  ========================================
 
-  PURPOSE
-  -------
-  Bare-Arduino fixture for validating Mugen Deej's third serial protocol
-  generation: Adaptive v3.
+  Bare-Arduino fixture for exercising multiple self-described Adaptive v3
+  controller shapes without rewiring a real panel.
 
-  Adaptive v3 is explicitly versioned and self-describing by typed fields:
+  Select one topology with D8/D9 BEFORE reset/power-up (INPUT_PULLUP):
 
-      v3|s...|b...|t...|e...
+    D8   D9   Profile
+    ---  ---  --------------------------------------------
+    OPEN OPEN 5 sliders / 29 buttons / 2 toggles / 1 encoder
+    GND  OPEN 0 sliders / 8 buttons / 4 toggles / 2 encoders
+    OPEN GND  2 sliders / 0 buttons / 0 toggles / 0 encoders
+    GND  GND  0 sliders / 0 buttons / 12 toggles / 6 encoders
 
-  This sketch deliberately needs no real panel hardware. Jumper wires are
-  enough to exercise one momentary button, two latching-toggle states, encoder
-  push, and synthetic clockwise/counter-clockwise encoder steps.
+  The first profile remains the existing regression fixture. D2..D7 retain
+  their original live-test meaning where that input family exists:
 
-  Emulated logical controller shape:
+    D2 -> first momentary button
+    D3 -> first toggle
+    D4 -> second toggle
+    D5 -> first encoder push
+    D6 -> first encoder synthetic CW detent (+1)
+    D7 -> first encoder synthetic CCW detent (-1)
 
-      5 analog controls
-      29 momentary buttons
-      2 latching toggles
-      1 rotary encoder with push
-
-  Wire semantics:
-
-      s0..1023     analog value
-      b0 / b1      pressed / released (same as Extended)
-      t0 / t1      OFF / ON logical toggle state
-      ePOS:PUSH    cumulative signed encoder position + push state
-                   PUSH uses button semantics: 0 pressed, 1 released
-
-  Test pins (all INPUT_PULLUP):
-
-      D2 -> button 1        open=released, GND=pressed
-      D3 -> toggle 1        open=OFF,      GND=ON
-      D4 -> toggle 2        open=OFF,      GND=ON
-      D5 -> encoder push    open=released, GND=pressed
-      D6 -> encoder CW test briefly GND once -> position +1
-      D7 -> encoder CCW     briefly GND once -> position -1
-
-  Serial speed: 115200 baud.
+  Extra controls in the larger profiles are deterministic idle controls. The
+  point is topology/UI validation, not pretending a bare Uno has that much
+  physical panel hardware attached.
 */
 
 const unsigned long SERIAL_BAUD = 115200;
@@ -52,8 +39,22 @@ const uint8_t TOGGLE2_PIN = 4;
 const uint8_t ENCODER_PUSH_PIN = 5;
 const uint8_t ENCODER_CW_TEST_PIN = 6;
 const uint8_t ENCODER_CCW_TEST_PIN = 7;
+const uint8_t PROFILE_A_PIN = 8;
+const uint8_t PROFILE_B_PIN = 9;
 
-const uint8_t NUM_BUTTON_FIELDS = 29;
+struct FixtureProfile {
+  uint8_t sliders;
+  uint8_t buttons;
+  uint8_t toggles;
+  uint8_t encoders;
+};
+
+const FixtureProfile PROFILES[4] = {
+  { 5, 29,  2, 1 },
+  { 0,  8,  4, 2 },
+  { 2,  0,  0, 0 },
+  { 0,  0, 12, 6 }
+};
 
 const uint16_t FIXED_ANALOG_VALUES[5] = {
   0,
@@ -62,6 +63,9 @@ const uint16_t FIXED_ANALOG_VALUES[5] = {
   768,
   1023
 };
+
+uint8_t selectedProfile = 0;
+FixtureProfile activeProfile = PROFILES[0];
 
 unsigned long lastPacketAt = 0;
 unsigned long lastCwStepAt = 0;
@@ -74,7 +78,7 @@ uint8_t lastEncoderPushState = HIGH;
 uint8_t lastCwTestState = HIGH;
 uint8_t lastCcwTestState = HIGH;
 
-long encoderPosition = 0;
+long encoderPositions[6] = { 0, 0, 0, 0, 0, 0 };
 
 void setup() {
   pinMode(BUTTON_PIN, INPUT_PULLUP);
@@ -83,6 +87,13 @@ void setup() {
   pinMode(ENCODER_PUSH_PIN, INPUT_PULLUP);
   pinMode(ENCODER_CW_TEST_PIN, INPUT_PULLUP);
   pinMode(ENCODER_CCW_TEST_PIN, INPUT_PULLUP);
+  pinMode(PROFILE_A_PIN, INPUT_PULLUP);
+  pinMode(PROFILE_B_PIN, INPUT_PULLUP);
+
+  const uint8_t profileA = digitalRead(PROFILE_A_PIN);
+  const uint8_t profileB = digitalRead(PROFILE_B_PIN);
+  selectedProfile = (profileA == LOW ? 1 : 0) | (profileB == LOW ? 2 : 0);
+  activeProfile = PROFILES[selectedProfile];
 
   Serial.begin(SERIAL_BAUD);
 
@@ -107,32 +118,38 @@ void loop() {
   const uint8_t cwTestState = digitalRead(ENCODER_CW_TEST_PIN);
   const uint8_t ccwTestState = digitalRead(ENCODER_CCW_TEST_PIN);
 
-  bool stateChanged = (
-      buttonState != lastButtonState ||
-      toggle1State != lastToggle1State ||
-      toggle2State != lastToggle2State ||
-      encoderPushState != lastEncoderPushState
-  );
+  bool stateChanged = false;
+  if (activeProfile.buttons > 0 && buttonState != lastButtonState) {
+    stateChanged = true;
+  }
+  if (activeProfile.toggles > 0 && toggle1State != lastToggle1State) {
+    stateChanged = true;
+  }
+  if (activeProfile.toggles > 1 && toggle2State != lastToggle2State) {
+    stateChanged = true;
+  }
+  if (activeProfile.encoders > 0 && encoderPushState != lastEncoderPushState) {
+    stateChanged = true;
+  }
 
-  // Falling edges on D6/D7 simulate complete encoder detents. Cumulative
-  // position is intentional: if one serial frame is skipped, the next frame
-  // still contains the complete position and the desktop can recover delta.
   if (
+      activeProfile.encoders > 0 &&
       lastCwTestState == HIGH &&
       cwTestState == LOW &&
       (unsigned long)(now - lastCwStepAt) >= STEP_DEBOUNCE_MS
   ) {
-    ++encoderPosition;
+    ++encoderPositions[0];
     lastCwStepAt = now;
     stateChanged = true;
   }
 
   if (
+      activeProfile.encoders > 0 &&
       lastCcwTestState == HIGH &&
       ccwTestState == LOW &&
       (unsigned long)(now - lastCcwStepAt) >= STEP_DEBOUNCE_MS
   ) {
-    --encoderPosition;
+    --encoderPositions[0];
     lastCcwStepAt = now;
     stateChanged = true;
   }
@@ -166,14 +183,13 @@ void sendStatePacket(
 ) {
   Serial.print("v3");
 
-  for (uint8_t i = 0; i < 5; ++i) {
+  for (uint8_t i = 0; i < activeProfile.sliders; ++i) {
     Serial.print('|');
     Serial.print('s');
-    Serial.print(FIXED_ANALOG_VALUES[i]);
+    Serial.print(FIXED_ANALOG_VALUES[i % 5]);
   }
 
-  // Button 1 is physical D2; buttons 2..29 stay released.
-  for (uint8_t i = 0; i < NUM_BUTTON_FIELDS; ++i) {
+  for (uint8_t i = 0; i < activeProfile.buttons; ++i) {
     Serial.print('|');
     Serial.print('b');
     if (i == 0) {
@@ -184,23 +200,31 @@ void sendStatePacket(
     }
   }
 
-  // INPUT_PULLUP electrical state is converted to logical toggle state:
-  // open/HIGH = OFF = t0, grounded/LOW = ON = t1.
-  Serial.print('|');
-  Serial.print('t');
-  Serial.print(toggle1ElectricalState == LOW ? 1 : 0);
+  for (uint8_t i = 0; i < activeProfile.toggles; ++i) {
+    Serial.print('|');
+    Serial.print('t');
+    if (i == 0) {
+      Serial.print(toggle1ElectricalState == LOW ? 1 : 0);
+    }
+    else if (i == 1) {
+      Serial.print(toggle2ElectricalState == LOW ? 1 : 0);
+    }
+    else {
+      Serial.print(0);
+    }
+  }
 
-  Serial.print('|');
-  Serial.print('t');
-  Serial.print(toggle2ElectricalState == LOW ? 1 : 0);
+  for (uint8_t i = 0; i < activeProfile.encoders; ++i) {
+    Serial.print('|');
+    Serial.print('e');
+    Serial.print(encoderPositions[i]);
 
-  // One first-class encoder. Position is cumulative; push preserves the
-  // button convention used by Mugen: 0 pressed, 1 released.
-  Serial.print('|');
-  Serial.print('e');
-  Serial.print(encoderPosition);
-  Serial.print(':');
-  Serial.print(encoderPushState == LOW ? 0 : 1);
+    // Only encoder 1 advertises a push switch on this bare-fixture sketch.
+    if (i == 0) {
+      Serial.print(':');
+      Serial.print(encoderPushState == LOW ? 0 : 1);
+    }
+  }
 
   Serial.println();
 }
