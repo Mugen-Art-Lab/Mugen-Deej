@@ -112,7 +112,21 @@ The current parser ceiling of 64 packet fields is sufficient for this prototype,
 
 The experimental panel firmware therefore starts at **115200 baud** with a 25 ms heartbeat. This is a prototype choice, not yet a hardware-validated product requirement.
 
-Before end-to-end Mugen testing, the desktop client needs a deliberate higher/configurable baud path while preserving 9600 compatibility for existing Legacy and Extended controllers.
+### Staged desktop auto-baud path
+
+The experimental development runtime now has a staged automatic serial-rate probe while stable `main` remains untouched.
+
+Behavior:
+
+- existing controllers still prefer `9600` first on a clean or migrated configuration;
+- the same COM port is opened only once, so trying a second rate does not deliberately reset the Nano a second time;
+- after the normal MCU startup wait, the open `SerialPort` is tested at candidate baud rates by changing `BaudRate` in place;
+- automatic mode currently considers the remembered successful rate, the configured rate, `9600`, and `115200`, with duplicates removed;
+- protocol acceptance still requires multiple valid Mugen packets with the same protocol/slider/button signature, reducing the chance that wrong-baud garbage is mistaken for a controller;
+- after a successful probe, `lastWorkingBaudRate` is saved and tried first on the next connection;
+- a `fixed` config mode remains available for diagnostics or unusual custom hardware.
+
+The staged implementation passed Windows PowerShell 5.1 parsing and the normal integration CI in workflow run #16 (`35172137771`). It is **CI PASS / hardware regression test pending**. The next real-hardware check is to confirm that the existing 9600-baud Extended 5+6 controller still connects normally before testing a 115200-baud device.
 
 ## Longer-term hardware options
 
