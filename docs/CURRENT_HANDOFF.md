@@ -21,6 +21,7 @@ For deeper history see `docs/PROJECT_STATE.md`, `docs/VIRTUAL_GAMEPAD_INTEGRATIO
 3. Add Adaptive v3 as a self-describing typed-input protocol for larger DIY control surfaces.
 4. Keep mapping intelligence in Mugen Deej so hardware does not need reflashing when assignments change.
 5. Keep the main window compact even for larger Adaptive controllers.
+6. Treat the current Uno fixture as one topology, not a hardcoded product shape: future DIY firmware may report different counts of analog controls, buttons, toggles and encoders.
 
 ## Protocol generations
 
@@ -54,9 +55,9 @@ Temporary Uno bench pins:
 - D5 — encoder push;
 - D6 / D7 — synthetic encoder direction steps.
 
-## Adaptive transport status
+## Adaptive transport + live-input hardware status
 
-Real Uno on COM14: **PASS for detection/transport**.
+Real Uno on COM14: **PASS** for Adaptive detection, transport and live typed-control interaction.
 
 Observed repeatedly on the real machine:
 
@@ -64,7 +65,15 @@ Observed repeatedly on the real machine:
 
 The five analog values display correctly as 0%, 25%, 50%, 75%, 100%.
 
-Do not call live D3–D7 interaction a complete hardware PASS until those physical pin tests are performed.
+Physical bench exercise after Integrated #30:
+
+- ordinary test button path reported working;
+- toggle 1 and toggle 2 both changed state correctly;
+- synthetic encoder steps moved cumulative position in both directions;
+- encoder push highlighted the encoder itself and released correctly;
+- the polished owner-drawn controls did not visibly flicker during the test.
+
+The runtime log independently confirms repeated toggle state transitions, signed encoder movement in both directions, and encoder push press/release events. This closes the earlier D3–D7 hardware-validation gap for the current Uno test fixture.
 
 ## Adaptive UI history
 
@@ -116,21 +125,48 @@ Integrated #30 was run on the real machine and the compact revision is visually 
 - 29 buttons, 2 toggles and 1 encoder fit in one combined card;
 - separate diagnostics dialog opens correctly;
 - main-window height no longer grows when diagnostics are opened;
-- previous switch/encoder flicker is no longer visible during idle observation;
-- encoder is represented by the knob itself, with no detached push button.
+- previous switch/encoder flicker is no longer visible;
+- encoder is represented by the knob itself, with no detached push button;
+- physical toggle, encoder movement and encoder-push interaction all work on the Uno fixture.
 
-Log from the same run is clean with respect to Adaptive detection and the UI revision:
+Log from the same session is clean with respect to Adaptive detection and the UI revision:
 
-- fresh dev config was created normally;
-- COM1 opened but did not speak Mugen protocol at 9600/115200;
-- COM3, COM4 and COM13 were busy/access-denied and put on the normal 60-second retry path;
-- COM14 appeared later as a newly detected port;
-- Mugen probed COM14 at 9600, then 115200;
-- Adaptive capabilities were detected as 5/29/2/1;
-- controller connected successfully on COM14 at 115200;
-- no exception or UI error was logged after detection.
+- COM14 is detected as Adaptive 5/29/2/1 at 115200;
+- toggle state changes are logged correctly;
+- encoder delta and cumulative position are logged correctly in both directions;
+- encoder push press/release is logged correctly;
+- no exception or UI error follows these events.
 
-The launcher log for this run contains only the normal launcher-start marker; no launcher-side failure was recorded.
+## Scalable UI rule for arbitrary Adaptive controllers
+
+Do not assume the current 5/29/2/1 topology in future UI work. Adaptive v3 is intentionally self-describing, so the Windows UI must derive its layout from the capabilities actually reported by firmware.
+
+Recommended policy for custom/community controllers:
+
+- small and medium control counts: wrap dynamically in the combined main status card;
+- keep per-control visuals lightweight (button tile, toggle switch, encoder knob + numeric position);
+- never let arbitrary firmware make the main window grow without bound;
+- give the combined status card a practical maximum height;
+- if a topology exceeds that compact budget, show a concise overflow affordance such as `Ещё N… / N more…` and open a dedicated full controller-state view with its own scrolling/wrapping;
+- settings/editors remain separate from the live main-window summary;
+- diagnostics should report the detected topology explicitly so unusual DIY firmware is easy to understand.
+
+This allows projects such as 0 sliders + many buttons, many toggles, several encoders, or mixed custom panels without changing the PC-side protocol parser or hardcoding new layouts per device.
+
+## Diagnostics expansion direction
+
+The new separate diagnostics dialog now has room to grow without affecting main-window height. Useful next read-only controller information:
+
+- connected COM port;
+- detected protocol generation;
+- active baud rate;
+- analog/button/toggle/encoder counts;
+- connection mode (automatic/manual);
+- latest packet age / connection freshness;
+- optional packet/update rate if measured cheaply;
+- virtual-controller state where relevant.
+
+Do not display firmware version/identity unless a future protocol extension actually supplies those fields.
 
 ## Current successful build
 
@@ -149,19 +185,17 @@ Current test build:
 - PowerShell 5.1 parse check: PASS
 - launcher/package: PASS
 
-## Immediate next hardware/UI test
+## Immediate next work
 
-The structural/UI #30 test is now substantially proven. Remaining physical-input checks:
+The current Uno Adaptive transport and live-input UI are hardware-proven enough to move on from basic state validation.
 
-1. Ground D3 / D4 and verify each toggle switch changes independently.
-2. Pulse D6 / D7 and verify encoder cumulative position moves in opposite directions and the marker rotates.
-3. Ground D5 and verify the encoder knob itself highlights only while held.
-4. Ground D2 and verify ordinary button state still updates independently.
-5. Close/reopen the diagnostics dialog and exercise reconnect/refresh/manual-port controls once.
-6. Switch RU/EN while connected and verify compact card/dialog labels relocalize correctly.
-7. Disconnect/reconnect the Uno and verify no stale or duplicate typed controls appear.
+Next useful work:
 
-Do not convert live toggle/encoder interaction into full hardware PASS until D3–D7 are exercised.
+1. Expand the separate diagnostics dialog with detected protocol/topology/baud/freshness information.
+2. Make the main combined status card explicitly safe for arbitrary larger Adaptive topologies (bounded compact layout + overflow/full-state view).
+3. Add first-class mapping/configuration behavior for toggles and encoders instead of only displaying their live state.
+4. Re-test RU/EN switching and disconnect/reconnect after further UI changes.
+5. Keep the current 5/29/2/1 Uno fixture as the regression test, not as a hardcoded UI assumption.
 
 ## Virtual Xbox integration status
 
@@ -193,5 +227,6 @@ Nonblocking teardown code exists and has CI coverage, but its final real-hardwar
 - Keep Legacy and Extended behavior intact while adding Adaptive.
 - Adaptive controls remain first-class types; do not flatten toggles/encoders into fake momentary buttons.
 - Encoder transport uses cumulative signed position.
+- Do not hardcode the current Uno control counts into generic Adaptive UI behavior.
 - For changes that trigger GitHub Actions: wait for the final result, fix/rebuild if needed, then provide the successful artifact directly instead of making the tester hunt through Actions.
 - After meaningful code changes, CI findings, UI observations, or hardware observations, update this handoff before moving on.
