@@ -8,8 +8,21 @@ $ErrorActionPreference = 'Stop'
 $utf8Strict = New-Object System.Text.UTF8Encoding($false, $true)
 $utf8Bom = New-Object System.Text.UTF8Encoding($true)
 
+# The integration workflow calls this after every feature-stage patch has been
+# applied. Use that final runtime pass to apply topology hardening after the
+# compact #30 UI revision, then normalize encoding for Windows PowerShell 5.1.
+$topologyHardener = Join-Path $PSScriptRoot 'Harden-AdaptiveTopologyUi.ps1'
+if (-not (Test-Path -LiteralPath $topologyHardener -PathType Leaf)) {
+    throw "Missing Adaptive topology hardener: $topologyHardener"
+}
+
 foreach ($candidate in @($Path)) {
     $resolved = (Resolve-Path -LiteralPath $candidate).Path
+
+    if ([System.IO.Path]::GetFileName($resolved) -ieq 'MugenDeej.ps1') {
+        & $topologyHardener -Path $resolved
+    }
+
     $bytes = [System.IO.File]::ReadAllBytes($resolved)
 
     $offset = 0
