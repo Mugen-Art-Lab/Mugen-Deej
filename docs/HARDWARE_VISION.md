@@ -41,31 +41,38 @@ Changing what a control does should normally be a profile/configuration change, 
 
 ## Candidate first large prototype
 
-A practical first prototype target is:
+The first large prototype target is now concrete:
 
 - Arduino Nano-class controller;
 - 5 analog controls;
-- 30 momentary buttons in a 5×6 switch matrix;
+- 5×6 switch matrix = 30 matrix positions;
+- 29 standalone momentary buttons;
+- the rotary encoder's push switch occupying the 30th matrix position;
 - one diode per matrix key (1N4148-class part);
 - 2 latching guarded toggle switches;
-- 1 quadrature rotary encoder;
+- 1 quadrature rotary encoder with push switch;
 - USB serial connection to Mugen Deej.
 
-This configuration is **not hardware-tested yet**.
+The encoder and two guarded toggles have been ordered for the prototype. The complete configuration is **not hardware-tested yet**.
 
-### ATmega328P / classic Nano pin-budget sketch
+Experimental firmware and wiring notes live in:
 
-With `D0/D1` reserved for serial, a classic Nano exposes enough usable pins for this target if the two guarded toggles are read through the analog-only `A6/A7` inputs:
+- `arduino/MugenDeejPanelPrototype/MugenDeejPanelPrototype.ino`
+- `arduino/MugenDeejPanelPrototype/README.md`
+
+The already-tested 5-control / 6-button reference firmware remains separate in `arduino/MugenDeejController/`.
+
+### ATmega328P / classic Nano pin budget
+
+With `D0/D1` reserved for serial, a classic Nano fits the target without an I/O expander:
 
 - `A0–A4` — five analog controls;
-- `D2–D13` + `A5` — 13 digital-capable lines total;
-- 11 of those digital lines — 5×6 button matrix;
-- remaining 2 digital lines — quadrature encoder A/B;
-- `A6/A7` — two latching toggles read with `analogRead()` and suitable external pull-up/pull-down wiring.
+- `D2/D3` — quadrature encoder A/B;
+- `D4–D8 + A5` — six matrix columns;
+- `D9–D13` — five matrix rows;
+- `A6/A7` — two latching toggles read with `analogRead()` and external pull-up wiring.
 
-That uses the classic Nano almost completely without an I/O expander.
-
-If the encoder also has a push switch, that push input needs an additional strategy: use one matrix position, reduce the ordinary button count by one, or add an I/O expander/shift-register solution.
+The encoder push switch uses one normal matrix position, so it requires no additional GPIO. This uses the classic Nano essentially completely while keeping the first prototype cheap and simple.
 
 ## Control semantics Mugen should eventually understand
 
@@ -76,7 +83,16 @@ The physical controls are not all the same kind of input, even if early firmware
 - **Rotary encoder** — directional step input (clockwise/counter-clockwise), not merely two user-visible buttons.
 - **Analog control** — continuous value suitable for audio or virtual axes.
 
-Dedicated toggle/encoder protocol semantics are **not implemented yet**. The existing Extended parser currently knows the released/pressed button model and analog controls; any protocol extension for encoder steps or typed switches must remain backward-compatible.
+Dedicated toggle/encoder protocol semantics are **not implemented yet**. The first panel firmware deliberately uses a compatibility shim so the existing Extended parser can still understand the control count:
+
+- matrix positions are `b` fields;
+- the two toggles are temporarily stateful `b` fields;
+- encoder CW/CCW detents are temporarily short synthetic `b` pulses;
+- the five analog controls remain normal `s` fields.
+
+That temporary mapping appears as **5 analog controls + 34 button-like fields = 39 total fields**, still below the current parser ceiling of 64.
+
+Long term, encoder and toggle types should become first-class Mugen inputs without breaking older Extended controllers.
 
 ## Output direction
 
@@ -92,9 +108,11 @@ This is why Profiles are a core part of the long-term architecture: one inexpens
 
 ## Protocol / bandwidth note
 
-The current parser ceiling of 64 packet fields is sufficient for the rough control count of this prototype, but the existing 9600-baud reference cadence is not a good target for a much larger full-state packet.
+The current parser ceiling of 64 packet fields is sufficient for this prototype, but the existing 9600-baud reference cadence is not suitable for a roughly 39-field full-state packet.
 
-Before building the large prototype firmware, Mugen should gain a deliberate higher/configurable serial-rate path. `115200` baud is a candidate for prototype work, but it is **not hardware-validated yet** and should not be treated as a final requirement until tested.
+The experimental panel firmware therefore starts at **115200 baud** with a 25 ms heartbeat. This is a prototype choice, not yet a hardware-validated product requirement.
+
+Before end-to-end Mugen testing, the desktop client needs a deliberate higher/configurable baud path while preserving 9600 compatibility for existing Legacy and Extended controllers.
 
 ## Longer-term hardware options
 
