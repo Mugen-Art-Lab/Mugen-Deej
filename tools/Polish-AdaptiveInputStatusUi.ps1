@@ -31,6 +31,25 @@ $resolved = (Resolve-Path -LiteralPath $Path).Path
 $text = [System.IO.File]::ReadAllText($resolved, [System.Text.Encoding]::UTF8)
 
 $replacement = @'
+function Enable-AdaptiveIndicatorDoubleBuffer {
+    param([Parameter(Mandatory = $true)][System.Windows.Forms.Control]$Control)
+
+    try {
+        $flags = (
+            [System.Reflection.BindingFlags]::Instance -bor
+            [System.Reflection.BindingFlags]::NonPublic
+        )
+        $property = [System.Windows.Forms.Control].GetProperty('DoubleBuffered', $flags)
+        if ($null -ne $property) {
+            $property.SetValue($Control, $true, $null)
+        }
+    }
+    catch {
+        # Double-buffering is a visual optimization only. If reflection is
+        # unavailable for any reason, state rendering must still keep working.
+    }
+}
+
 function Ensure-MainToggleIndicators {
     $count = if ($script:IsConnected) { [int]$script:DetectedToggleCount } else { 0 }
     if ($null -eq $script:ToggleStateFlow -or $script:ToggleStateFlow.IsDisposed) { return }
@@ -42,10 +61,18 @@ function Ensure-MainToggleIndicators {
         $script:MainToggleIndicators = @()
 
         for ($i = 0; $i -lt $count; $i++) {
+            $surfaceBack = if ($null -ne $script:AdaptiveStateGroup) {
+                $script:AdaptiveStateGroup.BackColor
+            }
+            else {
+                $script:ThemePalettes[(Get-EffectiveTheme)].SurfaceAlt
+            }
+
             $toggleItemHost = New-Object System.Windows.Forms.Panel
             $toggleItemHost.Size = [System.Drawing.Size]::new(112, 28)
             $toggleItemHost.Margin = New-Object System.Windows.Forms.Padding(2, 0, 5, 0)
             $toggleItemHost.BorderStyle = [System.Windows.Forms.BorderStyle]::None
+            $toggleItemHost.BackColor = $surfaceBack
 
             $numberLabel = New-Object System.Windows.Forms.Label
             $numberLabel.Text = [string]($i + 1)
@@ -59,7 +86,8 @@ function Ensure-MainToggleIndicators {
             $switchView.Tag = $i
             $switchView.Location = [System.Drawing.Point]::new(22, 1)
             $switchView.Size = [System.Drawing.Size]::new(42, 26)
-            $switchView.BackColor = [System.Drawing.Color]::Transparent
+            $switchView.BackColor = $surfaceBack
+            Enable-AdaptiveIndicatorDoubleBuffer -Control $switchView
             $switchView.Add_Paint({
                 param($sender, $eventArgs)
 
@@ -118,6 +146,8 @@ function Ensure-MainToggleIndicators {
                 NumberLabel = $numberLabel
                 SwitchView = $switchView
                 StateLabel = $stateLabel
+                LastOn = $null
+                LastTheme = ''
             }
         }
     }
@@ -137,10 +167,18 @@ function Ensure-MainEncoderIndicators {
         $script:MainEncoderIndicators = @()
 
         for ($i = 0; $i -lt $count; $i++) {
+            $surfaceBack = if ($null -ne $script:AdaptiveStateGroup) {
+                $script:AdaptiveStateGroup.BackColor
+            }
+            else {
+                $script:ThemePalettes[(Get-EffectiveTheme)].SurfaceAlt
+            }
+
             $encoderItemHost = New-Object System.Windows.Forms.Panel
-            $encoderItemHost.Size = [System.Drawing.Size]::new(214, 30)
+            $encoderItemHost.Size = [System.Drawing.Size]::new(120, 30)
             $encoderItemHost.Margin = New-Object System.Windows.Forms.Padding(2, 0, 8, 0)
             $encoderItemHost.BorderStyle = [System.Windows.Forms.BorderStyle]::None
+            $encoderItemHost.BackColor = $surfaceBack
 
             $numberLabel = New-Object System.Windows.Forms.Label
             $numberLabel.Text = [string]($i + 1)
@@ -154,24 +192,35 @@ function Ensure-MainEncoderIndicators {
             $knobView.Tag = $i
             $knobView.Location = [System.Drawing.Point]::new(24, 1)
             $knobView.Size = [System.Drawing.Size]::new(28, 28)
-            $knobView.BackColor = [System.Drawing.Color]::Transparent
+            $knobView.BackColor = $surfaceBack
+            Enable-AdaptiveIndicatorDoubleBuffer -Control $knobView
             $knobView.Add_Paint({
                 param($sender, $eventArgs)
 
                 $index = [int]$sender.Tag
                 $position = [int64]0
+                $pressed = $false
                 if (@($script:LatestEncoders).Count -gt $index) {
                     $currentEncoder = $script:LatestEncoders[$index]
                     if ($null -ne $currentEncoder) {
                         $position = [int64]$currentEncoder.Position
+                        $pressed = (
+                            [bool]$currentEncoder.HasPush -and
+                            [int]$currentEncoder.Push -eq 0
+                        )
                     }
                 }
 
                 $palette = $script:ThemePalettes[(Get-EffectiveTheme)]
                 $eventArgs.Graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
 
-                $fillBrush = New-Object System.Drawing.SolidBrush($palette.Control)
-                $borderPen = New-Object System.Drawing.Pen($palette.Border, 1)
+                # The encoder itself is also its push indicator. Pressing the
+                # shaft lights the knob instead of showing a detached "Push"
+                # button next to a rotary control.
+                $fillColor = if ($pressed) { $palette.Accent } else { $palette.Control }
+                $borderColor = if ($pressed) { $palette.Accent } else { $palette.Border }
+                $fillBrush = New-Object System.Drawing.SolidBrush($fillColor)
+                $borderPen = New-Object System.Drawing.Pen($borderColor, 1)
                 try {
                     $eventArgs.Graphics.FillEllipse($fillBrush, 2, 2, 23, 23)
                     $eventArgs.Graphics.DrawEllipse($borderPen, 2, 2, 23, 23)
@@ -195,7 +244,8 @@ function Ensure-MainEncoderIndicators {
                 $x2 = $centerX + ([Math]::Cos($angle) * $outerRadius)
                 $y2 = $centerY + ([Math]::Sin($angle) * $outerRadius)
 
-                $markerPen = New-Object System.Drawing.Pen($palette.Accent, 2)
+                $markerColor = if ($pressed) { $palette.AccentText } else { $palette.Accent }
+                $markerPen = New-Object System.Drawing.Pen($markerColor, 2)
                 try {
                     $markerPen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
                     $markerPen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
@@ -214,20 +264,15 @@ function Ensure-MainEncoderIndicators {
             $positionLabel.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 9)
             $encoderItemHost.Controls.Add($positionLabel)
 
-            $pushTile = New-Object MugenDeejWindowing.MugenButtonTile
-            $pushTile.Location = [System.Drawing.Point]::new(118, 2)
-            $pushTile.Size = [System.Drawing.Size]::new(90, 26)
-            $pushTile.TextAlign = 'MiddleCenter'
-            $pushTile.Font = New-Object System.Drawing.Font('Segoe UI', 8.5)
-            $encoderItemHost.Controls.Add($pushTile)
-
             $script:EncoderStateFlow.Controls.Add($encoderItemHost)
             $script:MainEncoderIndicators += [pscustomobject]@{
                 Host = $encoderItemHost
                 NumberLabel = $numberLabel
                 KnobView = $knobView
                 PositionLabel = $positionLabel
-                PushTile = $pushTile
+                LastPosition = $null
+                LastPressed = $null
+                LastTheme = ''
             }
         }
     }
@@ -240,14 +285,25 @@ function Update-AdaptiveInputIndicators {
     Ensure-MainToggleIndicators
     Ensure-MainEncoderIndicators
 
-    $palette = $script:ThemePalettes[(Get-EffectiveTheme)]
+    $themeKey = [string](Get-EffectiveTheme)
+    $palette = $script:ThemePalettes[$themeKey]
+    $surfaceBack = if ($null -ne $script:AdaptiveStateGroup -and -not $script:AdaptiveStateGroup.IsDisposed) {
+        $script:AdaptiveStateGroup.BackColor
+    }
+    else {
+        $palette.SurfaceAlt
+    }
 
     if ($null -ne $script:AdaptiveStateGroup -and -not $script:AdaptiveStateGroup.IsDisposed) {
         if ($null -ne $script:ToggleStateFlow -and -not $script:ToggleStateFlow.IsDisposed) {
-            $script:ToggleStateFlow.BackColor = $script:AdaptiveStateGroup.BackColor
+            if ($script:ToggleStateFlow.BackColor.ToArgb() -ne $surfaceBack.ToArgb()) {
+                $script:ToggleStateFlow.BackColor = $surfaceBack
+            }
         }
         if ($null -ne $script:EncoderStateFlow -and -not $script:EncoderStateFlow.IsDisposed) {
-            $script:EncoderStateFlow.BackColor = $script:AdaptiveStateGroup.BackColor
+            if ($script:EncoderStateFlow.BackColor.ToArgb() -ne $surfaceBack.ToArgb()) {
+                $script:EncoderStateFlow.BackColor = $surfaceBack
+            }
         }
     }
 
@@ -258,21 +314,44 @@ function Update-AdaptiveInputIndicators {
             [int]$script:LatestToggles[$i] -eq 1
         )
 
-        $view.Host.BackColor = if ($null -ne $script:AdaptiveStateGroup) {
-            $script:AdaptiveStateGroup.BackColor
+        $surfaceChanged = ($view.Host.BackColor.ToArgb() -ne $surfaceBack.ToArgb())
+        if ($surfaceChanged) {
+            $view.Host.BackColor = $surfaceBack
+            $view.SwitchView.BackColor = $surfaceBack
         }
-        else {
-            $palette.SurfaceAlt
+
+        if ($view.NumberLabel.ForeColor.ToArgb() -ne $palette.Text.ToArgb()) {
+            $view.NumberLabel.ForeColor = $palette.Text
         }
-        $view.NumberLabel.ForeColor = $palette.Text
-        $view.StateLabel.Text = if ($script:Language -eq 'ru') {
+
+        $stateText = if ($script:Language -eq 'ru') {
             $(if ($on) { 'Вкл' } else { 'Выкл' })
         }
         else {
             $(if ($on) { 'On' } else { 'Off' })
         }
-        $view.StateLabel.ForeColor = if ($on) { $palette.Accent } else { $palette.Muted }
-        $view.SwitchView.Invalidate()
+        if ($view.StateLabel.Text -ne $stateText) {
+            $view.StateLabel.Text = $stateText
+        }
+
+        $stateColor = if ($on) { $palette.Accent } else { $palette.Muted }
+        if ($view.StateLabel.ForeColor.ToArgb() -ne $stateColor.ToArgb()) {
+            $view.StateLabel.ForeColor = $stateColor
+        }
+
+        # Adaptive v3 currently streams every 25 ms. Repainting an unchanged
+        # owner-drawn switch on every packet visibly flickers. Repaint only
+        # when the state/theme/surface actually changes.
+        if (
+            $surfaceChanged -or
+            $null -eq $view.LastOn -or
+            [bool]$view.LastOn -ne $on -or
+            [string]$view.LastTheme -ne $themeKey
+        ) {
+            $view.LastOn = $on
+            $view.LastTheme = $themeKey
+            $view.SwitchView.Invalidate()
+        }
     }
 
     for ($i = 0; $i -lt @($script:MainEncoderIndicators).Count; $i++) {
@@ -282,28 +361,40 @@ function Update-AdaptiveInputIndicators {
         $hasPush = ($null -ne $encoder -and [bool]$encoder.HasPush)
         $pressed = ($hasPush -and [int]$encoder.Push -eq 0)
 
-        $view.Host.BackColor = if ($null -ne $script:AdaptiveStateGroup) {
-            $script:AdaptiveStateGroup.BackColor
+        $surfaceChanged = ($view.Host.BackColor.ToArgb() -ne $surfaceBack.ToArgb())
+        if ($surfaceChanged) {
+            $view.Host.BackColor = $surfaceBack
+            $view.KnobView.BackColor = $surfaceBack
         }
-        else {
-            $palette.SurfaceAlt
-        }
-        $view.NumberLabel.ForeColor = $palette.Text
-        $view.PositionLabel.Text = [string]$position
-        $view.PositionLabel.ForeColor = $palette.Text
-        $view.KnobView.Invalidate()
 
-        $view.PushTile.Text = Get-AdaptiveInputUiText -Key 'Push'
-        $view.PushTile.Visible = $hasPush
-        $view.PushTile.BorderColor = $palette.Border
-        $view.PushTile.BackColor = if ($pressed) { $palette.Accent } else { $palette.Control }
-        $view.PushTile.ForeColor = if ($pressed) { $palette.AccentText } else { $palette.Muted }
-
-        if ($hasPush) {
-            $view.PositionLabel.Size = [System.Drawing.Size]::new(54, 24)
+        if ($view.NumberLabel.ForeColor.ToArgb() -ne $palette.Text.ToArgb()) {
+            $view.NumberLabel.ForeColor = $palette.Text
         }
-        else {
-            $view.PositionLabel.Size = [System.Drawing.Size]::new(146, 24)
+
+        $positionText = [string]$position
+        if ($view.PositionLabel.Text -ne $positionText) {
+            $view.PositionLabel.Text = $positionText
+        }
+        if ($view.PositionLabel.ForeColor.ToArgb() -ne $palette.Text.ToArgb()) {
+            $view.PositionLabel.ForeColor = $palette.Text
+        }
+
+        # The same packet-rate rule applies to the rotary drawing. Only a
+        # detent, push transition, theme change or surface change needs paint.
+        # This also prevents screenshots from catching the knob during a
+        # needless erase/repaint cycle.
+        if (
+            $surfaceChanged -or
+            $null -eq $view.LastPosition -or
+            [int64]$view.LastPosition -ne $position -or
+            $null -eq $view.LastPressed -or
+            [bool]$view.LastPressed -ne $pressed -or
+            [string]$view.LastTheme -ne $themeKey
+        ) {
+            $view.LastPosition = $position
+            $view.LastPressed = $pressed
+            $view.LastTheme = $themeKey
+            $view.KnobView.Invalidate()
         }
     }
 }
@@ -315,8 +406,8 @@ $text = Replace-RegexBlockExactlyOnceLiteral `
     -Text $text `
     -Pattern '(?ms)^function Ensure-MainToggleIndicators \{.*?^function Update-AdaptiveInputFeatureUi \{' `
     -Replacement $replacement `
-    -Label 'replace blocky typed-control indicators with switch and knob visuals'
+    -Label 'replace blocky typed-control indicators with flicker-free switch and knob visuals'
 
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 [System.IO.File]::WriteAllText($resolved, $text, $utf8)
-Write-Host "Applied Adaptive toggle/encoder visual polish to staged runtime: $resolved"
+Write-Host "Applied flicker-free Adaptive toggle/encoder visual polish to staged runtime: $resolved"
