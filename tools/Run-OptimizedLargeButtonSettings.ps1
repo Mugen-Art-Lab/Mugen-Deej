@@ -151,8 +151,8 @@ finally {
 # Adaptive status UI v24 accidentally used $host as a local panel variable.
 # PowerShell variable names are case-insensitive, so this collides with the
 # built-in read-only $Host automatic variable and throws as soon as an encoder
-# indicator is created. Fix only the generated encoder-indicator function block
-# so normal uses of the automatic $Host variable elsewhere remain untouched.
+# indicator is created. Older staged runtimes still need this repair; newer
+# polished status UI already uses an explicitly safe encoder host variable.
 $runtime = [System.IO.File]::ReadAllText((Resolve-Path -LiteralPath $Path).Path, [System.Text.Encoding]::UTF8)
 $encoderStartMarker = 'function Ensure-MainEncoderIndicators {'
 $encoderEndMarker = 'function Update-AdaptiveInputIndicators {'
@@ -170,17 +170,22 @@ if ($encoderStart -lt 0 -or $encoderEnd -le $encoderStart) {
 
 $encoderBlock = $runtime.Substring($encoderStart, $encoderEnd - $encoderStart)
 $hostCount = [regex]::Matches($encoderBlock, '\$host\b').Count
-if ($hostCount -ne 8) {
-    throw "Adaptive encoder Host-collision fix expected 8 `$host references, found $hostCount."
+
+if ($hostCount -eq 8) {
+    $fixedEncoderBlock = $encoderBlock.Replace('$host', '$encoderHost')
+    $runtime = $runtime.Substring(0, $encoderStart) + $fixedEncoderBlock + $runtime.Substring($encoderEnd)
+
+    [System.IO.File]::WriteAllText(
+        (Resolve-Path -LiteralPath $Path).Path,
+        $runtime,
+        (New-Object System.Text.UTF8Encoding($false))
+    )
+
+    Write-Host 'Fixed Adaptive encoder UI collision with PowerShell automatic $Host variable.'
 }
-
-$fixedEncoderBlock = $encoderBlock.Replace('$host', '$encoderHost')
-$runtime = $runtime.Substring(0, $encoderStart) + $fixedEncoderBlock + $runtime.Substring($encoderEnd)
-
-[System.IO.File]::WriteAllText(
-    (Resolve-Path -LiteralPath $Path).Path,
-    $runtime,
-    (New-Object System.Text.UTF8Encoding($false))
-)
-
-Write-Host 'Fixed Adaptive encoder UI collision with PowerShell automatic $Host variable.'
+elif ($hostCount -eq 0 -and $encoderBlock -match '\$encoder(?:Item)?Host\b') {
+    Write-Host 'Adaptive encoder UI already uses a safe host variable; legacy Host-collision repair skipped.'
+}
+else {
+    throw "Adaptive encoder Host-collision compatibility check found unexpected encoder block state: `$host references=$hostCount."
+}
