@@ -2,7 +2,7 @@
 
 Last updated: 2026-09-18
 
-This file is the short resume point for the active `feature/virtual-gamepad-ui` branch. Keep it current after meaningful implementation or hardware-test changes so a new chat/session can continue without reconstructing the project from conversation history.
+This file is the short resume point for the active `feature/virtual-gamepad-ui` branch. Keep it current after meaningful implementation, CI, UI, or hardware-test changes so a new chat/session can continue without reconstructing the project from conversation history.
 
 For older background and detailed history, see:
 
@@ -26,9 +26,10 @@ For older background and detailed history, see:
 Current direction:
 
 1. Keep Legacy and Extended compatibility.
-2. Add optional PC-side virtual controller output.
+2. Keep optional PC-side virtual Xbox/XInput output.
 3. Add Adaptive v3 as a self-describing typed-input protocol for larger DIY control surfaces.
-4. Keep intelligence in Mugen Deej so hardware does not need reflashing when mappings change.
+4. Keep intelligence in Mugen Deej so mappings can change without reflashing hardware.
+5. Keep the main UI compact enough that larger Adaptive controllers do not turn the app into a tall scrolling/expanding window.
 
 ## Protocol generations
 
@@ -83,9 +84,9 @@ Observed in the real Mugen runtime:
 
 `protocol=adaptive; sliders=5; buttons=29; toggles=2; encoders=1`
 
-The five analog values also appeared correctly in the main UI (0%, 25%, 50%, 75%, 100%).
+The five analog values appeared correctly in the main UI (0%, 25%, 50%, 75%, 100%). The 29-button wrapped grid and typed toggle/encoder state UI also constructed successfully on the real machine after the earlier `$Host` fix.
 
-This proves the current 115200 autodetection and Adaptive capability parser on real hardware.
+Do not call live D3–D7 interaction a complete hardware PASS until the physical pin tests below are performed.
 
 ## Adaptive high-button-count UI
 
@@ -96,44 +97,71 @@ Current staged behavior:
 - main window uses a wrapped grid for many physical buttons;
 - large Button Settings uses lightweight numbered selector tiles plus one shared action editor;
 - pressing a physical button can auto-select its numbered tile;
-- an assignment overview remains fixed-height rather than creating 30+ full editor rows.
+- assignment overview remains fixed-height instead of creating 30+ full editor rows.
 
-## Toggle / encoder live status UI
+## Typed toggle / encoder UI evolution
 
-### First functional version — hardware/UI observation
+### Integrated #25
 
-Integrated #25 successfully launched on the real Adaptive Uno after the `$Host` fix. The main window showed:
+The first real-hardware functional UI showed the 29-button grid plus a separate `Тумблеры и энкодеры` card. It worked after the `$Host` collision was fixed, but looked too blocky: toggle states resembled ordinary buttons and the encoder was represented by a position tile plus a detached `Кнопка` tile.
 
-- the 29-button wrapped grid;
-- a `Тумблеры и энкодеры` block;
-- two toggle states;
-- one encoder cumulative position;
-- a separate encoder push tile.
+### Integrated #28
 
-So typed-control UI construction is now real-hardware/UI proven enough to proceed. However, the first presentation was intentionally functional and the tester judged it visually too blocky/top-heavy: toggle states looked like ordinary buttons and the encoder line (`1 ↺ 0 ↻` plus another rectangular `Кнопка`) did not visually read as a physical rotary control.
+Presentation was redesigned:
 
-### Polished presentation now staged
+- toggles became small switch metaphors with `Вкл / Выкл` (`On / Off`);
+- encoder became a small drawn rotary knob with a rotating marker;
+- cumulative signed position remained visible numerically;
+- the visual knob marker wraps every 24 detents because an endless encoder has no absolute min/max.
 
-New patcher:
+Real screenshot feedback: this presentation looked much better, but the owner-drawn switches/encoder visibly flickered. A screenshot even caught the rotary control during a frame where it had disappeared.
+
+### Integrated #29
+
+Flicker fix and encoder-push simplification:
+
+- owner-drawn Adaptive indicators are double-buffered;
+- switches/knob are invalidated only when state, position, push, surface, or theme actually changes instead of every 25 ms packet;
+- the detached `Кнопка / Push` chip was removed;
+- pressing an encoder now highlights the encoder knob itself, which better matches the physical control.
+
+Run #29 CI: **SUCCESS**.
+
+Relevant patcher:
 
 `tools/Polish-AdaptiveInputStatusUi.ps1`
 
-It runs after `Apply-AdaptiveInputStatusUi.ps1` and changes presentation only; Adaptive transport semantics stay unchanged.
+## Compact main-window UI revision
 
-New design:
+The next real screenshot showed another structural problem: with Adaptive controls present, expanding `Подключение и диагностика` made the main window taller than a normal Full HD working area.
 
-- each toggle is shown as a real switch metaphor rather than a button tile;
-- toggle number is a plain label;
-- switch track moves left/right and uses the normal Mugen accent when ON;
-- adjacent state text is `Вкл / Выкл` (`On / Off`), not shouty all-caps button text;
-- each encoder is shown with a small drawn rotary knob;
-- the knob marker rotates one 15-degree step per cumulative detent so direction/movement is visible;
-- the cumulative signed position is still shown numerically and remains the source of truth;
-- encoder push remains a separate `Кнопка / Push` state chip and lights only while physically held;
-- layout remains dynamic for multiple toggles/encoders;
-- the typed-control block remains hidden for hardware without those capabilities.
+Decision: do not solve this by adding a scrollbar to the entire main window. Reformat instead.
 
-Important implementation note: endless encoders have no absolute min/max. The visual knob therefore wraps its marker every 24 detents; it is only a movement cue. The numeric cumulative position is authoritative.
+New staged layout in Integrated #30:
+
+- physical buttons, toggles, and encoders now share one main status card;
+- RU title when buttons + typed controls are present: `Состояние кнопок и переключателей`;
+- EN title: `Buttons and controls`;
+- for the current 29-button / 2-toggle / 1-encoder fixture, toggles and encoder share one compact row under the two-row button grid;
+- larger typed-control counts automatically fall back to stacked rows;
+- the old dedicated `Тумблеры и энкодеры` card stays hidden and consumes no layout height;
+- the main window no longer expands vertically for diagnostics.
+
+New patcher:
+
+`tools/Revise-AdaptiveMainUi.ps1`
+
+Staging hook:
+
+`tools/Run-OptimizedLargeButtonSettings.ps1`
+
+### Connection and diagnostics
+
+`Подключение и диагностика / Connection and diagnostics` is now intended to open a separate fixed dialog instead of expanding an accordion inside the main window.
+
+The dialog reuses the existing connection and driver/log controls rather than duplicating their state/event logic. Closing it reparents those controls back to the hidden compatibility panel.
+
+This keeps the main window height stable while leaving room for future diagnostics additions such as raw protocol information, baud rate, packet timing, firmware information, etc.
 
 ## `$Host` collision history
 
@@ -147,42 +175,49 @@ Fix commit:
 
 Run #25 then succeeded and launched correctly on the real Uno.
 
-The old compatibility repair in `Run-OptimizedLargeButtonSettings.ps1` expected exactly eight `$host` references in the staged encoder block. Once the polished UI already used `$encoderItemHost`, run #26 correctly exposed that stale assumption and failed staging with `expected 8 $host references, found 0`. The compatibility guard is now tolerant of either old unsafe staged code (repair it) or already-safe newer code (skip the repair).
+The old compatibility repair later had to become tolerant of already-safe `$encoderItemHost` code; run #26 exposed that stale assumption and the guard was fixed before the polished builds continued.
 
 ## Current successful build
 
 Workflow: `Build virtual gamepad integration`
 
-Latest polished build:
+Current test build:
 
-- run number: **#28**
-- run ID: `35259422264`
-- head: `c3cbf3fb7cc612c9dab7f352541964d01634f708`
+- run number: **#30**
+- run ID: `35262142312`
+- head: `ebd4a051e0aacadfb619ede863f888f1e246ef69`
 - result: **SUCCESS**
-- staged Adaptive protocol: PASS
-- polished toggle/encoder UI staging: PASS
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-30`
+- artifact ID: `10515023574`
+- outer Actions digest: `sha256:eac9414389e61176ef74d79d2ce30bcf0e015b0e162c9ba8371f932c4a10b8ee`
+- inner program ZIP SHA-256: `6b1751030e84cb49726987f2e3680f5b8651f36358f68dd86deab13b373fb12a`
+- Adaptive protocol staging: PASS
+- flicker/push-visual patch staging: PASS
+- compact combined-input layout staging: PASS
+- separate diagnostics-dialog staging: PASS
 - Windows PowerShell 5.1 parse check: PASS
 - launcher/package: PASS
 
-The setup-go cache warning seen in earlier runs is also cleaned up by explicitly using `src/launcher/go.mod` as the cache dependency path.
+Run #30 supersedes #28/#29 for the next hardware/UI test.
 
-Run #28 supersedes #25 for the next UI test.
-
-## Immediate next hardware test
+## Immediate next hardware/UI test
 
 With the Uno Adaptive test firmware still loaded:
 
-1. Launch Integrated #28 and confirm the polished typed-control block appears after COM14 detection.
-2. Confirm the two toggles now look like switches rather than ordinary buttons.
-3. Ground D3 / D4 and verify each switch moves and changes `Вкл / Выкл` independently.
-4. Pulse D6 / D7 and verify the numeric encoder position moves in opposite directions and the small knob marker rotates.
-5. Ground D5 and verify only the `Кнопка` chip lights while held, then returns to idle on release.
-6. Ground D2 and verify ordinary button state still updates independently.
-7. Switch RU/EN while connected and verify typed-control labels relocalize correctly.
-8. Disconnect/reconnect the Uno and verify the typed-control block is rebuilt correctly without stale values or duplicate controls.
-9. Judge the visual proportions/spacing on the real main window; further polish is allowed before mapping UI work.
+1. Launch Integrated #30 and confirm COM14 still detects as Adaptive 5/29/2/1.
+2. Confirm buttons, toggles, and encoder are now inside one status card instead of two stacked cards.
+3. Confirm the current 2 toggles + 1 encoder share one compact row below the button grid and the main window is visibly shorter.
+4. Watch the two toggle switches and rotary knob while idle for several seconds; confirm the previous 25 ms flicker/disappearing-frame problem is gone.
+5. Ground D3 / D4 and verify each switch moves and changes `Вкл / Выкл` independently.
+6. Pulse D6 / D7 and verify encoder position changes in opposite directions and the knob marker rotates.
+7. Ground D5 and verify the encoder knob itself highlights while held; there should be no separate `Кнопка` chip.
+8. Ground D2 and verify ordinary button state still updates independently.
+9. Click `Подключение и диагностика` and verify a separate dialog opens while the main window height remains unchanged.
+10. Test reconnect/refresh/manual-port controls inside that dialog, then close and reopen it once to verify control reparenting remains healthy.
+11. Switch RU/EN while connected and verify the compact status-card labels relocalize correctly.
+12. Disconnect/reconnect the Uno and verify no stale/duplicate typed controls appear.
 
-Do not call live toggle/encoder interaction a complete hardware PASS until D3–D7 behavior is physically exercised.
+Do not convert these pending hardware/UI observations into PASS until they are actually exercised on the real machine.
 
 ## Virtual Xbox integration status
 
@@ -202,6 +237,10 @@ Already hardware-proven before Adaptive work:
 
 Nonblocking teardown code exists and has CI coverage, but its final real-hardware re-test is still pending in the older integration milestone notes. Do not silently convert that pending item into PASS.
 
+## CI note
+
+The old setup-go cache warning was cleaned up by explicitly using `src/launcher/go.mod` as the cache dependency path.
+
 ## Working rules
 
 - Stable `main` stays untouched until feature work is hardware-proven.
@@ -210,4 +249,4 @@ Nonblocking teardown code exists and has CI coverage, but its final real-hardwar
 - Adaptive controls are first-class types; do not flatten toggles/encoders back into fake momentary buttons.
 - Encoder transport uses cumulative signed position.
 - For changes that trigger GitHub Actions: wait for the final workflow result, fix/rebuild if needed, then provide the successful artifact directly rather than making the tester hunt through Actions manually.
-- After meaningful code changes, CI findings, or hardware observations, update this handoff (and the deeper integration/protocol docs when appropriate) before moving on.
+- After meaningful code changes, CI findings, UI observations, or hardware observations, update this handoff (and deeper integration/protocol docs when appropriate) before moving on.
