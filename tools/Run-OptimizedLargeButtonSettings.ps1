@@ -189,3 +189,12 @@ elseif ($hostCount -eq 0 -and $encoderBlock -match '\$encoder(?:Item)?Host\b') {
 else {
     throw "Adaptive encoder Host-collision compatibility check found unexpected encoder block state: `$host references=$hostCount."
 }
+
+# Keep the main window compact now that Adaptive adds multiple first-class input
+# types. This final staging pass combines physical input state into one card and
+# moves the connection/diagnostics accordion into its own fixed dialog.
+$mainUiRevision = Join-Path $PSScriptRoot 'Revise-AdaptiveMainUi.ps1'
+if (-not (Test-Path -LiteralPath $mainUiRevision -PathType Leaf)) {
+    throw "Missing Adaptive main UI revision script: $mainUiRevision"
+}
+& $mainUiRevision -Path $Path
