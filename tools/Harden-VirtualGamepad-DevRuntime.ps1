@@ -50,10 +50,13 @@ function Replace-RegexBlockExactlyOnceLiteral {
         [Parameter(Mandatory = $true)][string]$Label
     )
 
-    $regex = New-Object System.Text.RegularExpressions.Regex(
-        $Pattern,
+    $options = (
         [System.Text.RegularExpressions.RegexOptions]::Multiline -bor
         [System.Text.RegularExpressions.RegexOptions]::Singleline
+    )
+    $regex = New-Object System.Text.RegularExpressions.Regex(
+        $Pattern,
+        $options
     )
     $matches = $regex.Matches($Text)
     if ($matches.Count -ne 1) {
