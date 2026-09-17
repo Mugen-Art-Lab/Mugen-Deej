@@ -78,7 +78,6 @@ function Ensure-MainToggleIndicators {
                     $path.CloseFigure()
 
                     $trackColor = if ($isOn) { $palette.Accent } else { $palette.ControlPressed }
-                    using namespace System.Drawing
                     $trackBrush = New-Object System.Drawing.SolidBrush($trackColor)
                     $borderPen = New-Object System.Drawing.Pen($palette.Border)
                     try {
