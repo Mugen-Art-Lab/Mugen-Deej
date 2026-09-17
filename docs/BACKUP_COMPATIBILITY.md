@@ -2,6 +2,18 @@
 
 This note captures the backup/restore rule for Legacy, Extended and Adaptive controllers before first-class toggle/encoder mappings are added.
 
+## Product decision
+
+Backups are **universal Mugen Deej settings backups**, not per-protocol or per-device backup variants.
+
+A user should not need to remember whether a given file was a "Legacy backup", "Extended backup" or "Adaptive backup". The backup file remains one generic Mugen Deej backup type. Protocol/topology information may be stored inside the file as metadata for diagnostics and restore summaries, but it is not part of the user-facing backup identity.
+
+The filename can therefore remain generic/time-based, for example:
+
+`MugenDeej_2026-09-18_01-30-00.backup`
+
+The internal `schemaVersion` is an implementation/migration detail and should not become something users have to manage manually.
+
 ## Current backup behavior
 
 The existing portable backup format is `MugenDeejBackup`, `schemaVersion = 1`.
@@ -65,6 +77,8 @@ A topology mismatch should normally be a warning/summary, not a hard error.
 
 If no controller is connected, restore should still be allowed. Compatibility can be evaluated when a controller is next detected.
 
+The user-facing wording should describe the outcome, not ask the user to understand backup schema numbers or choose a protocol-specific backup type.
+
 ## Safety rules
 
 - Keep the existing emergency pre-restore backup and rollback behavior.
@@ -72,3 +86,4 @@ If no controller is connected, restore should still be allowed. Compatibility ca
 - Migrate older schemas explicitly; do not reinterpret v1 fields ambiguously.
 - Hardware discovery remains authoritative for what controls exist in the live UI.
 - Backup contents remain authoritative for saved user mappings/preferences, including dormant mappings for currently absent controls.
+- Do not create separate Legacy/Extended/Adaptive backup file types unless a future feature introduces a genuinely different export concept.
