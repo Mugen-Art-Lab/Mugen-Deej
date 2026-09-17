@@ -2,231 +2,138 @@
 
 Last updated: 2026-09-18
 
-This is the short resume point for the active `feature/virtual-gamepad-ui` branch. Keep it current after meaningful implementation, CI, UI, or hardware-test changes.
-
-For deeper history see `docs/PROJECT_STATE.md`, `docs/VIRTUAL_GAMEPAD_INTEGRATION.md`, `docs/VIRTUAL_CONTROLLER_TEST_LOG.md`, and `docs/PROTOCOL.md`.
-
-## Stable baseline
-
-- Public/stable release: `v1.0.0`
-- Stable branch: `main`
-- Stable behavior must remain untouched while feature work is validated.
-- Legacy hardware: 5 analog controls, no buttons — hardware PASS.
-- Extended hardware: 5 analog controls + 6 buttons — hardware PASS.
-
-## Active direction
-
-1. Preserve Legacy and Extended compatibility.
-2. Keep optional PC-side virtual Xbox/XInput output.
-3. Add Adaptive v3 as a self-describing typed-input protocol for larger DIY control surfaces.
-4. Keep mapping intelligence in Mugen Deej so hardware does not need reflashing when assignments change.
-5. Keep the main window compact even for larger Adaptive controllers.
-6. Treat the current Uno fixture as one topology, not a hardcoded product shape: future DIY firmware may report different counts of analog controls, buttons, toggles and encoders.
+This is the short resume point for the active `feature/virtual-gamepad-ui` branch. Stable `main` / v1.0.0 remains untouched.
 
 ## Protocol generations
 
-- `Legacy` — old numeric-only full-state packets.
-- `Extended` — typed slider/button packets such as `s512|...|b1|b0`.
-- `Adaptive v3` — packets begin with `v3` and expose first-class control types:
-  - `sN` analog control;
-  - `bN` momentary button;
-  - `tN` latching toggle;
-  - `ePOSITION[:PUSH]` rotary encoder with cumulative signed position and optional push switch.
+- **Legacy** — numeric-only analog packets.
+- **Extended** — typed `s` + `b` packets without an explicit version marker.
+- **Adaptive v3** — packet begins with `v3` and may contain any supported combination of `s`, `b`, `t`, and `e` fields.
 
-Encoder position is cumulative so a missed serial packet does not permanently lose a detent.
+Adaptive is self-describing. The current 5 sliders / 29 buttons / 2 toggles / 1 encoder Uno fixture is one regression topology, not a hardcoded product shape. A valid Adaptive controller may have zero sliders, zero buttons, zero toggles, or zero encoders as long as at least one typed input field follows `v3`.
 
-## Current Adaptive Uno test fixture
+Encoder transport uses cumulative signed position so missed packets do not permanently lose detents.
 
-Firmware: `arduino/MugenDeejUnoAdaptiveTest/MugenDeejUnoAdaptiveTest.ino`
+## Real hardware status before #31
 
-Synthetic shape:
+Current Uno regression fixture on COM14 at 115200:
 
-- 5 analog controls;
-- 29 momentary buttons;
-- 2 toggles;
-- 1 rotary encoder with push;
-- 115200 baud;
-- full-state packet every 25 ms.
+`adaptive; sliders=5; buttons=29; toggles=2; encoders=1`
 
-Temporary Uno bench pins:
+**PASS** on the real machine for:
 
-- D2 — momentary button;
-- D3 / D4 — toggles;
-- D5 — encoder push;
-- D6 / D7 — synthetic encoder direction steps.
+- Adaptive autodetection/transport;
+- five analog values;
+- 29-button compact live grid;
+- toggle 1 and toggle 2 state changes;
+- encoder movement in both directions;
+- encoder push press/release;
+- compact combined input card;
+- separate diagnostics dialog;
+- flicker-free toggle/encoder owner drawing.
 
-## Adaptive transport + live-input hardware status
+Integrated #30 was the hardware-proven baseline for this shape.
 
-Real Uno on COM14: **PASS** for Adaptive detection, transport and live typed-control interaction.
+## Integrated #31 — Adaptive topology hardening
 
-Observed repeatedly on the real machine:
+Workflow run:
 
-`protocol=adaptive; sliders=5; buttons=29; toggles=2; encoders=1`
-
-The five analog values display correctly as 0%, 25%, 50%, 75%, 100%.
-
-Physical bench exercise after Integrated #30:
-
-- ordinary test button path reported working;
-- toggle 1 and toggle 2 both changed state correctly;
-- synthetic encoder steps moved cumulative position in both directions;
-- encoder push highlighted the encoder itself and released correctly;
-- the polished owner-drawn controls did not visibly flicker during the test.
-
-The runtime log independently confirms repeated toggle state transitions, signed encoder movement in both directions, and encoder push press/release events. This closes the earlier D3–D7 hardware-validation gap for the current Uno test fixture.
-
-## Adaptive UI history
-
-### #25
-
-First functional typed-control UI worked after fixing a PowerShell `$Host` variable collision, but it looked blocky: toggle states resembled ordinary buttons and encoder push was a detached `Кнопка` tile.
-
-### #28
-
-Presentation was redesigned into small switch metaphors plus a drawn rotary knob with cumulative numeric position. Real screenshot feedback was positive, but the owner-drawn controls visibly flickered; one screenshot caught the encoder during a missing repaint frame.
-
-### #29
-
-Flicker/push revision:
-
-- owner-drawn toggle/encoder indicators are double-buffered;
-- repaint happens only when state, position, push, surface, or theme actually changes, not on every 25 ms packet;
-- detached `Кнопка / Push` chip removed;
-- pressing an encoder now highlights the encoder knob itself.
-
-CI #29: SUCCESS.
-
-### #30 — compact main UI revision
-
-Physical buttons, toggles, and encoders now share one main status card.
-
-For the current 29-button / 2-toggle / 1-encoder fixture:
-
-- two wrapped rows of button tiles;
-- one compact row beneath them containing both toggles and the encoder;
-- RU title: `Состояние кнопок и переключателей`;
-- EN title: `Buttons and controls`.
-
-The old separate `Тумблеры и энкодеры` card is hidden and consumes no layout height.
-
-`Подключение и диагностика / Connection and diagnostics` now opens a separate dialog instead of expanding the main window vertically. The dialog reparents the existing connection/driver/log controls so their existing state and handlers are reused.
-
-Relevant patchers:
-
-- `tools/Polish-AdaptiveInputStatusUi.ps1`
-- `tools/Revise-AdaptiveMainUi.ps1`
-- staging hook: `tools/Run-OptimizedLargeButtonSettings.ps1`
-
-## Integrated #30 real-machine observation
-
-Integrated #30 was run on the real machine and the compact revision is visually successful:
-
-- main window is substantially shorter;
-- 29 buttons, 2 toggles and 1 encoder fit in one combined card;
-- separate diagnostics dialog opens correctly;
-- main-window height no longer grows when diagnostics are opened;
-- previous switch/encoder flicker is no longer visible;
-- encoder is represented by the knob itself, with no detached push button;
-- physical toggle, encoder movement and encoder-push interaction all work on the Uno fixture.
-
-Log from the same session is clean with respect to Adaptive detection and the UI revision:
-
-- COM14 is detected as Adaptive 5/29/2/1 at 115200;
-- toggle state changes are logged correctly;
-- encoder delta and cumulative position are logged correctly in both directions;
-- encoder push press/release is logged correctly;
-- no exception or UI error follows these events.
-
-## Scalable UI rule for arbitrary Adaptive controllers
-
-Do not assume the current 5/29/2/1 topology in future UI work. Adaptive v3 is intentionally self-describing, so the Windows UI must derive its layout from the capabilities actually reported by firmware.
-
-Recommended policy for custom/community controllers:
-
-- small and medium control counts: wrap dynamically in the combined main status card;
-- keep per-control visuals lightweight (button tile, toggle switch, encoder knob + numeric position);
-- never let arbitrary firmware make the main window grow without bound;
-- give the combined status card a practical maximum height;
-- if a topology exceeds that compact budget, show a concise overflow affordance such as `Ещё N… / N more…` and open a dedicated full controller-state view with its own scrolling/wrapping;
-- settings/editors remain separate from the live main-window summary;
-- diagnostics should report the detected topology explicitly so unusual DIY firmware is easy to understand.
-
-This allows projects such as 0 sliders + many buttons, many toggles, several encoders, or mixed custom panels without changing the PC-side protocol parser or hardcoding new layouts per device.
-
-## Diagnostics expansion direction
-
-The new separate diagnostics dialog now has room to grow without affecting main-window height. Useful next read-only controller information:
-
-- connected COM port;
-- detected protocol generation;
-- active baud rate;
-- analog/button/toggle/encoder counts;
-- connection mode (automatic/manual);
-- latest packet age / connection freshness;
-- optional packet/update rate if measured cheaply;
-- virtual-controller state where relevant.
-
-Do not display firmware version/identity unless a future protocol extension actually supplies those fields.
-
-## Current successful build
-
-Workflow: `Build virtual gamepad integration`
-
-Current test build:
-
-- run number: **#30**
-- run ID: `35262142312`
-- head: `ebd4a051e0aacadfb619ede863f888f1e246ef69`
+- run number: **#31**
+- run ID: `35266429253`
+- built code head: `23dce0c6e8c77c440dfa66aa891a18d53d825c2c`
 - result: **SUCCESS**
-- artifact: `Mugen-Deej-VirtualGamepad-Integrated-30`
-- artifact ID: `10515023574`
-- outer Actions digest: `sha256:eac9414389e61176ef74d79d2ce30bcf0e015b0e162c9ba8371f932c4a10b8ee`
-- inner program ZIP SHA-256: `6b1751030e84cb49726987f2e3680f5b8651f36358f68dd86deab13b373fb12a`
-- PowerShell 5.1 parse check: PASS
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-31`
+- artifact ID: `10517152015`
+- outer Actions digest: `sha256:4bb28114b993b262f68cc3d1ceda29fc368b246be397de359684898b4056b603`
+- inner program ZIP SHA-256: `199d8a0becdde9a6b1a2f2f24cf3ff8f7b817f90ff670212f92b5aa861c962b1`
+- Windows PowerShell 5.1 parse check: PASS
 - launcher/package: PASS
 
-## Immediate next work
+The branch may be ahead of the built SHA because documentation commits after #31 do not trigger the workflow.
 
-The current Uno Adaptive transport and live-input UI are hardware-proven enough to move on from basic state validation.
+### What #31 changes
 
-Next useful work:
+New final-stage patcher:
 
-1. Expand the separate diagnostics dialog with detected protocol/topology/baud/freshness information.
-2. Make the main combined status card explicitly safe for arbitrary larger Adaptive topologies (bounded compact layout + overflow/full-state view).
-3. Add first-class mapping/configuration behavior for toggles and encoders instead of only displaying their live state.
-4. Re-test RU/EN switching and disconnect/reconnect after further UI changes.
-5. Keep the current 5/29/2/1 Uno fixture as the regression test, not as a hardcoded UI assumption.
+`tools/Harden-AdaptiveTopologyUi.ps1`
 
-## Virtual Xbox integration status
+It is applied after the existing compact #30 UI revision during staging.
 
-The optional HIDMaestro-backed Xbox/XInput integration remains staged in this branch.
+Implemented behavior:
 
-Already hardware-proven before Adaptive work:
+1. **Zero-slider Adaptive is valid.** `v3` packets no longer require an `s` field. Shape checking remains strict after capabilities are discovered.
+2. **No fabricated sliders.** Connected status uses the actual detected Adaptive counts instead of falling back to the old configured expected-slider count.
+3. **Capability-driven slider UI.** If Adaptive reports zero sliders, regulator status and `Configure controls` disappear and the main layout collapses. If it reports fewer sliders, only those rows are shown.
+4. **Dynamic slider settings count.** The regulator editor uses the detected slider count while connected and can scroll for larger counts.
+5. **Dormant slider mappings are preserved.** Editing while a smaller controller is attached does not truncate saved configuration for absent higher-index controls.
+6. **Bounded main summary.** Arbitrarily large community topologies cannot grow the main window without limit. The compact summary is capped and an overflow `Показать все… / Show all…` affordance opens a full controller-state window.
+7. **Expanded diagnostics.** The separate diagnostics dialog now includes COM port, protocol generation, active baud, auto/manual mode, counts for sliders/buttons/toggles/encoders, latest-packet age, and approximate packet rate.
+8. **Packet-rate tracking.** Accepted controller packets are sampled so the diagnostics view can show an approximate update frequency.
 
-- one-helper startup guard;
-- real XInput device creation;
-- joy.cpl visibility;
-- neutral axes;
-- press/hold/release and simultaneous button combinations;
-- mapping persistence;
-- nonblocking first-time startup;
-- bilingual main-window virtual-controller status;
-- real-game recognition in `Cult of the Lamb`.
+### Main-summary limits in #31
 
-Nonblocking teardown code exists and has CI coverage, but its final real-hardware re-test remains pending in the older integration notes.
+The current compact budget is intentionally conservative:
 
-## Known history / notes
+- buttons: at most two compact rows (34 controls at the current width);
+- toggles: up to 6 in the main summary;
+- encoders: up to 2 in the main summary;
+- original regulator card: up to the existing 5 visual rows; additional sliders are accessible through the full-state overflow view and dynamic settings editor.
 
-- Run #24 failed after Adaptive detection because encoder UI used local `$host`, colliding case-insensitively with PowerShell's read-only `$Host`. Fixed in `6dd026e5668eb4f7c9a79f0316a546588cb8c69d`.
-- The old setup-go cache warning was cleaned up by pointing cache dependency handling at `src/launcher/go.mod`.
+These are presentation limits only, not protocol limits.
+
+## Multi-topology Uno fixture
+
+`arduino/MugenDeejUnoAdaptiveTest/MugenDeejUnoAdaptiveTest.ino` now samples D8/D9 once at boot/reset:
+
+- D8 open / D9 open -> `5 / 29 / 2 / 1` current regression fixture;
+- D8 GND / D9 open -> `0 / 8 / 4 / 2` zero-slider mixed topology;
+- D8 open / D9 GND -> `2 / 0 / 0 / 0` two sliders only;
+- D8 GND / D9 GND -> `0 / 0 / 12 / 6` large typed topology.
+
+D2..D7 keep their original live-test meaning where the selected profile contains that family. Profile pins must be set before reset/power-up.
+
+## Immediate #31 hardware test
+
+Do not mark the alternate topology work hardware PASS until physically tested.
+
+Recommended sequence:
+
+1. Boot profile 0 (`5/29/2/1`) and confirm no regression from #30; expanded diagnostics should report Adaptive v3, COM14/actual port, 115200, 5/29/2/1, packet freshness, and roughly 40 Hz after it settles.
+2. Boot profile 1 (`0/8/4/2`) and confirm the entire regulator status section and regulator-settings button disappear; input card remains; diagnostics reports 0 sliders.
+3. Boot profile 2 (`2/0/0/0`) and confirm exactly two regulator rows remain, there is no discrete-input card, and regulator settings still open for two controls.
+4. Boot profile 3 (`0/0/12/6`) and confirm the main window remains compact, overflow `Показать все…` appears, and the full-state window contains all 12 toggles and all 6 encoders.
+5. Recheck RU/EN, disconnect/reconnect, and diagnostics close/reopen while one alternate profile is active.
+
+## Backup rule
+
+Backups are universal Mugen Deej settings snapshots, not controller-specific files. A backup made with one topology may be restored while a different topology or no controller is connected.
+
+Rules:
+
+- live hardware discovery decides which controls currently exist;
+- saved mappings for absent controls stay dormant instead of fabricating UI or being deleted;
+- a smaller attached controller must not truncate a larger saved mapping set;
+- future topology metadata in a newer backup schema is informational/warning data, not a hard restore lock;
+- existing emergency pre-restore backup and rollback behavior remains required.
+
+See `docs/BACKUP_COMPATIBILITY.md`.
+
+## Virtual Xbox integration
+
+The optional HIDMaestro-backed Xbox/XInput path remains staged. Previously hardware-proven items include device creation, joy.cpl visibility, neutral axes, button press/hold/release, simultaneous combinations, mapping persistence, nonblocking startup, bilingual status, and real-game recognition in Cult of the Lamb.
+
+Nonblocking teardown has CI coverage but its final real-hardware re-test remains pending; do not silently mark that item PASS.
+
+## Next larger feature after #31 validation
+
+Once alternate Adaptive topologies are hardware-proven, move to first-class mappings/configuration for toggles and encoders (ON/OFF actions, CW/CCW behavior, encoder push). That work is also the natural point for a future backup schema bump that stores those new mapping families.
 
 ## Working rules
 
 - Stable `main` stays untouched until feature work is hardware-proven.
-- Do not call code inspection or CI alone a hardware PASS.
-- Keep Legacy and Extended behavior intact while adding Adaptive.
+- CI/code inspection is not a hardware PASS.
+- Preserve Legacy and Extended behavior.
 - Adaptive controls remain first-class types; do not flatten toggles/encoders into fake momentary buttons.
-- Encoder transport uses cumulative signed position.
-- Do not hardcode the current Uno control counts into generic Adaptive UI behavior.
-- For changes that trigger GitHub Actions: wait for the final result, fix/rebuild if needed, then provide the successful artifact directly instead of making the tester hunt through Actions.
-- After meaningful code changes, CI findings, UI observations, or hardware observations, update this handoff before moving on.
+- Do not hardcode 5/29/2/1 into generic Adaptive behavior.
+- For any build-triggering change: wait for the workflow result, fix/rebuild if red, then hand the ready inner program ZIP directly rather than making the tester hunt through Actions.
+- Keep this handoff current after meaningful code, CI, UI, or hardware observations.
