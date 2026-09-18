@@ -801,4 +801,364 @@ function Show-AdaptiveControlSettings {
 
 '@
 
-$te
+$text = Replace-LiteralExactlyOnce `
+    -Text $text `
+    -OldText 'function Initialize-AdaptiveControlStates {' `
+    -NewText ($actionHelpers + 'function Initialize-AdaptiveControlStates {') `
+    -Label 'inject Adaptive action persistence/editor helpers'
+
+# ---------------------------------------------------------------------------
+# Execute first-class actions from actual state transitions / encoder detents
+# ---------------------------------------------------------------------------
+
+$adaptiveStateUpdate = @'
+function Update-AdaptiveControlStates {
+    param([Parameter(Mandatory = $true)]$Packet)
+
+    $newToggles = @(Get-ControllerPacketArray -Packet $Packet -Name 'Toggles')
+    $newEncoders = @(Get-ControllerPacketArray -Packet $Packet -Name 'Encoders')
+    Initialize-AdaptiveActions
+
+    $oldToggles = @($script:LatestToggles)
+    for ($i = 0; $i -lt $newToggles.Count; $i++) {
+        if ($i -lt $oldToggles.Count -and [int]$oldToggles[$i] -ne [int]$newToggles[$i]) {
+            $newState = [int]$newToggles[$i]
+            $stateText = if ($newState -eq 1) { 'ON' } else { 'OFF' }
+            Write-Log ('Toggle {0} changed: {1}' -f ($i + 1), $stateText) 'INFO'
+            $action = Get-AdaptiveToggleMappedAction -Index $i -State $newState
+            Invoke-AdaptiveMappedAction -Action $action -Source ('Toggle {0} {1}' -f ($i + 1), $stateText)
+        }
+    }
+
+    $oldEncoders = @($script:LatestEncoders)
+    for ($i = 0; $i -lt $newEncoders.Count; $i++) {
+        $position = [int64]$newEncoders[$i].Position
+
+        if ($i -lt $script:LastEncoderPositions.Count) {
+            $delta = $position - [int64]$script:LastEncoderPositions[$i]
+            if ($delta -ne 0) {
+                Write-Log ('Encoder {0} moved: delta={1}; position={2}' -f ($i + 1), $delta, $position) 'INFO'
+                $kind = if ($delta -gt 0) { 'cw' } else { 'ccw' }
+                $action = Get-AdaptiveEncoderMappedAction -Index $i -Kind $kind
+                $requestedSteps = [Math]::Abs([double]$delta)
+                $steps = [int][Math]::Min(32.0, $requestedSteps)
+                if ($requestedSteps -gt 32.0) {
+                    Write-Log ('Encoder {0} delta requested {1:N0} actions; safety cap limited this packet to 32' -f ($i + 1), $requestedSteps) 'WARN'
+                }
+                for ($step = 0; $step -lt $steps; $step++) {
+                    Invoke-AdaptiveMappedAction -Action $action -Source ('Encoder {0} {1}' -f ($i + 1), $kind.ToUpperInvariant())
+                }
+            }
+        }
+
+        if ($i -lt $oldEncoders.Count) {
+            $oldHasPush = [bool]$oldEncoders[$i].HasPush
+            $newHasPush = [bool]$newEncoders[$i].HasPush
+            if ($oldHasPush -and $newHasPush -and [int]$oldEncoders[$i].Push -ne [int]$newEncoders[$i].Push) {
+                $pressed = ([int]$newEncoders[$i].Push -eq 0)
+                $pushText = if ($pressed) { 'pressed' } else { 'released' }
+                Write-Log ('Encoder {0} push {1}' -f ($i + 1), $pushText) 'INFO'
+                if ($pressed) {
+                    $action = Get-AdaptiveEncoderMappedAction -Index $i -Kind 'push'
+                    Invoke-AdaptiveMappedAction -Action $action -Source ('Encoder {0} push' -f ($i + 1))
+                }
+            }
+        }
+    }
+
+    $script:LatestToggles = @($newToggles)
+    $script:LatestEncoders = @($newEncoders)
+    $script:LastEncoderPositions = @()
+    foreach ($encoder in $newEncoders) {
+        $script:LastEncoderPositions += [int64]$encoder.Position
+    }
+}
+
+'@
+
+$text = Replace-RegexBlockExactlyOnceLiteral `
+    -Text $text `
+    -Pattern '(?ms)^function Update-AdaptiveControlStates \{.*?^function Get-ControllerConnectedStatusText \{' `
+    -Replacement ($adaptiveStateUpdate + 'function Get-ControllerConnectedStatusText {') `
+    -Label 'wire typed actions into live state changes'
+
+# ---------------------------------------------------------------------------
+# Replace the developer text dump with a visual, live, scrollable full-state UI
+# ---------------------------------------------------------------------------
+
+$fullStateUi = @'
+function Show-FullControllerStateWindow {
+    if (-not $script:IsConnected) { return }
+
+    $stateForm = New-Object System.Windows.Forms.Form
+    $stateForm.Text = if ($script:Language -eq 'ru') { 'Состояние контроллера' } else { 'Controller state' }
+    $stateForm.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterParent
+    $stateForm.ClientSize = [System.Drawing.Size]::new(760, 620)
+    $stateForm.MinimumSize = [System.Drawing.Size]::new(676, 500)
+    $stateForm.Font = $form.Font
+    $stateForm.ShowInTaskbar = $false
+    Set-FormAppIcon -Form $stateForm
+
+    $summary = New-Object MugenDeejWindowing.MugenCardPanel
+    $summary.Location = [System.Drawing.Point]::new(18, 16)
+    $summary.Size = [System.Drawing.Size]::new(724, 72)
+    $summary.Anchor = (
+        [System.Windows.Forms.AnchorStyles]::Top -bor
+        [System.Windows.Forms.AnchorStyles]::Left -bor
+        [System.Windows.Forms.AnchorStyles]::Right
+    )
+    $stateForm.Controls.Add($summary)
+
+    $summaryTitle = New-Object System.Windows.Forms.Label
+    $summaryTitle.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 11)
+    $summaryTitle.Location = [System.Drawing.Point]::new(16, 12)
+    $summaryTitle.Size = [System.Drawing.Size]::new(690, 24)
+    $summary.Controls.Add($summaryTitle)
+
+    $summaryDetail = New-Object System.Windows.Forms.Label
+    $summaryDetail.ForeColor = [System.Drawing.Color]::DimGray
+    $summaryDetail.Location = [System.Drawing.Point]::new(16, 39)
+    $summaryDetail.Size = [System.Drawing.Size]::new(690, 23)
+    $summary.Controls.Add($summaryDetail)
+
+    $scroll = New-Object System.Windows.Forms.Panel
+    $scroll.Location = [System.Drawing.Point]::new(18, 100)
+    $scroll.Size = [System.Drawing.Size]::new(724, 502)
+    $scroll.Anchor = (
+        [System.Windows.Forms.AnchorStyles]::Top -bor
+        [System.Windows.Forms.AnchorStyles]::Bottom -bor
+        [System.Windows.Forms.AnchorStyles]::Left -bor
+        [System.Windows.Forms.AnchorStyles]::Right
+    )
+    $scroll.AutoScroll = $true
+    $stateForm.Controls.Add($scroll)
+
+    $sliderViews = @()
+    $buttonViews = @()
+    $toggleViews = @()
+    $encoderViews = @()
+    $contentY = 0
+    $contentWidth = 696
+
+    if ([int]$script:DetectedSliderCount -gt 0) {
+        $count = [int]$script:DetectedSliderCount
+        $groupHeight = 38 + ($count * 31)
+        $group = New-Object MugenDeejWindowing.MugenGroupBox
+        $group.Text = if ($script:Language -eq 'ru') { 'Регуляторы ({0})' -f $count } else { 'Controls ({0})' -f $count }
+        $group.Location = [System.Drawing.Point]::new(0, $contentY)
+        $group.Size = [System.Drawing.Size]::new($contentWidth, $groupHeight)
+        $scroll.Controls.Add($group)
+
+        for ($i = 0; $i -lt $count; $i++) {
+            $y = 31 + ($i * 31)
+            $name = New-Object System.Windows.Forms.Label
+            $name.Text = if ($i -lt @($script:Config.sliders).Count) { [string]$script:Config.sliders[$i].name } else { (T -Key 'KnobN' -Args @($i + 1)) }
+            if ([string]::IsNullOrWhiteSpace($name.Text)) { $name.Text = (T -Key 'KnobN' -Args @($i + 1)) }
+            $name.Location = [System.Drawing.Point]::new(14, $y)
+            $name.Size = [System.Drawing.Size]::new(180, 24)
+            $name.AutoEllipsis = $true
+            $group.Controls.Add($name)
+
+            $bar = New-Object MugenDeejWindowing.MugenProgressBar
+            $bar.Location = [System.Drawing.Point]::new(202, $y)
+            $bar.Size = [System.Drawing.Size]::new(380, 21)
+            $bar.Minimum = 0
+            $bar.Maximum = 1000
+            $group.Controls.Add($bar)
+
+            $value = New-Object System.Windows.Forms.Label
+            $value.Location = [System.Drawing.Point]::new(590, $y)
+            $value.Size = [System.Drawing.Size]::new(82, 23)
+            $value.TextAlign = 'MiddleRight'
+            $group.Controls.Add($value)
+            $sliderViews += [pscustomobject]@{ Bar = $bar; Value = $value }
+        }
+        $contentY += $groupHeight + 10
+    }
+
+    if ([int]$script:DetectedButtonCount -gt 0) {
+        $count = [int]$script:DetectedButtonCount
+        $columns = 12
+        $rows = [int][Math]::Ceiling($count / [double]$columns)
+        $flowHeight = ($rows * 34) + 4
+        $group = New-Object MugenDeejWindowing.MugenGroupBox
+        $group.Text = if ($script:Language -eq 'ru') { 'Кнопки ({0})' -f $count } else { 'Buttons ({0})' -f $count }
+        $group.Location = [System.Drawing.Point]::new(0, $contentY)
+        $group.Size = [System.Drawing.Size]::new($contentWidth, (38 + $flowHeight))
+        $scroll.Controls.Add($group)
+
+        $flow = New-Object System.Windows.Forms.FlowLayoutPanel
+        $flow.Location = [System.Drawing.Point]::new(12, 29)
+        $flow.Size = [System.Drawing.Size]::new(672, $flowHeight)
+        $flow.WrapContents = $true
+        $flow.AutoScroll = $false
+        $flow.BackColor = $group.BackColor
+        $group.Controls.Add($flow)
+
+        for ($i = 0; $i -lt $count; $i++) {
+            $tile = New-Object MugenDeejWindowing.MugenButtonTile
+            $tile.Text = [string]($i + 1)
+            $tile.Size = [System.Drawing.Size]::new(46, 28)
+            $tile.Margin = New-Object System.Windows.Forms.Padding(4, 2, 4, 2)
+            $tile.TextAlign = 'MiddleCenter'
+            $flow.Controls.Add($tile)
+            $buttonViews += $tile
+        }
+        $contentY += $group.Height + 10
+    }
+
+    if ([int]$script:DetectedToggleCount -gt 0) {
+        $count = [int]$script:DetectedToggleCount
+        $columns = 5
+        $rows = [int][Math]::Ceiling($count / [double]$columns)
+        $flowHeight = ($rows * 34) + 4
+        $group = New-Object MugenDeejWindowing.MugenGroupBox
+        $group.Text = if ($script:Language -eq 'ru') { 'Тумблеры ({0})' -f $count } else { 'Toggles ({0})' -f $count }
+        $group.Location = [System.Drawing.Point]::new(0, $contentY)
+        $group.Size = [System.Drawing.Size]::new($contentWidth, (38 + $flowHeight))
+        $scroll.Controls.Add($group)
+
+        $flow = New-Object System.Windows.Forms.FlowLayoutPanel
+        $flow.Location = [System.Drawing.Point]::new(12, 29)
+        $flow.Size = [System.Drawing.Size]::new(672, $flowHeight)
+        $flow.WrapContents = $true
+        $flow.AutoScroll = $false
+        $flow.BackColor = $group.BackColor
+        $group.Controls.Add($flow)
+
+        for ($i = 0; $i -lt $count; $i++) {
+            $hostPanel = New-Object System.Windows.Forms.Panel
+            $hostPanel.Size = [System.Drawing.Size]::new(124, 30)
+            $hostPanel.Margin = New-Object System.Windows.Forms.Padding(3, 1, 3, 1)
+            $hostPanel.BackColor = $group.BackColor
+
+            $number = New-Object System.Windows.Forms.Label
+            $number.Text = [string]($i + 1)
+            $number.Location = [System.Drawing.Point]::new(0, 3)
+            $number.Size = [System.Drawing.Size]::new(22, 24)
+            $number.TextAlign = 'MiddleCenter'
+            $number.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 9)
+            $hostPanel.Controls.Add($number)
+
+            $switchView = New-Object System.Windows.Forms.Panel
+            $switchView.Tag = $i
+            $switchView.Location = [System.Drawing.Point]::new(24, 2)
+            $switchView.Size = [System.Drawing.Size]::new(42, 26)
+            $switchView.BackColor = $group.BackColor
+            Enable-AdaptiveIndicatorDoubleBuffer -Control $switchView
+            $switchView.Add_Paint({
+                param($sender, $eventArgs)
+                $index = [int]$sender.Tag
+                $on = (@($script:LatestToggles).Count -gt $index -and [int]$script:LatestToggles[$index] -eq 1)
+                $palette = $script:ThemePalettes[(Get-EffectiveTheme)]
+                $eventArgs.Graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+                $path = New-Object System.Drawing.Drawing2D.GraphicsPath
+                try {
+                    $path.AddArc(1, 4, 18, 18, 90, 180)
+                    $path.AddArc(22, 4, 18, 18, 270, 180)
+                    $path.CloseFigure()
+                    $trackBrush = New-Object System.Drawing.SolidBrush($(if ($on) { $palette.Accent } else { $palette.ControlPressed }))
+                    $borderPen = New-Object System.Drawing.Pen($palette.Border)
+                    try { $eventArgs.Graphics.FillPath($trackBrush, $path); $eventArgs.Graphics.DrawPath($borderPen, $path) }
+                    finally { $trackBrush.Dispose(); $borderPen.Dispose() }
+                    $knobBrush = New-Object System.Drawing.SolidBrush($(if ($on) { $palette.AccentText } else { $palette.Muted }))
+                    try { $eventArgs.Graphics.FillEllipse($knobBrush, $(if ($on) { 22 } else { 3 }), 6, 14, 14) }
+                    finally { $knobBrush.Dispose() }
+                }
+                finally { $path.Dispose() }
+            })
+            $hostPanel.Controls.Add($switchView)
+
+            $stateLabel = New-Object System.Windows.Forms.Label
+            $stateLabel.Location = [System.Drawing.Point]::new(70, 3)
+            $stateLabel.Size = [System.Drawing.Size]::new(50, 24)
+            $hostPanel.Controls.Add($stateLabel)
+
+            $flow.Controls.Add($hostPanel)
+            $toggleViews += [pscustomobject]@{ Switch = $switchView; Label = $stateLabel; Last = $null }
+        }
+        $contentY += $group.Height + 10
+    }
+
+    if ([int]$script:DetectedEncoderCount -gt 0) {
+        $count = [int]$script:DetectedEncoderCount
+        $columns = 5
+        $rows = [int][Math]::Ceiling($count / [double]$columns)
+        $flowHeight = ($rows * 36) + 4
+        $group = New-Object MugenDeejWindowing.MugenGroupBox
+        $group.Text = if ($script:Language -eq 'ru') { 'Энкодеры ({0})' -f $count } else { 'Encoders ({0})' -f $count }
+        $group.Location = [System.Drawing.Point]::new(0, $contentY)
+        $group.Size = [System.Drawing.Size]::new($contentWidth, (38 + $flowHeight))
+        $scroll.Controls.Add($group)
+
+        $flow = New-Object System.Windows.Forms.FlowLayoutPanel
+        $flow.Location = [System.Drawing.Point]::new(12, 29)
+        $flow.Size = [System.Drawing.Size]::new(672, $flowHeight)
+        $flow.WrapContents = $true
+        $flow.AutoScroll = $false
+        $flow.BackColor = $group.BackColor
+        $group.Controls.Add($flow)
+
+        for ($i = 0; $i -lt $count; $i++) {
+            $hostPanel = New-Object System.Windows.Forms.Panel
+            $hostPanel.Size = [System.Drawing.Size]::new(124, 32)
+            $hostPanel.Margin = New-Object System.Windows.Forms.Padding(3, 1, 3, 1)
+            $hostPanel.BackColor = $group.BackColor
+
+            $number = New-Object System.Windows.Forms.Label
+            $number.Text = [string]($i + 1)
+            $number.Location = [System.Drawing.Point]::new(0, 4)
+            $number.Size = [System.Drawing.Size]::new(22, 24)
+            $number.TextAlign = 'MiddleCenter'
+            $number.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 9)
+            $hostPanel.Controls.Add($number)
+
+            $knob = New-Object System.Windows.Forms.Panel
+            $knob.Tag = $i
+            $knob.Location = [System.Drawing.Point]::new(24, 2)
+            $knob.Size = [System.Drawing.Size]::new(28, 28)
+            $knob.BackColor = $group.BackColor
+            Enable-AdaptiveIndicatorDoubleBuffer -Control $knob
+            $knob.Add_Paint({
+                param($sender, $eventArgs)
+                $index = [int]$sender.Tag
+                $position = [int64]0
+                $pressed = $false
+                if (@($script:LatestEncoders).Count -gt $index) {
+                    $enc = $script:LatestEncoders[$index]
+                    $position = [int64]$enc.Position
+                    $pressed = ([bool]$enc.HasPush -and [int]$enc.Push -eq 0)
+                }
+                $palette = $script:ThemePalettes[(Get-EffectiveTheme)]
+                $eventArgs.Graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+                $fillBrush = New-Object System.Drawing.SolidBrush($(if ($pressed) { $palette.Accent } else { $palette.Control }))
+                $borderPen = New-Object System.Drawing.Pen($(if ($pressed) { $palette.Accent } else { $palette.Border }), 1)
+                try { $eventArgs.Graphics.FillEllipse($fillBrush, 2, 2, 23, 23); $eventArgs.Graphics.DrawEllipse($borderPen, 2, 2, 23, 23) }
+                finally { $fillBrush.Dispose(); $borderPen.Dispose() }
+                $phase = (($position % 24) + 24) % 24
+                $angle = (($phase * 15.0) - 90.0) * [Math]::PI / 180.0
+                $x1 = 13.5 + ([Math]::Cos($angle) * 3.5)
+                $y1 = 13.5 + ([Math]::Sin($angle) * 3.5)
+                $x2 = 13.5 + ([Math]::Cos($angle) * 9.0)
+                $y2 = 13.5 + ([Math]::Sin($angle) * 9.0)
+                $marker = New-Object System.Drawing.Pen($(if ($pressed) { $palette.AccentText } else { $palette.Accent }), 2)
+                try { $eventArgs.Graphics.DrawLine($marker, [single]$x1, [single]$y1, [single]$x2, [single]$y2) }
+                finally { $marker.Dispose() }
+            })
+            $hostPanel.Controls.Add($knob)
+
+            $positionLabel = New-Object System.Windows.Forms.Label
+            $positionLabel.Location = [System.Drawing.Point]::new(58, 4)
+            $positionLabel.Size = [System.Drawing.Size]::new(62, 24)
+            $positionLabel.TextAlign = 'MiddleCenter'
+            $positionLabel.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 9)
+            $hostPanel.Controls.Add($positionLabel)
+            $flow.Controls.Add($hostPanel)
+            $encoderViews += [pscustomobject]@{ Knob = $knob; Label = $positionLabel; LastPosition = $null; LastPressed = $null }
+        }
+        $contentY += $group.Height + 10
+    }
+
+    $scroll.AutoScrollMinSize = [System.Drawing.Size]::new(696, [Math]::Max(0, $contentY))
+
+    $refreshState = {
