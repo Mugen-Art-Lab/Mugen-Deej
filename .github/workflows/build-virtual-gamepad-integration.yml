@@ -353,16 +353,16 @@ jobs:
           if ($runtimeText -notmatch 'function Get-AdaptiveActionDisplay') {
             throw 'Development runtime is missing typed-action display formatting.'
           }
-          if ($runtimeText -notmatch 'Назначено: \{0\} из \{1\}') {
+          if ($runtimeText -notmatch 'Assigned: \{0\} of \{1\}') {
             throw 'Development runtime is missing the typed-action assignment summary.'
           }
-          if ($runtimeText -notmatch 'Каждый шаг поворота энкодера выполняет назначенное действие один раз') {
-            throw 'Development runtime still uses technical encoder help copy.'
+          if ($runtimeText -notmatch 'Each encoder step runs the assigned action once') {
+            throw 'Development runtime is missing the user-facing encoder help copy.'
           }
-          if ($runtimeText -match 'один раз на каждый детент') {
+          if ($runtimeText -match 'Encoder actions fire once per detent') {
             throw 'Development runtime still exposes the detent term in typed settings.'
           }
-          if ($runtimeText -match 'защитный лимит: 32 действия за пакет') {
+          if ($runtimeText -match 'safety cap: 32 actions per packet') {
             throw 'Development runtime still exposes serial packet safety internals in typed settings.'
           }
 
