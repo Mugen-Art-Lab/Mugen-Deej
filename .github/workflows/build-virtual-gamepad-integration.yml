@@ -320,6 +320,15 @@ jobs:
           if ($runtimeText -notmatch 'continuing low-frequency targeted retries every') {
             throw 'Development runtime can still stop retrying the preferred COM after resume.'
           }
+          if ($runtimeText -notmatch 'Controller recovery armed for') {
+            throw 'Development runtime is missing generic last-controller recovery after runtime serial loss.'
+          }
+          if ($runtimeText -notmatch 'Controller recovery attempt on') {
+            throw 'Development runtime is missing targeted same-COM runtime recovery attempts.'
+          }
+          if ($runtimeText -notmatch '\$script:ControllerRecoverySlowSeconds = 10') {
+            throw 'Development runtime is missing low-frequency runtime recovery cadence.'
+          }
           if ($runtimeText -notmatch '\$script:KnownPorts = @\(\$currentPorts \| Where-Object \{ \$_ -ne \$portName \}\)') {
             throw 'Development runtime does not forget the stale resume port before auto-reconnect.'
           }
