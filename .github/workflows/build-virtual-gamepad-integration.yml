@@ -20,6 +20,9 @@ on:
       - 'tools/Apply-AdaptiveButtonUi.ps1'
       - 'tools/Apply-AdaptiveInputStatusUi.ps1'
       - 'tools/Polish-AdaptiveInputStatusUi.ps1'
+      - 'tools/Revise-AdaptiveMainUi.ps1'
+      - 'tools/Harden-AdaptiveTopologyUi.ps1'
+      - 'tools/Add-AdaptiveControlMappings.ps1'
       - 'tools/Optimize-LargeButtonSettings.ps1'
       - 'tools/Run-OptimizedLargeButtonSettings.ps1'
       - 'tools/Ensure-WindowsPowerShellUtf8Bom.ps1'
@@ -217,6 +220,24 @@ jobs:
           }
           if ($runtimeText -notmatch 'Press a physical button and Mugen will select it in the grid') {
             throw 'Development runtime is missing physical-button auto-selection guidance.'
+          }
+          if ($runtimeText -notmatch '\\$script:AdaptiveActionConfigPath') {
+            throw 'Development runtime is missing first-class Adaptive action persistence.'
+          }
+          if ($runtimeText -notmatch 'function Invoke-AdaptiveMappedAction') {
+            throw 'Development runtime is missing first-class toggle/encoder action execution.'
+          }
+          if ($runtimeText -notmatch 'function Show-AdaptiveControlSettings') {
+            throw 'Development runtime is missing toggle/encoder settings UI.'
+          }
+          if ($runtimeText -notmatch 'function Show-FullControllerStateWindow') {
+            throw 'Development runtime is missing full controller-state window.'
+          }
+          if ($runtimeText -notmatch '\\$sliderViews = @\\(\\)') {
+            throw 'Development runtime is missing visual full-state control rendering.'
+          }
+          if ($runtimeText -notmatch 'schemaVersion = 2') {
+            throw 'Development runtime is missing universal backup schema v2.'
           }
 
           $integrationModule = '.\artifacts\Mugen-Deej-VirtualGamepad-Integrated-Dev\virtual-gamepad\MugenDeej.VirtualGamepad.ps1'
