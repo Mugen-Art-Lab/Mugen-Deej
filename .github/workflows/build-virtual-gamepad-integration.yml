@@ -304,7 +304,7 @@ jobs:
           For controllers with more than 12 buttons, Button Settings uses a compact live selector grid, one shared action editor and a fixed-height assignment overview. Pressing a physical button should automatically select the matching numbered tile.
           The virtual controller is OFF by default. Its setting is stored in virtual-controller.json next to the app.
           Windows startup registration is intentionally disabled in this development package so it cannot replace the stable Mugen Deej autostart path.
-          Current integrated milestone routes momentary buttons to virtual-gamepad buttons. First-class toggle/encoder mapping actions come after live-state hardware validation.
+          Adaptive toggles and encoders now have first-class action mapping: separate toggle ON/OFF actions plus encoder CW/CCW/push actions. These typed controls can use standard Mugen actions; virtual-gamepad output remains mapped from momentary buttons in this milestone.
           '@
           [System.IO.File]::WriteAllText(
             (Join-Path $stage 'VIRTUAL-GAMEPAD-DEV.txt'),
