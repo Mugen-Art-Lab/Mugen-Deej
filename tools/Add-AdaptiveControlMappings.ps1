@@ -1143,22 +1143,32 @@ function Show-FullControllerStateWindow {
                 $eventArgs.Graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
                 $fillBrush = New-Object System.Drawing.SolidBrush($(if ($pressed) { $palette.Accent } else { $palette.Control }))
                 $borderPen = New-Object System.Drawing.Pen($(if ($pressed) { $palette.Accent } else { $palette.Border }), 1)
-                try { $eventArgs.Graphics.FillEllipse($fillBrush, 2, 2, 23, 23); $eventArgs.Graphics.DrawEllipse($borderPen, 2, 2, 23, 23) }
+                try { $eventArgs.Graphics.FillEllipse($fillBrush, 2, 2, 24, 24); $eventArgs.Graphics.DrawEllipse($borderPen, 2, 2, 24, 24) }
                 finally { $fillBrush.Dispose(); $borderPen.Dispose() }
                 $phase = (($position % 24) + 24) % 24
                 $angle = (($phase * 15.0) - 90.0) * [Math]::PI / 180.0
-                $x1 = 13.5 + ([Math]::Cos($angle) * 3.5)
-                $y1 = 13.5 + ([Math]::Sin($angle) * 3.5)
-                $x2 = 13.5 + ([Math]::Cos($angle) * 9.0)
-                $y2 = 13.5 + ([Math]::Sin($angle) * 9.0)
+                $center = 14.0
+                $innerRadius = if ($hasPush) { 5.5 } else { 3.5 }
+                $x1 = $center + ([Math]::Cos($angle) * $innerRadius)
+                $y1 = $center + ([Math]::Sin($angle) * $innerRadius)
+                $x2 = $center + ([Math]::Cos($angle) * 9.0)
+                $y2 = $center + ([Math]::Sin($angle) * 9.0)
                 $marker = New-Object System.Drawing.Pen($(if ($pressed) { $palette.AccentText } else { $palette.Accent }), 2)
                 try { $eventArgs.Graphics.DrawLine($marker, [single]$x1, [single]$y1, [single]$x2, [single]$y2) }
                 finally { $marker.Dispose() }
 
                 if ($hasPush) {
-                    $pushDot = New-Object System.Drawing.SolidBrush($(if ($pressed) { $palette.AccentText } else { $palette.Accent }))
-                    try { $eventArgs.Graphics.FillEllipse($pushDot, 11.5, 11.5, 4, 4) }
-                    finally { $pushDot.Dispose() }
+                    $pushCueColor = if ($pressed) { $palette.AccentText } else { $palette.Accent }
+                    $pushCuePen = New-Object System.Drawing.Pen($pushCueColor, 1.5)
+                    try {
+                        $eventArgs.Graphics.DrawEllipse($pushCuePen, 11, 11, 6, 6)
+                        if ($pressed) {
+                            $pushCueBrush = New-Object System.Drawing.SolidBrush($pushCueColor)
+                            try { $eventArgs.Graphics.FillEllipse($pushCueBrush, 12, 12, 4, 4) }
+                            finally { $pushCueBrush.Dispose() }
+                        }
+                    }
+                    finally { $pushCuePen.Dispose() }
                 }
             })
             $hostPanel.Controls.Add($knob)
@@ -1675,6 +1685,38 @@ $text = Replace-LiteralExactlyOnce `
 $text = Replace-LiteralExactlyOnce `
     -Text $text `
     -OldText @'
+                try {
+                    $eventArgs.Graphics.FillEllipse($fillBrush, 2, 2, 23, 23)
+                    $eventArgs.Graphics.DrawEllipse($borderPen, 2, 2, 23, 23)
+                }
+'@ `
+    -NewText @'
+                try {
+                    $eventArgs.Graphics.FillEllipse($fillBrush, 2, 2, 24, 24)
+                    $eventArgs.Graphics.DrawEllipse($borderPen, 2, 2, 24, 24)
+                }
+'@ `
+    -Label 'center compact encoder outer knob'
+
+$text = Replace-LiteralExactlyOnce `
+    -Text $text `
+    -OldText @'
+                $centerX = 13.5
+                $centerY = 13.5
+                $innerRadius = 3.5
+                $outerRadius = 9.0
+'@ `
+    -NewText @'
+                $centerX = 14.0
+                $centerY = 14.0
+                $innerRadius = if ($hasPush) { 5.5 } else { 3.5 }
+                $outerRadius = 9.0
+'@ `
+    -Label 'center compact encoder marker'
+
+$text = Replace-LiteralExactlyOnce `
+    -Text $text `
+    -OldText @'
                 finally {
                     $markerPen.Dispose()
                 }
@@ -1686,12 +1728,22 @@ $text = Replace-LiteralExactlyOnce `
                 }
 
                 if ($hasPush) {
-                    $pushDotBrush = New-Object System.Drawing.SolidBrush($(if ($pressed) { $palette.AccentText } else { $palette.Accent }))
+                    $pushCueColor = if ($pressed) { $palette.AccentText } else { $palette.Accent }
+                    $pushCuePen = New-Object System.Drawing.Pen($pushCueColor, 1.5)
                     try {
-                        $eventArgs.Graphics.FillEllipse($pushDotBrush, 11.5, 11.5, 4, 4)
+                        $eventArgs.Graphics.DrawEllipse($pushCuePen, 11, 11, 6, 6)
+                        if ($pressed) {
+                            $pushCueBrush = New-Object System.Drawing.SolidBrush($pushCueColor)
+                            try {
+                                $eventArgs.Graphics.FillEllipse($pushCueBrush, 12, 12, 4, 4)
+                            }
+                            finally {
+                                $pushCueBrush.Dispose()
+                            }
+                        }
                     }
                     finally {
-                        $pushDotBrush.Dispose()
+                        $pushCuePen.Dispose()
                     }
                 }
             })
@@ -1866,7 +1918,16 @@ function Show-FirstRunWizard {
             }
 
             $port = if ([string]::IsNullOrWhiteSpace($script:ConnectedPort)) { '—' } else { $script:ConnectedPort }
-            $connectionLabel.Text = '{0} · {1}' -f (Get-ControllerProtocolDisplayText), $port
+            $baud = '—'
+            if ($null -ne $script:Serial) {
+                try { $baud = [string][int]$script:Serial.BaudRate } catch { }
+            }
+            $connectionLabel.Text = if ($ru) {
+                'Порт: {0}    Протокол: {1}    Скорость: {2} бод' -f $port, (Get-ControllerProtocolDisplayText), $baud
+            }
+            else {
+                'Port: {0}    Protocol: {1}    Baud: {2}' -f $port, (Get-ControllerProtocolDisplayText), $baud
+            }
             $connectionLabel.ForeColor = [System.Drawing.Color]::SeaGreen
 
             $capabilityLabel.Text = if ($ru) {
