@@ -1307,7 +1307,7 @@ function Update-AdaptiveInputFeatureUi {
         $form.Controls.Add($script:AdaptiveSettingsButton)
         Apply-ThemeToControl -Control $script:AdaptiveSettingsButton -ThemeName (Get-EffectiveTheme)
     }
-    $script:AdaptiveSettingsButton.Text = if ($script:Language -eq 'ru') { 'Настроить переключатели' } else { 'Configure switches / encoders' }
+    $script:AdaptiveSettingsButton.Text = if ($script:Language -eq 'ru') { 'Тумблеры и энкодеры' } else { 'Toggles & encoders' }
     $script:AdaptiveSettingsButton.Visible = $hasTypedSettings
     $script:AdaptiveSettingsButton.Enabled = $hasTypedSettings
 
@@ -1820,50 +1820,106 @@ function Show-FirstRunWizard {
     $heading.Location = New-Object System.Drawing.Point(24, 20)
     $wizard.Controls.Add($heading)
 
-    $intro = New-Object System.Windows.Forms.Label
-    $intro.Location = New-Object System.Drawing.Point(27, 62)
-    $intro.Size = New-Object System.Drawing.Size(606, 66)
-    $wizard.Controls.Add($intro)
+    # Use single-line labels instead of wrapped paragraphs so the vertical rhythm
+    # is identical in RU and EN.
+    $introLine1 = New-Object System.Windows.Forms.Label
+    $introLine1.Location = New-Object System.Drawing.Point(27, 62)
+    $introLine1.Size = New-Object System.Drawing.Size(606, 22)
+    $wizard.Controls.Add($introLine1)
 
-    $capabilityGroup = New-Object MugenDeejWindowing.MugenGroupBox
-    $capabilityGroup.Text = if ($script:Language -eq 'ru') { 'Ваш контроллер' } else { 'Your controller' }
-    $capabilityGroup.Location = New-Object System.Drawing.Point(24, 140)
-    $capabilityGroup.Size = New-Object System.Drawing.Size(612, 112)
-    $wizard.Controls.Add($capabilityGroup)
+    $introLine2 = New-Object System.Windows.Forms.Label
+    $introLine2.Location = New-Object System.Drawing.Point(27, 84)
+    $introLine2.Size = New-Object System.Drawing.Size(606, 22)
+    $wizard.Controls.Add($introLine2)
 
-    $connectionLabel = New-Object System.Windows.Forms.Label
-    $connectionLabel.Location = New-Object System.Drawing.Point(16, 29)
-    $connectionLabel.Size = New-Object System.Drawing.Size(580, 25)
-    $connectionLabel.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 10)
-    $capabilityGroup.Controls.Add($connectionLabel)
+    # A card + explicit title keeps every line on the same left edge.
+    $controllerCard = New-Object MugenDeejWindowing.MugenCardPanel
+    $controllerCard.Location = New-Object System.Drawing.Point(24, 122)
+    $controllerCard.Size = New-Object System.Drawing.Size(612, 126)
+    $wizard.Controls.Add($controllerCard)
+
+    $controllerTitle = New-Object System.Windows.Forms.Label
+    $controllerTitle.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 10)
+    $controllerTitle.Location = New-Object System.Drawing.Point(16, 12)
+    $controllerTitle.Size = New-Object System.Drawing.Size(580, 22)
+    $controllerCard.Controls.Add($controllerTitle)
+
+    $portName = New-Object System.Windows.Forms.Label
+    $portName.Location = New-Object System.Drawing.Point(16, 43)
+    $portName.Size = New-Object System.Drawing.Size(42, 22)
+    $controllerCard.Controls.Add($portName)
+
+    $portValue = New-Object System.Windows.Forms.Label
+    $portValue.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 10)
+    $portValue.Location = New-Object System.Drawing.Point(58, 43)
+    $portValue.Size = New-Object System.Drawing.Size(82, 22)
+    $controllerCard.Controls.Add($portValue)
+
+    $protocolName = New-Object System.Windows.Forms.Label
+    $protocolName.Location = New-Object System.Drawing.Point(148, 43)
+    $protocolName.Size = New-Object System.Drawing.Size(76, 22)
+    $controllerCard.Controls.Add($protocolName)
+
+    $protocolValue = New-Object System.Windows.Forms.Label
+    $protocolValue.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 10)
+    $protocolValue.Location = New-Object System.Drawing.Point(224, 43)
+    $protocolValue.Size = New-Object System.Drawing.Size(112, 22)
+    $controllerCard.Controls.Add($protocolValue)
+
+    $baudName = New-Object System.Windows.Forms.Label
+    $baudName.Location = New-Object System.Drawing.Point(348, 43)
+    $baudName.Size = New-Object System.Drawing.Size(78, 22)
+    $controllerCard.Controls.Add($baudName)
+
+    $baudValue = New-Object System.Windows.Forms.Label
+    $baudValue.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 10)
+    $baudValue.Location = New-Object System.Drawing.Point(426, 43)
+    $baudValue.Size = New-Object System.Drawing.Size(160, 22)
+    $controllerCard.Controls.Add($baudValue)
 
     $capabilityLabel = New-Object System.Windows.Forms.Label
-    $capabilityLabel.Location = New-Object System.Drawing.Point(16, 59)
-    $capabilityLabel.Size = New-Object System.Drawing.Size(580, 38)
-    $capabilityGroup.Controls.Add($capabilityLabel)
+    $capabilityLabel.Location = New-Object System.Drawing.Point(16, 76)
+    $capabilityLabel.Size = New-Object System.Drawing.Size(580, 22)
+    $controllerCard.Controls.Add($capabilityLabel)
 
-    $nextHint = New-Object System.Windows.Forms.Label
-    $nextHint.ForeColor = [System.Drawing.Color]::DimGray
-    $nextHint.Location = New-Object System.Drawing.Point(27, 268)
-    $nextHint.Size = New-Object System.Drawing.Size(606, 44)
-    $wizard.Controls.Add($nextHint)
+    $waitingLabel = New-Object System.Windows.Forms.Label
+    $waitingLabel.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 10)
+    $waitingLabel.Location = New-Object System.Drawing.Point(16, 45)
+    $waitingLabel.Size = New-Object System.Drawing.Size(580, 22)
+    $waitingLabel.Visible = $false
+    $controllerCard.Controls.Add($waitingLabel)
+
+    $waitingHint = New-Object System.Windows.Forms.Label
+    $waitingHint.Location = New-Object System.Drawing.Point(16, 76)
+    $waitingHint.Size = New-Object System.Drawing.Size(580, 22)
+    $waitingHint.Visible = $false
+    $controllerCard.Controls.Add($waitingHint)
+
+    $nextHintLine1 = New-Object System.Windows.Forms.Label
+    $nextHintLine1.ForeColor = [System.Drawing.Color]::DimGray
+    $nextHintLine1.Location = New-Object System.Drawing.Point(27, 266)
+    $nextHintLine1.Size = New-Object System.Drawing.Size(606, 22)
+    $wizard.Controls.Add($nextHintLine1)
+
+    $nextHintLine2 = New-Object System.Windows.Forms.Label
+    $nextHintLine2.ForeColor = [System.Drawing.Color]::DimGray
+    $nextHintLine2.Location = New-Object System.Drawing.Point(27, 288)
+    $nextHintLine2.Size = New-Object System.Drawing.Size(606, 22)
+    $wizard.Controls.Add($nextHintLine2)
 
     $sliderButton = New-Object MugenDeejWindowing.MugenButton
-    $sliderButton.Text = (T -Key 'ConfigureKnobs')
     $sliderButton.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 9.5)
     $sliderButton.Size = New-Object System.Drawing.Size(188, 38)
     $sliderButton.Visible = $false
     $wizard.Controls.Add($sliderButton)
 
     $buttonButton = New-Object MugenDeejWindowing.MugenButton
-    $buttonButton.Text = Get-ButtonFeatureText -Key 'MainButton'
     $buttonButton.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 9.5)
     $buttonButton.Size = New-Object System.Drawing.Size(188, 38)
     $buttonButton.Visible = $false
     $wizard.Controls.Add($buttonButton)
 
     $typedButton = New-Object MugenDeejWindowing.MugenButton
-    $typedButton.Text = if ($script:Language -eq 'ru') { 'Настроить переключатели' } else { 'Configure switches / encoders' }
     $typedButton.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 9.5)
     $typedButton.Size = New-Object System.Drawing.Size(188, 38)
     $typedButton.Visible = $false
@@ -1876,6 +1932,7 @@ function Show-FirstRunWizard {
     $wizard.Controls.Add($laterButton)
 
     $wizardChoice = [pscustomobject]@{ Value = '' }
+
     $finishWizard = {
         if (-not [bool]$script:Config.app.firstRunCompleted) {
             $script:Config.app.firstRunCompleted = $true
@@ -1909,12 +1966,20 @@ function Show-FirstRunWizard {
         $toggles = if ($connected) { [int]$script:DetectedToggleCount } else { 0 }
         $encoders = if ($connected) { [int]$script:DetectedEncoderCount } else { 0 }
 
+        $controllerTitle.Text = if ($ru) { 'Ваш контроллер' } else { 'Your controller' }
+
+        # Short category names fit all three peer buttons in both languages.
+        $sliderButton.Text = if ($ru) { 'Регуляторы' } else { 'Analog controls' }
+        $buttonButton.Text = if ($ru) { 'Кнопки' } else { 'Buttons' }
+        $typedButton.Text = if ($ru) { 'Тумблеры и энкодеры' } else { 'Toggles & encoders' }
+
         if ($connected) {
-            $intro.Text = if ($ru) {
-                'Контроллер найден и готов к работе. Подвигайте крутилки, нажмите кнопки или переключатели — в главном окне сразу видно, что Mugen получает от устройства.'
+            $introLine1.Text = if ($ru) { 'Контроллер найден и готов к работе.' } else { 'Your controller is connected and ready.' }
+            $introLine2.Text = if ($ru) {
+                'Подвигайте крутилки, нажмите кнопки или переключатели — в главном окне сразу видно, что получает Mugen.'
             }
             else {
-                'Your controller is connected and ready. Turn a knob, press a button, or flip a switch — the main window will show what Mugen is receiving from it.'
+                'Turn a knob, press a button, or flip a switch — the main window shows what Mugen receives.'
             }
 
             $port = if ([string]::IsNullOrWhiteSpace($script:ConnectedPort)) { '—' } else { $script:ConnectedPort }
@@ -1922,13 +1987,22 @@ function Show-FirstRunWizard {
             if ($null -ne $script:Serial) {
                 try { $baud = [string][int]$script:Serial.BaudRate } catch { }
             }
-            $connectionLabel.Text = if ($ru) {
-                'Порт: {0}    Протокол: {1}    Скорость: {2} бод' -f $port, (Get-ControllerProtocolDisplayText), $baud
+
+            $portName.Text = if ($ru) { 'Порт:' } else { 'Port:' }
+            $protocolName.Text = if ($ru) { 'Протокол:' } else { 'Protocol:' }
+            $baudName.Text = if ($ru) { 'Скорость:' } else { 'Baud:' }
+            $portValue.Text = $port
+            $protocolValue.Text = Get-ControllerProtocolDisplayText
+            $baudValue.Text = if ($ru) { $baud + ' бод' } else { $baud }
+
+            $palette = $script:ThemePalettes[(Get-EffectiveTheme)]
+            $normalText = $palette.Text
+            foreach ($label in @($portName, $protocolName, $baudName)) {
+                $label.ForeColor = $normalText
             }
-            else {
-                'Port: {0}    Protocol: {1}    Baud: {2}' -f $port, (Get-ControllerProtocolDisplayText), $baud
+            foreach ($value in @($portValue, $protocolValue, $baudValue)) {
+                $value.ForeColor = [System.Drawing.Color]::SeaGreen
             }
-            $connectionLabel.ForeColor = [System.Drawing.Color]::SeaGreen
 
             $capabilityLabel.Text = if ($ru) {
                 'Доступно: {0} регуляторов · {1} кнопок · {2} тумблеров · {3} энкодеров' -f $sliders, $buttons, $toggles, $encoders
@@ -1937,40 +2011,55 @@ function Show-FirstRunWizard {
                 'Available: {0} controls · {1} buttons · {2} toggles · {3} encoders' -f $sliders, $buttons, $toggles, $encoders
             }
 
-            $nextHint.Text = if ($ru) {
-                'Хотите — настройте нужные элементы сейчас. Не хотите — закройте подсказку и вернитесь к настройкам позже.'
+            foreach ($control in @($portName, $portValue, $protocolName, $protocolValue, $baudName, $baudValue, $capabilityLabel)) {
+                $control.Visible = $true
+            }
+            $waitingLabel.Visible = $false
+            $waitingHint.Visible = $false
+
+            $nextHintLine1.Text = if ($ru) { 'Хотите — настройте нужные элементы сейчас.' } else { 'Configure what you need now.' }
+            $nextHintLine2.Text = if ($ru) {
+                'Не хотите — закройте подсказку и вернитесь к настройкам позже.'
             }
             else {
-                'Configure what you need now, or close this guide and come back to the settings later.'
+                'Or close this guide and come back to the settings later.'
             }
         }
         else {
-            $intro.Text = if ($ru) {
-                'Подключите контроллер по USB. Mugen сам найдёт его и покажет, какие элементы управления доступны.'
+            $introLine1.Text = if ($ru) { 'Подключите контроллер по USB.' } else { 'Connect your controller by USB.' }
+            $introLine2.Text = if ($ru) {
+                'Mugen сам найдёт его и покажет, какие элементы управления доступны.'
             }
             else {
-                'Connect your controller by USB. Mugen will find it automatically and show which controls are available.'
+                'Mugen will find it automatically and show which controls are available.'
             }
-            $connectionLabel.Text = if ($ru) { 'Жду контроллер…' } else { 'Waiting for controller…' }
-            $connectionLabel.ForeColor = [System.Drawing.Color]::DarkOrange
-            $capabilityLabel.Text = if ($ru) {
+
+            foreach ($control in @($portName, $portValue, $protocolName, $protocolValue, $baudName, $baudValue, $capabilityLabel)) {
+                $control.Visible = $false
+            }
+            $waitingLabel.Visible = $true
+            $waitingHint.Visible = $true
+            $waitingLabel.Text = if ($ru) { 'Жду контроллер…' } else { 'Waiting for controller…' }
+            $waitingLabel.ForeColor = [System.Drawing.Color]::DarkOrange
+            $waitingHint.Text = if ($ru) {
                 'После подключения здесь появится состав контроллера.'
             }
             else {
                 'The controller layout will appear here after it connects.'
             }
-            $nextHint.Text = if ($ru) {
+
+            $nextHintLine1.Text = if ($ru) {
                 'Можно оставить это окно открытым — оно обновится автоматически.'
             }
             else {
                 'You can leave this window open — it will update automatically.'
             }
+            $nextHintLine2.Text = ''
         }
 
         $sliderButton.Visible = ($connected -and $sliders -gt 0)
         $buttonButton.Visible = ($connected -and $buttons -gt 0)
         $typedButton.Visible = ($connected -and ($toggles -gt 0 -or $encoders -gt 0))
-
         & $layoutButtons
     }
 
@@ -2024,6 +2113,8 @@ function Show-FirstRunWizard {
 
 '@
 
+'@
+
 $text = Replace-RegexBlockExactlyOnceLiteral `
     -Text $text `
     -Pattern '(?ms)^function Show-FirstRunWizard \{.*?^function Get-PortNames \{' `
@@ -2050,6 +2141,20 @@ function Show-SliderSettings {
     }
 '@ `
     -Label 'guard slider settings for zero-slider controllers'
+
+# Use short category labels for the three peer settings buttons.
+$text = $text.Replace(
+    '$settingsButton.Text = (T -Key ''ConfigureKnobs'')',
+    '$settingsButton.Text = if ($script:Language -eq ''ru'') { ''Регуляторы'' } else { ''Analog controls'' }'
+)
+$text = $text.Replace(
+    '$script:ButtonSettingsButton.Text = Get-ButtonFeatureText -Key ''MainButton''',
+    '$script:ButtonSettingsButton.Text = if ($script:Language -eq ''ru'') { ''Кнопки'' } else { ''Buttons'' }'
+)
+$text = $text.Replace(
+    '$buttonSettingsButton.Text = Get-ButtonFeatureText -Key ''MainButton''',
+    '$buttonSettingsButton.Text = if ($script:Language -eq ''ru'') { ''Кнопки'' } else { ''Buttons'' }'
+)
 
 # The three main Configure buttons are peers. Keep all of them neutral rather
 # than making regulator settings look like the single preferred action.
