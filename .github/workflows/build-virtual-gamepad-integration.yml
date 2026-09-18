@@ -257,6 +257,15 @@ jobs:
           if ($runtimeText -match 'Turn a knob or move a fader — the matching indicator should move') {
             throw 'Development runtime still contains the legacy slider-only first-run wizard.'
           }
+          if ($runtimeText -notmatch 'LastHasPush') {
+            throw 'Development runtime is missing persistent encoder push-capability tracking.'
+          }
+          if ($runtimeText -notmatch 'push-capable') {
+            throw 'Development runtime is missing encoder push-capability labeling.'
+          }
+          if ($runtimeText -notmatch 'FillEllipse\(\$pushDotBrush') {
+            throw 'Development runtime is missing the compact encoder push-capability dot.'
+          }
 
           $integrationModule = '.\artifacts\Mugen-Deej-VirtualGamepad-Integrated-Dev\virtual-gamepad\MugenDeej.VirtualGamepad.ps1'
           $integrationText = [System.IO.File]::ReadAllText((Resolve-Path $integrationModule), [System.Text.Encoding]::UTF8)
