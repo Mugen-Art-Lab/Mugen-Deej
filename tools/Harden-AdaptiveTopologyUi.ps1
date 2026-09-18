@@ -489,7 +489,7 @@ function Get-AdaptiveInputStatusLayoutMetrics {
     $encoderCount = if ($script:IsConnected) { [int]$script:DetectedEncoderCount } else { 0 }
 
     $visibleToggleCount = [Math]::Min($toggleCount, 6)
-    $visibleEncoderCount = [Math]::Min($encoderCount, 2)
+    $visibleEncoderCount = [Math]::Min($encoderCount, 3)
     $toggleRows = if ($visibleToggleCount -gt 0) { 1 } else { 0 }
     $encoderRows = if ($visibleEncoderCount -gt 0) { 1 } else { 0 }
 
