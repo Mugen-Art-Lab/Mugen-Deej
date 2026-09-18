@@ -359,6 +359,27 @@ jobs:
           if ($runtimeText -notmatch 'All mappings') {
             throw 'Development runtime is missing the typed-action mapping filter.'
           }
+          if ($runtimeText -notmatch 'GetForegroundProcessName') {
+            throw 'Development runtime is missing foreground application identity.'
+          }
+          if ($runtimeText -notmatch 'adaptive-profiles.json') {
+            throw 'Development runtime is missing Adaptive application-profile persistence.'
+          }
+          if ($runtimeText -notmatch 'function Initialize-AdaptiveProfiles') {
+            throw 'Development runtime is missing Adaptive application-profile loading.'
+          }
+          if ($runtimeText -notmatch 'function Get-ForegroundAdaptiveProfile') {
+            throw 'Development runtime is missing foreground profile resolution.'
+          }
+          if ($runtimeText -notmatch 'Global - all other applications') {
+            throw 'Development runtime is missing the application-profile selector.'
+          }
+          if ($runtimeText -notmatch 'The new profile starts as a copy of the current Global mappings') {
+            throw 'Development runtime is missing application-profile creation guidance.'
+          }
+          if ($runtimeText -notmatch 'Adaptive profile settings saved') {
+            throw 'Development runtime is missing transactional profile-save diagnostics.'
+          }
           if ($runtimeText -notmatch 'System.Windows.Forms.ListView') {
             throw 'Development runtime is missing the ListView-based typed assignment summary.'
           }
