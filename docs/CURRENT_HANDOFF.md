@@ -92,17 +92,22 @@ These are presentation limits only, not protocol limits.
 
 D2..D7 keep their original live-test meaning where the selected profile contains that family. Profile pins must be set before reset/power-up.
 
-## Immediate #31 hardware test
+## Integrated #31 real-machine multi-topology result
 
-Do not mark the alternate topology work hardware PASS until physically tested.
+Alternate Adaptive topology handling is now **hardware PASS** for the primary layout/capability cases on the real Uno fixture.
 
-Recommended sequence:
+Observed screenshots from the real machine confirm all four boot profiles:
 
-1. Boot profile 0 (`5/29/2/1`) and confirm no regression from #30; expanded diagnostics should report Adaptive v3, COM14/actual port, 115200, 5/29/2/1, packet freshness, and roughly 40 Hz after it settles.
-2. Boot profile 1 (`0/8/4/2`) and confirm the entire regulator status section and regulator-settings button disappear; input card remains; diagnostics reports 0 sliders.
-3. Boot profile 2 (`2/0/0/0`) and confirm exactly two regulator rows remain, there is no discrete-input card, and regulator settings still open for two controls.
-4. Boot profile 3 (`0/0/12/6`) and confirm the main window remains compact, overflow `Показать все…` appears, and the full-state window contains all 12 toggles and all 6 encoders.
-5. Recheck RU/EN, disconnect/reconnect, and diagnostics close/reopen while one alternate profile is active.
+1. `5/29/2/1` — no regression from #30: five regulators, 29 buttons, two toggles and one encoder render correctly.
+2. `0/8/4/2` — the regulator card and regulator-settings button disappear completely; eight buttons, four toggles and two encoders remain in the compact input card.
+3. `2/0/0/0` — exactly two regulator rows remain; the discrete-input card and button settings disappear.
+4. `0/0/12/6` — the main window stays compact, shows a bounded toggle/encoder summary, and exposes `Показать все… (+10)` rather than growing indefinitely.
+
+This materially validates the capability-driven Adaptive UI: connected hardware topology, not a fixed 5/29/2/1 assumption, controls what appears in the main window.
+
+One minor UX observation remains from the profile-switch sequence: while the controller is physically resetting/reconnecting, the transient disconnected state can still show the old/default five empty regulator rows and the regulator-settings affordance. Once the new Adaptive profile reconnects, the correct capability-driven layout replaces it. Treat this as a polish item, not a topology-detection failure.
+
+Still useful to recheck separately after further UI changes: RU/EN switching, diagnostics live values, full-state overflow-window contents, and repeated disconnect/reconnect cycles.
 
 ## Backup rule
 
