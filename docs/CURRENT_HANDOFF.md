@@ -553,7 +553,7 @@ The transparent-panel attempt from #63 did not visually remove the gray inner re
 - atomic connected/waiting switching from #59 is preserved;
 - #65 resume-hotplug targeted retry is also included.
 
-This is **CI PASS; visual check still required**. Expected result: no inner gray rectangle under `Ваш контроллер / Your controller`; the entire card should have one continuous surface color.
+Real-machine visual check is now **PASS**: the first-run `Ваш контроллер / Your controller` card renders as one continuous surface with no unintended gray inner rectangle.
 
 ## Backup rule
 
@@ -577,7 +577,7 @@ Nonblocking teardown has CI coverage but its final real-hardware re-test remains
 
 ## Immediate next work
 
-Hardware-review Integrated #69. The #59 hibernation/resume first-run wizard crash fix is real-machine PASS. #65 resume-hotplug retry still needs the hibernate/unplug/resume/replug test with no manual diagnostics click. #69 replaces the failed transparent-panel approach with theme-aware MugenCardInner panels and needs a quick visual check that the first-run controller card is now one continuous surface. Then exercise the #57 mouse-wheel actions on a real encoder. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
+Hardware-review Integrated #69. The #59 hibernation/resume first-run wizard crash fix is real-machine PASS, and the #69 first-run card surface fix is real-machine visual PASS. #65 resume-hotplug retry still needs the hibernate/unplug/resume/replug test with no manual diagnostics click. Then exercise the #57 mouse-wheel actions on a real encoder. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
 
 ## Working rules
 
