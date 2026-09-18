@@ -2063,15 +2063,15 @@ function Show-FirstRunWizard {
     # This lets resume/disconnect switch the whole card atomically instead of
     # toggling Visible on a collection of individual labels from a timer tick.
     $connectedDetailsPanel = New-Object System.Windows.Forms.Panel
+    $connectedDetailsPanel.Tag = 'MugenCardInner'
     $connectedDetailsPanel.Location = New-Object System.Drawing.Point(16, 37)
     $connectedDetailsPanel.Size = New-Object System.Drawing.Size(580, 74)
-    $connectedDetailsPanel.BackColor = [System.Drawing.Color]::Transparent
     $controllerCard.Controls.Add($connectedDetailsPanel)
 
     $waitingPanel = New-Object System.Windows.Forms.Panel
+    $waitingPanel.Tag = 'MugenCardInner'
     $waitingPanel.Location = New-Object System.Drawing.Point(16, 37)
     $waitingPanel.Size = New-Object System.Drawing.Size(580, 74)
-    $waitingPanel.BackColor = [System.Drawing.Color]::Transparent
     $waitingPanel.Visible = $false
     $controllerCard.Controls.Add($waitingPanel)
 
