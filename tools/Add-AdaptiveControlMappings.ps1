@@ -2059,56 +2059,68 @@ function Show-FirstRunWizard {
     $controllerTitle.Size = New-Object System.Drawing.Size(580, 22)
     $controllerCard.Controls.Add($controllerTitle)
 
+    # Keep connected and disconnected card contents in separate panels.
+    # This lets resume/disconnect switch the whole card atomically instead of
+    # toggling Visible on a collection of individual labels from a timer tick.
+    $connectedDetailsPanel = New-Object System.Windows.Forms.Panel
+    $connectedDetailsPanel.Location = New-Object System.Drawing.Point(16, 37)
+    $connectedDetailsPanel.Size = New-Object System.Drawing.Size(580, 74)
+    $controllerCard.Controls.Add($connectedDetailsPanel)
+
+    $waitingPanel = New-Object System.Windows.Forms.Panel
+    $waitingPanel.Location = New-Object System.Drawing.Point(16, 37)
+    $waitingPanel.Size = New-Object System.Drawing.Size(580, 74)
+    $waitingPanel.Visible = $false
+    $controllerCard.Controls.Add($waitingPanel)
+
     $portName = New-Object System.Windows.Forms.Label
-    $portName.Location = New-Object System.Drawing.Point(16, 43)
+    $portName.Location = New-Object System.Drawing.Point(0, 6)
     $portName.Size = New-Object System.Drawing.Size(42, 22)
-    $controllerCard.Controls.Add($portName)
+    $connectedDetailsPanel.Controls.Add($portName)
 
     $portValue = New-Object System.Windows.Forms.Label
     $portValue.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 10)
-    $portValue.Location = New-Object System.Drawing.Point(58, 43)
+    $portValue.Location = New-Object System.Drawing.Point(42, 6)
     $portValue.Size = New-Object System.Drawing.Size(82, 22)
-    $controllerCard.Controls.Add($portValue)
+    $connectedDetailsPanel.Controls.Add($portValue)
 
     $protocolName = New-Object System.Windows.Forms.Label
-    $protocolName.Location = New-Object System.Drawing.Point(148, 43)
+    $protocolName.Location = New-Object System.Drawing.Point(132, 6)
     $protocolName.Size = New-Object System.Drawing.Size(76, 22)
-    $controllerCard.Controls.Add($protocolName)
+    $connectedDetailsPanel.Controls.Add($protocolName)
 
     $protocolValue = New-Object System.Windows.Forms.Label
     $protocolValue.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 10)
-    $protocolValue.Location = New-Object System.Drawing.Point(224, 43)
+    $protocolValue.Location = New-Object System.Drawing.Point(208, 6)
     $protocolValue.Size = New-Object System.Drawing.Size(112, 22)
-    $controllerCard.Controls.Add($protocolValue)
+    $connectedDetailsPanel.Controls.Add($protocolValue)
 
     $baudName = New-Object System.Windows.Forms.Label
-    $baudName.Location = New-Object System.Drawing.Point(348, 43)
+    $baudName.Location = New-Object System.Drawing.Point(332, 6)
     $baudName.Size = New-Object System.Drawing.Size(78, 22)
-    $controllerCard.Controls.Add($baudName)
+    $connectedDetailsPanel.Controls.Add($baudName)
 
     $baudValue = New-Object System.Windows.Forms.Label
     $baudValue.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 10)
-    $baudValue.Location = New-Object System.Drawing.Point(426, 43)
-    $baudValue.Size = New-Object System.Drawing.Size(160, 22)
-    $controllerCard.Controls.Add($baudValue)
+    $baudValue.Location = New-Object System.Drawing.Point(410, 6)
+    $baudValue.Size = New-Object System.Drawing.Size(164, 22)
+    $connectedDetailsPanel.Controls.Add($baudValue)
 
     $capabilityLabel = New-Object System.Windows.Forms.Label
-    $capabilityLabel.Location = New-Object System.Drawing.Point(16, 76)
-    $capabilityLabel.Size = New-Object System.Drawing.Size(580, 22)
-    $controllerCard.Controls.Add($capabilityLabel)
+    $capabilityLabel.Location = New-Object System.Drawing.Point(0, 39)
+    $capabilityLabel.Size = New-Object System.Drawing.Size(574, 22)
+    $connectedDetailsPanel.Controls.Add($capabilityLabel)
 
     $waitingLabel = New-Object System.Windows.Forms.Label
     $waitingLabel.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 10)
-    $waitingLabel.Location = New-Object System.Drawing.Point(16, 45)
-    $waitingLabel.Size = New-Object System.Drawing.Size(580, 22)
-    $waitingLabel.Visible = $false
-    $controllerCard.Controls.Add($waitingLabel)
+    $waitingLabel.Location = New-Object System.Drawing.Point(0, 8)
+    $waitingLabel.Size = New-Object System.Drawing.Size(574, 22)
+    $waitingPanel.Controls.Add($waitingLabel)
 
     $waitingHint = New-Object System.Windows.Forms.Label
-    $waitingHint.Location = New-Object System.Drawing.Point(16, 76)
-    $waitingHint.Size = New-Object System.Drawing.Size(580, 22)
-    $waitingHint.Visible = $false
-    $controllerCard.Controls.Add($waitingHint)
+    $waitingHint.Location = New-Object System.Drawing.Point(0, 39)
+    $waitingHint.Size = New-Object System.Drawing.Size(574, 22)
+    $waitingPanel.Controls.Add($waitingHint)
 
     $nextHintLine1 = New-Object System.Windows.Forms.Label
     $nextHintLine1.ForeColor = [System.Drawing.Color]::DimGray
@@ -2226,11 +2238,8 @@ function Show-FirstRunWizard {
                 'Available: {0} controls · {1} buttons · {2} toggles · {3} encoders' -f $sliders, $buttons, $toggles, $encoders
             }
 
-            foreach ($control in @($portName, $portValue, $protocolName, $protocolValue, $baudName, $baudValue, $capabilityLabel)) {
-                $control.Visible = $true
-            }
-            $waitingLabel.Visible = $false
-            $waitingHint.Visible = $false
+            $connectedDetailsPanel.Visible = $true
+            $waitingPanel.Visible = $false
 
             $nextHintLine1.Text = if ($ru) { 'Хотите — настройте нужные элементы сейчас.' } else { 'Configure what you need now.' }
             $nextHintLine2.Text = if ($ru) {
@@ -2249,11 +2258,8 @@ function Show-FirstRunWizard {
                 'Mugen will find it automatically and show which controls are available.'
             }
 
-            foreach ($control in @($portName, $portValue, $protocolName, $protocolValue, $baudName, $baudValue, $capabilityLabel)) {
-                $control.Visible = $false
-            }
-            $waitingLabel.Visible = $true
-            $waitingHint.Visible = $true
+            $connectedDetailsPanel.Visible = $false
+            $waitingPanel.Visible = $true
             $waitingLabel.Text = if ($ru) { 'Жду контроллер…' } else { 'Waiting for controller…' }
             $waitingLabel.ForeColor = [System.Drawing.Color]::DarkOrange
             $waitingHint.Text = if ($ru) {
@@ -2300,7 +2306,17 @@ function Show-FirstRunWizard {
 
     $wizardTimer = New-Object System.Windows.Forms.Timer
     $wizardTimer.Interval = 150
-    $wizardTimer.Add_Tick({ & $refreshWizard })
+    $wizardTimer.Add_Tick({
+        try {
+            & $refreshWizard
+        }
+        catch {
+            # A first-run helper must never surface a WinForms JIT exception.
+            # Stop only this helper timer and keep the main application alive.
+            Write-Log ('First-run wizard refresh failed: {0}' -f (Get-ExceptionDiagnosticText -ErrorRecord $_)) 'WARN'
+            $wizardTimer.Stop()
+        }
+    })
 
     Apply-ThemeToForm -Form $wizard -ThemeName (Get-EffectiveTheme)
     & $refreshWizard
