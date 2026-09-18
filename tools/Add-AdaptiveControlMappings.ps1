@@ -553,10 +553,10 @@ function Show-AdaptiveControlSettings {
 
     $editorHint = New-Object System.Windows.Forms.Label
     $editorHint.Text = if ($script:Language -eq 'ru') {
-        'Для энкодера действие выполняется один раз на каждый детент. При пропуске serial-пакета Mugen восстанавливает несколько шагов из накопленной позиции (защитный лимит: 32 действия за пакет).'
+        'Для энкодера действие выполняется один раз на каждый детент. При пропуске serial-пакета Mugen восстанавливает несколько шагов из накопленной позиции (защитный лимит: 32 действия за пакет). Метка • у номера энкодера означает, что вал можно нажать.'
     }
     else {
-        'Encoder actions fire once per detent. If a serial frame is missed, Mugen recovers multiple steps from the cumulative position (safety cap: 32 actions per packet).'
+        'Encoder actions fire once per detent. If a serial frame is missed, Mugen recovers multiple steps from the cumulative position (safety cap: 32 actions per packet). A • next to an encoder number means the shaft can be pressed.'
     }
     $editorHint.ForeColor = [System.Drawing.Color]::DimGray
     $editorHint.Location = [System.Drawing.Point]::new(18, 274)
@@ -576,7 +576,8 @@ function Show-AdaptiveControlSettings {
     }
     for ($i = 0; $i -lt [int]$script:DetectedEncoderCount; $i++) {
         $tile = New-Object MugenDeejWindowing.MugenButtonTile
-        $tile.Text = ('E' + ($i + 1))
+        $hasPush = (@($script:LatestEncoders).Count -gt $i -and [bool]$script:LatestEncoders[$i].HasPush)
+        $tile.Text = if ($hasPush) { ('E' + ($i + 1) + '•') } else { ('E' + ($i + 1)) }
         $tile.Tag = ('e:' + $i)
         $tile.Size = [System.Drawing.Size]::new(54, 30)
         $tile.Margin = New-Object System.Windows.Forms.Padding(4, 3, 4, 3)
@@ -664,7 +665,14 @@ function Show-AdaptiveControlSettings {
                 Populate-AdaptiveActionCombo -Combo $row2Combo -Map $state.Map2 -CurrentAction (& $getCurrentAction '2')
             }
             else {
-                $selectedHeading.Text = if ($script:Language -eq 'ru') { 'Энкодер ' + ($index + 1) } else { 'Encoder ' + ($index + 1) }
+                $hasPush = $false
+                if (@($script:LatestEncoders).Count -gt $index) { $hasPush = [bool]$script:LatestEncoders[$index].HasPush }
+                $selectedHeading.Text = if ($script:Language -eq 'ru') {
+                    'Энкодер ' + ($index + 1) + $(if ($hasPush) { ' · с нажатием' } else { ' · только вращение' })
+                }
+                else {
+                    'Encoder ' + ($index + 1) + $(if ($hasPush) { ' · push-capable' } else { ' · rotation only' })
+                }
                 $row1Label.Text = if ($script:Language -eq 'ru') { 'По часовой' } else { 'Clockwise' }
                 $row2Label.Text = if ($script:Language -eq 'ru') { 'Против часовой' } else { 'Counter-clockwise' }
                 $row3Label.Text = if ($script:Language -eq 'ru') { 'Нажатие' } else { 'Push' }
@@ -1123,11 +1131,13 @@ function Show-FullControllerStateWindow {
                 param($sender, $eventArgs)
                 $index = [int]$sender.Tag
                 $position = [int64]0
+                $hasPush = $false
                 $pressed = $false
                 if (@($script:LatestEncoders).Count -gt $index) {
                     $enc = $script:LatestEncoders[$index]
                     $position = [int64]$enc.Position
-                    $pressed = ([bool]$enc.HasPush -and [int]$enc.Push -eq 0)
+                    $hasPush = [bool]$enc.HasPush
+                    $pressed = ($hasPush -and [int]$enc.Push -eq 0)
                 }
                 $palette = $script:ThemePalettes[(Get-EffectiveTheme)]
                 $eventArgs.Graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
@@ -1144,6 +1154,12 @@ function Show-FullControllerStateWindow {
                 $marker = New-Object System.Drawing.Pen($(if ($pressed) { $palette.AccentText } else { $palette.Accent }), 2)
                 try { $eventArgs.Graphics.DrawLine($marker, [single]$x1, [single]$y1, [single]$x2, [single]$y2) }
                 finally { $marker.Dispose() }
+
+                if ($hasPush) {
+                    $pushDot = New-Object System.Drawing.SolidBrush($(if ($pressed) { $palette.AccentText } else { $palette.Accent }))
+                    try { $eventArgs.Graphics.FillEllipse($pushDot, 11.5, 11.5, 4, 4) }
+                    finally { $pushDot.Dispose() }
+                }
             })
             $hostPanel.Controls.Add($knob)
 
@@ -1154,7 +1170,7 @@ function Show-FullControllerStateWindow {
             $positionLabel.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 9)
             $hostPanel.Controls.Add($positionLabel)
             $flow.Controls.Add($hostPanel)
-            $encoderViews += [pscustomobject]@{ Knob = $knob; Label = $positionLabel; LastPosition = $null; LastPressed = $null }
+            $encoderViews += [pscustomobject]@{ Knob = $knob; Label = $positionLabel; LastPosition = $null; LastHasPush = $null; LastPressed = $null }
         }
         $contentY += $group.Height + 10
     }
@@ -1192,15 +1208,18 @@ function Show-FullControllerStateWindow {
         }
         for ($i = 0; $i -lt $encoderViews.Count; $i++) {
             $position = [int64]0
+            $hasPush = $false
             $pressed = $false
             if (@($script:LatestEncoders).Count -gt $i) {
                 $enc = $script:LatestEncoders[$i]
                 $position = [int64]$enc.Position
-                $pressed = ([bool]$enc.HasPush -and [int]$enc.Push -eq 0)
+                $hasPush = [bool]$enc.HasPush
+                $pressed = ($hasPush -and [int]$enc.Push -eq 0)
             }
             $encoderViews[$i].Label.Text = [string]$position
-            if ($null -eq $encoderViews[$i].LastPosition -or [int64]$encoderViews[$i].LastPosition -ne $position -or $null -eq $encoderViews[$i].LastPressed -or [bool]$encoderViews[$i].LastPressed -ne $pressed) {
+            if ($null -eq $encoderViews[$i].LastPosition -or [int64]$encoderViews[$i].LastPosition -ne $position -or $null -eq $encoderViews[$i].LastHasPush -or [bool]$encoderViews[$i].LastHasPush -ne $hasPush -or $null -eq $encoderViews[$i].LastPressed -or [bool]$encoderViews[$i].LastPressed -ne $pressed) {
                 $encoderViews[$i].LastPosition = $position
+                $encoderViews[$i].LastHasPush = $hasPush
                 $encoderViews[$i].LastPressed = $pressed
                 $encoderViews[$i].Knob.Invalidate()
             }
@@ -1616,6 +1635,114 @@ $text = Replace-RegexBlockExactlyOnceLiteral `
     -Pattern '(?ms)^function Restore-MugenDeejBackupInteractive \{.*?^function Show-MugenDeejBackupMenu \{' `
     -Replacement ($backupRestore + 'function Show-MugenDeejBackupMenu {') `
     -Label 'restore Adaptive mappings from universal backup v2'
+
+# Push-capable encoders use a persistent center dot. Rotation-only encoders
+# remain plain knobs, while an active push still lights the whole knob.
+$text = Replace-LiteralExactlyOnce `
+    -Text $text `
+    -OldText @'
+                $position = [int64]0
+                $pressed = $false
+                if (@($script:LatestEncoders).Count -gt $index) {
+                    $currentEncoder = $script:LatestEncoders[$index]
+                    if ($null -ne $currentEncoder) {
+                        $position = [int64]$currentEncoder.Position
+                        $pressed = (
+                            [bool]$currentEncoder.HasPush -and
+                            [int]$currentEncoder.Push -eq 0
+                        )
+                    }
+                }
+'@ `
+    -NewText @'
+                $position = [int64]0
+                $hasPush = $false
+                $pressed = $false
+                if (@($script:LatestEncoders).Count -gt $index) {
+                    $currentEncoder = $script:LatestEncoders[$index]
+                    if ($null -ne $currentEncoder) {
+                        $position = [int64]$currentEncoder.Position
+                        $hasPush = [bool]$currentEncoder.HasPush
+                        $pressed = (
+                            $hasPush -and
+                            [int]$currentEncoder.Push -eq 0
+                        )
+                    }
+                }
+'@ `
+    -Label 'read encoder push capability in compact knob'
+
+$text = Replace-LiteralExactlyOnce `
+    -Text $text `
+    -OldText @'
+                finally {
+                    $markerPen.Dispose()
+                }
+            })
+'@ `
+    -NewText @'
+                finally {
+                    $markerPen.Dispose()
+                }
+
+                if ($hasPush) {
+                    $pushDotBrush = New-Object System.Drawing.SolidBrush($(if ($pressed) { $palette.AccentText } else { $palette.Accent }))
+                    try {
+                        $eventArgs.Graphics.FillEllipse($pushDotBrush, 11.5, 11.5, 4, 4)
+                    }
+                    finally {
+                        $pushDotBrush.Dispose()
+                    }
+                }
+            })
+'@ `
+    -Label 'draw compact encoder push capability dot'
+
+$text = Replace-LiteralExactlyOnce `
+    -Text $text `
+    -OldText @'
+                LastPosition = $null
+                LastPressed = $null
+                LastTheme = ''
+'@ `
+    -NewText @'
+                LastPosition = $null
+                LastHasPush = $null
+                LastPressed = $null
+                LastTheme = ''
+'@ `
+    -Label 'track compact encoder push capability'
+
+$text = Replace-LiteralExactlyOnce `
+    -Text $text `
+    -OldText @'
+            $null -eq $view.LastPressed -or
+            [bool]$view.LastPressed -ne $pressed -or
+            [string]$view.LastTheme -ne $themeKey
+'@ `
+    -NewText @'
+            $null -eq $view.LastHasPush -or
+            [bool]$view.LastHasPush -ne $hasPush -or
+            $null -eq $view.LastPressed -or
+            [bool]$view.LastPressed -ne $pressed -or
+            [string]$view.LastTheme -ne $themeKey
+'@ `
+    -Label 'invalidate compact encoder when push capability changes'
+
+$text = Replace-LiteralExactlyOnce `
+    -Text $text `
+    -OldText @'
+            $view.LastPosition = $position
+            $view.LastPressed = $pressed
+            $view.LastTheme = $themeKey
+'@ `
+    -NewText @'
+            $view.LastPosition = $position
+            $view.LastHasPush = $hasPush
+            $view.LastPressed = $pressed
+            $view.LastTheme = $themeKey
+'@ `
+    -Label 'remember compact encoder push capability'
 
 # First-run onboarding must describe the controller that was actually
 # detected. The legacy wizard hardcoded five analog controls and could route a
