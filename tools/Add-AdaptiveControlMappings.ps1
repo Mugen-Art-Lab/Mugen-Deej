@@ -1272,6 +1272,7 @@ function Update-AdaptiveInputFeatureUi {
 
     if ($null -eq $script:AdaptiveSettingsButton -or $script:AdaptiveSettingsButton.IsDisposed) {
         $script:AdaptiveSettingsButton = New-Object MugenDeejWindowing.MugenButton
+        $script:AdaptiveSettingsButton.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 10)
         $script:AdaptiveSettingsButton.Size = [System.Drawing.Size]::new(196, 42)
         $script:AdaptiveSettingsButton.Add_Click({ Show-AdaptiveControlSettings })
         $form.Controls.Add($script:AdaptiveSettingsButton)
@@ -1615,6 +1616,14 @@ $text = Replace-RegexBlockExactlyOnceLiteral `
     -Pattern '(?ms)^function Restore-MugenDeejBackupInteractive \{.*?^function Show-MugenDeejBackupMenu \{' `
     -Replacement ($backupRestore + 'function Show-MugenDeejBackupMenu {') `
     -Label 'restore Adaptive mappings from universal backup v2'
+
+# The three main Configure buttons are peers. Keep all of them neutral rather
+# than making regulator settings look like the single preferred action.
+$text = Replace-LiteralExactlyOnce `
+    -Text $text `
+    -OldText "$settingsButton.Tag = 'MugenPrimary'" `
+    -NewText "$settingsButton.Tag = ''" `
+    -Label 'make regulator settings button neutral'
 
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 [System.IO.File]::WriteAllText($resolved, $text, $utf8)
