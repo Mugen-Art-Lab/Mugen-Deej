@@ -1,6 +1,6 @@
 # Mugen Deej — backup compatibility across controller topologies
 
-This note captures the backup/restore rule for Legacy, Extended and Adaptive controllers before first-class toggle/encoder mappings are added.
+This note captures the backup/restore rule for Legacy, Extended and Adaptive controllers, including first-class toggle/encoder mappings introduced in the current development branch.
 
 ## Product decision
 
@@ -14,18 +14,22 @@ The filename can therefore remain generic/time-based, for example:
 
 The internal `schemaVersion` is an implementation/migration detail and should not become something users have to manage manually.
 
-## Current backup behavior
+## Current development behavior
 
-The existing portable backup format is `MugenDeejBackup`, `schemaVersion = 1`.
+Integrated #35 writes portable backups as `MugenDeejBackup`, `schemaVersion = 2`.
 
-A v1 snapshot currently stores:
+A v2 snapshot stores:
 
 - the main `config` object;
-- momentary `buttonActions`.
+- momentary `buttonActions`;
+- first-class Adaptive toggle/encoder action mappings;
+- informational source protocol/topology metadata.
 
-Restore validates the backup format/schema and button-action payload, creates an emergency pre-restore backup, writes the restored settings, and rolls back from the emergency copy if the restore operation itself fails.
+Restore accepts both schema v1 and v2. A v1 backup has no typed-action payload, so restoring v1 intentionally preserves whatever current toggle/encoder mappings already exist rather than treating their absence as an instruction to erase them. A v2 restore includes the typed mappings.
 
-At present there is no controller-topology compatibility check during restore. The backup is a settings snapshot, not a controller identity/profile file.
+Restore continues to validate the backup before writing, creates an emergency pre-restore backup, and rolls back from that emergency copy if restore itself fails. The emergency snapshot is v2 and therefore includes typed mappings as well.
+
+Source topology is used only for a human-readable restore summary. The backup remains a settings snapshot, not a controller identity/profile file.
 
 ## Why Adaptive makes this important
 
@@ -51,19 +55,13 @@ Recommended behavior:
 
 Example: restoring a backup made from a 5/29/2/1 Adaptive panel while a 5-slider Legacy controller is connected should not make the Legacy UI show buttons/toggles/encoders. The five compatible slider settings may be used; button/toggle/encoder mappings remain stored but inactive.
 
-## Backup metadata for a future schema
+## Schema v2 metadata
 
-When first-class toggle and encoder mappings are added, bump the backup schema rather than silently changing v1 semantics.
-
-A future schema can store informational source metadata such as:
-
-- app version;
-- detected protocol generation at backup time;
-- detected counts for sliders/buttons/toggles/encoders;
-- mapping payloads for each control family;
-- virtual-controller mapping data where applicable.
+The current development v2 schema records informational source metadata including the app version, detected protocol generation, and detected slider/button/toggle/encoder counts. It also adds the first typed mapping family for toggles and encoders.
 
 The source topology is diagnostic metadata, not a hard restore lock. Legacy and Extended have no stable device identity, and Adaptive v3 currently has no device-ID field, so compatibility can be judged only from protocol/topology, not from proof that the same physical controller is attached.
+
+Virtual-controller mapping data remains in its existing configuration path for this milestone; if that is later folded into portable backup semantics it should be added through an explicit future schema migration rather than silently changing v2.
 
 ## Restore UX
 
