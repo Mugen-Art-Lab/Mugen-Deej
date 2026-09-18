@@ -529,6 +529,32 @@ The first real-machine test of #61 reproduced the exact same-COM resume path, bu
 
 This is **CI PASS; real-machine retest required**. Reproduce hibernate -> unplug Arduino -> resume -> wait for `Жду контроллер...` -> reconnect Arduino on COM14 and do not press diagnostics. Expected log sequence after the first too-early open failure includes `scheduling one targeted retry in 2 s`, followed by a successful COM14/115200 detection.
 
+## Integrated #69 — first-run card surface fix
+
+Workflow run:
+
+- run number: **#69**
+- run ID: `35366820483`
+- built code head: `a2e1469246f45850a053390e7c9ea03fea55e93f`
+- result: **SUCCESS**
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-69`
+- artifact ID: `10556487335`
+- outer Actions digest: `sha256:1dbc7d50746cfd268228eddb116a6e17cb24c7cdf04cd032bb94434f5021102a`
+- inner program ZIP SHA-256: `e0580c1d2a14aa2b84ff7f3d894e7d4c8796559485fec910e7390603305bda53`
+- Windows PowerShell 5.1 parse/runtime marker check: PASS
+- launcher/package: PASS
+
+The transparent-panel attempt from #63 did not visually remove the gray inner rectangle. Root cause: recursive theme application later overwrote the child panels' transparent BackColor because ordinary borderless WinForms panels are intentionally themed with `palette.Window`. The card itself uses `palette.Surface`, so the nested panels were repainted gray after being created transparent.
+
+#69 fixes the cause rather than the symptom:
+
+- first-run connected/waiting atomic panels are tagged `MugenCardInner`;
+- generic theme application recognizes that tag and gives those panels the same `palette.Surface` as the surrounding Mugen card;
+- atomic connected/waiting switching from #59 is preserved;
+- #65 resume-hotplug targeted retry is also included.
+
+This is **CI PASS; visual check still required**. Expected result: no inner gray rectangle under `Ваш контроллер / Your controller`; the entire card should have one continuous surface color.
+
 ## Backup rule
 
 Backups are universal Mugen Deej settings snapshots, not controller-specific files. A backup made with one topology may be restored while a different topology or no controller is connected.
@@ -551,7 +577,7 @@ Nonblocking teardown has CI coverage but its final real-hardware re-test remains
 
 ## Immediate next work
 
-Hardware-review Integrated #65. The #59 hibernation/resume first-run wizard crash fix is real-machine PASS. #61's same-COM replug detection was reached on hardware but hit a Windows hotplug timing race: COM14 appeared in enumeration before SerialPort.Open could use it. #65 adds one 2-second targeted retry and now needs the same hibernate/unplug/resume/replug test with no manual diagnostics click. #63 also still needs a quick visual check that the first-run controller card no longer has the unintended gray inner rectangle. Then exercise the #57 mouse-wheel actions on a real encoder. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
+Hardware-review Integrated #69. The #59 hibernation/resume first-run wizard crash fix is real-machine PASS. #65 resume-hotplug retry still needs the hibernate/unplug/resume/replug test with no manual diagnostics click. #69 replaces the failed transparent-panel approach with theme-aware MugenCardInner panels and needs a quick visual check that the first-run controller card is now one continuous surface. Then exercise the #57 mouse-wheel actions on a real encoder. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
 
 ## Working rules
 
