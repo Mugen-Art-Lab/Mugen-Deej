@@ -2950,6 +2950,8 @@ $script:ResumePreferredPort = ''
 $script:ResumeAutoReconnectSuppressed = $false
 $script:ResumeReconnectDelaySeconds = 15
 $script:ResumeHotplugRetrySeconds = 2
+$script:ResumeHotplugRetryWindowSeconds = 20
+$script:ResumeHotplugRetryUntil = [DateTime]::MinValue
 $script:ResumePreserveUntil = [DateTime]::MinValue
 $script:ResumePreserveStartedAt = [DateTime]::MinValue
 $script:ResumePreserveFirstErrorLogged = $false
@@ -8672,6 +8674,7 @@ function Fail-ResumePreservedConnection {
     [MugenDeejAudio.AudioMixer]::InvalidateSessions()
     $script:LastReconnectAttempt = Get-Date
     $script:ResumeAutoReconnectSuppressed = $true
+    $script:ResumeHotplugRetryUntil = [DateTime]::MinValue
 
     # The stale pre-suspend handle can fail even while Windows has already
     # recreated the same COM number. Treat the previous controller port as
@@ -9927,6 +9930,7 @@ function Handle-PowerModeChange {
             Write-Log ("System suspend detected; connectedPort={0}; preferredResumePort={1}; scanning={2}; serialObjectPresent={3}; serialIsOpen={4}" -f $script:ConnectedPort, $script:ResumePreferredPort, $script:IsConnecting, $serialPresent, $serialIsOpen) 'INFO'
             $script:IsSuspended = $true
             $script:ResumeReconnectAt = [DateTime]::MinValue
+            $script:ResumeHotplugRetryUntil = [DateTime]::MinValue
             $script:ResumeAutoReconnectSuppressed = $true
             $script:ResumePreserveUntil = [DateTime]::MinValue
             $script:ResumePreserveStartedAt = [DateTime]::MinValue
@@ -9964,6 +9968,7 @@ function Handle-PowerModeChange {
 
             $script:ResumeAutoReconnectSuppressed = $true
             $script:ResumeReconnectAt = [DateTime]::MinValue
+            $script:ResumeHotplugRetryUntil = [DateTime]::MinValue
             $script:ResumePreserveFirstErrorLogged = $false
             $script:SerialBuffer = ''
             $script:LastSerialPacketAt = Get-Date
@@ -10020,6 +10025,7 @@ $advancedToggle.Add_Click({ Set-AdvancedExpanded -Expanded (-not $advancedPanel.
 $refreshButton.Add_Click({ Refresh-PortList; Update-DriverStatus })
 $connectButton.Add_Click({
     $script:ResumeReconnectAt = [DateTime]::MinValue
+    $script:ResumeHotplugRetryUntil = [DateTime]::MinValue
     $script:ResumePreserveUntil = [DateTime]::MinValue
     $script:ResumePreserveStartedAt = [DateTime]::MinValue
     $script:ResumePreserveFirstErrorLogged = $false
@@ -10035,6 +10041,7 @@ $trayOpen.Add_Click({ Show-MainWindowForeground })
 $traySettings.Add_Click({ Show-MainWindowForeground; Show-SliderSettings })
 $trayReconnect.Add_Click({
     $script:ResumeReconnectAt = [DateTime]::MinValue
+    $script:ResumeHotplugRetryUntil = [DateTime]::MinValue
     $script:ResumePreserveUntil = [DateTime]::MinValue
     $script:ResumePreserveStartedAt = [DateTime]::MinValue
     $script:ResumePreserveFirstErrorLogged = $false
@@ -10160,12 +10167,30 @@ $timer.Add_Tick({
         }
 
         if ($connected) {
+            $script:ResumeHotplugRetryUntil = [DateTime]::MinValue
             $script:ResumeAutoReconnectSuppressed = $false
-            Write-Log ("Single delayed resume attempt succeeded on {0}" -f $preferredPort) 'INFO'
+            Write-Log ("Targeted resume connection attempt succeeded on {0}" -f $preferredPort) 'INFO'
+        }
+        elseif (
+            $script:ResumeHotplugRetryUntil -ne [DateTime]::MinValue -and
+            $now -lt $script:ResumeHotplugRetryUntil
+        ) {
+            $retrySeconds = [int]$script:ResumeHotplugRetrySeconds
+            $remainingSeconds = [int][Math]::Ceiling(($script:ResumeHotplugRetryUntil - $now).TotalSeconds)
+            $script:ResumeReconnectAt = $now.AddSeconds($retrySeconds)
+            $script:ResumeAutoReconnectSuppressed = $true
+            Write-Log ("Targeted resume retry on {0} is still not ready; retrying in {1} s; readinessWindowRemaining={2} s" -f $preferredPort, $retrySeconds, $remainingSeconds) 'WARN'
         }
         else {
+            $hadReadinessWindow = ($script:ResumeHotplugRetryUntil -ne [DateTime]::MinValue)
+            $script:ResumeHotplugRetryUntil = [DateTime]::MinValue
             $script:ResumeAutoReconnectSuppressed = $true
-            Write-Log ("Single delayed resume attempt failed or could not run on {0}; automatic port opening is now suppressed until a new COM device appears or the user requests a manual scan" -f $preferredPort) 'WARN'
+            if ($hadReadinessWindow) {
+                Write-Log ("Resume readiness retry window exhausted for {0}; automatic port opening is now suppressed until a new COM device appears or the user requests a manual scan" -f $preferredPort) 'WARN'
+            }
+            else {
+                Write-Log ("Single delayed resume attempt failed or could not run on {0}; automatic port opening is now suppressed until a new COM device appears or the user requests a manual scan" -f $preferredPort) 'WARN'
+            }
             Set-Status (T -Key 'StatusResumeReconnectFailed' -Args @($preferredPort)) 'warn'
             Update-TrayText
             Update-DriverStatus
@@ -10216,14 +10241,16 @@ $timer.Add_Tick({
                 -not [string]::IsNullOrWhiteSpace($preferredPort) -and
                 $candidatePorts -contains $preferredPort
             ) {
-                # Windows can publish the COM device before CreateFile/Open is
-                # actually ready. Give the same freshly appeared resume port
-                # one short second chance; the existing delayed-resume branch
-                # ignores probe cooldowns for this targeted retry.
+                # Windows can publish the COM device name before CreateFile/Open
+                # can actually use it. Start a short bounded readiness window
+                # and keep retrying only the preferred resume port.
                 $retrySeconds = [int]$script:ResumeHotplugRetrySeconds
-                $script:ResumeReconnectAt = (Get-Date).AddSeconds($retrySeconds)
+                $retryWindowSeconds = [int]$script:ResumeHotplugRetryWindowSeconds
+                $retryNow = Get-Date
+                $script:ResumeHotplugRetryUntil = $retryNow.AddSeconds($retryWindowSeconds)
+                $script:ResumeReconnectAt = $retryNow.AddSeconds($retrySeconds)
                 $script:ResumeAutoReconnectSuppressed = $true
-                Write-Log ("Fresh resume port {0} appeared but was not ready to open; scheduling one targeted retry in {1} s" -f $preferredPort, $retrySeconds) 'WARN'
+                Write-Log ("Fresh resume port {0} appeared but was not ready to open; starting bounded readiness retry window of {1} s; next attempt in {2} s" -f $preferredPort, $retryWindowSeconds, $retrySeconds) 'WARN'
             }
             else {
                 $script:ResumeAutoReconnectSuppressed = $true
