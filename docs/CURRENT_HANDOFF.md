@@ -319,6 +319,41 @@ User feedback from #44:
 
 The first #47 run failed only because CI was still looking for the superseded English onboarding sentence; the staged runtime itself passed parsing. The CI marker was updated and #48 is the green replacement build.
 
+## Integrated #54 — first-run alignment + compact settings labels
+
+Workflow run:
+
+- run number: **#54**
+- run ID: `35339733663`
+- built code head: `ddd6b3384e9064167da3f3ac0d46026710f64fd9`
+- result: **SUCCESS**
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-54`
+- artifact ID: `10543824892`
+- outer Actions digest: `sha256:41d841d85826cec3f038b3c3118bc46fe31fe6ee6e77401edb3e7d8f3cbcefb0`
+- inner program ZIP SHA-256: `3085b83224db8b606cadbad6d18e502d37339e5ab5db44724264e80ade502b45`
+- Windows PowerShell 5.1 parse/runtime marker check: PASS
+- launcher/package: PASS
+
+User review of #48 found three remaining polish issues:
+
+1. In the first-run controller card, the section title and the connection details did not share a clean left edge.
+2. `Порт / Протокол / Скорость` being entirely green made the row look like a diagnostic dump; the requested hierarchy is neutral field names with only their values highlighted.
+3. The first-run text used wrapped labels with visibly inconsistent line spacing, and `Настроить переключатели / Configure switches / encoders` was both semantically incomplete (it also configures encoders) and clipped in English.
+
+#54 changes:
+
+- first-run intro/help copy is split into explicit single-line rows with fixed 22 px vertical rhythm instead of relying on automatic wrapping;
+- the controller summary uses a `MugenCardPanel` plus its own title label so `Ваш контроллер / Your controller` and every detail line share the same left edge;
+- Port / Protocol / Speed field names use the normal theme text color;
+- COM / protocol / baud values alone use the green connected-state accent;
+- disconnected first-run state keeps its own waiting text and automatically refreshes after controller discovery;
+- the three peer settings buttons now use short category labels everywhere:
+  - RU: `Регуляторы`, `Кнопки`, `Тумблеры и энкодеры`;
+  - EN: `Analog controls`, `Buttons`, `Toggles & encoders`.
+  This avoids clipping and makes all three buttons parallel rather than mixing long `Configure...` phrases.
+
+Runs #50-#53 were development-only failures caused by staging/CI marker mistakes introduced while implementing this polish (duplicate here-string terminator and unsafe/overstrict CI regexes). The staged runtime itself reached a valid PowerShell parse by #51; the checks were then corrected. #54 is the clean green replacement build.
+
 ## Backup rule
 
 Backups are universal Mugen Deej settings snapshots, not controller-specific files. A backup made with one topology may be restored while a different topology or no controller is connected.
@@ -341,7 +376,7 @@ Nonblocking teardown has CI coverage but its final real-hardware re-test remains
 
 ## Immediate next work
 
-Hardware-review Integrated #48. The #44 capability filtering across Legacy, Extended, and two Adaptive topologies is real-machine PASS. Recheck the friendlier first-run wording, labeled Port/Protocol/Baud identity line, and centered inner-ring cue for push-capable encoders. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
+Hardware-review Integrated #54. The #44 capability filtering across Legacy, Extended, and two Adaptive topologies is real-machine PASS. Recheck the first-run alignment/color hierarchy/line spacing, the short peer settings labels, and the centered inner-ring cue for push-capable encoders. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
 
 ## Working rules
 
