@@ -354,6 +354,34 @@ User review of #48 found three remaining polish issues:
 
 Runs #50-#53 were development-only failures caused by staging/CI marker mistakes introduced while implementing this polish (duplicate here-string terminator and unsafe/overstrict CI regexes). The staged runtime itself reached a valid PowerShell parse by #51; the checks were then corrected. #54 is the clean green replacement build.
 
+## Integrated #55 — first-run copy fit + typed settings title
+
+Workflow run:
+
+- run number: **#55**
+- run ID: `35342499359`
+- built code head: `dbf9506bc93abe0bae62da8ce4af768c0838e5aa`
+- result: **SUCCESS**
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-55`
+- artifact ID: `10545980085`
+- outer Actions digest: `sha256:75be74c2d40222e0837c8ae6773b79e94e58cf5eab7ed1d9c40ad10479ed436b`
+- inner program ZIP SHA-256: `5d977dd4913093e01b28892d4484dc4c40c84083cc24bc3e852150dab58109d5`
+- Windows PowerShell 5.1 parse/runtime check: PASS
+- launcher/package: PASS
+
+User review of #54 found two final copy/title inconsistencies:
+
+- the second Russian onboarding line still clipped at the right edge;
+- the toggle/encoder settings window title and main heading described actions, but did not explicitly say this was a settings screen like the regulator and button editors do.
+
+#55 changes:
+
+- first-run second line is shorter and language-neutral in structure:
+  - RU: `Проверьте органы управления — их состояние сразу видно в главном окне.`
+  - EN: `Try the controls — their state appears immediately in the main window.`
+- typed settings window title is now `Настройка тумблеров и энкодеров — Mugen Deej` / `Toggle and encoder settings — Mugen Deej`;
+- the large in-window heading is now `Настройка тумблеров и энкодеров` / `Toggle and encoder settings`.
+
 ## Backup rule
 
 Backups are universal Mugen Deej settings snapshots, not controller-specific files. A backup made with one topology may be restored while a different topology or no controller is connected.
@@ -376,7 +404,7 @@ Nonblocking teardown has CI coverage but its final real-hardware re-test remains
 
 ## Immediate next work
 
-Hardware-review Integrated #54. The #44 capability filtering across Legacy, Extended, and two Adaptive topologies is real-machine PASS. Recheck the first-run alignment/color hierarchy/line spacing, the short peer settings labels, and the centered inner-ring cue for push-capable encoders. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
+Hardware-review Integrated #55. The #44 capability filtering across Legacy, Extended, and two Adaptive topologies is real-machine PASS. Recheck the shortened first-run copy, typed settings title/heading consistency, and the centered inner-ring cue for push-capable encoders. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
 
 ## Working rules
 
