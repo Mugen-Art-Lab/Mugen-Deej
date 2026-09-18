@@ -440,7 +440,13 @@ The stale first-run wizard was switching connected/disconnected detail labels on
 - the first-run timer refresh is wrapped so a helper-refresh failure is logged and that helper timer stops instead of surfacing a .NET JIT exception;
 - CI verifies the atomic panel path and the guarded timer refresh.
 
-This is **CI PASS; hibernation/resume real-machine retest still required**. Reproduce with first-run wizard open, hibernate, then resume with the controller present and/or absent. Expected result: no .NET JIT dialog, and the wizard card should transition coherently to its waiting/disconnected state if the controller is not restored.
+Real-machine retest is now **PASS** for both important resume branches while the first-run wizard remained open:
+
+- successful preserve path: after hibernation the existing COM14 SerialPort resumed without Close/Open after ~13.6 s, with no JIT dialog and the wizard/main UI remaining coherent;
+- failed preserve path: after a later hibernation the preserved COM14 handle stayed closed past the grace window, the app cleaned it up and moved the wizard atomically into its waiting/disconnected state, again with no JIT dialog;
+- a subsequent manual reconnect found COM14/Adaptive v3 at 115200 and restored the full 5/29/2/1 topology.
+
+This closes the first-run wizard resume/disconnect crash found before #59.
 
 ## Backup rule
 
@@ -464,7 +470,7 @@ Nonblocking teardown has CI coverage but its final real-hardware re-test remains
 
 ## Immediate next work
 
-Hardware-review Integrated #59. The #44 capability filtering across Legacy, Extended, and two Adaptive topologies is real-machine PASS. Re-test hibernation/resume with the first-run wizard open to verify the #59 atomic connected/waiting card switch and absence of a .NET JIT dialog. Then exercise the #57 mouse-wheel actions on a real encoder. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
+Hardware-review Integrated #59. The #59 hibernation/resume first-run wizard fix is real-machine PASS on both successful SerialPort preservation and failed-preserve/disconnect paths, with no .NET JIT dialog. Next exercise the #57 mouse-wheel actions on a real encoder. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
 
 ## Working rules
 
