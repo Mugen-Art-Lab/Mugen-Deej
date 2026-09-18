@@ -119,6 +119,79 @@ Real-machine UI review after opening both #31 auxiliary windows:
 - the overflow/full-state window is functionally correct and scrollable, but its current monospace text-dump presentation is a first-pass utility view rather than the intended final polished UI;
 - next polish should reuse the normal button/toggle/encoder visual language in a scrollable full-state form, hide empty control-family sections instead of showing `—`, and keep live updates without inflating the main window.
 
+## Integrated #35 — full-state polish + first-class typed mappings
+
+Workflow run:
+
+- run number: **#35**
+- run ID: `35299035854`
+- built code head: `e02fe882b561ce636f6c27b0f880a5794dc25c2f`
+- result: **SUCCESS**
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-35`
+- artifact ID: `10528883469`
+- outer Actions digest: `sha256:e9633103176a1bd8e53308b2a0ef19b9923e160830e24e97589d789a1d636cdf`
+- inner program ZIP SHA-256: `b4efd85faf3f99cbab55bd82ad1f46eafd87c19888631c15885b66adebba0b10`
+- Windows PowerShell 5.1 parse check: PASS
+- launcher/package: PASS
+
+New final-stage patcher:
+
+`tools/Add-AdaptiveControlMappings.ps1`
+
+It runs after #31 topology hardening and before the final UTF-8 BOM normalization.
+
+### Full controller-state UI
+
+The old Consolas/TextBox developer dump has been replaced by a live visual Mugen-styled window:
+
+- only control families that actually exist are created;
+- sliders use names, normal Mugen progress bars, and percentages;
+- momentary buttons use numbered live button tiles;
+- toggles reuse the switch metaphor;
+- encoders reuse the rotary-knob metaphor and highlight on push;
+- sections wrap/scroll in a dedicated window instead of inflating the main window;
+- toggle/encoder owner drawing is invalidated only when live state actually changes.
+
+### First-class toggle / encoder actions
+
+A new main-window `Настроить переключатели / Configure switches / encoders` button appears only when toggles or encoders exist.
+
+New `adaptive-actions.json` keeps typed mappings independently of momentary `button-actions.json` and preserves dormant higher-index mappings when a smaller topology is connected.
+
+Mapping model:
+
+- toggle: separate **ON** and **OFF** actions;
+- encoder: **CW**, **CCW**, and **push** actions;
+- encoder actions execute once per recovered detent from the cumulative position, with a 32-action-per-packet safety cap;
+- encoder push fires on the press transition only.
+
+The first typed-action milestone reuses standard Mugen actions: slider mute/unmute, media actions, Windows volume actions, custom hotkeys, launch program/file, open folder, run command, and open URL. Virtual Xbox mapping remains momentary-button-only for now.
+
+The typed settings dialog is transactional: edits apply only after Save, and moving/pressing a physical typed control can select it in the editor for easier identification.
+
+### Universal backup schema v2
+
+Portable backup creation now writes `schemaVersion = 2` and includes:
+
+- existing main config;
+- existing momentary button actions;
+- typed toggle/encoder actions;
+- informational source protocol/topology metadata.
+
+Restore still accepts schema v1. A v1 restore preserves the current typed mappings because v1 never contained that family. A v2 restore includes typed mappings. Topology mismatch remains informational rather than a hard restore lock, and the emergency pre-restore backup/rollback path now also contains typed mappings.
+
+### #35 hardware status
+
+**Not hardware-tested yet.** CI proves staging, UTF-8/BOM handling and Windows PowerShell 5.1 parsing, but the new settings dialog, action execution, polished full-state visuals, and backup v2 behavior need real-machine testing.
+
+Recommended first look:
+
+1. Use Adaptive `5/29/2/1` and inspect the three-button settings row plus the new typed settings editor.
+2. Assign harmless actions to Toggle 1 ON/OFF and Encoder 1 CW/CCW/push, Save, then exercise D3/D5/D6/D7.
+3. Use `0/0/12/6`, open `Показать все…`, and inspect scrolling/live switch/knob visuals.
+4. Create a backup with typed mappings, inspect restore confirmation with another topology attached, and verify dormant mappings survive.
+5. Recheck Legacy/Extended briefly because the settings-row layout changed.
+
 ## Backup rule
 
 Backups are universal Mugen Deej settings snapshots, not controller-specific files. A backup made with one topology may be restored while a different topology or no controller is connected.
@@ -139,9 +212,9 @@ The optional HIDMaestro-backed Xbox/XInput path remains staged. Previously hardw
 
 Nonblocking teardown has CI coverage but its final real-hardware re-test remains pending; do not silently mark that item PASS.
 
-## Next larger feature after #31 validation
+## Immediate next work
 
-Once alternate Adaptive topologies are hardware-proven, move to first-class mappings/configuration for toggles and encoders (ON/OFF actions, CW/CCW behavior, encoder push). That work is also the natural point for a future backup schema bump that stores those new mapping families.
+Hardware-review Integrated #35. Do not call its new typed mappings, polished full-state UI, or backup schema v2 hardware PASS until exercised on the real machine. After that, iterate on the interaction model/visual details from screenshots and logs before broadening virtual-controller mapping semantics for typed controls.
 
 ## Working rules
 
