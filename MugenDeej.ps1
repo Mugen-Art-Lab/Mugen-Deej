@@ -2953,6 +2953,12 @@ $script:ResumeHotplugRetrySeconds = 2
 $script:ResumeHotplugRetryWindowSeconds = 20
 $script:ResumeHotplugSlowRetrySeconds = 10
 $script:ResumeHotplugRetryUntil = [DateTime]::MinValue
+$script:ControllerRecoveryPort = ''
+$script:ControllerRecoveryAt = [DateTime]::MinValue
+$script:ControllerRecoveryFastUntil = [DateTime]::MinValue
+$script:ControllerRecoveryFastSeconds = 2
+$script:ControllerRecoveryFastWindowSeconds = 20
+$script:ControllerRecoverySlowSeconds = 10
 $script:ResumePreserveUntil = [DateTime]::MinValue
 $script:ResumePreserveStartedAt = [DateTime]::MinValue
 $script:ResumePreserveFirstErrorLogged = $false
@@ -8364,6 +8370,9 @@ function Open-And-ProbePort {
                     $script:IsConnected = $true
                     $script:ConnectedPort = $PortName
                     $script:ResumeAutoReconnectSuppressed = $false
+                    $script:ControllerRecoveryPort = ''
+                    $script:ControllerRecoveryAt = [DateTime]::MinValue
+                    $script:ControllerRecoveryFastUntil = [DateTime]::MinValue
                     $script:LastSerialPacketAt = Get-Date
                     $script:Config.connection.lastWorkingPort = $PortName
                     Clear-PortProbeCooldown -PortName $PortName
@@ -8629,6 +8638,11 @@ function Apply-SliderValues {
 function Handle-ControllerConnectionLost {
     param([string]$Reason)
 
+    $lostPort = [string]$script:ConnectedPort
+    if ([string]::IsNullOrWhiteSpace($lostPort)) {
+        $lostPort = [string]$script:Config.connection.lastWorkingPort
+    }
+
     if (-not [string]::IsNullOrWhiteSpace($Reason)) {
         Write-Log (
             'Serial connection lost: {0}' -f
@@ -8644,6 +8658,20 @@ function Handle-ControllerConnectionLost {
     [MugenDeejAudio.AudioMixer]::InvalidateSessions()
 
     $script:LastReconnectAttempt = Get-Date
+
+    # A device can reset, brown out, or disappear/reappear on the same COM name
+    # without Windows exposing a clean remove/add edge. Do not let a failed
+    # protocol probe put the last known-good controller into a 5-minute cooldown.
+    # Keep a bounded fast retry, then a quiet low-frequency targeted retry only
+    # against that last known-good COM port until it comes back.
+    if (-not [string]::IsNullOrWhiteSpace($lostPort)) {
+        $now = Get-Date
+        $script:ControllerRecoveryPort = $lostPort
+        $script:ControllerRecoveryFastUntil = $now.AddSeconds([int]$script:ControllerRecoveryFastWindowSeconds)
+        $script:ControllerRecoveryAt = $now.AddSeconds([int]$script:ControllerRecoveryFastSeconds)
+        Reset-PortProbeState -PortName $lostPort
+        Write-Log ("Controller recovery armed for {0}; fastWindow={1} s; firstRetryIn={2} s" -f $lostPort, [int]$script:ControllerRecoveryFastWindowSeconds, [int]$script:ControllerRecoveryFastSeconds) 'INFO'
+    }
 
     Set-Status `
         (T -Key 'StatusLost') `
@@ -9930,6 +9958,9 @@ function Handle-PowerModeChange {
 
             Write-Log ("System suspend detected; connectedPort={0}; preferredResumePort={1}; scanning={2}; serialObjectPresent={3}; serialIsOpen={4}" -f $script:ConnectedPort, $script:ResumePreferredPort, $script:IsConnecting, $serialPresent, $serialIsOpen) 'INFO'
             $script:IsSuspended = $true
+            $script:ControllerRecoveryPort = ''
+            $script:ControllerRecoveryAt = [DateTime]::MinValue
+            $script:ControllerRecoveryFastUntil = [DateTime]::MinValue
             $script:ResumeReconnectAt = [DateTime]::MinValue
             $script:ResumeHotplugRetryUntil = [DateTime]::MinValue
             $script:ResumeAutoReconnectSuppressed = $true
@@ -10027,6 +10058,9 @@ $refreshButton.Add_Click({ Refresh-PortList; Update-DriverStatus })
 $connectButton.Add_Click({
     $script:ResumeReconnectAt = [DateTime]::MinValue
     $script:ResumeHotplugRetryUntil = [DateTime]::MinValue
+    $script:ControllerRecoveryPort = ''
+    $script:ControllerRecoveryAt = [DateTime]::MinValue
+    $script:ControllerRecoveryFastUntil = [DateTime]::MinValue
     $script:ResumePreserveUntil = [DateTime]::MinValue
     $script:ResumePreserveStartedAt = [DateTime]::MinValue
     $script:ResumePreserveFirstErrorLogged = $false
@@ -10043,6 +10077,9 @@ $traySettings.Add_Click({ Show-MainWindowForeground; Show-SliderSettings })
 $trayReconnect.Add_Click({
     $script:ResumeReconnectAt = [DateTime]::MinValue
     $script:ResumeHotplugRetryUntil = [DateTime]::MinValue
+    $script:ControllerRecoveryPort = ''
+    $script:ControllerRecoveryAt = [DateTime]::MinValue
+    $script:ControllerRecoveryFastUntil = [DateTime]::MinValue
     $script:ResumePreserveUntil = [DateTime]::MinValue
     $script:ResumePreserveStartedAt = [DateTime]::MinValue
     $script:ResumePreserveFirstErrorLogged = $false
@@ -10209,6 +10246,52 @@ $timer.Add_Tick({
 
         Update-KnobMonitor
         return
+    }
+
+    # Ordinary controller-loss recovery. Unlike resume recovery this also
+    # handles runtime resets/brownouts and very fast same-COM unplug/replug.
+    if (
+        -not $script:IsConnected -and
+        -not $script:IsConnecting -and
+        $script:ControllerRecoveryAt -ne [DateTime]::MinValue -and
+        $now -ge $script:ControllerRecoveryAt
+    ) {
+        $recoveryPort = [string]$script:ControllerRecoveryPort
+        if ([string]::IsNullOrWhiteSpace($recoveryPort)) {
+            $script:ControllerRecoveryAt = [DateTime]::MinValue
+            $script:ControllerRecoveryFastUntil = [DateTime]::MinValue
+        }
+        else {
+            $currentPorts = @(Get-PortNames)
+            $connected = $false
+
+            if ($currentPorts -contains $recoveryPort) {
+                Reset-PortProbeState -PortName $recoveryPort
+                Write-Log ("Controller recovery attempt on {0}; ports={1}" -f $recoveryPort, ($currentPorts -join ', ')) 'INFO'
+                $connected = [bool](Connect-Controller -Quiet -CandidatePorts @($recoveryPort))
+            }
+            else {
+                Write-Log ("Controller recovery waiting for {0} to appear; ports={1}" -f $recoveryPort, ($currentPorts -join ', ')) 'DEBUG'
+            }
+
+            if (-not $connected) {
+                $retrySeconds = if (
+                    $script:ControllerRecoveryFastUntil -ne [DateTime]::MinValue -and
+                    $now -lt $script:ControllerRecoveryFastUntil
+                ) {
+                    [int]$script:ControllerRecoveryFastSeconds
+                }
+                else {
+                    [int]$script:ControllerRecoverySlowSeconds
+                }
+
+                $script:ControllerRecoveryAt = (Get-Date).AddSeconds($retrySeconds)
+                Write-Log ("Controller recovery for {0} still pending; next targeted retry in {1} s" -f $recoveryPort, $retrySeconds) 'DEBUG'
+            }
+
+            Update-KnobMonitor
+            if ($script:IsConnected) { return }
+        }
     }
 
     # Detect changes in Windows' COM-port list separately from the slower retry
