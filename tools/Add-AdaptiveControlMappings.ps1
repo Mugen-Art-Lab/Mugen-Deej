@@ -1162,3 +1162,315 @@ function Show-FullControllerStateWindow {
     $scroll.AutoScrollMinSize = [System.Drawing.Size]::new(696, [Math]::Max(0, $contentY))
 
     $refreshState = {
+        $summaryTitle.Text = if ($script:IsConnected) {
+            '{0} · {1}' -f (Get-ControllerProtocolDisplayText), $(if ([string]::IsNullOrWhiteSpace($script:ConnectedPort)) { 'COM —' } else { $script:ConnectedPort })
+        }
+        else { $(if ($script:Language -eq 'ru') { 'Связь с контроллером потеряна' } else { 'Controller disconnected' }) }
+        $summaryDetail.Text = if ($script:Language -eq 'ru') {
+            '{0} регуляторов · {1} кнопок · {2} тумблеров · {3} энкодеров' -f $script:DetectedSliderCount, $script:DetectedButtonCount, $script:DetectedToggleCount, $script:DetectedEncoderCount
+        }
+        else {
+            '{0} controls · {1} buttons · {2} toggles · {3} encoders' -f $script:DetectedSliderCount, $script:DetectedButtonCount, $script:DetectedToggleCount, $script:DetectedEncoderCount
+        }
+
+        for ($i = 0; $i -lt $sliderViews.Count; $i++) {
+            $level = if (@($script:LatestLevels).Count -gt $i) { [double]$script:LatestLevels[$i] } else { 0.0 }
+            $level = [Math]::Max(0.0, [Math]::Min(1.0, $level))
+            $sliderViews[$i].Bar.Value = [int][Math]::Round($level * 1000.0)
+            $sliderViews[$i].Value.Text = ('{0}%' -f [int][Math]::Round($level * 100.0))
+        }
+        for ($i = 0; $i -lt $buttonViews.Count; $i++) {
+            Set-ButtonIndicatorAppearance -Indicator $buttonViews[$i] -ButtonIndex $i
+        }
+        for ($i = 0; $i -lt $toggleViews.Count; $i++) {
+            $on = (@($script:LatestToggles).Count -gt $i -and [int]$script:LatestToggles[$i] -eq 1)
+            $toggleViews[$i].Label.Text = if ($script:Language -eq 'ru') { if ($on) { 'Вкл' } else { 'Выкл' } } else { if ($on) { 'On' } else { 'Off' } }
+            if ($null -eq $toggleViews[$i].Last -or [bool]$toggleViews[$i].Last -ne $on) {
+                $toggleViews[$i].Last = $on
+                $toggleViews[$i].Switch.Invalidate()
+            }
+        }
+        for ($i = 0; $i -lt $encoderViews.Count; $i++) {
+            $position = [int64]0
+            $pressed = $false
+            if (@($script:LatestEncoders).Count -gt $i) {
+                $enc = $script:LatestEncoders[$i]
+                $position = [int64]$enc.Position
+                $pressed = ([bool]$enc.HasPush -and [int]$enc.Push -eq 0)
+            }
+            $encoderViews[$i].Label.Text = [string]$position
+            if ($null -eq $encoderViews[$i].LastPosition -or [int64]$encoderViews[$i].LastPosition -ne $position -or $null -eq $encoderViews[$i].LastPressed -or [bool]$encoderViews[$i].LastPressed -ne $pressed) {
+                $encoderViews[$i].LastPosition = $position
+                $encoderViews[$i].LastPressed = $pressed
+                $encoderViews[$i].Knob.Invalidate()
+            }
+        }
+    }
+
+    $stateTimer = New-Object System.Windows.Forms.Timer
+    $stateTimer.Interval = 75
+    $stateTimer.Add_Tick({ & $refreshState })
+
+    try {
+        Apply-ThemeToForm -Form $stateForm -ThemeName (Get-EffectiveTheme)
+        & $refreshState
+        $stateTimer.Start()
+        [void]$stateForm.ShowDialog($form)
+    }
+    finally {
+        $stateTimer.Stop()
+        $stateTimer.Dispose()
+        if (-not $stateForm.IsDisposed) { $stateForm.Dispose() }
+    }
+}
+
+'@
+
+$text = Replace-RegexBlockExactlyOnceLiteral `
+    -Text $text `
+    -Pattern '(?ms)^function Show-FullControllerStateWindow \{.*?^function Get-MainInputOverflowCount \{' `
+    -Replacement ($fullStateUi + 'function Get-MainInputOverflowCount {') `
+    -Label 'polish full controller state window'
+
+# ---------------------------------------------------------------------------
+# Main-window first-class settings button and compact three-column settings row
+# ---------------------------------------------------------------------------
+
+$mainLayout = @'
+function Update-AdaptiveInputFeatureUi {
+    $metrics = Get-AdaptiveInputStatusLayoutMetrics
+    $hasButtons = ($script:IsConnected -and $script:DetectedButtonCount -gt 0)
+    $hasAnyInput = ($hasButtons -or [bool]$metrics.HasControls)
+    $hasTypedSettings = ($script:IsConnected -and ($metrics.ToggleCount -gt 0 -or $metrics.EncoderCount -gt 0))
+
+    if ($null -ne $script:AdaptiveStateGroup -and -not $script:AdaptiveStateGroup.IsDisposed) {
+        $script:AdaptiveStateGroup.Visible = $false
+    }
+
+    if ($null -ne $script:ButtonStateGroup -and -not $script:ButtonStateGroup.IsDisposed) {
+        $script:ButtonStateGroup.Visible = $hasAnyInput
+        if ($hasButtons -and $metrics.HasControls) {
+            $script:ButtonStateGroup.Text = if ($script:Language -eq 'ru') { 'Состояние кнопок и переключателей' } else { 'Buttons and controls' }
+        }
+        elseif ($hasButtons) { $script:ButtonStateGroup.Text = Get-ButtonFeatureText -Key 'ButtonStatus' }
+        else { $script:ButtonStateGroup.Text = Get-AdaptiveInputUiText -Key 'Group' }
+
+        foreach ($control in @($script:ToggleStateLabel, $script:ToggleStateFlow, $script:EncoderStateLabel, $script:EncoderStateFlow)) {
+            if ($null -ne $control -and -not $control.IsDisposed -and $control.Parent -ne $script:ButtonStateGroup) {
+                $script:ButtonStateGroup.Controls.Add($control)
+            }
+        }
+
+        if ($null -eq $script:AdaptiveOverflowButton -or $script:AdaptiveOverflowButton.IsDisposed) {
+            $script:AdaptiveOverflowButton = New-Object MugenDeejWindowing.MugenButton
+            $script:AdaptiveOverflowButton.Tag = 'MugenSection'
+            $script:AdaptiveOverflowButton.Size = [System.Drawing.Size]::new(180, 28)
+            $script:AdaptiveOverflowButton.Add_Click({ Show-FullControllerStateWindow })
+            $script:ButtonStateGroup.Controls.Add($script:AdaptiveOverflowButton)
+        }
+    }
+
+    if ($null -eq $script:AdaptiveSettingsButton -or $script:AdaptiveSettingsButton.IsDisposed) {
+        $script:AdaptiveSettingsButton = New-Object MugenDeejWindowing.MugenButton
+        $script:AdaptiveSettingsButton.Size = [System.Drawing.Size]::new(196, 42)
+        $script:AdaptiveSettingsButton.Add_Click({ Show-AdaptiveControlSettings })
+        $form.Controls.Add($script:AdaptiveSettingsButton)
+        Apply-ThemeToControl -Control $script:AdaptiveSettingsButton -ThemeName (Get-EffectiveTheme)
+    }
+    $script:AdaptiveSettingsButton.Text = if ($script:Language -eq 'ru') { 'Настроить переключатели' } else { 'Configure switches / encoders' }
+    $script:AdaptiveSettingsButton.Visible = $hasTypedSettings
+    $script:AdaptiveSettingsButton.Enabled = $hasTypedSettings
+
+    if ($null -ne $script:ButtonStateFlow -and -not $script:ButtonStateFlow.IsDisposed) { $script:ButtonStateFlow.Visible = $hasButtons }
+    if ($null -ne $script:ToggleStateLabel -and -not $script:ToggleStateLabel.IsDisposed) {
+        $script:ToggleStateLabel.Text = Get-AdaptiveInputUiText -Key 'Toggles'
+        $script:ToggleStateLabel.Visible = ($metrics.ToggleCount -gt 0)
+    }
+    if ($null -ne $script:ToggleStateFlow -and -not $script:ToggleStateFlow.IsDisposed) { $script:ToggleStateFlow.Visible = ($metrics.ToggleCount -gt 0) }
+    if ($null -ne $script:EncoderStateLabel -and -not $script:EncoderStateLabel.IsDisposed) {
+        $script:EncoderStateLabel.Text = Get-AdaptiveInputUiText -Key 'Encoders'
+        $script:EncoderStateLabel.Visible = ($metrics.EncoderCount -gt 0)
+    }
+    if ($null -ne $script:EncoderStateFlow -and -not $script:EncoderStateFlow.IsDisposed) { $script:EncoderStateFlow.Visible = ($metrics.EncoderCount -gt 0) }
+
+    $overflow = if ($script:IsConnected) { Get-MainInputOverflowCount } else { 0 }
+    if ($null -ne $script:AdaptiveOverflowButton -and -not $script:AdaptiveOverflowButton.IsDisposed) {
+        $script:AdaptiveOverflowButton.Visible = ($overflow -gt 0)
+        if ($overflow -gt 0) {
+            $script:AdaptiveOverflowButton.Text = if ($script:Language -eq 'ru') { ('Показать все… (+{0})' -f $overflow) } else { ('Show all… (+{0})' -f $overflow) }
+        }
+    }
+}
+
+function Set-MainButtonLayout {
+    param([Parameter(Mandatory = $true)][bool]$HasButtons)
+
+    if ($null -eq $form -or $null -eq $startupGroup -or $null -eq $advancedToggle -or $null -eq $advancedPanel -or $null -eq $footer) { return }
+
+    $hasSliders = [bool](Update-SliderCapabilityUi)
+    $buttonCount = if ($HasButtons) { [int]$script:DetectedButtonCount } else { 0 }
+    $buttonMetrics = Get-AdaptiveButtonLayoutMetrics -Count $buttonCount
+    $adaptiveMetrics = Get-AdaptiveInputStatusLayoutMetrics
+    $hasAnyInput = ($HasButtons -or [bool]$adaptiveMetrics.HasControls)
+
+    $mainY = 160
+    if ($hasSliders) {
+        $knobGroup.Location = [System.Drawing.Point]::new(24, $mainY)
+        $mainY += $knobGroup.Height + 12
+    }
+
+    $cursorY = 29
+    if ($null -ne $script:ButtonStateGroup -and -not $script:ButtonStateGroup.IsDisposed) { $script:ButtonStateGroup.Location = [System.Drawing.Point]::new(24, $mainY) }
+    if ($null -ne $script:ButtonStateFlow -and -not $script:ButtonStateFlow.IsDisposed -and $HasButtons) {
+        $script:ButtonStateFlow.Location = [System.Drawing.Point]::new(13, $cursorY)
+        $script:ButtonStateFlow.Size = [System.Drawing.Size]::new(606, [int]$buttonMetrics.FlowHeight)
+        $script:ButtonStateFlow.WrapContents = [bool]$buttonMetrics.Compact
+        $script:ButtonStateFlow.AutoScroll = $false
+        $cursorY += [int]$buttonMetrics.FlowHeight + 4
+    }
+
+    if ($adaptiveMetrics.HasControls) {
+        $shareTypedRow = ($adaptiveMetrics.VisibleToggleCount -gt 0 -and $adaptiveMetrics.VisibleEncoderCount -gt 0 -and $adaptiveMetrics.VisibleToggleCount -le 3 -and $adaptiveMetrics.VisibleEncoderCount -le 2)
+        if ($shareTypedRow) {
+            $typedY = $cursorY
+            $script:ToggleStateLabel.Location = [System.Drawing.Point]::new(13, ($typedY + 3))
+            $script:ToggleStateLabel.Size = [System.Drawing.Size]::new(72, 24)
+            $script:ToggleStateFlow.Location = [System.Drawing.Point]::new(88, $typedY)
+            $script:ToggleStateFlow.Size = [System.Drawing.Size]::new(252, [int]$adaptiveMetrics.ToggleHeight)
+            $script:EncoderStateLabel.Location = [System.Drawing.Point]::new(350, ($typedY + 3))
+            $script:EncoderStateLabel.Size = [System.Drawing.Size]::new(76, 24)
+            $script:EncoderStateFlow.Location = [System.Drawing.Point]::new(428, $typedY)
+            $script:EncoderStateFlow.Size = [System.Drawing.Size]::new(191, [int]$adaptiveMetrics.EncoderHeight)
+            $cursorY += [Math]::Max([int]$adaptiveMetrics.ToggleHeight, [int]$adaptiveMetrics.EncoderHeight)
+        }
+        else {
+            if ($adaptiveMetrics.VisibleToggleCount -gt 0) {
+                $script:ToggleStateLabel.Location = [System.Drawing.Point]::new(13, ($cursorY + 2))
+                $script:ToggleStateLabel.Size = [System.Drawing.Size]::new(82, 24)
+                $script:ToggleStateFlow.Location = [System.Drawing.Point]::new(100, $cursorY)
+                $script:ToggleStateFlow.Size = [System.Drawing.Size]::new(519, [int]$adaptiveMetrics.ToggleHeight)
+                $cursorY += [int]$adaptiveMetrics.ToggleHeight
+            }
+            if ($adaptiveMetrics.VisibleEncoderCount -gt 0) {
+                if ($adaptiveMetrics.VisibleToggleCount -gt 0) { $cursorY += [int]$adaptiveMetrics.SectionGap }
+                $script:EncoderStateLabel.Location = [System.Drawing.Point]::new(13, ($cursorY + 3))
+                $script:EncoderStateLabel.Size = [System.Drawing.Size]::new(82, 24)
+                $script:EncoderStateFlow.Location = [System.Drawing.Point]::new(100, $cursorY)
+                $script:EncoderStateFlow.Size = [System.Drawing.Size]::new(519, [int]$adaptiveMetrics.EncoderHeight)
+                $cursorY += [int]$adaptiveMetrics.EncoderHeight
+            }
+        }
+    }
+
+    $overflow = if ($script:IsConnected) { Get-MainInputOverflowCount } else { 0 }
+    if ($overflow -gt 0 -and $null -ne $script:AdaptiveOverflowButton) {
+        $script:AdaptiveOverflowButton.Location = [System.Drawing.Point]::new(13, ($cursorY + 3))
+        $cursorY += 34
+    }
+
+    $inputGroupHeight = if ($hasAnyInput) { [Math]::Max(72, ($cursorY + 8)) } else { 0 }
+    if ($null -ne $script:ButtonStateGroup -and -not $script:ButtonStateGroup.IsDisposed -and $hasAnyInput) {
+        $script:ButtonStateGroup.Size = [System.Drawing.Size]::new(632, $inputGroupHeight)
+        $mainY += $inputGroupHeight + 12
+    }
+
+    if ($null -ne $script:AdaptiveStateGroup -and -not $script:AdaptiveStateGroup.IsDisposed) { $script:AdaptiveStateGroup.Visible = $false }
+    $advancedPanel.Visible = $false
+
+    $settingsControls = @()
+    if ($hasSliders) { $settingsControls += $settingsButton }
+    if ($null -ne $script:ButtonSettingsButton -and $script:ButtonSettingsButton.Visible) { $settingsControls += $script:ButtonSettingsButton }
+    if ($null -ne $script:AdaptiveSettingsButton -and $script:AdaptiveSettingsButton.Visible) { $settingsControls += $script:AdaptiveSettingsButton }
+
+    if ($settingsControls.Count -gt 0) {
+        if ($settingsControls.Count -eq 1) {
+            $settingsControls[0].Location = [System.Drawing.Point]::new(24, $mainY)
+            $settingsControls[0].Size = [System.Drawing.Size]::new(230, 42)
+        }
+        elseif ($settingsControls.Count -eq 2) {
+            for ($i = 0; $i -lt 2; $i++) {
+                $settingsControls[$i].Location = [System.Drawing.Point]::new((24 + ($i * 248)), $mainY)
+                $settingsControls[$i].Size = [System.Drawing.Size]::new(230, 42)
+            }
+        }
+        else {
+            for ($i = 0; $i -lt 3; $i++) {
+                $settingsControls[$i].Location = [System.Drawing.Point]::new((24 + ($i * 204)), $mainY)
+                $settingsControls[$i].Size = [System.Drawing.Size]::new(196, 42)
+            }
+        }
+
+        if ($null -ne $script:SettingsHintControl) {
+            $showHint = ($settingsControls.Count -eq 1 -and $hasSliders)
+            $script:SettingsHintControl.Visible = $showHint
+            if ($showHint) { $script:SettingsHintControl.Location = [System.Drawing.Point]::new(272, ($mainY - 2)) }
+        }
+        $mainY += 54
+    }
+    elseif ($null -ne $script:SettingsHintControl) { $script:SettingsHintControl.Visible = $false }
+
+    $startupGroup.Location = [System.Drawing.Point]::new(24, $mainY)
+    $mainY += 102
+    $advancedToggle.Location = [System.Drawing.Point]::new(24, $mainY)
+    if ($null -ne $script:BackupMenuButton -and -not $script:BackupMenuButton.IsDisposed) { $script:BackupMenuButton.Location = [System.Drawing.Point]::new(292, $mainY) }
+    $mainY += 52
+
+    $collapsedHeight = $mainY + 24
+    $windowHeight = $collapsedHeight + 39
+    $form.MinimumSize = [System.Drawing.Size]::new(696, $windowHeight)
+    $form.MaximumSize = [System.Drawing.Size]::new(696, $windowHeight)
+    $form.ClientSize = [System.Drawing.Size]::new(680, $collapsedHeight)
+    $footer.Location = [System.Drawing.Point]::new(24, ($form.ClientSize.Height - 28))
+}
+
+'@
+
+$text = Replace-RegexBlockExactlyOnceLiteral `
+    -Text $text `
+    -Pattern '(?ms)^function Update-AdaptiveInputFeatureUi \{.*?^function Update-ButtonFeatureUi \{' `
+    -Replacement ($mainLayout + 'function Update-ButtonFeatureUi {') `
+    -Label 'add first-class typed settings button to compact main layout'
+
+# ---------------------------------------------------------------------------
+# Universal backup schema v2: preserve typed mappings, still read v1 safely
+# ---------------------------------------------------------------------------
+
+$backupRead = @'
+function Read-MugenDeejBackupFile {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $data = Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ($null -eq $data) { throw 'Backup file is empty.' }
+    if ([string]$data.format -cne 'MugenDeejBackup') { throw 'This file is not a Mugen Deej backup.' }
+    if ($null -eq $data.PSObject.Properties['schemaVersion']) { throw 'Backup schema version is missing.' }
+    $schema = [int]$data.schemaVersion
+    if ($schema -notin @(1, 2)) { throw ('Unsupported backup schema version: {0}' -f $schema) }
+    if ($null -eq $data.PSObject.Properties['config'] -or $null -eq $data.config) { throw 'Backup does not contain the main configuration.' }
+    if ($null -eq $data.PSObject.Properties['buttonActions'] -or $null -eq $data.buttonActions) { throw 'Backup does not contain button actions.' }
+    if ($null -eq $data.buttonActions.PSObject.Properties['version'] -or [int]$data.buttonActions.version -ne 1) { throw 'Unsupported or missing button-action configuration version in backup.' }
+    if ($null -eq $data.buttonActions.PSObject.Properties['actions']) { throw 'Backup button-action list is missing.' }
+    foreach ($item in @($data.buttonActions.actions)) { if ($null -eq $item) { throw 'Backup button-action list contains a null item.' } }
+
+    if ($schema -eq 2) {
+        if ($null -eq $data.PSObject.Properties['adaptiveActions'] -or $null -eq $data.adaptiveActions) { throw 'Backup v2 does not contain Adaptive actions.' }
+        if ($null -eq $data.adaptiveActions.PSObject.Properties['version'] -or [int]$data.adaptiveActions.version -ne 1) { throw 'Unsupported Adaptive action schema in backup.' }
+        if ($null -eq $data.adaptiveActions.PSObject.Properties['toggles'] -or $null -eq $data.adaptiveActions.PSObject.Properties['encoders']) { throw 'Backup Adaptive action payload is incomplete.' }
+    }
+    return $data
+}
+
+'@
+$text = Replace-RegexBlockExactlyOnceLiteral `
+    -Text $text `
+    -Pattern '(?ms)^function Read-MugenDeejBackupFile \{.*?^function New-MugenDeejBackupSnapshot \{' `
+    -Replacement ($backupRead + 'function New-MugenDeejBackupSnapshot {') `
+    -Label 'read universal backup schemas v1 and v2'
+
+$backupSnapshot = @'
+function New-MugenDeejBackupSnapshot {
+    Initialize-ButtonActions
+    Initialize-AdaptiveActions
+
+    $configClone = $script:Config | ConvertTo-Json -Depth 12 | ConvertFrom-Json
+    $actions = @($script:ButtonActions | ForEach-Object { [string]$_ })
+    $typedToggles = @($script:Adapti
