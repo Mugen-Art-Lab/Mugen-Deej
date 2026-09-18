@@ -677,7 +677,7 @@ Nonblocking teardown has CI coverage but its final real-hardware re-test remains
 
 ## Immediate next work
 
-Hardware-review Integrated #75. The #59 first-run wizard resume crash fix, #69 card-surface fix, #73 hibernate/unplug/resume/same-COM reconnect path, and #75 ordinary runtime serial-loss/same-COM automatic recovery are all real-machine PASS. After recovery, encoder CW/CCW, encoder push, and both toggles remain live. Next exercise the #57 mouse-wheel mapped actions on the encoder. Backup schema v2 restore still requires an explicit real-machine test.
+Hardware-review Integrated #89. Resume/runtime same-COM recovery, the first-run wizard fixes, and vertical/Ctrl/native-horizontal encoder wheel actions are real-machine PASS. The next test is foreground application switching: Excel profile -> horizontal scroll, browser profile -> Ctrl+wheel zoom, unrelated app -> Global fallback. #89 profiles only Adaptive toggles/encoders on purpose; buttons/sliders can be folded into the same model after this first slice proves itself. Universal backup v2 restore still requires an explicit real-machine test, now including the optional application-profile payload.
 
 ## Working rules
 
@@ -725,6 +725,49 @@ User review of #79 showed the new toggle/encoder assignment summary looked incon
 - clicking a typed assignment row selects the corresponding toggle or encoder in the editor, matching the button editor interaction model.
 
 Horizontal mouse-wheel hardware/application behavior is now **PASS**. In #81 the user mapped E1 CCW to `mouse:hwheelright` and CW to `mouse:hwheelleft`, then confirmed visible left/right scrolling in Excel. The log also shows matching per-step Adaptive action dispatch in both directions.
+
+## Integrated #89 — first foreground-application profiles
+
+Workflow run:
+
+- run number: **#89**
+- run ID: `35380437192`
+- built code head: `0a94dba1d58579a0ca8694c48c4488867883e63f`
+- result: **SUCCESS**
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-89`
+- artifact ID: `10561764168`
+- outer Actions digest: `sha256:1a67b5eaff5e427f8f89626f9be120c1a92fbf16d83b23bb37ae47de9663b728`
+- inner program ZIP SHA-256: `1eddc02de6714ef60a6246a494f8b921b5efb4c6a6645062cb7bedb72f407900`
+- Windows PowerShell 5.1 parse/runtime marker check: PASS
+- launcher/package: PASS
+
+#89 is the first deliberately narrow application-profile prototype. It profiles **Adaptive toggles and encoders only**; momentary buttons and analog slider assignments remain global for this milestone so the foreground-selection model can be hardware-tested before broadening it.
+
+Implemented behavior:
+
+- Win32 foreground-window process detection is exposed through `MugenDeejWindowing.Foreground.GetForegroundProcessName()`;
+- typed settings now contain an `Action profile / Профиль действий` selector;
+- `Global / Общий` remains the fallback mapping for applications without their own profile;
+- `Добавить… / Add…` lists currently running user applications and creates a new profile as a copy of the current Global typed mappings;
+- the editor is transactional across profile switches: changing profiles inside the dialog keeps per-profile drafts in memory, Save commits all of them, Cancel discards them;
+- profiles are stored in `adaptive-profiles.json` with process name plus toggle/encoder mappings;
+- at action time, toggle/encoder mapping lookup resolves the foreground process and uses its saved profile when present, otherwise Global;
+- profile actions preserve dormant higher-index mappings just like Global typed mappings.
+
+The intended first real-machine test is:
+
+1. create an Excel profile and map E1 CW/CCW to horizontal scroll;
+2. create a browser profile and map E1 CW/CCW to Ctrl+wheel zoom;
+3. Save;
+4. focus Excel and verify E1 scrolls horizontally;
+5. focus the browser and verify the same E1 zooms;
+6. focus an unrelated application and verify E1 falls back to the Global mapping.
+
+No firmware changes are required for this test.
+
+Universal backup schema remains user-facing **v2**. Current v2 snapshots now carry an optional versioned `adaptiveProfiles` payload. Older v2 backups created before application profiles existed remain valid and preserve the current profiles when restored. Current emergency pre-restore snapshots and rollback also include/restore the profile payload.
+
+This is **CI PASS; foreground profile switching still requires real-machine testing**.
 
 ## Backup rule
 
