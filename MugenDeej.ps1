@@ -3519,7 +3519,10 @@ function Apply-ThemeToControl {
         $Control.ForeColor = $palette.Text
     }
     elseif ($Control -is [System.Windows.Forms.Panel]) {
-        if ($Control.BorderStyle -ne [System.Windows.Forms.BorderStyle]::None) {
+        if ([string]$Control.Tag -eq 'MugenCardInner') {
+            $Control.BackColor = $palette.Surface
+        }
+        elseif ($Control.BorderStyle -ne [System.Windows.Forms.BorderStyle]::None) {
             $Control.BackColor = $palette.Surface
         }
         else {
