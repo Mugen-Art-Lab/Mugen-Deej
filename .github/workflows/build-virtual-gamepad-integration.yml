@@ -380,6 +380,12 @@ jobs:
           if ($runtimeText -notmatch 'Adaptive profile settings saved') {
             throw 'Development runtime is missing transactional profile-save diagnostics.'
           }
+          if ($runtimeText -notmatch 'adaptiveProfiles = \[pscustomobject\]') {
+            throw 'Development runtime backup does not include Adaptive application profiles.'
+          }
+          if ($runtimeText -notmatch 'Adaptive application profiles restored from backup') {
+            throw 'Development runtime is missing Adaptive application-profile restore.'
+          }
           if ($runtimeText -notmatch 'System.Windows.Forms.ListView') {
             throw 'Development runtime is missing the ListView-based typed assignment summary.'
           }
