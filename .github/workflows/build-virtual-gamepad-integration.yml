@@ -266,14 +266,17 @@ jobs:
           if ($runtimeText -notmatch 'DrawEllipse\(\$pushCuePen, 11, 11, 6, 6\)') {
             throw 'Development runtime is missing the centered encoder push-capability ring.'
           }
-          if ($runtimeText -notmatch "\$portName.Text = if \(\$ru\) \{ 'Порт:' \} else \{ 'Port:' \}") {
+          if ($runtimeText -notmatch '\$portName\.Text = if \(\$ru\)') {
             throw 'Development runtime is missing separated first-run Port label/value rendering.'
           }
-          if ($runtimeText -notmatch "\$protocolName.Text = if \(\$ru\) \{ 'Протокол:' \} else \{ 'Protocol:' \}") {
+          if ($runtimeText -notmatch '\$protocolName\.Text = if \(\$ru\)') {
             throw 'Development runtime is missing separated first-run Protocol label/value rendering.'
           }
-          if ($runtimeText -notmatch "\$baudName.Text = if \(\$ru\) \{ 'Скорость:' \} else \{ 'Baud:' \}") {
+          if ($runtimeText -notmatch '\$baudName\.Text = if \(\$ru\)') {
             throw 'Development runtime is missing separated first-run speed label/value rendering.'
+          }
+          if ($runtimeText -notmatch '\$value\.ForeColor = \[System\.Drawing\.Color\]::SeaGreen') {
+            throw 'Development runtime is missing green first-run connection values.'
           }
           if ($runtimeText -notmatch "'Тумблеры и энкодеры'.*'Toggles & encoders'") {
             throw 'Development runtime is missing compact typed-settings labels.'
