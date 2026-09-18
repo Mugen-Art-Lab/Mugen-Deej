@@ -848,21 +848,40 @@ function Show-AdaptiveControlSettings {
 
     Ensure-AdaptiveActionCapacity -ToggleCount ([int]$script:DetectedToggleCount) -EncoderCount ([int]$script:DetectedEncoderCount)
 
-    $pendingToggles = @()
+    Initialize-AdaptiveProfiles
+
+    $pendingToggles = New-Object System.Collections.ArrayList
     foreach ($item in @($script:AdaptiveToggleActions)) {
-        $pendingToggles += [pscustomobject][ordered]@{ on = [string]$item.on; off = [string]$item.off }
+        [void]$pendingToggles.Add([pscustomobject][ordered]@{ on = [string]$item.on; off = [string]$item.off })
     }
-    $pendingEncoders = @()
+    $pendingEncoders = New-Object System.Collections.ArrayList
     foreach ($item in @($script:AdaptiveEncoderActions)) {
-        $pendingEncoders += [pscustomobject][ordered]@{ cw = [string]$item.cw; ccw = [string]$item.ccw; push = [string]$item.push }
+        [void]$pendingEncoders.Add([pscustomobject][ordered]@{ cw = [string]$item.cw; ccw = [string]$item.ccw; push = [string]$item.push })
+    }
+
+    $workingProfiles = New-Object System.Collections.ArrayList
+    foreach ($profile in @($script:AdaptiveProfiles)) {
+        [void]$workingProfiles.Add([pscustomobject][ordered]@{
+            name = [string]$profile.name
+            process = [string]$profile.process
+            toggles = @(Copy-AdaptiveProfileToggles -Items @($profile.toggles))
+            encoders = @(Copy-AdaptiveProfileEncoders -Items @($profile.encoders))
+        })
+    }
+
+    $profileDrafts = @{}
+    $profileState = [pscustomobject]@{
+        Process = ''
+        Suppress = $false
+        Map = New-Object System.Collections.ArrayList
     }
 
     $settingsForm = New-Object System.Windows.Forms.Form
     $settingsForm.Text = if ($script:Language -eq 'ru') { 'Настройка тумблеров и энкодеров — Mugen Deej' } else { 'Toggle and encoder settings — Mugen Deej' }
     $settingsForm.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterParent
-    $settingsForm.ClientSize = [System.Drawing.Size]::new(820, 730)
-    $settingsForm.MinimumSize = [System.Drawing.Size]::new(836, 769)
-    $settingsForm.MaximumSize = [System.Drawing.Size]::new(836, 769)
+    $settingsForm.ClientSize = [System.Drawing.Size]::new(820, 776)
+    $settingsForm.MinimumSize = [System.Drawing.Size]::new(836, 815)
+    $settingsForm.MaximumSize = [System.Drawing.Size]::new(836, 815)
     $settingsForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
     $settingsForm.MaximizeBox = $false
     $settingsForm.MinimizeBox = $false
@@ -896,9 +915,40 @@ function Show-AdaptiveControlSettings {
     $saveNotice.Size = [System.Drawing.Size]::new(770, 26)
     $settingsForm.Controls.Add($saveNotice)
 
+    $profileLabel = New-Object System.Windows.Forms.Label
+    $profileLabel.Text = if ($script:Language -eq 'ru') { 'Профиль действий:' } else { 'Action profile:' }
+    $profileLabel.Location = [System.Drawing.Point]::new(25, 143)
+    $profileLabel.Size = [System.Drawing.Size]::new(125, 25)
+    $profileLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+    $settingsForm.Controls.Add($profileLabel)
+
+    $profileCombo = New-Object MugenDeejWindowing.MugenComboBox
+    $profileCombo.DropDownStyle = 'DropDownList'
+    $profileCombo.Location = [System.Drawing.Point]::new(150, 140)
+    $profileCombo.Size = [System.Drawing.Size]::new(430, 30)
+    $settingsForm.Controls.Add($profileCombo)
+
+    $addProfileButton = New-Object MugenDeejWindowing.MugenButton
+    $addProfileButton.Text = if ($script:Language -eq 'ru') { 'Добавить…' } else { 'Add…' }
+    $addProfileButton.Location = [System.Drawing.Point]::new(592, 139)
+    $addProfileButton.Size = [System.Drawing.Size]::new(206, 32)
+    $settingsForm.Controls.Add($addProfileButton)
+
+    $profileHint = New-Object System.Windows.Forms.Label
+    $profileHint.Text = if ($script:Language -eq 'ru') {
+        'Общий профиль работает везде; профиль приложения включается автоматически, когда это приложение активно.'
+    }
+    else {
+        'Global works everywhere; an application profile is selected automatically while that app is active.'
+    }
+    $profileHint.ForeColor = [System.Drawing.Color]::DimGray
+    $profileHint.Location = [System.Drawing.Point]::new(25, 173)
+    $profileHint.Size = [System.Drawing.Size]::new(770, 28)
+    $settingsForm.Controls.Add($profileHint)
+
     $selectorGroup = New-Object MugenDeejWindowing.MugenGroupBox
     $selectorGroup.Text = if ($script:Language -eq 'ru') { 'Органы управления' } else { 'Physical controls' }
-    $selectorGroup.Location = [System.Drawing.Point]::new(22, 136)
+    $selectorGroup.Location = [System.Drawing.Point]::new(22, 202)
     $selectorGroup.Size = [System.Drawing.Size]::new(248, 528)
     $settingsForm.Controls.Add($selectorGroup)
 
@@ -912,7 +962,7 @@ function Show-AdaptiveControlSettings {
 
     $editorGroup = New-Object MugenDeejWindowing.MugenGroupBox
     $editorGroup.Text = if ($script:Language -eq 'ru') { 'Выбранный орган управления' } else { 'Selected control' }
-    $editorGroup.Location = [System.Drawing.Point]::new(282, 136)
+    $editorGroup.Location = [System.Drawing.Point]::new(282, 202)
     $editorGroup.Size = [System.Drawing.Size]::new(516, 528)
     $settingsForm.Controls.Add($editorGroup)
 
@@ -1031,6 +1081,217 @@ function Show-AdaptiveControlSettings {
         LastEncoderPositions = @($script:LatestEncoders | ForEach-Object { [int64]$_.Position })
         LastEncoderPush = @($script:LatestEncoders | ForEach-Object { if ([bool]$_.HasPush) { [int]$_.Push } else { 1 } })
     }
+
+    $getProfileDraftKey = {
+        param([string]$ProcessName)
+        $normalized = Normalize-TargetName -Value $ProcessName
+        if ([string]::IsNullOrWhiteSpace($normalized)) { return '__global__' }
+        return $normalized.ToLowerInvariant()
+    }
+
+    $findWorkingProfile = {
+        param([string]$ProcessName)
+        $normalized = Normalize-TargetName -Value $ProcessName
+        if ([string]::IsNullOrWhiteSpace($normalized)) { return $null }
+        foreach ($profile in @($workingProfiles)) {
+            if ((Normalize-TargetName -Value ([string]$profile.process)) -ieq $normalized) { return $profile }
+        }
+        return $null
+    }
+
+    $captureCurrentProfileDraft = {
+        $key = & $getProfileDraftKey ([string]$profileState.Process)
+        $profileDrafts[$key] = [pscustomobject][ordered]@{
+            toggles = @(Copy-AdaptiveProfileToggles -Items @($pendingToggles))
+            encoders = @(Copy-AdaptiveProfileEncoders -Items @($pendingEncoders))
+        }
+    }
+
+    $loadProfileDraft = {
+        param([string]$ProcessName)
+
+        $normalized = Normalize-TargetName -Value $ProcessName
+        $key = & $getProfileDraftKey $normalized
+        $draft = $null
+
+        if ($profileDrafts.ContainsKey($key)) {
+            $draft = $profileDrafts[$key]
+        }
+        elseif ([string]::IsNullOrWhiteSpace($normalized)) {
+            $draft = [pscustomobject][ordered]@{
+                toggles = @(Copy-AdaptiveProfileToggles -Items @($script:AdaptiveToggleActions))
+                encoders = @(Copy-AdaptiveProfileEncoders -Items @($script:AdaptiveEncoderActions))
+            }
+            $profileDrafts[$key] = $draft
+        }
+        else {
+            $profile = & $findWorkingProfile $normalized
+            if ($null -eq $profile) { return }
+            $draft = [pscustomobject][ordered]@{
+                toggles = @(Copy-AdaptiveProfileToggles -Items @($profile.toggles))
+                encoders = @(Copy-AdaptiveProfileEncoders -Items @($profile.encoders))
+            }
+            $profileDrafts[$key] = $draft
+        }
+
+        $pendingToggles.Clear()
+        foreach ($item in @($draft.toggles)) {
+            [void]$pendingToggles.Add([pscustomobject][ordered]@{
+                on = [string]$item.on
+                off = [string]$item.off
+            })
+        }
+        while ($pendingToggles.Count -lt [int]$script:DetectedToggleCount) {
+            [void]$pendingToggles.Add([pscustomobject][ordered]@{ on = 'none'; off = 'none' })
+        }
+
+        $pendingEncoders.Clear()
+        foreach ($item in @($draft.encoders)) {
+            [void]$pendingEncoders.Add([pscustomobject][ordered]@{
+                cw = [string]$item.cw
+                ccw = [string]$item.ccw
+                push = [string]$item.push
+            })
+        }
+        while ($pendingEncoders.Count -lt [int]$script:DetectedEncoderCount) {
+            [void]$pendingEncoders.Add([pscustomobject][ordered]@{ cw = 'none'; ccw = 'none'; push = 'none' })
+        }
+
+        $profileState.Process = $normalized
+    }
+
+    $populateProfileCombo = {
+        param([string]$SelectProcess = '')
+
+        $selectedNormalized = Normalize-TargetName -Value $SelectProcess
+        $profileState.Suppress = $true
+        try {
+            $profileCombo.BeginUpdate()
+            try {
+                $profileCombo.Items.Clear()
+                $profileState.Map.Clear()
+
+                [void]$profileCombo.Items.Add($(if ($script:Language -eq 'ru') { 'Общий — для всех остальных приложений' } else { 'Global — all other applications' }))
+                [void]$profileState.Map.Add('')
+
+                foreach ($profile in @($workingProfiles | Sort-Object name)) {
+                    $processName = Normalize-TargetName -Value ([string]$profile.process)
+                    [void]$profileCombo.Items.Add(('{0}  ({1}.exe)' -f [string]$profile.name, $processName))
+                    [void]$profileState.Map.Add($processName)
+                }
+
+                $selectedIndex = 0
+                for ($i = 0; $i -lt $profileState.Map.Count; $i++) {
+                    if ([string]$profileState.Map[$i] -ieq $selectedNormalized) {
+                        $selectedIndex = $i
+                        break
+                    }
+                }
+                $profileCombo.SelectedIndex = $selectedIndex
+            }
+            finally {
+                $profileCombo.EndUpdate()
+            }
+        }
+        finally {
+            $profileState.Suppress = $false
+        }
+    }
+
+    $showAddProfileDialog = {
+        $existing = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+        foreach ($profile in @($workingProfiles)) {
+            $name = Normalize-TargetName -Value ([string]$profile.process)
+            if (-not [string]::IsNullOrWhiteSpace($name)) { [void]$existing.Add($name) }
+        }
+
+        $runningProcesses = @(
+            Get-RunningApplicationProcessNames |
+            Where-Object { -not $existing.Contains((Normalize-TargetName -Value ([string]$_))) } |
+            Sort-Object { Get-FriendlyProcessName -ProcessName $_ }
+        )
+
+        if ($runningProcesses.Count -eq 0) {
+            [void](Show-MugenDeejStyledDialog -Message ($(if ($script:Language -eq 'ru') {
+                'Не нашлось запущенного приложения без профиля. Запустите нужную программу и попробуйте снова.'
+            } else {
+                'No running application without a profile was found. Start the app you want and try again.'
+            })) -Buttons 'OK' -Kind 'Info')
+            return ''
+        }
+
+        $picker = New-Object System.Windows.Forms.Form
+        $picker.Text = if ($script:Language -eq 'ru') { 'Добавить профиль приложения — Mugen Deej' } else { 'Add application profile — Mugen Deej' }
+        $picker.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterParent
+        $picker.ClientSize = [System.Drawing.Size]::new(560, 220)
+        $picker.MinimumSize = [System.Drawing.Size]::new(576, 259)
+        $picker.MaximumSize = [System.Drawing.Size]::new(576, 259)
+        $picker.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+        $picker.MaximizeBox = $false
+        $picker.MinimizeBox = $false
+        $picker.ShowInTaskbar = $false
+        $picker.Font = $settingsForm.Font
+        Set-FormAppIcon -Form $picker
+
+        $pickerHeading = New-Object System.Windows.Forms.Label
+        $pickerHeading.Text = if ($script:Language -eq 'ru') { 'Какому приложению нужен свой профиль?' } else { 'Which application needs its own profile?' }
+        $pickerHeading.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 13)
+        $pickerHeading.AutoSize = $true
+        $pickerHeading.Location = [System.Drawing.Point]::new(20, 18)
+        $picker.Controls.Add($pickerHeading)
+
+        $pickerHint = New-Object System.Windows.Forms.Label
+        $pickerHint.Text = if ($script:Language -eq 'ru') {
+            'Новый профиль начнёт с копии текущих назначений Общего профиля.'
+        } else {
+            'The new profile starts as a copy of the current Global mappings.'
+        }
+        $pickerHint.ForeColor = [System.Drawing.Color]::DimGray
+        $pickerHint.Location = [System.Drawing.Point]::new(22, 52)
+        $pickerHint.Size = [System.Drawing.Size]::new(516, 30)
+        $picker.Controls.Add($pickerHint)
+
+        $pickerCombo = New-Object MugenDeejWindowing.MugenComboBox
+        $pickerCombo.DropDownStyle = 'DropDownList'
+        $pickerCombo.Location = [System.Drawing.Point]::new(22, 92)
+        $pickerCombo.Size = [System.Drawing.Size]::new(516, 30)
+        foreach ($processName in $runningProcesses) {
+            [void]$pickerCombo.Items.Add(('{0}  ({1}.exe)' -f (Get-FriendlyProcessName -ProcessName $processName), $processName))
+        }
+        $pickerCombo.SelectedIndex = 0
+        $picker.Controls.Add($pickerCombo)
+
+        $pickerCancel = New-Object MugenDeejWindowing.MugenButton
+        $pickerCancel.Text = Get-ButtonFeatureText -Key 'Cancel'
+        $pickerCancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+        $pickerCancel.Location = [System.Drawing.Point]::new(330, 164)
+        $pickerCancel.Size = [System.Drawing.Size]::new(100, 36)
+        $picker.Controls.Add($pickerCancel)
+
+        $pickerAdd = New-Object MugenDeejWindowing.MugenButton
+        $pickerAdd.Text = if ($script:Language -eq 'ru') { 'Добавить' } else { 'Add' }
+        $pickerAdd.Tag = 'MugenPrimary'
+        $pickerAdd.DialogResult = [System.Windows.Forms.DialogResult]::OK
+        $pickerAdd.Location = [System.Drawing.Point]::new(438, 164)
+        $pickerAdd.Size = [System.Drawing.Size]::new(100, 36)
+        $picker.Controls.Add($pickerAdd)
+
+        Apply-ThemeToForm -Form $picker -ThemeName (Get-EffectiveTheme)
+        $picker.Add_Shown({ Ensure-FormVisible -Form $picker -CenterIfOffscreen })
+        $picker.AcceptButton = $pickerAdd
+        $picker.CancelButton = $pickerCancel
+
+        $result = $picker.ShowDialog($settingsForm)
+        $chosen = if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+            [string]$runningProcesses[[int]$pickerCombo.SelectedIndex]
+        } else {
+            ''
+        }
+        $picker.Dispose()
+        return (Normalize-TargetName -Value $chosen)
+    }
+
+    & $captureCurrentProfileDraft
 
     $refreshAssignmentList = {
         $showAll = ($assignmentFilter.SelectedIndex -eq 1)
@@ -1239,6 +1500,43 @@ function Show-AdaptiveControlSettings {
     $row1Combo.Add_SelectedIndexChanged({ & $handleCombo $row1Combo $state.Map1 '1' })
     $row2Combo.Add_SelectedIndexChanged({ & $handleCombo $row2Combo $state.Map2 '2' })
     $row3Combo.Add_SelectedIndexChanged({ & $handleCombo $row3Combo $state.Map3 '3' })
+    $profileCombo.Add_SelectedIndexChanged({
+        if ($profileState.Suppress) { return }
+        $index = [int]$profileCombo.SelectedIndex
+        if ($index -lt 0 -or $index -ge $profileState.Map.Count) { return }
+
+        & $captureCurrentProfileDraft
+        & $loadProfileDraft ([string]$profileState.Map[$index])
+        & $refreshEditor
+        & $refreshAssignmentList
+    })
+    $addProfileButton.Add_Click({
+        & $captureCurrentProfileDraft
+        $processName = [string](& $showAddProfileDialog)
+        if ([string]::IsNullOrWhiteSpace($processName)) { return }
+
+        $existingProfile = & $findWorkingProfile $processName
+        if ($null -eq $existingProfile) {
+            $globalDraft = $profileDrafts['__global__']
+            $profile = [pscustomobject][ordered]@{
+                name = (Get-FriendlyProcessName -ProcessName $processName)
+                process = $processName
+                toggles = @(Copy-AdaptiveProfileToggles -Items @($globalDraft.toggles))
+                encoders = @(Copy-AdaptiveProfileEncoders -Items @($globalDraft.encoders))
+            }
+            [void]$workingProfiles.Add($profile)
+            $key = & $getProfileDraftKey $processName
+            $profileDrafts[$key] = [pscustomobject][ordered]@{
+                toggles = @(Copy-AdaptiveProfileToggles -Items @($profile.toggles))
+                encoders = @(Copy-AdaptiveProfileEncoders -Items @($profile.encoders))
+            }
+        }
+
+        & $populateProfileCombo $processName
+        & $loadProfileDraft $processName
+        & $refreshEditor
+        & $refreshAssignmentList
+    })
     $assignmentFilter.Add_SelectedIndexChanged({ & $refreshAssignmentList })
     $assignmentList.Add_SelectedIndexChanged({
         if ($assignmentList.SelectedItems.Count -eq 0) { return }
@@ -1250,20 +1548,38 @@ function Show-AdaptiveControlSettings {
     $cancel = New-Object MugenDeejWindowing.MugenButton
     $cancel.Text = Get-ButtonFeatureText -Key 'Cancel'
     $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-    $cancel.Location = [System.Drawing.Point]::new(580, 680)
+    $cancel.Location = [System.Drawing.Point]::new(580, 726)
     $cancel.Size = [System.Drawing.Size]::new(100, 36)
     $settingsForm.Controls.Add($cancel)
 
     $save = New-Object MugenDeejWindowing.MugenButton
     $save.Text = Get-ButtonFeatureText -Key 'Save'
     $save.Tag = 'MugenPrimary'
-    $save.Location = [System.Drawing.Point]::new(692, 680)
+    $save.Location = [System.Drawing.Point]::new(692, 726)
     $save.Size = [System.Drawing.Size]::new(106, 36)
     $settingsForm.Controls.Add($save)
     $save.Add_Click({
-        $script:AdaptiveToggleActions = @($pendingToggles)
-        $script:AdaptiveEncoderActions = @($pendingEncoders)
+        & $captureCurrentProfileDraft
+
+        $globalDraft = $profileDrafts['__global__']
+        $script:AdaptiveToggleActions = @(Copy-AdaptiveProfileToggles -Items @($globalDraft.toggles))
+        $script:AdaptiveEncoderActions = @(Copy-AdaptiveProfileEncoders -Items @($globalDraft.encoders))
         Save-AdaptiveActions
+
+        foreach ($profile in @($workingProfiles)) {
+            $key = & $getProfileDraftKey ([string]$profile.process)
+            if ($profileDrafts.ContainsKey($key)) {
+                $draft = $profileDrafts[$key]
+                $profile.toggles = @(Copy-AdaptiveProfileToggles -Items @($draft.toggles))
+                $profile.encoders = @(Copy-AdaptiveProfileEncoders -Items @($draft.encoders))
+            }
+        }
+
+        $script:AdaptiveProfiles = @($workingProfiles)
+        $script:AdaptiveProfilesLoaded = $true
+        Save-AdaptiveProfiles
+
+        Write-Log ('Adaptive profile settings saved: profiles={0}; selected={1}' -f @($script:AdaptiveProfiles).Count, $(if ([string]::IsNullOrWhiteSpace([string]$profileState.Process)) { 'Global' } else { [string]$profileState.Process + '.exe' })) 'INFO'
         $settingsForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
         $settingsForm.Close()
     })
@@ -1312,6 +1628,9 @@ function Show-AdaptiveControlSettings {
         }
         & $refreshSelectors
     })
+
+    & $populateProfileCombo ''
+    & $loadProfileDraft ''
 
     Apply-ThemeToForm -Form $settingsForm -ThemeName (Get-EffectiveTheme)
     $saveNotice.ForeColor = [System.Drawing.Color]::FromArgb(230, 170, 70)
