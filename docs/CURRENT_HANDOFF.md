@@ -497,6 +497,38 @@ The #61 first-run screenshot revealed an unintended gray rectangle inside the `�
 
 This is **CI PASS; visual real-machine check still required**.
 
+## Integrated #65 — retry the freshly reappeared COM after Windows hotplug race
+
+Workflow run:
+
+- run number: **#65**
+- run ID: `35365708384`
+- built code head: `84b27a8f5c4c886ab59e8f5bd1ec0e01207b764c`
+- result: **SUCCESS**
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-65`
+- artifact ID: `10556038509`
+- outer Actions digest: `sha256:40cd824b2e9fca49726db8d90f63f37c8e9d66d0c1c10e68749bf8d274f48d44`
+- inner program ZIP SHA-256: `c993cfa06e38c4efc229342226283c0902e835c0aa98d8327d9a30347cb81b41`
+- Windows PowerShell 5.1 parse/runtime marker check: PASS
+- launcher/package: PASS
+
+The first real-machine test of #61 reproduced the exact same-COM resume path, but exposed a Windows hotplug timing race:
+
+- after failed preserved-handle recovery, #61 correctly forgot COM14 and armed fresh detection;
+- ~650 ms later the Windows port enumeration reported COM14 as new;
+- Mugen immediately tried only COM14, but `SerialPort.Open()` still returned `Port 'COM14' does not exist`;
+- Device Manager already showed Arduino Uno (COM14), so Windows had published the device identity before the COM endpoint was fully openable;
+- because the one fresh attempt failed, resume suppression remained active and the wizard stayed on `Жду контроллер...`.
+
+#65 adds one short second chance only for this resume-hotplug case:
+
+- `ResumeHotplugRetrySeconds = 2`;
+- if the freshly reappeared preferred resume port is detected but the immediate targeted open fails, Mugen schedules one more targeted attempt two seconds later;
+- that delayed attempt reuses the existing resume-reconnect path, which ignores the temporary probe cooldown and only touches the preferred COM port;
+- if the second attempt also fails, normal suppression remains, so there is still no repeated COM hammering.
+
+This is **CI PASS; real-machine retest required**. Reproduce hibernate -> unplug Arduino -> resume -> wait for `Жду контроллер...` -> reconnect Arduino on COM14 and do not press diagnostics. Expected log sequence after the first too-early open failure includes `scheduling one targeted retry in 2 s`, followed by a successful COM14/115200 detection.
+
 ## Backup rule
 
 Backups are universal Mugen Deej settings snapshots, not controller-specific files. A backup made with one topology may be restored while a different topology or no controller is connected.
@@ -519,7 +551,7 @@ Nonblocking teardown has CI coverage but its final real-hardware re-test remains
 
 ## Immediate next work
 
-Hardware-review Integrated #63. The #59 hibernation/resume first-run wizard crash fix is real-machine PASS on both preserve-success and preserve-failure paths. #61 still needs one explicit same-COM replug test after a failed preserve, and #63 needs a visual check that the first-run controller card no longer has the unintended gray inner rectangle. Then exercise the #57 mouse-wheel actions on a real encoder. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
+Hardware-review Integrated #65. The #59 hibernation/resume first-run wizard crash fix is real-machine PASS. #61's same-COM replug detection was reached on hardware but hit a Windows hotplug timing race: COM14 appeared in enumeration before SerialPort.Open could use it. #65 adds one 2-second targeted retry and now needs the same hibernate/unplug/resume/replug test with no manual diagnostics click. #63 also still needs a quick visual check that the first-run controller card no longer has the unintended gray inner rectangle. Then exercise the #57 mouse-wheel actions on a real encoder. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
 
 ## Working rules
 
