@@ -284,13 +284,13 @@ jobs:
           if ($runtimeText -notmatch '\$waitingPanel\.Visible = \$true') {
             throw 'Development runtime is missing the first-run waiting panel.'
           }
-          if ($runtimeText -notmatch "\$connectedDetailsPanel.Tag = 'MugenCardInner'") {
+          if ($runtimeText -notmatch '\$connectedDetailsPanel\.Tag = ''MugenCardInner''') {
             throw 'Development runtime is missing the card-inner theme tag on connected first-run details.'
           }
-          if ($runtimeText -notmatch "\$waitingPanel.Tag = 'MugenCardInner'") {
+          if ($runtimeText -notmatch '\$waitingPanel\.Tag = ''MugenCardInner''') {
             throw 'Development runtime is missing the card-inner theme tag on waiting first-run details.'
           }
-          if ($runtimeText -notmatch "\[string\]\$Control.Tag -eq 'MugenCardInner'") {
+          if ($runtimeText -notmatch '\[string\]\$Control\.Tag -eq ''MugenCardInner''') {
             throw 'Development runtime does not preserve the Mugen card surface for tagged inner panels.'
           }
           if ($runtimeText -match 'foreach \(\$control in @\(\$portName, \$portValue, \$protocolName') {
