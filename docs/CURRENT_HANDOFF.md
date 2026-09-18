@@ -629,6 +629,76 @@ The Adaptive fixture itself defines D7 only as the first encoder's synthetic CCW
 
 Real-machine runtime-loss retest is now **PASS**. Two separate disconnect/replug cycles on COM14 recovered automatically without using diagnostics/manual reconnect. In each case the first immediate targeted open could hit Windows' transient `Port 'COM14' does not exist` state, then the next targeted retry opened COM14, detected Adaptive v3 5/29/2/1 at 115200, and restored the controller. After recovery, encoder CCW/CW movement, encoder push press/release, and both toggles continued producing valid live events.
 
+## Integrated #79 — typed-action summary + user-facing encoder help
+
+Workflow run:
+
+- run number: **#79**
+- run ID: `35374426906`
+- built code head: `b5a52c3e315999d442d47864f1b0a7a355d12473`
+- result: **SUCCESS**
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-79`
+- artifact ID: `10558854378`
+- outer Actions digest: `sha256:108b430b03729e53c653322d5533b9dfffc4e2d16cd2c203fa58c56597327922`
+- inner program ZIP SHA-256: `13ff44a6bedcff28e875c1d2036d89c0674dc55ad65c7c1fa2715afa72034f44`
+- Windows PowerShell 5.1 parse/runtime marker check: PASS
+- launcher/package: PASS
+
+User review of #75 found a usability mismatch: button settings had a summary list of assignments, while toggle/encoder settings required opening each control individually to remember what was mapped. The encoder help text was also written in implementation language (detent, serial packet recovery, 32-action packet cap) that was useful for development but not for ordinary users.
+
+#79 changes:
+
+- toggle/encoder settings now include an assignment summary table with columns for control, event, and action;
+- the summary defaults to assigned actions only and can switch to all available action slots;
+- a counter shows assigned slots versus total available slots;
+- action names in the summary use the same user-facing labels as the action selectors, including mouse-wheel actions and configured hotkeys/files/folders/commands/URLs;
+- the technical encoder paragraph is replaced with a simple explanation: each encoder step runs the selected action once, and the dot means the encoder can also be pressed;
+- the main typed-settings hint is rewritten in plain language;
+- the dialog is taller to make room for the summary without compressing the editor.
+
+The first implementation attempt (#77) corrupted the staged patch because JavaScript string replacement interpreted PowerShell regex text ending in `
+Backups are universal Mugen Deej settings snapshots, not controller-specific files. A backup made with one topology may be restored while a different topology or no controller is connected.
+
+Rules:
+
+- live hardware discovery decides which controls currently exist;
+- saved mappings for absent controls stay dormant instead of fabricating UI or being deleted;
+- a smaller attached controller must not truncate a larger saved mapping set;
+- future topology metadata in a newer backup schema is informational/warning data, not a hard restore lock;
+- existing emergency pre-restore backup and rollback behavior remains required.
+
+See `docs/BACKUP_COMPATIBILITY.md`.
+
+## Virtual Xbox integration
+
+The optional HIDMaestro-backed Xbox/XInput path remains staged. Previously hardware-proven items include device creation, joy.cpl visibility, neutral axes, button press/hold/release, simultaneous combinations, mapping persistence, nonblocking startup, bilingual status, and real-game recognition in Cult of the Lamb.
+
+Nonblocking teardown has CI coverage but its final real-hardware re-test remains pending; do not silently mark that item PASS.
+
+## Immediate next work
+
+Hardware-review Integrated #75. The #59 first-run wizard resume crash fix, #69 card-surface fix, #73 hibernate/unplug/resume/same-COM reconnect path, and #75 ordinary runtime serial-loss/same-COM automatic recovery are all real-machine PASS. After recovery, encoder CW/CCW, encoder push, and both toggles remain live. Next exercise the #57 mouse-wheel mapped actions on the encoder. Backup schema v2 restore still requires an explicit real-machine test.
+
+## Working rules
+
+- Stable `main` stays untouched until feature work is hardware-proven.
+- CI/code inspection is not a hardware PASS.
+- Preserve Legacy and Extended behavior.
+- Adaptive controls remain first-class types; do not flatten toggles/encoders into fake momentary buttons.
+- Do not hardcode 5/29/2/1 into generic Adaptive behavior.
+- For any build-triggering change: wait for the workflow result, fix/rebuild if red, then hand the ready inner program ZIP directly rather than making the tester hunt through Actions.
+- Keep this handoff current after meaningful code, CI, UI, or hardware observations.
+`; #78 rebuilt the patch safely but its new Cyrillic CI literals were not Windows PowerShell 5.1-safe in the workflow command encoding. #79 uses ASCII-safe CI checks and is fully green.
+
+Mouse-wheel action hardware status is now **PASS** based on the user's #75 test session:
+
+- ordinary vertical wheel up/down actions fired from encoder CW/CCW;
+- native horizontal wheel left/right actions fired from encoder CW/CCW;
+- Ctrl + wheel up/down fired from encoder CW/CCW;
+- the user confirmed scrolling and Ctrl+scroll behavior worked in practice.
+
+Real-machine visual review of the new typed assignment table is still required.
+
 ## Backup rule
 
 Backups are universal Mugen Deej settings snapshots, not controller-specific files. A backup made with one topology may be restored while a different topology or no controller is connected.
