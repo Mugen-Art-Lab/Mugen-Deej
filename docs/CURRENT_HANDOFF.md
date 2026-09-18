@@ -555,6 +555,42 @@ The transparent-panel attempt from #63 did not visually remove the gray inner re
 
 Real-machine visual check is now **PASS**: the first-run `Ваш контроллер / Your controller` card renders as one continuous surface with no unintended gray inner rectangle.
 
+## Integrated #73 — persistent targeted reconnect after resume
+
+Workflow run:
+
+- run number: **#73**
+- run ID: `35368593829`
+- built code head: `b317c87c611cf09385b0b1c3c96f340e863f0701`
+- result: **SUCCESS**
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-73`
+- artifact ID: `10556434630`
+- outer Actions digest: `sha256:dd5c37d060a389d0ac0e82b1ff473b5f962b2cb8d09b147275b108c468f9ae08`
+- inner program ZIP SHA-256: `e0fd65a59a803cdb1a02f409dd0b2f5231e880470557c404cc362ee33ad15f00`
+- Windows PowerShell 5.1 parse/runtime marker check: PASS
+- launcher/package: PASS
+
+The #69/#65 real-machine hibernate test showed that one delayed retry was still insufficient. The log sequence was:
+
+- preserved COM14 handle failed after the 15 s resume grace period;
+- fresh COM14 enumeration was noticed;
+- immediate targeted open failed with `Port 'COM14' does not exist`;
+- the scheduled +2 s targeted retry also failed with the same Windows IO error;
+- Mugen then suppressed automatic reconnect indefinitely and remained on `Жду контроллер...`, even after the user physically replugged USB several times.
+
+#73 changes the recovery policy:
+
+- first, keep the fast targeted retry cadence every 2 s for a short readiness window;
+- after that fast window expires, do **not** suppress forever;
+- continue a low-frequency targeted retry every 10 s, only against the previously working COM port;
+- no broad COM scanning is added;
+- any manual reconnect action cancels the pending resume retry schedule;
+- success clears the resume retry state immediately.
+
+This deliberately favors eventual recovery over a permanent stale waiting state. The low-frequency phase exists specifically for Windows cases where the COM name remains enumerated while the underlying endpoint is not yet openable, or where unplug/replug reuses the same COM identity without producing a useful port-list edge.
+
+This is **CI PASS; real-machine retest required** with hibernate -> unplug Arduino -> resume -> wait for disconnected state -> replug Arduino and do not touch diagnostics. Expected behavior: even if the first few opens fail, Mugen keeps trying COM14 and eventually reconnects automatically once Windows makes the endpoint usable.
+
 ## Backup rule
 
 Backups are universal Mugen Deej settings snapshots, not controller-specific files. A backup made with one topology may be restored while a different topology or no controller is connected.
@@ -577,7 +613,7 @@ Nonblocking teardown has CI coverage but its final real-hardware re-test remains
 
 ## Immediate next work
 
-Hardware-review Integrated #69. The #59 hibernation/resume first-run wizard crash fix is real-machine PASS, and the #69 first-run card surface fix is real-machine visual PASS. #65 resume-hotplug retry still needs the hibernate/unplug/resume/replug test with no manual diagnostics click. Then exercise the #57 mouse-wheel actions on a real encoder. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
+Hardware-review Integrated #73. The #59 hibernation/resume first-run wizard crash fix is real-machine PASS, and the #69 first-run card surface fix is real-machine visual PASS. #65's one-shot post-hotplug retry was insufficient on hardware, so #73 now keeps targeted COM14 recovery alive at low frequency instead of suppressing forever. Re-run hibernate/unplug/resume/replug with no manual diagnostics click. Then exercise the #57 mouse-wheel actions on a real encoder. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
 
 ## Working rules
 
