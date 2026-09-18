@@ -353,8 +353,14 @@ jobs:
           if ($runtimeText -notmatch 'function Get-AdaptiveActionDisplay') {
             throw 'Development runtime is missing typed-action display formatting.'
           }
-          if ($runtimeText -notmatch 'Assigned: \{0\} of \{1\}') {
+          if ($runtimeText -notmatch 'Assignments: \{0\} of \{1\}') {
             throw 'Development runtime is missing the typed-action assignment summary.'
+          }
+          if ($runtimeText -notmatch 'All mappings') {
+            throw 'Development runtime is missing the typed-action mapping filter.'
+          }
+          if ($runtimeText -notmatch 'System.Windows.Forms.ListView') {
+            throw 'Development runtime is missing the ListView-based typed assignment summary.'
           }
           if ($runtimeText -notmatch 'Each encoder step runs the assigned action once') {
             throw 'Development runtime is missing the user-facing encoder help copy.'
