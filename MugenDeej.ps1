@@ -2949,6 +2949,7 @@ $script:ResumeReconnectAt = [DateTime]::MinValue
 $script:ResumePreferredPort = ''
 $script:ResumeAutoReconnectSuppressed = $false
 $script:ResumeReconnectDelaySeconds = 15
+$script:ResumeHotplugRetrySeconds = 2
 $script:ResumePreserveUntil = [DateTime]::MinValue
 $script:ResumePreserveStartedAt = [DateTime]::MinValue
 $script:ResumePreserveFirstErrorLogged = $false
@@ -10207,7 +10208,23 @@ $timer.Add_Tick({
             $script:ResumeAutoReconnectSuppressed = $false
         }
         elseif ($resumeSuppressionWasActive) {
-            $script:ResumeAutoReconnectSuppressed = $true
+            $preferredPort = [string]$script:ResumePreferredPort
+            if (
+                -not [string]::IsNullOrWhiteSpace($preferredPort) -and
+                $candidatePorts -contains $preferredPort
+            ) {
+                # Windows can publish the COM device before CreateFile/Open is
+                # actually ready. Give the same freshly appeared resume port
+                # one short second chance; the existing delayed-resume branch
+                # ignores probe cooldowns for this targeted retry.
+                $retrySeconds = [int]$script:ResumeHotplugRetrySeconds
+                $script:ResumeReconnectAt = (Get-Date).AddSeconds($retrySeconds)
+                $script:ResumeAutoReconnectSuppressed = $true
+                Write-Log ("Fresh resume port {0} appeared but was not ready to open; scheduling one targeted retry in {1} s" -f $preferredPort, $retrySeconds) 'WARN'
+            }
+            else {
+                $script:ResumeAutoReconnectSuppressed = $true
+            }
         }
     }
 
