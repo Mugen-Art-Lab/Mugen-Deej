@@ -1826,7 +1826,7 @@ function Show-FirstRunWizard {
     $wizard.Controls.Add($intro)
 
     $capabilityGroup = New-Object MugenDeejWindowing.MugenGroupBox
-    $capabilityGroup.Text = if ($script:Language -eq 'ru') { 'Подключённый контроллер' } else { 'Connected controller' }
+    $capabilityGroup.Text = if ($script:Language -eq 'ru') { 'Ваш контроллер' } else { 'Your controller' }
     $capabilityGroup.Location = New-Object System.Drawing.Point(24, 140)
     $capabilityGroup.Size = New-Object System.Drawing.Size(612, 112)
     $wizard.Controls.Add($capabilityGroup)
@@ -1911,10 +1911,10 @@ function Show-FirstRunWizard {
 
         if ($connected) {
             $intro.Text = if ($ru) {
-                'Mugen Deej уже определил подключённый контроллер. Проверьте его органы управления — состояние видно в главном окне. Ниже доступны только настройки тех типов, которые реально есть в устройстве.'
+                'Контроллер найден и готов к работе. Подвигайте крутилки, нажмите кнопки или переключатели — в главном окне сразу видно, что Mugen получает от устройства.'
             }
             else {
-                'Mugen Deej has already identified the connected controller. Operate its physical controls and watch their state in the main window. Only settings for control families that actually exist are offered below.'
+                'Your controller is connected and ready. Turn a knob, press a button, or flip a switch — the main window will show what Mugen is receiving from it.'
             }
 
             $port = if ([string]::IsNullOrWhiteSpace($script:ConnectedPort)) { '—' } else { $script:ConnectedPort }
@@ -1931,39 +1931,39 @@ function Show-FirstRunWizard {
             $connectionLabel.ForeColor = [System.Drawing.Color]::SeaGreen
 
             $capabilityLabel.Text = if ($ru) {
-                '{0} регуляторов · {1} кнопок · {2} тумблеров · {3} энкодеров' -f $sliders, $buttons, $toggles, $encoders
+                'Доступно: {0} регуляторов · {1} кнопок · {2} тумблеров · {3} энкодеров' -f $sliders, $buttons, $toggles, $encoders
             }
             else {
-                '{0} controls · {1} buttons · {2} toggles · {3} encoders' -f $sliders, $buttons, $toggles, $encoders
+                'Available: {0} controls · {1} buttons · {2} toggles · {3} encoders' -f $sliders, $buttons, $toggles, $encoders
             }
 
             $nextHint.Text = if ($ru) {
-                'Можно сразу открыть нужную настройку или закрыть подсказку и вернуться к ней позже из главного окна.'
+                'Хотите — настройте нужные элементы сейчас. Не хотите — закройте подсказку и вернитесь к настройкам позже.'
             }
             else {
-                'You can configure one of the available control families now, or close this guide and return to settings later from the main window.'
+                'Configure what you need now, or close this guide and come back to the settings later.'
             }
         }
         else {
             $intro.Text = if ($ru) {
-                'Подключите контроллер к USB. Mugen Deej автоматически определит протокол и доступные органы управления; подсказка обновится после подключения.'
+                'Подключите контроллер по USB. Mugen сам найдёт его и покажет, какие элементы управления доступны.'
             }
             else {
-                'Connect the controller by USB. Mugen Deej will automatically detect its protocol and available physical controls; this guide will update after connection.'
+                'Connect your controller by USB. Mugen will find it automatically and show which controls are available.'
             }
-            $connectionLabel.Text = if ($ru) { 'Контроллер пока не найден' } else { 'Controller not found yet' }
+            $connectionLabel.Text = if ($ru) { 'Жду контроллер…' } else { 'Waiting for controller…' }
             $connectionLabel.ForeColor = [System.Drawing.Color]::DarkOrange
             $capabilityLabel.Text = if ($ru) {
-                'Настройки появятся после определения контроллера.'
+                'После подключения здесь появится состав контроллера.'
             }
             else {
-                'Configuration shortcuts will appear after the controller is detected.'
+                'The controller layout will appear here after it connects.'
             }
             $nextHint.Text = if ($ru) {
-                'Можно оставить это окно открытым и подключить USB сейчас.'
+                'Можно оставить это окно открытым — оно обновится автоматически.'
             }
             else {
-                'You can leave this window open and connect USB now.'
+                'You can leave this window open — it will update automatically.'
             }
         }
 
