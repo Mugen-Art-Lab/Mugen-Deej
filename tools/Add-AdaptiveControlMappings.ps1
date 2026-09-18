@@ -2326,6 +2326,11 @@ function Read-MugenDeejBackupFile {
         if ($null -eq $data.PSObject.Properties['adaptiveActions'] -or $null -eq $data.adaptiveActions) { throw 'Backup v2 does not contain Adaptive actions.' }
         if ($null -eq $data.adaptiveActions.PSObject.Properties['version'] -or [int]$data.adaptiveActions.version -ne 1) { throw 'Unsupported Adaptive action schema in backup.' }
         if ($null -eq $data.adaptiveActions.PSObject.Properties['toggles'] -or $null -eq $data.adaptiveActions.PSObject.Properties['encoders']) { throw 'Backup Adaptive action payload is incomplete.' }
+
+        if ($null -ne $data.PSObject.Properties['adaptiveProfiles'] -and $null -ne $data.adaptiveProfiles) {
+            if ($null -eq $data.adaptiveProfiles.PSObject.Properties['version'] -or [int]$data.adaptiveProfiles.version -ne 1) { throw 'Unsupported Adaptive application-profile schema in backup.' }
+            if ($null -eq $data.adaptiveProfiles.PSObject.Properties['profiles']) { throw 'Backup Adaptive application-profile list is missing.' }
+        }
     }
     return $data
 }
@@ -2341,11 +2346,22 @@ $backupSnapshot = @'
 function New-MugenDeejBackupSnapshot {
     Initialize-ButtonActions
     Initialize-AdaptiveActions
+    Initialize-AdaptiveProfiles
 
     $configClone = $script:Config | ConvertTo-Json -Depth 12 | ConvertFrom-Json
     $actions = @($script:ButtonActions | ForEach-Object { [string]$_ })
     $typedToggles = @($script:AdaptiveToggleActions | ForEach-Object { [pscustomobject][ordered]@{ on = [string]$_.on; off = [string]$_.off } })
     $typedEncoders = @($script:AdaptiveEncoderActions | ForEach-Object { [pscustomobject][ordered]@{ cw = [string]$_.cw; ccw = [string]$_.ccw; push = [string]$_.push } })
+    $typedProfiles = @(
+        $script:AdaptiveProfiles | ForEach-Object {
+            [pscustomobject][ordered]@{
+                name = [string]$_.name
+                process = [string]$_.process
+                toggles = @(Copy-AdaptiveProfileToggles -Items @($_.toggles))
+                encoders = @(Copy-AdaptiveProfileEncoders -Items @($_.encoders))
+            }
+        }
+    )
 
     return [pscustomobject][ordered]@{
         format = 'MugenDeejBackup'
@@ -2362,6 +2378,7 @@ function New-MugenDeejBackupSnapshot {
         config = $configClone
         buttonActions = [pscustomobject][ordered]@{ version = 1; actions = @($actions) }
         adaptiveActions = [pscustomobject][ordered]@{ version = 1; toggles = @($typedToggles); encoders = @($typedEncoders) }
+        adaptiveProfiles = [pscustomobject][ordered]@{ version = 1; profiles = @($typedProfiles) }
     }
 }
 
@@ -2434,9 +2451,30 @@ function Restore-MugenDeejBackupInteractive {
             $script:AdaptiveToggleActions = @($restoredToggles)
             $script:AdaptiveEncoderActions = @($restoredEncoders)
             $script:AdaptiveActionsLoaded = $true
+
+            if ($null -ne $backup.PSObject.Properties['adaptiveProfiles'] -and $null -ne $backup.adaptiveProfiles) {
+                $restoredProfiles = @()
+                foreach ($profile in @($backup.adaptiveProfiles.profiles)) {
+                    $processName = Normalize-TargetName -Value ([string]$profile.process)
+                    if ([string]::IsNullOrWhiteSpace($processName)) { continue }
+                    $restoredProfiles += [pscustomobject][ordered]@{
+                        name = [string]$profile.name
+                        process = $processName
+                        toggles = @(Copy-AdaptiveProfileToggles -Items @($profile.toggles))
+                        encoders = @(Copy-AdaptiveProfileEncoders -Items @($profile.encoders))
+                    }
+                }
+                $script:AdaptiveProfiles = @($restoredProfiles)
+                $script:AdaptiveProfilesLoaded = $true
+                Save-AdaptiveProfiles
+                Write-Log ('Adaptive application profiles restored from backup: {0}' -f @($restoredProfiles).Count) 'INFO'
+            }
+            else {
+                Write-Log 'Restored older backup schema v2 without application profiles; current application profiles were preserved.' 'INFO'
+            }
         }
         else {
-            Write-Log 'Restored backup schema v1: current Adaptive mappings were preserved because v1 did not contain that setting family.' 'INFO'
+            Write-Log 'Restored backup schema v1: current Adaptive mappings and application profiles were preserved because v1 did not contain those setting families.' 'INFO'
         }
 
         $script:Config = $restoredConfig
@@ -2473,6 +2511,24 @@ function Restore-MugenDeejBackupInteractive {
             $script:AdaptiveToggleActions = @($rollbackToggles)
             $script:AdaptiveEncoderActions = @($rollbackEncoders)
             $script:AdaptiveActionsLoaded = $true
+
+            if ($null -ne $rollback.PSObject.Properties['adaptiveProfiles'] -and $null -ne $rollback.adaptiveProfiles) {
+                $rollbackProfiles = @()
+                foreach ($profile in @($rollback.adaptiveProfiles.profiles)) {
+                    $processName = Normalize-TargetName -Value ([string]$profile.process)
+                    if ([string]::IsNullOrWhiteSpace($processName)) { continue }
+                    $rollbackProfiles += [pscustomobject][ordered]@{
+                        name = [string]$profile.name
+                        process = $processName
+                        toggles = @(Copy-AdaptiveProfileToggles -Items @($profile.toggles))
+                        encoders = @(Copy-AdaptiveProfileEncoders -Items @($profile.encoders))
+                    }
+                }
+                $script:AdaptiveProfiles = @($rollbackProfiles)
+                $script:AdaptiveProfilesLoaded = $true
+                Save-AdaptiveProfiles
+            }
+
             Write-Log 'Rollback after failed restore completed successfully.' 'WARN'
         }
         catch { Write-Log ('Rollback after failed restore also failed: {0}' -f $_.Exception.Message) 'ERROR' }
