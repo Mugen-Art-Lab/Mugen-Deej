@@ -416,28 +416,166 @@ function Ensure-AdaptiveActionCapacity {
     $script:AdaptiveEncoderActions = @($encoders)
 }
 
-function Save-AdaptiveActions {
-    Write-AdaptiveActionConfigFile `
-        -Path $script:AdaptiveActionConfigPath `
-        -Toggles @($script:AdaptiveToggleActions) `
-        -Encoders @($script:AdaptiveEncoderActions)
+function Copy-AdaptiveProfileToggles {
+    param([object[]]$Items)
+    $copy = @()
+    foreach ($item in @($Items)) {
+        $copy += [pscustomobject][ordered]@{
+            on = ConvertTo-SafeAdaptiveAction -Action ([string]$item.on)
+            off = ConvertTo-SafeAdaptiveAction -Action ([string]$item.off)
+        }
+    }
+    return ,$copy
+}
 
+function Copy-AdaptiveProfileEncoders {
+    param([object[]]$Items)
+    $copy = @()
+    foreach ($item in @($Items)) {
+        $copy += [pscustomobject][ordered]@{
+            cw = ConvertTo-SafeAdaptiveAction -Action ([string]$item.cw)
+            ccw = ConvertTo-SafeAdaptiveAction -Action ([string]$item.ccw)
+            push = ConvertTo-SafeAdaptiveAction -Action ([string]$item.push)
+        }
+    }
+    return ,$copy
+}
+
+function Initialize-AdaptiveProfiles {
+    if ($script:AdaptiveProfilesLoaded) { return }
+    $script:AdaptiveProfilesLoaded = $true
+    $script:AdaptiveProfiles = @()
+
+    if (-not (Test-Path -LiteralPath $script:AdaptiveProfileConfigPath -PathType Leaf)) { return }
+
+    try {
+        $data = Get-Content -LiteralPath $script:AdaptiveProfileConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($null -eq $data -or $null -eq $data.PSObject.Properties['version'] -or [int]$data.version -ne 1) {
+            throw 'Unsupported or missing Adaptive profile configuration version.'
+        }
+
+        $profiles = @()
+        foreach ($raw in @($data.profiles)) {
+            if ($null -eq $raw) { continue }
+            $processName = Normalize-TargetName -Value ([string]$raw.process)
+            if ([string]::IsNullOrWhiteSpace($processName)) { continue }
+
+            $name = [string]$raw.name
+            if ([string]::IsNullOrWhiteSpace($name)) { $name = Get-FriendlyProcessName -ProcessName $processName }
+
+            $profiles += [pscustomobject][ordered]@{
+                name = $name
+                process = $processName
+                toggles = @(Copy-AdaptiveProfileToggles -Items @($raw.toggles))
+                encoders = @(Copy-AdaptiveProfileEncoders -Items @($raw.encoders))
+            }
+        }
+        $script:AdaptiveProfiles = @($profiles)
+        Write-Log ('Adaptive application profiles loaded: {0}' -f $script:AdaptiveProfiles.Count) 'INFO'
+    }
+    catch {
+        $script:AdaptiveProfiles = @()
+        Write-Log ('Failed to load Adaptive application profiles: {0}' -f $_.Exception.Message) 'WARN'
+    }
+}
+
+function Save-AdaptiveProfiles {
+    Initialize-AdaptiveProfiles
+
+    $profiles = @()
+    foreach ($profile in @($script:AdaptiveProfiles)) {
+        $profiles += [pscustomobject][ordered]@{
+            name = [string]$profile.name
+            process = Normalize-TargetName -Value ([string]$profile.process)
+            toggles = @(Copy-AdaptiveProfileToggles -Items @($profile.toggles))
+            encoders = @(Copy-AdaptiveProfileEncoders -Items @($profile.encoders))
+        }
+    }
+
+    $payload = [pscustomobject][ordered]@{ version = 1; profiles = @($profiles) }
+    $tempPath = $script:AdaptiveProfileConfigPath + '.tmp-' + $PID
+
+    try {
+        $json = $payload | ConvertTo-Json -Depth 10
+        [System.IO.File]::WriteAllText($tempPath, $json, (New-Object System.Text.UTF8Encoding($false)))
+        $verify = Get-Content -LiteralPath $tempPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($null -eq $verify -or [int]$verify.version -ne 1) { throw 'Adaptive profile verification failed.' }
+
+        if (Test-Path -LiteralPath $script:AdaptiveProfileConfigPath) {
+            try { [System.IO.File]::Replace($tempPath, $script:AdaptiveProfileConfigPath, $null, $true) }
+            catch {
+                Copy-Item -LiteralPath $tempPath -Destination $script:AdaptiveProfileConfigPath -Force
+                Remove-Item -LiteralPath $tempPath -Force
+            }
+        }
+        else {
+            [System.IO.File]::Move($tempPath, $script:AdaptiveProfileConfigPath)
+        }
+    }
+    catch {
+        if (Test-Path -LiteralPath $tempPath) { Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue }
+        throw
+    }
+}
+
+function Get-AdaptiveProfileForProcess {
+    param([AllowEmptyString()][string]$ProcessName)
+
+    Initialize-AdaptiveProfiles
+    $normalized = Normalize-TargetName -Value $ProcessName
+    if ([string]::IsNullOrWhiteSpace($normalized)) { return $null }
+
+    foreach ($profile in @($script:AdaptiveProfiles)) {
+        if ((Normalize-TargetName -Value ([string]$profile.process)) -ieq $normalized) { return $profile }
+    }
+    return $null
+}
+
+function Get-ForegroundAdaptiveProfile {
+    Initialize-AdaptiveProfiles
+
+    try {
+        $processName = Normalize-TargetName -Value ([MugenDeejWindowing.Foreground]::GetForegroundProcessName())
+        if ([string]::IsNullOrWhiteSpace($processName)) { return $null }
+
+        $selfName = Normalize-TargetName -Value ([System.Diagnostics.Process]::GetCurrentProcess().ProcessName)
+        if ($processName -ieq $selfName -or $processName -ieq 'powershell' -or $processName -ieq 'pwsh') {
+            return $null
+        }
+
+        return Get-AdaptiveProfileForProcess -ProcessName $processName
+    }
+    catch {
+        return $null
+    }
+}
+
+function Save-AdaptiveActions {
+    Write-AdaptiveActionConfigFile -Path $script:AdaptiveActionConfigPath -Toggles @($script:AdaptiveToggleActions) -Encoders @($script:AdaptiveEncoderActions)
     Write-Log ('Adaptive actions saved: toggles={0}; encoders={1}' -f @($script:AdaptiveToggleActions).Count, @($script:AdaptiveEncoderActions).Count) 'INFO'
 }
 
 function Get-AdaptiveToggleMappedAction {
     param([int]$Index, [int]$State)
+
     Initialize-AdaptiveActions
-    if ($Index -lt 0 -or $Index -ge @($script:AdaptiveToggleActions).Count) { return 'none' }
-    if ($State -eq 1) { return ConvertTo-SafeAdaptiveAction -Action ([string]$script:AdaptiveToggleActions[$Index].on) }
-    return ConvertTo-SafeAdaptiveAction -Action ([string]$script:AdaptiveToggleActions[$Index].off)
+    $profile = Get-ForegroundAdaptiveProfile
+    $source = if ($null -ne $profile) { @($profile.toggles) } else { @($script:AdaptiveToggleActions) }
+
+    if ($Index -lt 0 -or $Index -ge $source.Count) { return 'none' }
+    if ($State -eq 1) { return ConvertTo-SafeAdaptiveAction -Action ([string]$source[$Index].on) }
+    return ConvertTo-SafeAdaptiveAction -Action ([string]$source[$Index].off)
 }
 
 function Get-AdaptiveEncoderMappedAction {
     param([int]$Index, [ValidateSet('cw','ccw','push')][string]$Kind)
+
     Initialize-AdaptiveActions
-    if ($Index -lt 0 -or $Index -ge @($script:AdaptiveEncoderActions).Count) { return 'none' }
-    return ConvertTo-SafeAdaptiveAction -Action ([string]$script:AdaptiveEncoderActions[$Index].$Kind)
+    $profile = Get-ForegroundAdaptiveProfile
+    $source = if ($null -ne $profile) { @($profile.encoders) } else { @($script:AdaptiveEncoderActions) }
+
+    if ($Index -lt 0 -or $Index -ge $source.Count) { return 'none' }
+    return ConvertTo-SafeAdaptiveAction -Action ([string]$source[$Index].$Kind)
 }
 
 function Invoke-AdaptiveMappedAction {
