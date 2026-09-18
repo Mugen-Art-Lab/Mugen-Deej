@@ -1697,8 +1697,6 @@ function Show-FirstRunWizard {
     $wizard.Controls.Add($laterButton)
 
     $wizardChoice = [pscustomobject]@{ Value = '' }
-    $lastLayoutKey = ''
-
     $finishWizard = {
         if (-not [bool]$script:Config.app.firstRunCompleted) {
             $script:Config.app.firstRunCompleted = $true
@@ -1785,11 +1783,7 @@ function Show-FirstRunWizard {
         $buttonButton.Visible = ($connected -and $buttons -gt 0)
         $typedButton.Visible = ($connected -and ($toggles -gt 0 -or $encoders -gt 0))
 
-        $layoutKey = '{0}:{1}:{2}' -f $sliderButton.Visible, $buttonButton.Visible, $typedButton.Visible
-        if ($layoutKey -ne $lastLayoutKey) {
-            $script:lastFirstRunLayoutKey = $layoutKey
-            & $layoutButtons
-        }
+        & $layoutButtons
     }
 
     $laterButton.Add_Click({
