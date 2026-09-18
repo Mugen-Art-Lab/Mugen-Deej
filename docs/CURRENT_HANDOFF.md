@@ -476,6 +476,27 @@ Root cause: failed resume intentionally enabled `ResumeAutoReconnectSuppressed` 
 
 This is **CI PASS; real-machine same-COM replug retest still required**. Reproduce the failed-preserve branch, leave the first-run wizard open, unplug/replug the Arduino so Windows gives it COM14 again, and do not press manual reconnect. Expected result: Mugen should detect COM14 automatically and the wizard should leave `Жду контроллер...` on its own.
 
+## Integrated #63 — remove first-run inner gray fill
+
+Workflow run:
+
+- run number: **#63**
+- run ID: `35365077964`
+- built code head: `7529db0da6467e08d8a52e4972e9b230f01d899b`
+- result: **SUCCESS**
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-63`
+- artifact ID: `10556445112`
+- outer Actions digest: `sha256:49aef880d2c71f76713502d94784a6104512c31e6f1810853ebfead7ae0ea5be`
+- inner program ZIP SHA-256: `856c0bef7950955662ceb3b9fe0ab661cdfcd7bb72294f4176b8531a36a87d3e`
+- Windows PowerShell 5.1 parse/runtime marker check: PASS
+- launcher/package: PASS
+
+The #61 first-run screenshot revealed an unintended gray rectangle inside the `Ваш контроллер / Your controller` card. This was not a design choice: #59 introduced standard WinForms child panels to make connected/waiting state switching atomic, but those panels kept their default opaque Control background.
+
+#63 sets both the connected-details and waiting-state child panels to transparent so the underlying Mugen card paints the whole area consistently while preserving the atomic resume/disconnect switching introduced in #59.
+
+This is **CI PASS; visual real-machine check still required**.
+
 ## Backup rule
 
 Backups are universal Mugen Deej settings snapshots, not controller-specific files. A backup made with one topology may be restored while a different topology or no controller is connected.
@@ -498,7 +519,7 @@ Nonblocking teardown has CI coverage but its final real-hardware re-test remains
 
 ## Immediate next work
 
-Hardware-review Integrated #61. The #59 hibernation/resume first-run wizard crash fix is real-machine PASS on both preserve-success and preserve-failure paths. #61 now needs one explicit same-COM replug test after a failed preserve: COM14 should reconnect automatically without using the diagnostics button, and the first-run wizard should leave its waiting state. Then exercise the #57 mouse-wheel actions on a real encoder. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
+Hardware-review Integrated #63. The #59 hibernation/resume first-run wizard crash fix is real-machine PASS on both preserve-success and preserve-failure paths. #61 still needs one explicit same-COM replug test after a failed preserve, and #63 needs a visual check that the first-run controller card no longer has the unintended gray inner rectangle. Then exercise the #57 mouse-wheel actions on a real encoder. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
 
 ## Working rules
 
