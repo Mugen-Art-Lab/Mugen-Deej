@@ -284,11 +284,14 @@ jobs:
           if ($runtimeText -notmatch '\$waitingPanel\.Visible = \$true') {
             throw 'Development runtime is missing the first-run waiting panel.'
           }
-          if ($runtimeText -notmatch '\$connectedDetailsPanel\.BackColor = \[System\.Drawing\.Color\]::Transparent') {
-            throw 'Development runtime still paints an opaque connected-details panel inside the first-run card.'
+          if ($runtimeText -notmatch "\$connectedDetailsPanel.Tag = 'MugenCardInner'") {
+            throw 'Development runtime is missing the card-inner theme tag on connected first-run details.'
           }
-          if ($runtimeText -notmatch '\$waitingPanel\.BackColor = \[System\.Drawing\.Color\]::Transparent') {
-            throw 'Development runtime still paints an opaque waiting panel inside the first-run card.'
+          if ($runtimeText -notmatch "\$waitingPanel.Tag = 'MugenCardInner'") {
+            throw 'Development runtime is missing the card-inner theme tag on waiting first-run details.'
+          }
+          if ($runtimeText -notmatch "\[string\]\$Control.Tag -eq 'MugenCardInner'") {
+            throw 'Development runtime does not preserve the Mugen card surface for tagged inner panels.'
           }
           if ($runtimeText -match 'foreach \(\$control in @\(\$portName, \$portValue, \$protocolName') {
             throw 'Development runtime still toggles first-run detail labels individually.'
