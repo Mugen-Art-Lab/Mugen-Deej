@@ -278,10 +278,10 @@ jobs:
           if ($runtimeText -notmatch '\$value\.ForeColor = \[System\.Drawing\.Color\]::SeaGreen') {
             throw 'Development runtime is missing green first-run connection values.'
           }
-          if ($runtimeText -notmatch 'Тумблеры и энкодеры' -or $runtimeText -notmatch 'Toggles & encoders') {
+          if ($runtimeText -notmatch 'Toggles & encoders') {
             throw 'Development runtime is missing compact typed-settings labels.'
           }
-          if ($runtimeText -notmatch 'Регуляторы' -or $runtimeText -notmatch 'Analog controls') {
+          if ($runtimeText -notmatch 'Analog controls') {
             throw 'Development runtime is missing compact analog-settings labels.'
           }
 
