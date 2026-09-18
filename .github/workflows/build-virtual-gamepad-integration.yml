@@ -371,7 +371,7 @@ jobs:
           if ($runtimeText -notmatch 'function Get-ForegroundAdaptiveProfile') {
             throw 'Development runtime is missing foreground profile resolution.'
           }
-          if ($runtimeText -notmatch 'Global - all other applications') {
+          if ($runtimeText -notmatch '\$profileCombo\.Items\.Add') {
             throw 'Development runtime is missing the application-profile selector.'
           }
           if ($runtimeText -notmatch 'The new profile starts as a copy of the current Global mappings') {
