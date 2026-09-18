@@ -278,6 +278,18 @@ jobs:
           if ($runtimeText -notmatch '\$value\.ForeColor = \[System\.Drawing\.Color\]::SeaGreen') {
             throw 'Development runtime is missing green first-run connection values.'
           }
+          if ($runtimeText -notmatch '\$connectedDetailsPanel\.Visible = \$false') {
+            throw 'Development runtime is missing atomic disconnected-state switching in the first-run wizard.'
+          }
+          if ($runtimeText -notmatch '\$waitingPanel\.Visible = \$true') {
+            throw 'Development runtime is missing the first-run waiting panel.'
+          }
+          if ($runtimeText -match 'foreach \(\$control in @\(\$portName, \$portValue, \$protocolName') {
+            throw 'Development runtime still toggles first-run detail labels individually.'
+          }
+          if ($runtimeText -notmatch 'First-run wizard refresh failed') {
+            throw 'Development runtime is missing the guarded first-run timer refresh.'
+          }
           if ($runtimeText -notmatch 'Toggles & encoders') {
             throw 'Development runtime is missing compact typed-settings labels.'
           }
