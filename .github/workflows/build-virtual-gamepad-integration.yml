@@ -314,6 +314,12 @@ jobs:
           if ($runtimeText -notmatch '\$script:ResumeHotplugRetryWindowSeconds = 20') {
             throw 'Development runtime is missing the bounded resume hotplug retry horizon.'
           }
+          if ($runtimeText -notmatch '\$script:ResumeHotplugSlowRetrySeconds = 10') {
+            throw 'Development runtime is missing the low-frequency resume reconnect interval.'
+          }
+          if ($runtimeText -notmatch 'continuing low-frequency targeted retries every') {
+            throw 'Development runtime can still stop retrying the preferred COM after resume.'
+          }
           if ($runtimeText -notmatch '\$script:KnownPorts = @\(\$currentPorts \| Where-Object \{ \$_ -ne \$portName \}\)') {
             throw 'Development runtime does not forget the stale resume port before auto-reconnect.'
           }
