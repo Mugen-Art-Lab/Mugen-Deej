@@ -234,6 +234,51 @@ Changes based directly on the #35 screenshots:
 
 The first #38 attempt failed during staging because the patch script accidentally interpolated `$settingsButton` under StrictMode. This was fixed by literal quoting; #39 is the green replacement build.
 
+## Integrated #44 — capability-driven first run + encoder push cues
+
+Workflow run:
+
+- run number: **#44**
+- run ID: `35336270794`
+- built code head: `14c533f604f7e8111ddc2b7fde120b65d23efa8e`
+- result: **SUCCESS**
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-44`
+- artifact ID: `10543417835`
+- outer Actions digest: `sha256:c8807cf7cd3e8fabdab61c978541db535c36317e00b937e7aa15df7badae8433`
+- inner program ZIP SHA-256: `3012021287a4ca9ed24b88b476ea680180bbfa6cf91aaea53a7449ec695c4b35`
+- Windows PowerShell 5.1 parse check: PASS
+- launcher/package: PASS
+
+### First-run onboarding fix
+
+A real first-run test with the `0/0/12/6` Adaptive profile exposed a stale Legacy-era assumption: the wizard always showed five analog-control bars and offered `Настроить регуляторы`, which could open an empty slider editor even though the detected controller had zero sliders.
+
+The first-run wizard is now capability-driven:
+
+- when connected, it shows detected protocol/COM and live counts for sliders/buttons/toggles/encoders;
+- it offers only configuration shortcuts for control families that actually exist;
+- a zero-slider controller cannot be routed from the wizard into an empty slider-settings dialog;
+- the direct slider-settings entry point also has a zero-slider guard;
+- if no controller has been detected yet, the guide asks for USB and updates after discovery instead of assuming knobs/faders.
+
+The supplied real-machine log confirmed the bug condition before the fix: first-run state remained incomplete while COM14 was detected as Adaptive with 0 sliders, 0 buttons, 12 toggles and 6 encoders.
+
+### Encoder push-capability cues
+
+The synthetic `0/0/12/6` profile also made a useful distinction visible: E1 advertises push while E2-E6 are rotation-only.
+
+#44 makes this persistent rather than discoverable only by trying to press the encoder:
+
+- push-capable encoder knobs have a small permanent center dot;
+- rotation-only knobs remain plain;
+- an actual push still highlights the whole knob;
+- the full-state window uses the same visual language;
+- typed-settings selector tiles append `•` to push-capable encoders (for example `E1•`);
+- the selected encoder heading explicitly says `с нажатием / push-capable` or `только вращение / rotation only`;
+- the settings hint explains what the dot means.
+
+This is **CI PASS but not yet real-machine visual PASS**; inspect both the first-run wizard and E1-vs-E2 encoder cues on hardware before freezing the visuals.
+
 ## Backup rule
 
 Backups are universal Mugen Deej settings snapshots, not controller-specific files. A backup made with one topology may be restored while a different topology or no controller is connected.
@@ -256,7 +301,7 @@ Nonblocking teardown has CI coverage but its final real-hardware re-test remains
 
 ## Immediate next work
 
-Hardware-review Integrated #39. The #35 typed settings/full-state visuals have now been seen on the real machine, but actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests. Recheck the neutral/semibold three-button settings row and the new three-encoder compact summary before broadening virtual-controller mapping semantics for typed controls.
+Hardware-review Integrated #44. Recheck the neutral/semibold settings row and three-encoder compact summary from #39, then inspect the capability-driven first-run wizard and push-capable-vs-rotation-only encoder cues from #44. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
 
 ## Working rules
 
