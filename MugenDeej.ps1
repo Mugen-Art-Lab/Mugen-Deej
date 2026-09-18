@@ -56,6 +56,35 @@ namespace MugenDeejWindowing
 
         [DllImport("user32.dll")]
         public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+        public static string GetForegroundProcessName()
+        {
+            try
+            {
+                IntPtr hwnd = GetForegroundWindow();
+                if (hwnd == IntPtr.Zero) return String.Empty;
+
+                uint processId;
+                GetWindowThreadProcessId(hwnd, out processId);
+                if (processId == 0) return String.Empty;
+
+                using (System.Diagnostics.Process process =
+                    System.Diagnostics.Process.GetProcessById((int)processId))
+                {
+                    return process.ProcessName ?? String.Empty;
+                }
+            }
+            catch
+            {
+                return String.Empty;
+            }
+        }
     }
 
     internal static class MugenDrawing
