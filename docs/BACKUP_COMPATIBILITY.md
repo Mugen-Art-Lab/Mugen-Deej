@@ -16,18 +16,19 @@ The internal `schemaVersion` is an implementation/migration detail and should no
 
 ## Current development behavior
 
-Integrated #35 writes portable backups as `MugenDeejBackup`, `schemaVersion = 2`.
+Current development builds write portable backups as `MugenDeejBackup`, `schemaVersion = 2`.
 
 A v2 snapshot stores:
 
 - the main `config` object;
 - momentary `buttonActions`;
 - first-class Adaptive toggle/encoder action mappings;
+- Adaptive foreground-application profiles for toggle/encoder mappings, when present;
 - informational source protocol/topology metadata.
 
-Restore accepts both schema v1 and v2. A v1 backup has no typed-action payload, so restoring v1 intentionally preserves whatever current toggle/encoder mappings already exist rather than treating their absence as an instruction to erase them. A v2 restore includes the typed mappings.
+Restore accepts both schema v1 and v2. A v1 backup has no typed-action payload, so restoring v1 intentionally preserves whatever current toggle/encoder mappings and application profiles already exist rather than treating their absence as an instruction to erase them. Current v2 backups also include Adaptive application profiles. Older v2 files created before profiles existed remain valid; if their optional `adaptiveProfiles` payload is absent, the current application profiles are preserved.
 
-Restore continues to validate the backup before writing, creates an emergency pre-restore backup, and rolls back from that emergency copy if restore itself fails. The emergency snapshot is v2 and therefore includes typed mappings as well.
+Restore continues to validate the backup before writing, creates an emergency pre-restore backup, and rolls back from that emergency copy if restore itself fails. The current emergency snapshot is v2 and includes both typed mappings and Adaptive application profiles.
 
 Source topology is used only for a human-readable restore summary. The backup remains a settings snapshot, not a controller identity/profile file.
 
@@ -57,7 +58,7 @@ Example: restoring a backup made from a 5/29/2/1 Adaptive panel while a 5-slider
 
 ## Schema v2 metadata
 
-The current development v2 schema records informational source metadata including the app version, detected protocol generation, and detected slider/button/toggle/encoder counts. It also adds the first typed mapping family for toggles and encoders.
+The current development v2 schema records informational source metadata including the app version, detected protocol generation, and detected slider/button/toggle/encoder counts. It includes typed mappings for toggles and encoders plus an optional versioned `adaptiveProfiles` payload for foreground-application overrides.
 
 The source topology is diagnostic metadata, not a hard restore lock. Legacy and Extended have no stable device identity, and Adaptive v3 currently has no device-ID field, so compatibility can be judged only from protocol/topology, not from proof that the same physical controller is attached.
 
