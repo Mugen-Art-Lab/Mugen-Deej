@@ -1473,4 +1473,149 @@ function New-MugenDeejBackupSnapshot {
 
     $configClone = $script:Config | ConvertTo-Json -Depth 12 | ConvertFrom-Json
     $actions = @($script:ButtonActions | ForEach-Object { [string]$_ })
-    $typedToggles = @($script:Adapti
+    $typedToggles = @($script:AdaptiveToggleActions | ForEach-Object { [pscustomobject][ordered]@{ on = [string]$_.on; off = [string]$_.off } })
+    $typedEncoders = @($script:AdaptiveEncoderActions | ForEach-Object { [pscustomobject][ordered]@{ cw = [string]$_.cw; ccw = [string]$_.ccw; push = [string]$_.push } })
+
+    return [pscustomobject][ordered]@{
+        format = 'MugenDeejBackup'
+        schemaVersion = 2
+        createdAt = (Get-Date).ToString('o')
+        createdBy = $script:AppVersion
+        sourceController = [pscustomobject][ordered]@{
+            protocol = [string]$script:ControllerProtocol
+            sliders = [int]$script:DetectedSliderCount
+            buttons = [int]$script:DetectedButtonCount
+            toggles = [int]$script:DetectedToggleCount
+            encoders = [int]$script:DetectedEncoderCount
+        }
+        config = $configClone
+        buttonActions = [pscustomobject][ordered]@{ version = 1; actions = @($actions) }
+        adaptiveActions = [pscustomobject][ordered]@{ version = 1; toggles = @($typedToggles); encoders = @($typedEncoders) }
+    }
+}
+
+'@
+$text = Replace-RegexBlockExactlyOnceLiteral `
+    -Text $text `
+    -Pattern '(?ms)^function New-MugenDeejBackupSnapshot \{.*?^function Write-MugenDeejBackupFile \{' `
+    -Replacement ($backupSnapshot + 'function Write-MugenDeejBackupFile {') `
+    -Label 'write universal backup schema v2'
+
+$backupRestore = @'
+function Restore-MugenDeejBackupInteractive {
+    $dialog = New-Object System.Windows.Forms.OpenFileDialog
+    $dialog.Title = (T -Key 'BackupOpenTitle')
+    $dialog.Filter = 'Mugen Deej backup (*.backup)|*.backup|All files (*.*)|*.*'
+    $dialog.CheckFileExists = $true
+    $dialog.Multiselect = $false
+    if ($dialog.ShowDialog($form) -ne [System.Windows.Forms.DialogResult]::OK) { return }
+
+    try { $backup = Read-MugenDeejBackupFile -Path $dialog.FileName }
+    catch {
+        Write-Log ('Backup validation failed: {0}' -f $_.Exception.Message) 'WARN'
+        [void](Show-MugenDeejStyledDialog -Message ((T -Key 'BackupInvalid') + "`r`n`r`n" + $_.Exception.Message) -Buttons 'OK' -Kind 'Warning')
+        return
+    }
+
+    $schema = [int]$backup.schemaVersion
+    $compatibility = ''
+    if ($schema -eq 2 -and $null -ne $backup.PSObject.Properties['sourceController']) {
+        $src = $backup.sourceController
+        $current = if ($script:IsConnected) {
+            '{0} — {1}/{2}/{3}/{4}' -f (Get-ControllerProtocolDisplayText), $script:DetectedSliderCount, $script:DetectedButtonCount, $script:DetectedToggleCount, $script:DetectedEncoderCount
+        }
+        else { $(if ($script:Language -eq 'ru') { 'контроллер не подключён' } else { 'no controller connected' }) }
+        $sourceProtocol = if ([string]$src.protocol -eq 'adaptive') { 'Adaptive v3' } elseif ([string]$src.protocol -eq 'extended') { 'Extended' } elseif ([string]$src.protocol -eq 'legacy') { 'Legacy' } else { 'Unknown' }
+        $compatibility = if ($script:Language -eq 'ru') {
+            "`r`n`r`nБэкап создан при: $sourceProtocol — $($src.sliders)/$($src.buttons)/$($src.toggles)/$($src.encoders).`r`nСейчас: $current.`r`nОтсутствующие назначения будут сохранены как неактивные."
+        }
+        else {
+            "`r`n`r`nBackup source: $sourceProtocol — $($src.sliders)/$($src.buttons)/$($src.toggles)/$($src.encoders).`r`nCurrent: $current.`r`nMappings for absent controls will remain dormant."
+        }
+    }
+
+    $confirmation = Show-MugenDeejStyledDialog -Message ((T -Key 'BackupRestoreConfirm') + $compatibility) -Buttons 'YesNo' -Kind 'Warning'
+    if ($confirmation -ne [System.Windows.Forms.DialogResult]::Yes) { return }
+
+    Initialize-ButtonActions
+    Initialize-AdaptiveActions
+    $preRestoreSnapshot = New-MugenDeejBackupSnapshot
+    $preRestorePath = Join-Path $script:BaseDir ('MugenDeej_PreRestore_{0}.backup' -f (Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'))
+    try { Write-MugenDeejBackupFile -Path $preRestorePath -Snapshot $preRestoreSnapshot }
+    catch {
+        Write-Log ('Restore aborted because emergency backup could not be created: {0}' -f $_.Exception.Message) 'ERROR'
+        [void](Show-MugenDeejStyledDialog -Message ((T -Key 'BackupRestoreFailed') + "`r`n`r`n" + $_.Exception.Message) -Buttons 'OK' -Kind 'Error')
+        return
+    }
+
+    try {
+        $configClone = $backup.config | ConvertTo-Json -Depth 12 | ConvertFrom-Json
+        $restoredConfig = Ensure-ConfigShape -Config $configClone
+        $restoredActions = @($backup.buttonActions.actions | ForEach-Object { [string]$_ })
+
+        Save-Config -Config $restoredConfig
+        Write-ButtonActionConfigFile -Path $script:ButtonActionConfigPath -Actions $restoredActions
+
+        if ($schema -eq 2) {
+            $restoredToggles = @($backup.adaptiveActions.toggles | ForEach-Object { [pscustomobject][ordered]@{ on = [string]$_.on; off = [string]$_.off } })
+            $restoredEncoders = @($backup.adaptiveActions.encoders | ForEach-Object { [pscustomobject][ordered]@{ cw = [string]$_.cw; ccw = [string]$_.ccw; push = [string]$_.push } })
+            Write-AdaptiveActionConfigFile -Path $script:AdaptiveActionConfigPath -Toggles $restoredToggles -Encoders $restoredEncoders
+            $script:AdaptiveToggleActions = @($restoredToggles)
+            $script:AdaptiveEncoderActions = @($restoredEncoders)
+            $script:AdaptiveActionsLoaded = $true
+        }
+        else {
+            Write-Log 'Restored backup schema v1: current Adaptive mappings were preserved because v1 did not contain that setting family.' 'INFO'
+        }
+
+        $script:Config = $restoredConfig
+        $script:ButtonActions = @($restoredActions)
+        $script:ButtonActionsLoaded = $true
+        Write-Log ('Settings restored from backup: {0}; schema={1}; emergencyBackup={2}' -f $dialog.FileName, $schema, $preRestorePath) 'INFO'
+
+        $restartMessage = ((T -Key 'BackupRestored') + "`r`n`r`n" + (T -Key 'BackupEmergencyCopy') + "`r`n" + $preRestorePath + "`r`n`r`n" + (T -Key 'BackupRestartPrompt'))
+        $restartResult = Show-MugenDeejStyledDialog -Message $restartMessage -Buttons 'YesNo' -Kind 'Info'
+        if ($restartResult -eq [System.Windows.Forms.DialogResult]::Yes) {
+            Write-Log 'Restart requested after backup restore.' 'INFO'
+            $script:RestartRequested = $true
+            $script:Closing = $true
+            $script:ExitRequested = $true
+            $script:ShutdownFinalizing = $true
+            $form.Close()
+        }
+    }
+    catch {
+        $restoreError = $_.Exception.Message
+        Write-Log ('Restore failed; attempting rollback from emergency backup: {0}' -f $restoreError) 'ERROR'
+        try {
+            $rollback = Read-MugenDeejBackupFile -Path $preRestorePath
+            $rollbackConfig = Ensure-ConfigShape -Config ($rollback.config | ConvertTo-Json -Depth 12 | ConvertFrom-Json)
+            $rollbackActions = @($rollback.buttonActions.actions | ForEach-Object { [string]$_ })
+            $rollbackToggles = @($rollback.adaptiveActions.toggles | ForEach-Object { [pscustomobject][ordered]@{ on = [string]$_.on; off = [string]$_.off } })
+            $rollbackEncoders = @($rollback.adaptiveActions.encoders | ForEach-Object { [pscustomobject][ordered]@{ cw = [string]$_.cw; ccw = [string]$_.ccw; push = [string]$_.push } })
+            Save-Config -Config $rollbackConfig
+            Write-ButtonActionConfigFile -Path $script:ButtonActionConfigPath -Actions $rollbackActions
+            Write-AdaptiveActionConfigFile -Path $script:AdaptiveActionConfigPath -Toggles $rollbackToggles -Encoders $rollbackEncoders
+            $script:Config = $rollbackConfig
+            $script:ButtonActions = @($rollbackActions)
+            $script:ButtonActionsLoaded = $true
+            $script:AdaptiveToggleActions = @($rollbackToggles)
+            $script:AdaptiveEncoderActions = @($rollbackEncoders)
+            $script:AdaptiveActionsLoaded = $true
+            Write-Log 'Rollback after failed restore completed successfully.' 'WARN'
+        }
+        catch { Write-Log ('Rollback after failed restore also failed: {0}' -f $_.Exception.Message) 'ERROR' }
+        [void](Show-MugenDeejStyledDialog -Message ((T -Key 'BackupRestoreFailed') + "`r`n`r`n" + $restoreError) -Buttons 'OK' -Kind 'Error')
+    }
+}
+
+'@
+$text = Replace-RegexBlockExactlyOnceLiteral `
+    -Text $text `
+    -Pattern '(?ms)^function Restore-MugenDeejBackupInteractive \{.*?^function Show-MugenDeejBackupMenu \{' `
+    -Replacement ($backupRestore + 'function Show-MugenDeejBackupMenu {') `
+    -Label 'restore Adaptive mappings from universal backup v2'
+
+$utf8 = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText($resolved, $text, $utf8)
+Write-Host "Applied first-class Adaptive mappings, visual full-state UI, and backup v2 support: $resolved"
