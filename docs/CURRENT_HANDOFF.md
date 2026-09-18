@@ -279,6 +279,46 @@ The synthetic `0/0/12/6` profile also made a useful distinction visible: E1 adve
 
 This is **CI PASS but not yet real-machine visual PASS**; inspect both the first-run wizard and E1-vs-E2 encoder cues on hardware before freezing the visuals.
 
+## Integrated #48 — first-run wording + encoder cue geometry
+
+Workflow run:
+
+- run number: **#48**
+- run ID: `35337955633`
+- built code head: `3ca5540d70637c8d33bb7543a1ae50a3b6870d4c`
+- result: **SUCCESS**
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-48`
+- artifact ID: `10543039373`
+- outer Actions digest: `sha256:be1620c3b03a23642c9d70b63e65ba97442179f31747566a6b33e15d00e6cc8b`
+- inner program ZIP SHA-256: `45b32792c38d9857d61ee91aefa6ffcdbccda49966e417a6971cb858a094141d`
+- Windows PowerShell 5.1 parse/runtime marker check: PASS
+- launcher/package: PASS
+
+Real-machine review of #44 covered fresh-start onboarding on all three protocol generations:
+
+- Adaptive `0/0/12/6`: first-run guide offered only switch/encoder settings;
+- Adaptive `5/29/2/1`: first-run guide offered regulator, button and switch/encoder settings;
+- Legacy `5/0/0/0`: first-run guide offered regulator settings only;
+- Extended `5/6/0/0`: first-run guide offered regulator and button settings only.
+
+The supplied log independently confirms clean fresh-config detection for those runs: Adaptive 0/0/12/6 at COM14/115200, Adaptive 5/29/2/1 at COM14/115200, Legacy 5/0/0/0 at COM5/9600, and Extended 5/6/0/0 at COM10/9600. No application exception was observed during the sweep.
+
+User feedback from #44:
+
+1. The push-capability cue on encoder knobs was useful, but the tiny filled center dot looked visually off-center/awkward.
+2. The first-run identity line (`Adaptive v3 · COM14`, etc.) was too implementation-oriented for a new user because `Legacy / Extended / Adaptive` were not labeled as protocol names.
+3. The explanatory prose in the first-run dialog still sounded like tester/developer copy rather than welcoming user-facing onboarding.
+
+#48 changes:
+
+- encoder knob geometry now uses an exact integer center shared by outer circle and pointer;
+- push-capable encoders use a centered **inner ring** instead of a floating filled dot; an active push can still fill the cue while the whole knob highlights;
+- the same cue geometry is used in compact main status and full-state view;
+- first-run connection identity is explicit, e.g. `Порт: COM5    Протокол: Legacy    Скорость: 9600 бод` / `Port: COM5    Protocol: Legacy    Baud: 9600`;
+- first-run wording was rewritten to sound like onboarding rather than a diagnostic/test instruction: `Ваш контроллер`, `Контроллер найден и готов к работе`, and simpler next-step copy.
+
+The first #47 run failed only because CI was still looking for the superseded English onboarding sentence; the staged runtime itself passed parsing. The CI marker was updated and #48 is the green replacement build.
+
 ## Backup rule
 
 Backups are universal Mugen Deej settings snapshots, not controller-specific files. A backup made with one topology may be restored while a different topology or no controller is connected.
@@ -301,7 +341,7 @@ Nonblocking teardown has CI coverage but its final real-hardware re-test remains
 
 ## Immediate next work
 
-Hardware-review Integrated #44. Recheck the neutral/semibold settings row and three-encoder compact summary from #39, then inspect the capability-driven first-run wizard and push-capable-vs-rotation-only encoder cues from #44. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
+Hardware-review Integrated #48. The #44 capability filtering across Legacy, Extended, and two Adaptive topologies is real-machine PASS. Recheck the friendlier first-run wording, labeled Port/Protocol/Baud identity line, and centered inner-ring cue for push-capable encoders. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
 
 ## Working rules
 
