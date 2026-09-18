@@ -1617,6 +1617,258 @@ $text = Replace-RegexBlockExactlyOnceLiteral `
     -Replacement ($backupRestore + 'function Show-MugenDeejBackupMenu {') `
     -Label 'restore Adaptive mappings from universal backup v2'
 
+# First-run onboarding must describe the controller that was actually
+# detected. The legacy wizard hardcoded five analog controls and could route a
+# zero-slider Adaptive controller into an empty slider settings form.
+$firstRunWizard = @'
+function Show-FirstRunWizard {
+    $wizard = New-Object System.Windows.Forms.Form
+    $wizard.Text = (T -Key 'WizardTitle')
+    $wizard.StartPosition = 'CenterParent'
+    $wizard.ClientSize = New-Object System.Drawing.Size(660, 430)
+    $wizard.MinimumSize = New-Object System.Drawing.Size(676, 469)
+    $wizard.MaximumSize = New-Object System.Drawing.Size(676, 469)
+    $wizard.Font = New-Object System.Drawing.Font('Segoe UI', 10)
+    $wizard.FormBorderStyle = 'FixedDialog'
+    $wizard.MaximizeBox = $false
+    $wizard.MinimizeBox = $false
+    Set-FormAppIcon -Form $wizard
+
+    $heading = New-Object System.Windows.Forms.Label
+    $heading.Text = (T -Key 'WizardHeading')
+    $heading.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 17)
+    $heading.AutoSize = $true
+    $heading.Location = New-Object System.Drawing.Point(24, 20)
+    $wizard.Controls.Add($heading)
+
+    $intro = New-Object System.Windows.Forms.Label
+    $intro.Location = New-Object System.Drawing.Point(27, 62)
+    $intro.Size = New-Object System.Drawing.Size(606, 66)
+    $wizard.Controls.Add($intro)
+
+    $capabilityGroup = New-Object MugenDeejWindowing.MugenGroupBox
+    $capabilityGroup.Text = if ($script:Language -eq 'ru') { 'Подключённый контроллер' } else { 'Connected controller' }
+    $capabilityGroup.Location = New-Object System.Drawing.Point(24, 140)
+    $capabilityGroup.Size = New-Object System.Drawing.Size(612, 112)
+    $wizard.Controls.Add($capabilityGroup)
+
+    $connectionLabel = New-Object System.Windows.Forms.Label
+    $connectionLabel.Location = New-Object System.Drawing.Point(16, 29)
+    $connectionLabel.Size = New-Object System.Drawing.Size(580, 25)
+    $connectionLabel.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 10)
+    $capabilityGroup.Controls.Add($connectionLabel)
+
+    $capabilityLabel = New-Object System.Windows.Forms.Label
+    $capabilityLabel.Location = New-Object System.Drawing.Point(16, 59)
+    $capabilityLabel.Size = New-Object System.Drawing.Size(580, 38)
+    $capabilityGroup.Controls.Add($capabilityLabel)
+
+    $nextHint = New-Object System.Windows.Forms.Label
+    $nextHint.ForeColor = [System.Drawing.Color]::DimGray
+    $nextHint.Location = New-Object System.Drawing.Point(27, 268)
+    $nextHint.Size = New-Object System.Drawing.Size(606, 44)
+    $wizard.Controls.Add($nextHint)
+
+    $sliderButton = New-Object MugenDeejWindowing.MugenButton
+    $sliderButton.Text = (T -Key 'ConfigureKnobs')
+    $sliderButton.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 9.5)
+    $sliderButton.Size = New-Object System.Drawing.Size(188, 38)
+    $sliderButton.Visible = $false
+    $wizard.Controls.Add($sliderButton)
+
+    $buttonButton = New-Object MugenDeejWindowing.MugenButton
+    $buttonButton.Text = Get-ButtonFeatureText -Key 'MainButton'
+    $buttonButton.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 9.5)
+    $buttonButton.Size = New-Object System.Drawing.Size(188, 38)
+    $buttonButton.Visible = $false
+    $wizard.Controls.Add($buttonButton)
+
+    $typedButton = New-Object MugenDeejWindowing.MugenButton
+    $typedButton.Text = if ($script:Language -eq 'ru') { 'Настроить переключатели' } else { 'Configure switches / encoders' }
+    $typedButton.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 9.5)
+    $typedButton.Size = New-Object System.Drawing.Size(188, 38)
+    $typedButton.Visible = $false
+    $wizard.Controls.Add($typedButton)
+
+    $laterButton = New-Object MugenDeejWindowing.MugenButton
+    $laterButton.Text = (T -Key 'CloseHint')
+    $laterButton.Location = New-Object System.Drawing.Point(478, 378)
+    $laterButton.Size = New-Object System.Drawing.Size(158, 36)
+    $wizard.Controls.Add($laterButton)
+
+    $wizardChoice = [pscustomobject]@{ Value = '' }
+    $lastLayoutKey = ''
+
+    $finishWizard = {
+        if (-not [bool]$script:Config.app.firstRunCompleted) {
+            $script:Config.app.firstRunCompleted = $true
+            Save-Config -Config $script:Config
+        }
+    }
+
+    $layoutButtons = {
+        $available = @()
+        if ($sliderButton.Visible) { $available += $sliderButton }
+        if ($buttonButton.Visible) { $available += $buttonButton }
+        if ($typedButton.Visible) { $available += $typedButton }
+
+        $count = $available.Count
+        if ($count -le 0) { return }
+
+        $gap = 12
+        $width = 188
+        $total = ($count * $width) + (($count - 1) * $gap)
+        $startX = [int][Math]::Floor((660 - $total) / 2)
+        for ($i = 0; $i -lt $count; $i++) {
+            $available[$i].Location = New-Object System.Drawing.Point(($startX + ($i * ($width + $gap))), 326)
+        }
+    }
+
+    $refreshWizard = {
+        $ru = ($script:Language -eq 'ru')
+        $connected = [bool]$script:IsConnected
+        $sliders = if ($connected) { [int]$script:DetectedSliderCount } else { 0 }
+        $buttons = if ($connected) { [int]$script:DetectedButtonCount } else { 0 }
+        $toggles = if ($connected) { [int]$script:DetectedToggleCount } else { 0 }
+        $encoders = if ($connected) { [int]$script:DetectedEncoderCount } else { 0 }
+
+        if ($connected) {
+            $intro.Text = if ($ru) {
+                'Mugen Deej уже определил подключённый контроллер. Проверьте его органы управления — состояние видно в главном окне. Ниже доступны только настройки тех типов, которые реально есть в устройстве.'
+            }
+            else {
+                'Mugen Deej has already identified the connected controller. Operate its physical controls and watch their state in the main window. Only settings for control families that actually exist are offered below.'
+            }
+
+            $port = if ([string]::IsNullOrWhiteSpace($script:ConnectedPort)) { '—' } else { $script:ConnectedPort }
+            $connectionLabel.Text = '{0} · {1}' -f (Get-ControllerProtocolDisplayText), $port
+            $connectionLabel.ForeColor = [System.Drawing.Color]::SeaGreen
+
+            $capabilityLabel.Text = if ($ru) {
+                '{0} регуляторов · {1} кнопок · {2} тумблеров · {3} энкодеров' -f $sliders, $buttons, $toggles, $encoders
+            }
+            else {
+                '{0} controls · {1} buttons · {2} toggles · {3} encoders' -f $sliders, $buttons, $toggles, $encoders
+            }
+
+            $nextHint.Text = if ($ru) {
+                'Можно сразу открыть нужную настройку или закрыть подсказку и вернуться к ней позже из главного окна.'
+            }
+            else {
+                'You can configure one of the available control families now, or close this guide and return to settings later from the main window.'
+            }
+        }
+        else {
+            $intro.Text = if ($ru) {
+                'Подключите контроллер к USB. Mugen Deej автоматически определит протокол и доступные органы управления; подсказка обновится после подключения.'
+            }
+            else {
+                'Connect the controller by USB. Mugen Deej will automatically detect its protocol and available physical controls; this guide will update after connection.'
+            }
+            $connectionLabel.Text = if ($ru) { 'Контроллер пока не найден' } else { 'Controller not found yet' }
+            $connectionLabel.ForeColor = [System.Drawing.Color]::DarkOrange
+            $capabilityLabel.Text = if ($ru) {
+                'Настройки появятся после определения контроллера.'
+            }
+            else {
+                'Configuration shortcuts will appear after the controller is detected.'
+            }
+            $nextHint.Text = if ($ru) {
+                'Можно оставить это окно открытым и подключить USB сейчас.'
+            }
+            else {
+                'You can leave this window open and connect USB now.'
+            }
+        }
+
+        $sliderButton.Visible = ($connected -and $sliders -gt 0)
+        $buttonButton.Visible = ($connected -and $buttons -gt 0)
+        $typedButton.Visible = ($connected -and ($toggles -gt 0 -or $encoders -gt 0))
+
+        $layoutKey = '{0}:{1}:{2}' -f $sliderButton.Visible, $buttonButton.Visible, $typedButton.Visible
+        if ($layoutKey -ne $lastLayoutKey) {
+            $script:lastFirstRunLayoutKey = $layoutKey
+            & $layoutButtons
+        }
+    }
+
+    $laterButton.Add_Click({
+        & $finishWizard
+        $wizard.Close()
+    })
+    $sliderButton.Add_Click({
+        $wizardChoice.Value = 'sliders'
+        & $finishWizard
+        $wizard.Close()
+    })
+    $buttonButton.Add_Click({
+        $wizardChoice.Value = 'buttons'
+        & $finishWizard
+        $wizard.Close()
+    })
+    $typedButton.Add_Click({
+        $wizardChoice.Value = 'typed'
+        & $finishWizard
+        $wizard.Close()
+    })
+
+    $wizardTimer = New-Object System.Windows.Forms.Timer
+    $wizardTimer.Interval = 150
+    $wizardTimer.Add_Tick({ & $refreshWizard })
+
+    Apply-ThemeToForm -Form $wizard -ThemeName (Get-EffectiveTheme)
+    & $refreshWizard
+    $wizard.Add_Shown({
+        Ensure-FormVisible -Form $wizard -CenterIfOffscreen
+        $wizardTimer.Start()
+    })
+    $wizard.Add_FormClosing({
+        if (-not [bool]$script:Config.app.firstRunCompleted) { & $finishWizard }
+    })
+    $wizard.Add_FormClosed({
+        $wizardTimer.Stop()
+        $wizardTimer.Dispose()
+    })
+
+    [void]$wizard.ShowDialog($form)
+    $wizard.Dispose()
+
+    switch ([string]$wizardChoice.Value) {
+        'sliders' { Show-SliderSettings }
+        'buttons' { Show-ButtonSettings }
+        'typed' { Show-AdaptiveControlSettings }
+    }
+}
+
+'@
+
+$text = Replace-RegexBlockExactlyOnceLiteral `
+    -Text $text `
+    -Pattern '(?ms)^function Show-FirstRunWizard \{.*?^function Get-PortNames \{' `
+    -Replacement ($firstRunWizard + 'function Get-PortNames {') `
+    -Label 'make first-run wizard capability driven'
+
+# Keep direct calls to the slider editor safe as well. The main-window slider
+# button is already capability-driven, but tray/legacy entry points can call the
+# editor directly.
+$text = Replace-LiteralExactlyOnce `
+    -Text $text `
+    -OldText 'function Show-SliderSettings {' `
+    -NewText @'
+function Show-SliderSettings {
+    if ($script:IsConnected -and [int]$script:DetectedSliderCount -le 0) {
+        $message = if ($script:Language -eq 'ru') {
+            'У подключённого контроллера нет физических регуляторов.'
+        }
+        else {
+            'The connected controller does not expose any physical analog controls.'
+        }
+        [void](Show-MugenDeejStyledDialog -Message $message -Buttons 'OK' -Kind 'Info')
+        return
+    }
+'@ `
+    -Label 'guard slider settings for zero-slider controllers'
+
 # The three main Configure buttons are peers. Keep all of them neutral rather
 # than making regulator settings look like the single preferred action.
 $text = Replace-LiteralExactlyOnce `
