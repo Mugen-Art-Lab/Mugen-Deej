@@ -591,6 +591,44 @@ This deliberately favors eventual recovery over a permanent stale waiting state.
 
 Real-machine retest is now **PASS**. In the hibernate -> unplug Arduino -> resume -> replug Arduino scenario, Windows kept enumerating COM14 while SerialPort.Open still returned `Port 'COM14' does not exist` for multiple attempts. #73 kept retrying the preferred port every 2 s during the fast readiness window; COM14 finally became openable near the end of that window, Adaptive v3 5/29/2/1 was detected at 115200, and the targeted resume recovery completed automatically without any diagnostics/manual reconnect action.
 
+## Integrated #75 — generic same-COM recovery after runtime serial loss
+
+Workflow run:
+
+- run number: **#75**
+- run ID: `35371512251`
+- built code head: `0f8ee60ade18abc11b4650dbceec0fdcb145eb51`
+- result: **SUCCESS**
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-75`
+- artifact ID: `10558298742`
+- outer Actions digest: `sha256:f97000aa26e014e9aadf4624cd046bee0434c3ae0c7dffeaba16cc6d200afc0e`
+- inner program ZIP SHA-256: `190e3b1c4177c4f70de97a8c2e0c949a95c3249005889de5917e2c16a1e2fb4d`
+- Windows PowerShell 5.1 parse/runtime marker check: PASS
+- launcher/package: PASS
+
+A runtime hardware test after the #73 resume work exposed the same class of Windows same-COM problem outside suspend/resume. The active Adaptive controller stopped producing valid packets after a physical pin interaction. Mugen correctly declared the serial connection lost after the 2500 ms data timeout, then immediately reopened COM14 but could not detect the protocol. That negative probe put COM14 on the ordinary long cooldown path. Subsequent physical USB replug(s) reused COM14 and did not produce a reliable remove/add edge, so Mugen kept scanning unrelated COM ports and the UI remained on `Связь с контроллером потеряна. Переподключаемся...`.
+
+Relevant real-machine log sequence:
+
+- `Serial connection lost: No valid controller packets received for 2500 ms`;
+- COM14 reopened and probed at 115200/9600, but no Mugen protocol was detected;
+- COM1 was then probed, while unrelated COM4/COM13 entered growing busy-port cooldowns;
+- no successful COM14 retry occurred before the supplied log ended.
+
+The Adaptive fixture itself defines D7 only as the first encoder's synthetic CCW detent, so D7 is not intentionally a protocol-disconnect input. The exact physical event that stopped packets is therefore not established by the log; it may have been a transient reset/brownout/contact mishap. The client must recover either way.
+
+#75 generalizes the robust recovery policy beyond resume:
+
+- when an established controller connection is lost, capture the last known-good COM port before cleanup;
+- arm a targeted recovery loop for only that last known-good port;
+- retry every 2 s for the first 20 s, then every 10 s at low frequency;
+- every targeted attempt resets that port's probe cooldown, so one early protocol miss cannot suppress recovery for five minutes;
+- same-COM unplug/replug no longer depends on Windows exposing a clean port-list edge;
+- successful controller detection clears the generic recovery schedule immediately;
+- manual reconnect and suspend paths cancel the ordinary recovery schedule so they can take ownership cleanly.
+
+This is **CI PASS; real-machine runtime-loss retest required**. Reproduce the serial-loss condition or simply unplug/replug the Arduino while connected, then do not press diagnostics. Expected result: Mugen should keep targeting COM14 and reconnect automatically once valid Adaptive packets return.
+
 ## Backup rule
 
 Backups are universal Mugen Deej settings snapshots, not controller-specific files. A backup made with one topology may be restored while a different topology or no controller is connected.
@@ -613,7 +651,7 @@ Nonblocking teardown has CI coverage but its final real-hardware re-test remains
 
 ## Immediate next work
 
-Hardware-review Integrated #73. The #59 first-run wizard resume crash fix, #69 card-surface fix, and #73 hibernate/unplug/resume/same-COM automatic reconnect path are all real-machine PASS. Windows may enumerate COM14 for many seconds before SerialPort.Open becomes usable; #73 survives this and reconnects automatically. Next exercise the #57 mouse-wheel actions on a real encoder. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
+Hardware-review Integrated #75. The #59 first-run wizard resume crash fix, #69 card-surface fix, and #73 hibernate/unplug/resume/same-COM automatic reconnect path are real-machine PASS. #75 now needs a normal runtime serial-loss / same-COM unplug-replug test with no manual diagnostics click; the last known-good COM14 should keep receiving targeted retries even after an early protocol-detection miss. Then exercise the #57 mouse-wheel actions on a real encoder. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
 
 ## Working rules
 
