@@ -221,7 +221,7 @@ jobs:
           if ($runtimeText -notmatch 'Press a physical button and Mugen will select it in the grid') {
             throw 'Development runtime is missing physical-button auto-selection guidance.'
           }
-          if ($runtimeText -notmatch '\\$script:AdaptiveActionConfigPath') {
+          if ($runtimeText -notmatch '\$script:AdaptiveActionConfigPath') {
             throw 'Development runtime is missing first-class Adaptive action persistence.'
           }
           if ($runtimeText -notmatch 'function Invoke-AdaptiveMappedAction') {
@@ -233,7 +233,7 @@ jobs:
           if ($runtimeText -notmatch 'function Show-FullControllerStateWindow') {
             throw 'Development runtime is missing full controller-state window.'
           }
-          if ($runtimeText -notmatch '\\$sliderViews = @\\(\\)') {
+          if ($runtimeText -notmatch '\$sliderViews = @\(\)') {
             throw 'Development runtime is missing visual full-state control rendering.'
           }
           if ($runtimeText -notmatch 'schemaVersion = 2') {
