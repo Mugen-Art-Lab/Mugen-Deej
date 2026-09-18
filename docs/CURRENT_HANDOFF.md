@@ -627,7 +627,7 @@ The Adaptive fixture itself defines D7 only as the first encoder's synthetic CCW
 - successful controller detection clears the generic recovery schedule immediately;
 - manual reconnect and suspend paths cancel the ordinary recovery schedule so they can take ownership cleanly.
 
-This is **CI PASS; real-machine runtime-loss retest required**. Reproduce the serial-loss condition or simply unplug/replug the Arduino while connected, then do not press diagnostics. Expected result: Mugen should keep targeting COM14 and reconnect automatically once valid Adaptive packets return.
+Real-machine runtime-loss retest is now **PASS**. Two separate disconnect/replug cycles on COM14 recovered automatically without using diagnostics/manual reconnect. In each case the first immediate targeted open could hit Windows' transient `Port 'COM14' does not exist` state, then the next targeted retry opened COM14, detected Adaptive v3 5/29/2/1 at 115200, and restored the controller. After recovery, encoder CCW/CW movement, encoder push press/release, and both toggles continued producing valid live events.
 
 ## Backup rule
 
@@ -651,7 +651,7 @@ Nonblocking teardown has CI coverage but its final real-hardware re-test remains
 
 ## Immediate next work
 
-Hardware-review Integrated #75. The #59 first-run wizard resume crash fix, #69 card-surface fix, and #73 hibernate/unplug/resume/same-COM automatic reconnect path are real-machine PASS. #75 now needs a normal runtime serial-loss / same-COM unplug-replug test with no manual diagnostics click; the last known-good COM14 should keep receiving targeted retries even after an early protocol-detection miss. Then exercise the #57 mouse-wheel actions on a real encoder. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
+Hardware-review Integrated #75. The #59 first-run wizard resume crash fix, #69 card-surface fix, #73 hibernate/unplug/resume/same-COM reconnect path, and #75 ordinary runtime serial-loss/same-COM automatic recovery are all real-machine PASS. After recovery, encoder CW/CCW, encoder push, and both toggles remain live. Next exercise the #57 mouse-wheel mapped actions on the encoder. Backup schema v2 restore still requires an explicit real-machine test.
 
 ## Working rules
 
