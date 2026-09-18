@@ -724,7 +724,7 @@ User review of #79 showed the new toggle/encoder assignment summary looked incon
 - summary caption now matches the button editor wording: “Назначения: X из Y / Assignments: X of Y”;
 - clicking a typed assignment row selects the corresponding toggle or encoder in the editor, matching the button editor interaction model.
 
-Horizontal mouse-wheel note: the #75 log proves Mugen dispatched native HWHEEL actions, but the user did not yet observe a visible horizontal movement in a target application. Treat native horizontal scrolling as software-dispatch PASS, end-to-end visible behavior still to be confirmed in an application that supports horizontal-wheel input.
+Horizontal mouse-wheel hardware/application behavior is now **PASS**. In #81 the user mapped E1 CCW to `mouse:hwheelright` and CW to `mouse:hwheelleft`, then confirmed visible left/right scrolling in Excel. The log also shows matching per-step Adaptive action dispatch in both directions.
 
 ## Backup rule
 
