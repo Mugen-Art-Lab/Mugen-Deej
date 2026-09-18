@@ -48,6 +48,168 @@ $resolved = (Resolve-Path -LiteralPath $Path).Path
 $text = [System.IO.File]::ReadAllText($resolved, [System.Text.Encoding]::UTF8)
 
 # ---------------------------------------------------------------------------
+# Mouse-wheel SendInput transport for Adaptive encoder actions
+# ---------------------------------------------------------------------------
+
+$mouseWheelHelper = @'
+    public static class MugenMouseWheel
+    {
+        private const uint INPUT_MOUSE = 0;
+        private const uint INPUT_KEYBOARD = 1;
+        private const uint KEYEVENTF_KEYUP = 0x0002;
+        private const uint MOUSEEVENTF_WHEEL = 0x0800;
+        private const uint MOUSEEVENTF_HWHEEL = 0x01000;
+        private const int WHEEL_DELTA = 120;
+
+        private const ushort VK_CONTROL = 0x11;
+        private const ushort VK_SHIFT = 0x10;
+        private const ushort VK_MENU = 0x12;
+        private const ushort VK_LWIN = 0x5B;
+
+        [System.Runtime.InteropServices.StructLayout(
+            System.Runtime.InteropServices.LayoutKind.Sequential
+        )]
+        private struct INPUT
+        {
+            public uint type;
+            public InputUnion U;
+        }
+
+        [System.Runtime.InteropServices.StructLayout(
+            System.Runtime.InteropServices.LayoutKind.Explicit
+        )]
+        private struct InputUnion
+        {
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            public MOUSEINPUT mi;
+
+            [System.Runtime.InteropServices.FieldOffset(0)]
+            public KEYBDINPUT ki;
+        }
+
+        [System.Runtime.InteropServices.StructLayout(
+            System.Runtime.InteropServices.LayoutKind.Sequential
+        )]
+        private struct MOUSEINPUT
+        {
+            public int dx;
+            public int dy;
+            public uint mouseData;
+            public uint dwFlags;
+            public uint time;
+            public IntPtr dwExtraInfo;
+        }
+
+        [System.Runtime.InteropServices.StructLayout(
+            System.Runtime.InteropServices.LayoutKind.Sequential
+        )]
+        private struct KEYBDINPUT
+        {
+            public ushort wVk;
+            public ushort wScan;
+            public uint dwFlags;
+            public UIntPtr time;
+            public IntPtr dwExtraInfo;
+        }
+
+        [System.Runtime.InteropServices.DllImport(
+            "user32.dll",
+            SetLastError = true
+        )]
+        private static extern uint SendInput(
+            uint nInputs,
+            INPUT[] pInputs,
+            int cbSize
+        );
+
+        private static INPUT KeyInput(ushort vk, bool keyUp)
+        {
+            INPUT input = new INPUT();
+            input.type = INPUT_KEYBOARD;
+            input.U.ki = new KEYBDINPUT
+            {
+                wVk = vk,
+                wScan = 0,
+                dwFlags = keyUp ? KEYEVENTF_KEYUP : 0,
+                time = UIntPtr.Zero,
+                dwExtraInfo = IntPtr.Zero
+            };
+            return input;
+        }
+
+        private static INPUT WheelInput(int delta, bool horizontal)
+        {
+            INPUT input = new INPUT();
+            input.type = INPUT_MOUSE;
+            input.U.mi = new MOUSEINPUT
+            {
+                dx = 0,
+                dy = 0,
+                mouseData = unchecked((uint)delta),
+                dwFlags = horizontal ? MOUSEEVENTF_HWHEEL : MOUSEEVENTF_WHEEL,
+                time = 0,
+                dwExtraInfo = IntPtr.Zero
+            };
+            return input;
+        }
+
+        public static void Scroll(
+            int steps,
+            bool horizontal,
+            bool ctrl,
+            bool shift,
+            bool alt,
+            bool win
+        )
+        {
+            if (steps == 0)
+                return;
+
+            if (steps < -32 || steps > 32)
+                throw new ArgumentOutOfRangeException("steps");
+
+            var inputs = new System.Collections.Generic.List<INPUT>();
+
+            if (ctrl) inputs.Add(KeyInput(VK_CONTROL, false));
+            if (shift) inputs.Add(KeyInput(VK_SHIFT, false));
+            if (alt) inputs.Add(KeyInput(VK_MENU, false));
+            if (win) inputs.Add(KeyInput(VK_LWIN, false));
+
+            inputs.Add(WheelInput(steps * WHEEL_DELTA, horizontal));
+
+            if (win) inputs.Add(KeyInput(VK_LWIN, true));
+            if (alt) inputs.Add(KeyInput(VK_MENU, true));
+            if (shift) inputs.Add(KeyInput(VK_SHIFT, true));
+            if (ctrl) inputs.Add(KeyInput(VK_CONTROL, true));
+
+            INPUT[] packet = inputs.ToArray();
+            uint sent = SendInput(
+                (uint)packet.Length,
+                packet,
+                System.Runtime.InteropServices.Marshal.SizeOf(typeof(INPUT))
+            );
+
+            if (sent != packet.Length)
+            {
+                int error =
+                    System.Runtime.InteropServices.Marshal.GetLastWin32Error();
+
+                throw new System.ComponentModel.Win32Exception(
+                    error,
+                    "SendInput did not send the complete mouse-wheel action."
+                );
+            }
+        }
+    }
+'@
+
+$text = Replace-LiteralExactlyOnce `
+    -Text $text `
+    -OldText '    public static class MugenFolderPicker' `
+    -NewText ($mouseWheelHelper + '    public static class MugenFolderPicker') `
+    -Label 'add mouse-wheel SendInput helper'
+
+# ---------------------------------------------------------------------------
 # Persistent first-class toggle / encoder action state
 # ---------------------------------------------------------------------------
 
@@ -81,7 +243,17 @@ function Test-AdaptiveMappedAction {
         'media:stop',
         'system:volumeup',
         'system:volumedown',
-        'system:volumemute'
+        'system:volumemute',
+        'mouse:wheelup',
+        'mouse:wheeldown',
+        'mouse:hwheelleft',
+        'mouse:hwheelright',
+        'mouse:ctrlwheelup',
+        'mouse:ctrlwheeldown',
+        'mouse:shiftwheelup',
+        'mouse:shiftwheeldown',
+        'mouse:altwheelup',
+        'mouse:altwheeldown'
     )) { return $true }
 
     if ($Action -match '^hotkey:(\d{1,3}):(\d{1,2})$') {
@@ -343,6 +515,16 @@ function Invoke-AdaptiveMappedAction {
             'system:volumeup' { [MugenDeejWindowing.MugenMediaKeys]::VolumeUp(); break }
             'system:volumedown' { [MugenDeejWindowing.MugenMediaKeys]::VolumeDown(); break }
             'system:volumemute' { [MugenDeejWindowing.MugenMediaKeys]::VolumeMute(); break }
+            'mouse:wheelup' { [MugenDeejWindowing.MugenMouseWheel]::Scroll(1, $false, $false, $false, $false, $false); break }
+            'mouse:wheeldown' { [MugenDeejWindowing.MugenMouseWheel]::Scroll(-1, $false, $false, $false, $false, $false); break }
+            'mouse:hwheelleft' { [MugenDeejWindowing.MugenMouseWheel]::Scroll(-1, $true, $false, $false, $false, $false); break }
+            'mouse:hwheelright' { [MugenDeejWindowing.MugenMouseWheel]::Scroll(1, $true, $false, $false, $false, $false); break }
+            'mouse:ctrlwheelup' { [MugenDeejWindowing.MugenMouseWheel]::Scroll(1, $false, $true, $false, $false, $false); break }
+            'mouse:ctrlwheeldown' { [MugenDeejWindowing.MugenMouseWheel]::Scroll(-1, $false, $true, $false, $false, $false); break }
+            'mouse:shiftwheelup' { [MugenDeejWindowing.MugenMouseWheel]::Scroll(1, $false, $false, $true, $false, $false); break }
+            'mouse:shiftwheeldown' { [MugenDeejWindowing.MugenMouseWheel]::Scroll(-1, $false, $false, $true, $false, $false); break }
+            'mouse:altwheelup' { [MugenDeejWindowing.MugenMouseWheel]::Scroll(1, $false, $false, $false, $true, $false); break }
+            'mouse:altwheeldown' { [MugenDeejWindowing.MugenMouseWheel]::Scroll(-1, $false, $false, $false, $true, $false); break }
             default { return }
         }
         Write-Log ('Adaptive action: {0}; action={1}' -f $Source, $Action) 'INFO'
@@ -385,6 +567,39 @@ function Populate-AdaptiveActionCombo {
         )) {
             [void]$Combo.Items.Add((Get-ButtonFeatureText -Key $fixedAction[0]))
             [void]$Map.Add([string]$fixedAction[1])
+        }
+
+        $mouseActions = if ($script:Language -eq 'ru') {
+            @(
+                @('Колесо мыши ↑', 'mouse:wheelup'),
+                @('Колесо мыши ↓', 'mouse:wheeldown'),
+                @('Горизонтальная прокрутка ←', 'mouse:hwheelleft'),
+                @('Горизонтальная прокрутка →', 'mouse:hwheelright'),
+                @('Ctrl + колесо ↑', 'mouse:ctrlwheelup'),
+                @('Ctrl + колесо ↓', 'mouse:ctrlwheeldown'),
+                @('Shift + колесо ↑', 'mouse:shiftwheelup'),
+                @('Shift + колесо ↓', 'mouse:shiftwheeldown'),
+                @('Alt + колесо ↑', 'mouse:altwheelup'),
+                @('Alt + колесо ↓', 'mouse:altwheeldown')
+            )
+        }
+        else {
+            @(
+                @('Mouse wheel ↑', 'mouse:wheelup'),
+                @('Mouse wheel ↓', 'mouse:wheeldown'),
+                @('Horizontal scroll ←', 'mouse:hwheelleft'),
+                @('Horizontal scroll →', 'mouse:hwheelright'),
+                @('Ctrl + wheel ↑', 'mouse:ctrlwheelup'),
+                @('Ctrl + wheel ↓', 'mouse:ctrlwheeldown'),
+                @('Shift + wheel ↑', 'mouse:shiftwheelup'),
+                @('Shift + wheel ↓', 'mouse:shiftwheeldown'),
+                @('Alt + wheel ↑', 'mouse:altwheelup'),
+                @('Alt + wheel ↓', 'mouse:altwheeldown')
+            )
+        }
+        foreach ($mouseAction in $mouseActions) {
+            [void]$Combo.Items.Add([string]$mouseAction[0])
+            [void]$Map.Add([string]$mouseAction[1])
         }
 
         if ($CurrentAction -match '^(hotkey:|launch64:|folder64:|command64:|url64:)') {
