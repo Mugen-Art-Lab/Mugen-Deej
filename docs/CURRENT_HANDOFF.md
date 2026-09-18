@@ -413,6 +413,35 @@ The actions are available in the existing Adaptive action dropdowns for toggle O
 
 **CI PASS only for the new mouse-wheel transport.** Real-machine testing still needed, ideally with E1 CW/CCW mapped to wheel actions and verified in one or more apps (browser, Photoshop, Premiere, etc.). Do not call Photoshop/Premiere behavior PASS until actually exercised because applications differ in which modifier + wheel combinations they consume.
 
+## Integrated #59 — first-run resume/disconnect hardening
+
+Workflow run:
+
+- run number: **#59**
+- run ID: `35360200014`
+- built code head: `2790354d86959142b79eb215bc30685a50e7dee0`
+- result: **SUCCESS**
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-59`
+- artifact ID: `10554397964`
+- outer Actions digest: `sha256:8ce1d60216103bb38d808d6f1e0e6944ff0c68c545645f5da71b5f3bba5a77b6`
+- inner program ZIP SHA-256: `bd8f9a420a876ee29a653a4415434c4f9717e6e70044a7387a017f8b6ff282ae`
+- Windows PowerShell 5.1 parse/runtime marker check: PASS
+- launcher/package: PASS
+
+A real-machine hibernation/resume test with the first-run wizard still open exposed an unhandled WinForms timer exception. The JIT dialog reported PowerShell trying to set a missing `Visible` property from `System.Windows.Forms.Timer.OnTick`. The application log shows the machine suspended with COM14 open, resumed over two hours later with the preserved SerialPort reporting closed, then failed the 15-second preserve window and cleaned up the controller connection.
+
+The stale first-run wizard was switching connected/disconnected detail labels one-by-one from its 150 ms timer. During the resume-driven connection-state transition that path could surface the `Visible` RuntimeException and leave the card half-updated (disconnected intro text with stale COM/protocol/capability details still visible).
+
+#59 changes:
+
+- connected controller details are hosted in one dedicated panel;
+- disconnected/waiting details are hosted in a separate panel;
+- the timer now switches the two panels atomically instead of toggling `Visible` on an array of individual labels;
+- the first-run timer refresh is wrapped so a helper-refresh failure is logged and that helper timer stops instead of surfacing a .NET JIT exception;
+- CI verifies the atomic panel path and the guarded timer refresh.
+
+This is **CI PASS; hibernation/resume real-machine retest still required**. Reproduce with first-run wizard open, hibernate, then resume with the controller present and/or absent. Expected result: no .NET JIT dialog, and the wizard card should transition coherently to its waiting/disconnected state if the controller is not restored.
+
 ## Backup rule
 
 Backups are universal Mugen Deej settings snapshots, not controller-specific files. A backup made with one topology may be restored while a different topology or no controller is connected.
@@ -435,7 +464,7 @@ Nonblocking teardown has CI coverage but its final real-hardware re-test remains
 
 ## Immediate next work
 
-Hardware-review Integrated #57. The #44 capability filtering across Legacy, Extended, and two Adaptive topologies is real-machine PASS. Recheck the #55 first-run/settings-title polish, then exercise the new mouse-wheel actions on a real encoder. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
+Hardware-review Integrated #59. The #44 capability filtering across Legacy, Extended, and two Adaptive topologies is real-machine PASS. Re-test hibernation/resume with the first-run wizard open to verify the #59 atomic connected/waiting card switch and absence of a .NET JIT dialog. Then exercise the #57 mouse-wheel actions on a real encoder. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
 
 ## Working rules
 
