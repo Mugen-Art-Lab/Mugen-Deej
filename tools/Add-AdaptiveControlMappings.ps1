@@ -840,41 +840,21 @@ function Show-AdaptiveControlSettings {
     $assignmentFilter.Location = [System.Drawing.Point]::new(322, 310)
     $assignmentFilter.Size = [System.Drawing.Size]::new(172, 30)
     [void]$assignmentFilter.Items.Add($(if ($script:Language -eq 'ru') { 'Назначенные' } else { 'Assigned' }))
-    [void]$assignmentFilter.Items.Add($(if ($script:Language -eq 'ru') { 'Все действия' } else { 'All actions' }))
+    [void]$assignmentFilter.Items.Add($(if ($script:Language -eq 'ru') { 'Все назначения' } else { 'All mappings' }))
     $assignmentFilter.SelectedIndex = 0
     $editorGroup.Controls.Add($assignmentFilter)
 
-    $assignmentGrid = New-Object System.Windows.Forms.DataGridView
-    $assignmentGrid.Location = [System.Drawing.Point]::new(18, 348)
-    $assignmentGrid.Size = [System.Drawing.Size]::new(476, 156)
-    $assignmentGrid.ReadOnly = $true
-    $assignmentGrid.AllowUserToAddRows = $false
-    $assignmentGrid.AllowUserToDeleteRows = $false
-    $assignmentGrid.AllowUserToResizeRows = $false
-    $assignmentGrid.MultiSelect = $false
-    $assignmentGrid.RowHeadersVisible = $false
-    $assignmentGrid.SelectionMode = [System.Windows.Forms.DataGridViewSelectionMode]::FullRowSelect
-    $assignmentGrid.ColumnHeadersHeightSizeMode = [System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode]::DisableResizing
-    $assignmentGrid.ColumnHeadersHeight = 28
-    $assignmentGrid.RowTemplate.Height = 25
-    $assignmentGrid.AutoGenerateColumns = $false
-
-    $controlColumn = New-Object System.Windows.Forms.DataGridViewTextBoxColumn
-    $controlColumn.HeaderText = if ($script:Language -eq 'ru') { 'Элемент' } else { 'Control' }
-    $controlColumn.Width = 78
-    [void]$assignmentGrid.Columns.Add($controlColumn)
-
-    $eventColumn = New-Object System.Windows.Forms.DataGridViewTextBoxColumn
-    $eventColumn.HeaderText = if ($script:Language -eq 'ru') { 'Когда' } else { 'When' }
-    $eventColumn.Width = 120
-    [void]$assignmentGrid.Columns.Add($eventColumn)
-
-    $actionColumn = New-Object System.Windows.Forms.DataGridViewTextBoxColumn
-    $actionColumn.HeaderText = if ($script:Language -eq 'ru') { 'Действие' } else { 'Action' }
-    $actionColumn.AutoSizeMode = [System.Windows.Forms.DataGridViewAutoSizeColumnMode]::Fill
-    [void]$assignmentGrid.Columns.Add($actionColumn)
-
-    $editorGroup.Controls.Add($assignmentGrid)
+    $assignmentList = New-Object System.Windows.Forms.ListView
+    $assignmentList.Location = [System.Drawing.Point]::new(18, 348)
+    $assignmentList.Size = [System.Drawing.Size]::new(476, 156)
+    $assignmentList.View = [System.Windows.Forms.View]::Details
+    $assignmentList.FullRowSelect = $true
+    $assignmentList.HideSelection = $false
+    $assignmentList.MultiSelect = $false
+    [void]$assignmentList.Columns.Add($(if ($script:Language -eq 'ru') { 'Элемент' } else { 'Control' }), 78)
+    [void]$assignmentList.Columns.Add($(if ($script:Language -eq 'ru') { 'Когда' } else { 'When' }), 120)
+    [void]$assignmentList.Columns.Add($(if ($script:Language -eq 'ru') { 'Действие' } else { 'Action' }), 250)
+    $editorGroup.Controls.Add($assignmentList)
 
     $selectors = @()
     for ($i = 0; $i -lt [int]$script:DetectedToggleCount; $i++) {
@@ -934,6 +914,7 @@ function Show-AdaptiveControlSettings {
                         Control = ('T' + ($i + 1))
                         Event = [string]$entry.Event
                         Action = (Get-AdaptiveActionDisplay -Action $action)
+                        Target = ('t:' + $i)
                     }
                 }
             }
@@ -960,27 +941,32 @@ function Show-AdaptiveControlSettings {
                         Control = ('E' + ($i + 1))
                         Event = [string]$entry.Event
                         Action = (Get-AdaptiveActionDisplay -Action $action)
+                        Target = ('e:' + $i)
                     }
                 }
             }
         }
 
         $assignmentCount.Text = if ($script:Language -eq 'ru') {
-            'Назначено: {0} из {1}' -f $assignedCount, $totalCount
+            'Назначения: {0} из {1}' -f $assignedCount, $totalCount
         }
         else {
-            'Assigned: {0} of {1}' -f $assignedCount, $totalCount
+            'Assignments: {0} of {1}' -f $assignedCount, $totalCount
         }
 
-        $assignmentGrid.SuspendLayout()
+        $assignmentList.BeginUpdate()
         try {
-            $assignmentGrid.Rows.Clear()
+            $assignmentList.Items.Clear()
             foreach ($row in $rows) {
-                [void]$assignmentGrid.Rows.Add($row.Control, $row.Event, $row.Action)
+                $item = New-Object System.Windows.Forms.ListViewItem([string]$row.Control)
+                [void]$item.SubItems.Add([string]$row.Event)
+                [void]$item.SubItems.Add([string]$row.Action)
+                $item.Tag = [string]$row.Target
+                [void]$assignmentList.Items.Add($item)
             }
         }
         finally {
-            $assignmentGrid.ResumeLayout()
+            $assignmentList.EndUpdate()
         }
     }
 
@@ -1113,6 +1099,12 @@ function Show-AdaptiveControlSettings {
     $row2Combo.Add_SelectedIndexChanged({ & $handleCombo $row2Combo $state.Map2 '2' })
     $row3Combo.Add_SelectedIndexChanged({ & $handleCombo $row3Combo $state.Map3 '3' })
     $assignmentFilter.Add_SelectedIndexChanged({ & $refreshAssignmentList })
+    $assignmentList.Add_SelectedIndexChanged({
+        if ($assignmentList.SelectedItems.Count -eq 0) { return }
+        $parts = ([string]$assignmentList.SelectedItems[0].Tag).Split(':')
+        if ($parts.Count -ne 2) { return }
+        & $selectControl -Kind ([string]$parts[0]) -Index ([int]$parts[1])
+    })
 
     $cancel = New-Object MugenDeejWindowing.MugenButton
     $cancel.Text = Get-ButtonFeatureText -Key 'Cancel'
