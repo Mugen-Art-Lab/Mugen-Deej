@@ -2113,8 +2113,6 @@ function Show-FirstRunWizard {
 
 '@
 
-'@
-
 $text = Replace-RegexBlockExactlyOnceLiteral `
     -Text $text `
     -Pattern '(?ms)^function Show-FirstRunWizard \{.*?^function Get-PortNames \{' `
