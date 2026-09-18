@@ -2951,6 +2951,7 @@ $script:ResumeAutoReconnectSuppressed = $false
 $script:ResumeReconnectDelaySeconds = 15
 $script:ResumeHotplugRetrySeconds = 2
 $script:ResumeHotplugRetryWindowSeconds = 20
+$script:ResumeHotplugSlowRetrySeconds = 10
 $script:ResumeHotplugRetryUntil = [DateTime]::MinValue
 $script:ResumePreserveUntil = [DateTime]::MinValue
 $script:ResumePreserveStartedAt = [DateTime]::MinValue
@@ -10185,11 +10186,21 @@ $timer.Add_Tick({
             $hadReadinessWindow = ($script:ResumeHotplugRetryUntil -ne [DateTime]::MinValue)
             $script:ResumeHotplugRetryUntil = [DateTime]::MinValue
             $script:ResumeAutoReconnectSuppressed = $true
+
+            # Do not get stuck forever if Windows keeps the same COM name in
+            # enumeration across unplug/replug. After the fast readiness window
+            # expires, keep one low-frequency targeted retry alive only for the
+            # previously working port. This avoids broad scans while still
+            # honoring the user-facing promise that replugging USB reconnects
+            # automatically.
+            $slowRetrySeconds = [int]$script:ResumeHotplugSlowRetrySeconds
+            $script:ResumeReconnectAt = $now.AddSeconds($slowRetrySeconds)
+
             if ($hadReadinessWindow) {
-                Write-Log ("Resume readiness retry window exhausted for {0}; automatic port opening is now suppressed until a new COM device appears or the user requests a manual scan" -f $preferredPort) 'WARN'
+                Write-Log ("Resume readiness retry window exhausted for {0}; continuing low-frequency targeted retries every {1} s until the controller returns or the user requests a manual scan" -f $preferredPort, $slowRetrySeconds) 'WARN'
             }
             else {
-                Write-Log ("Single delayed resume attempt failed or could not run on {0}; automatic port opening is now suppressed until a new COM device appears or the user requests a manual scan" -f $preferredPort) 'WARN'
+                Write-Log ("Targeted resume attempt failed on {0}; continuing low-frequency targeted retries every {1} s until the controller returns or the user requests a manual scan" -f $preferredPort, $slowRetrySeconds) 'WARN'
             }
             Set-Status (T -Key 'StatusResumeReconnectFailed' -Args @($preferredPort)) 'warn'
             Update-TrayText
