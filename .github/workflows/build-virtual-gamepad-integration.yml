@@ -302,11 +302,17 @@ jobs:
           if ($runtimeText -notmatch 'Resume recovery armed for fresh detection') {
             throw 'Development runtime is missing same-COM resume replug detection.'
           }
-          if ($runtimeText -notmatch 'Fresh resume port .* scheduling one targeted retry') {
-            throw 'Development runtime is missing the post-hotplug resume retry.'
+          if ($runtimeText -notmatch 'starting bounded readiness retry window') {
+            throw 'Development runtime is missing the bounded post-hotplug resume retry window.'
+          }
+          if ($runtimeText -notmatch 'Targeted resume retry on .* is still not ready') {
+            throw 'Development runtime is missing repeated targeted resume retries.'
           }
           if ($runtimeText -notmatch '\$script:ResumeHotplugRetrySeconds = 2') {
-            throw 'Development runtime is missing the short resume hotplug retry delay.'
+            throw 'Development runtime is missing the short resume hotplug retry interval.'
+          }
+          if ($runtimeText -notmatch '\$script:ResumeHotplugRetryWindowSeconds = 20') {
+            throw 'Development runtime is missing the bounded resume hotplug retry horizon.'
           }
           if ($runtimeText -notmatch '\$script:KnownPorts = @\(\$currentPorts \| Where-Object \{ \$_ -ne \$portName \}\)') {
             throw 'Development runtime does not forget the stale resume port before auto-reconnect.'
