@@ -448,6 +448,34 @@ Real-machine retest is now **PASS** for both important resume branches while the
 
 This closes the first-run wizard resume/disconnect crash found before #59.
 
+## Integrated #61 — same-COM auto-reconnect after failed resume
+
+Workflow run:
+
+- run number: **#61**
+- run ID: `35363894999`
+- built code head: `cda7e383a27cc21534b1d86a57a85df39c6f0c84`
+- result: **SUCCESS**
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-61`
+- artifact ID: `10554993462`
+- outer Actions digest: `sha256:aa6db83aa660e59b0b65157ff591e5ee72d12f792a45f82b6557dfca7b5425b7`
+- inner program ZIP SHA-256: `56fe6324dbfc04456f05cd3853a7c47f0e5eb346b0d5749d6fd69e9d98ee0677`
+- Windows PowerShell 5.1 parse/runtime marker check: PASS
+- launcher/package: PASS
+
+The #59 real-machine resume retest exposed a second, separate recovery issue after the JIT crash itself was fixed. On the failed-preserve branch the UI correctly moved to `Жду контроллер...`, but physically reconnecting the controller on the same COM14 did not reconnect automatically. The log shows cleanup completed at 21:35:05, then no automatic probe occurred for roughly two minutes; only the user's manual `Найти и подключить заново` at 21:37:05 reopened COM14 and detected Adaptive v3.
+
+Root cause: failed resume intentionally enabled `ResumeAutoReconnectSuppressed` and the reconnect loop only woke for a **newly appeared COM number**. Because COM14 remained in `KnownPorts`, a fast unplug/replug that reused COM14 could look unchanged to the 500 ms port snapshot and remain suppressed forever.
+
+#61 changes:
+
+- after a failed preserved-SerialPort resume, the previous controller port is explicitly removed from the in-memory known-port snapshot;
+- its probe cooldown/state is reset and the next port snapshot is forced immediately;
+- therefore the same COM number receives one fresh targeted auto-reconnect opportunity even if Windows reused it too quickly for an observed remove/add pair;
+- ordinary suppression remains in place after that one attempt, so the app does not spin in repeated port-open loops if the controller still cannot be reached.
+
+This is **CI PASS; real-machine same-COM replug retest still required**. Reproduce the failed-preserve branch, leave the first-run wizard open, unplug/replug the Arduino so Windows gives it COM14 again, and do not press manual reconnect. Expected result: Mugen should detect COM14 automatically and the wizard should leave `Жду контроллер...` on its own.
+
 ## Backup rule
 
 Backups are universal Mugen Deej settings snapshots, not controller-specific files. A backup made with one topology may be restored while a different topology or no controller is connected.
@@ -470,7 +498,7 @@ Nonblocking teardown has CI coverage but its final real-hardware re-test remains
 
 ## Immediate next work
 
-Hardware-review Integrated #59. The #59 hibernation/resume first-run wizard fix is real-machine PASS on both successful SerialPort preservation and failed-preserve/disconnect paths, with no .NET JIT dialog. Next exercise the #57 mouse-wheel actions on a real encoder. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
+Hardware-review Integrated #61. The #59 hibernation/resume first-run wizard crash fix is real-machine PASS on both preserve-success and preserve-failure paths. #61 now needs one explicit same-COM replug test after a failed preserve: COM14 should reconnect automatically without using the diagnostics button, and the first-run wizard should leave its waiting state. Then exercise the #57 mouse-wheel actions on a real encoder. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
 
 ## Working rules
 
