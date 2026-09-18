@@ -589,7 +589,7 @@ The #69/#65 real-machine hibernate test showed that one delayed retry was still 
 
 This deliberately favors eventual recovery over a permanent stale waiting state. The low-frequency phase exists specifically for Windows cases where the COM name remains enumerated while the underlying endpoint is not yet openable, or where unplug/replug reuses the same COM identity without producing a useful port-list edge.
 
-This is **CI PASS; real-machine retest required** with hibernate -> unplug Arduino -> resume -> wait for disconnected state -> replug Arduino and do not touch diagnostics. Expected behavior: even if the first few opens fail, Mugen keeps trying COM14 and eventually reconnects automatically once Windows makes the endpoint usable.
+Real-machine retest is now **PASS**. In the hibernate -> unplug Arduino -> resume -> replug Arduino scenario, Windows kept enumerating COM14 while SerialPort.Open still returned `Port 'COM14' does not exist` for multiple attempts. #73 kept retrying the preferred port every 2 s during the fast readiness window; COM14 finally became openable near the end of that window, Adaptive v3 5/29/2/1 was detected at 115200, and the targeted resume recovery completed automatically without any diagnostics/manual reconnect action.
 
 ## Backup rule
 
@@ -613,7 +613,7 @@ Nonblocking teardown has CI coverage but its final real-hardware re-test remains
 
 ## Immediate next work
 
-Hardware-review Integrated #73. The #59 hibernation/resume first-run wizard crash fix is real-machine PASS, and the #69 first-run card surface fix is real-machine visual PASS. #65's one-shot post-hotplug retry was insufficient on hardware, so #73 now keeps targeted COM14 recovery alive at low frequency instead of suppressing forever. Re-run hibernate/unplug/resume/replug with no manual diagnostics click. Then exercise the #57 mouse-wheel actions on a real encoder. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
+Hardware-review Integrated #73. The #59 first-run wizard resume crash fix, #69 card-surface fix, and #73 hibernate/unplug/resume/same-COM automatic reconnect path are all real-machine PASS. Windows may enumerate COM14 for many seconds before SerialPort.Open becomes usable; #73 survives this and reconnects automatically. Next exercise the #57 mouse-wheel actions on a real encoder. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
 
 ## Working rules
 
