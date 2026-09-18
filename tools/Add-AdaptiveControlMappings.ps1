@@ -442,4 +442,363 @@ function Show-AdaptiveControlSettings {
     Ensure-AdaptiveActionCapacity -ToggleCount ([int]$script:DetectedToggleCount) -EncoderCount ([int]$script:DetectedEncoderCount)
 
     $pendingToggles = @()
-    foreach ($item in @($script:AdaptiveToggleAct
+    foreach ($item in @($script:AdaptiveToggleActions)) {
+        $pendingToggles += [pscustomobject][ordered]@{ on = [string]$item.on; off = [string]$item.off }
+    }
+    $pendingEncoders = @()
+    foreach ($item in @($script:AdaptiveEncoderActions)) {
+        $pendingEncoders += [pscustomobject][ordered]@{ cw = [string]$item.cw; ccw = [string]$item.ccw; push = [string]$item.push }
+    }
+
+    $settingsForm = New-Object System.Windows.Forms.Form
+    $settingsForm.Text = if ($script:Language -eq 'ru') { 'Тумблеры и энкодеры — Mugen Deej' } else { 'Toggles and encoders — Mugen Deej' }
+    $settingsForm.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterParent
+    $settingsForm.ClientSize = [System.Drawing.Size]::new(820, 610)
+    $settingsForm.MinimumSize = [System.Drawing.Size]::new(836, 649)
+    $settingsForm.MaximumSize = [System.Drawing.Size]::new(836, 649)
+    $settingsForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+    $settingsForm.MaximizeBox = $false
+    $settingsForm.MinimizeBox = $false
+    $settingsForm.Font = $form.Font
+    Set-FormAppIcon -Form $settingsForm
+
+    $heading = New-Object System.Windows.Forms.Label
+    $heading.Text = if ($script:Language -eq 'ru') { 'Действия тумблеров и энкодеров' } else { 'Toggle and encoder actions' }
+    $heading.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 16)
+    $heading.AutoSize = $true
+    $heading.Location = [System.Drawing.Point]::new(22, 18)
+    $settingsForm.Controls.Add($heading)
+
+    $hint = New-Object System.Windows.Forms.Label
+    $hint.Text = if ($script:Language -eq 'ru') {
+        'Выберите орган управления слева или подвигайте его на контроллере. Тумблер имеет отдельные действия ВКЛ/ВЫКЛ; энкодер — по часовой, против часовой и нажатие.'
+    }
+    else {
+        'Choose a control on the left or operate it on the hardware. Toggles have separate ON/OFF actions; encoders have clockwise, counter-clockwise, and push actions.'
+    }
+    $hint.ForeColor = [System.Drawing.Color]::DimGray
+    $hint.Location = [System.Drawing.Point]::new(25, 56)
+    $hint.Size = [System.Drawing.Size]::new(770, 44)
+    $settingsForm.Controls.Add($hint)
+
+    $saveNotice = New-Object System.Windows.Forms.Label
+    $saveNotice.Text = if ($script:Language -eq 'ru') { 'Изменения начнут работать только после нажатия «Сохранить».' } else { 'Changes take effect only after you click Save.' }
+    $saveNotice.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 9.5)
+    $saveNotice.ForeColor = [System.Drawing.Color]::FromArgb(230, 170, 70)
+    $saveNotice.Location = [System.Drawing.Point]::new(25, 102)
+    $saveNotice.Size = [System.Drawing.Size]::new(770, 26)
+    $settingsForm.Controls.Add($saveNotice)
+
+    $selectorGroup = New-Object MugenDeejWindowing.MugenGroupBox
+    $selectorGroup.Text = if ($script:Language -eq 'ru') { 'Органы управления' } else { 'Physical controls' }
+    $selectorGroup.Location = [System.Drawing.Point]::new(22, 136)
+    $selectorGroup.Size = [System.Drawing.Size]::new(248, 408)
+    $settingsForm.Controls.Add($selectorGroup)
+
+    $selectorFlow = New-Object System.Windows.Forms.FlowLayoutPanel
+    $selectorFlow.Location = [System.Drawing.Point]::new(12, 30)
+    $selectorFlow.Size = [System.Drawing.Size]::new(224, 364)
+    $selectorFlow.FlowDirection = [System.Windows.Forms.FlowDirection]::LeftToRight
+    $selectorFlow.WrapContents = $true
+    $selectorFlow.AutoScroll = $true
+    $selectorGroup.Controls.Add($selectorFlow)
+
+    $editorGroup = New-Object MugenDeejWindowing.MugenGroupBox
+    $editorGroup.Text = if ($script:Language -eq 'ru') { 'Выбранный орган управления' } else { 'Selected control' }
+    $editorGroup.Location = [System.Drawing.Point]::new(282, 136)
+    $editorGroup.Size = [System.Drawing.Size]::new(516, 408)
+    $settingsForm.Controls.Add($editorGroup)
+
+    $selectedHeading = New-Object System.Windows.Forms.Label
+    $selectedHeading.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 12)
+    $selectedHeading.Location = [System.Drawing.Point]::new(18, 32)
+    $selectedHeading.Size = [System.Drawing.Size]::new(480, 30)
+    $editorGroup.Controls.Add($selectedHeading)
+
+    $liveState = New-Object System.Windows.Forms.Label
+    $liveState.ForeColor = [System.Drawing.Color]::DimGray
+    $liveState.Location = [System.Drawing.Point]::new(18, 63)
+    $liveState.Size = [System.Drawing.Size]::new(480, 28)
+    $editorGroup.Controls.Add($liveState)
+
+    $row1Label = New-Object System.Windows.Forms.Label
+    $row1Label.Location = [System.Drawing.Point]::new(18, 112)
+    $row1Label.Size = [System.Drawing.Size]::new(150, 26)
+    $editorGroup.Controls.Add($row1Label)
+    $row1Combo = New-Object MugenDeejWindowing.MugenComboBox
+    $row1Combo.DropDownStyle = 'DropDownList'
+    $row1Combo.Location = [System.Drawing.Point]::new(174, 108)
+    $row1Combo.Size = [System.Drawing.Size]::new(320, 30)
+    $editorGroup.Controls.Add($row1Combo)
+
+    $row2Label = New-Object System.Windows.Forms.Label
+    $row2Label.Location = [System.Drawing.Point]::new(18, 164)
+    $row2Label.Size = [System.Drawing.Size]::new(150, 26)
+    $editorGroup.Controls.Add($row2Label)
+    $row2Combo = New-Object MugenDeejWindowing.MugenComboBox
+    $row2Combo.DropDownStyle = 'DropDownList'
+    $row2Combo.Location = [System.Drawing.Point]::new(174, 160)
+    $row2Combo.Size = [System.Drawing.Size]::new(320, 30)
+    $editorGroup.Controls.Add($row2Combo)
+
+    $row3Label = New-Object System.Windows.Forms.Label
+    $row3Label.Location = [System.Drawing.Point]::new(18, 216)
+    $row3Label.Size = [System.Drawing.Size]::new(150, 26)
+    $editorGroup.Controls.Add($row3Label)
+    $row3Combo = New-Object MugenDeejWindowing.MugenComboBox
+    $row3Combo.DropDownStyle = 'DropDownList'
+    $row3Combo.Location = [System.Drawing.Point]::new(174, 212)
+    $row3Combo.Size = [System.Drawing.Size]::new(320, 30)
+    $editorGroup.Controls.Add($row3Combo)
+
+    $editorHint = New-Object System.Windows.Forms.Label
+    $editorHint.Text = if ($script:Language -eq 'ru') {
+        'Для энкодера действие выполняется один раз на каждый детент. При пропуске serial-пакета Mugen восстанавливает несколько шагов из накопленной позиции (защитный лимит: 32 действия за пакет).'
+    }
+    else {
+        'Encoder actions fire once per detent. If a serial frame is missed, Mugen recovers multiple steps from the cumulative position (safety cap: 32 actions per packet).'
+    }
+    $editorHint.ForeColor = [System.Drawing.Color]::DimGray
+    $editorHint.Location = [System.Drawing.Point]::new(18, 274)
+    $editorHint.Size = [System.Drawing.Size]::new(476, 76)
+    $editorGroup.Controls.Add($editorHint)
+
+    $selectors = @()
+    for ($i = 0; $i -lt [int]$script:DetectedToggleCount; $i++) {
+        $tile = New-Object MugenDeejWindowing.MugenButtonTile
+        $tile.Text = ('T' + ($i + 1))
+        $tile.Tag = ('t:' + $i)
+        $tile.Size = [System.Drawing.Size]::new(54, 30)
+        $tile.Margin = New-Object System.Windows.Forms.Padding(4, 3, 4, 3)
+        $tile.TextAlign = 'MiddleCenter'
+        $selectorFlow.Controls.Add($tile)
+        $selectors += $tile
+    }
+    for ($i = 0; $i -lt [int]$script:DetectedEncoderCount; $i++) {
+        $tile = New-Object MugenDeejWindowing.MugenButtonTile
+        $tile.Text = ('E' + ($i + 1))
+        $tile.Tag = ('e:' + $i)
+        $tile.Size = [System.Drawing.Size]::new(54, 30)
+        $tile.Margin = New-Object System.Windows.Forms.Padding(4, 3, 4, 3)
+        $tile.TextAlign = 'MiddleCenter'
+        $selectorFlow.Controls.Add($tile)
+        $selectors += $tile
+    }
+
+    $state = [pscustomobject]@{
+        Kind = $(if ([int]$script:DetectedToggleCount -gt 0) { 't' } else { 'e' })
+        Index = 0
+        Suppress = $false
+        Map1 = New-Object System.Collections.ArrayList
+        Map2 = New-Object System.Collections.ArrayList
+        Map3 = New-Object System.Collections.ArrayList
+        LastToggles = @($script:LatestToggles)
+        LastEncoderPositions = @($script:LatestEncoders | ForEach-Object { [int64]$_.Position })
+        LastEncoderPush = @($script:LatestEncoders | ForEach-Object { if ([bool]$_.HasPush) { [int]$_.Push } else { 1 } })
+    }
+
+    $getCurrentAction = {
+        param([string]$Slot)
+        $index = [int]$state.Index
+        if ($state.Kind -eq 't') {
+            if ($index -ge $pendingToggles.Count) { return 'none' }
+            if ($Slot -eq '1') { return [string]$pendingToggles[$index].on }
+            return [string]$pendingToggles[$index].off
+        }
+        if ($index -ge $pendingEncoders.Count) { return 'none' }
+        switch ($Slot) {
+            '1' { return [string]$pendingEncoders[$index].cw }
+            '2' { return [string]$pendingEncoders[$index].ccw }
+            default { return [string]$pendingEncoders[$index].push }
+        }
+    }
+
+    $setCurrentAction = {
+        param([string]$Slot, [string]$Action)
+        $index = [int]$state.Index
+        $Action = ConvertTo-SafeAdaptiveAction -Action $Action
+        if ($state.Kind -eq 't') {
+            if ($Slot -eq '1') { $pendingToggles[$index].on = $Action }
+            else { $pendingToggles[$index].off = $Action }
+            return
+        }
+        switch ($Slot) {
+            '1' { $pendingEncoders[$index].cw = $Action }
+            '2' { $pendingEncoders[$index].ccw = $Action }
+            default { $pendingEncoders[$index].push = $Action }
+        }
+    }
+
+    $refreshSelectors = {
+        $palette = $script:ThemePalettes[(Get-EffectiveTheme)]
+        foreach ($tile in $selectors) {
+            $parts = ([string]$tile.Tag).Split(':')
+            $kind = [string]$parts[0]
+            $index = [int]$parts[1]
+            $selected = ($kind -eq [string]$state.Kind -and $index -eq [int]$state.Index)
+            $active = $false
+            if ($kind -eq 't' -and @($script:LatestToggles).Count -gt $index) {
+                $active = ([int]$script:LatestToggles[$index] -eq 1)
+            }
+            elseif ($kind -eq 'e' -and @($script:LatestEncoders).Count -gt $index) {
+                $enc = $script:LatestEncoders[$index]
+                $active = ([bool]$enc.HasPush -and [int]$enc.Push -eq 0)
+            }
+            $tile.BackColor = if ($active) { $palette.Accent } else { $palette.Control }
+            $tile.ForeColor = if ($active) { $palette.AccentText } else { $palette.Text }
+            $tile.BorderColor = if ($selected) { $palette.Accent } else { $palette.Border }
+        }
+    }
+
+    $refreshEditor = {
+        $state.Suppress = $true
+        try {
+            $index = [int]$state.Index
+            if ($state.Kind -eq 't') {
+                $selectedHeading.Text = if ($script:Language -eq 'ru') { 'Тумблер ' + ($index + 1) } else { 'Toggle ' + ($index + 1) }
+                $row1Label.Text = if ($script:Language -eq 'ru') { 'При включении' } else { 'When switched ON' }
+                $row2Label.Text = if ($script:Language -eq 'ru') { 'При выключении' } else { 'When switched OFF' }
+                $row3Label.Visible = $false
+                $row3Combo.Visible = $false
+                Populate-AdaptiveActionCombo -Combo $row1Combo -Map $state.Map1 -CurrentAction (& $getCurrentAction '1')
+                Populate-AdaptiveActionCombo -Combo $row2Combo -Map $state.Map2 -CurrentAction (& $getCurrentAction '2')
+            }
+            else {
+                $selectedHeading.Text = if ($script:Language -eq 'ru') { 'Энкодер ' + ($index + 1) } else { 'Encoder ' + ($index + 1) }
+                $row1Label.Text = if ($script:Language -eq 'ru') { 'По часовой' } else { 'Clockwise' }
+                $row2Label.Text = if ($script:Language -eq 'ru') { 'Против часовой' } else { 'Counter-clockwise' }
+                $row3Label.Text = if ($script:Language -eq 'ru') { 'Нажатие' } else { 'Push' }
+                $hasPush = $false
+                if (@($script:LatestEncoders).Count -gt $index) { $hasPush = [bool]$script:LatestEncoders[$index].HasPush }
+                $row3Label.Visible = $hasPush
+                $row3Combo.Visible = $hasPush
+                Populate-AdaptiveActionCombo -Combo $row1Combo -Map $state.Map1 -CurrentAction (& $getCurrentAction '1')
+                Populate-AdaptiveActionCombo -Combo $row2Combo -Map $state.Map2 -CurrentAction (& $getCurrentAction '2')
+                if ($hasPush) { Populate-AdaptiveActionCombo -Combo $row3Combo -Map $state.Map3 -CurrentAction (& $getCurrentAction '3') }
+            }
+        }
+        finally { $state.Suppress = $false }
+        & $refreshSelectors
+    }
+
+    $selectControl = {
+        param([string]$Kind, [int]$Index)
+        if ($Kind -eq 't') {
+            if ($Index -lt 0 -or $Index -ge [int]$script:DetectedToggleCount) { return }
+        }
+        else {
+            if ($Index -lt 0 -or $Index -ge [int]$script:DetectedEncoderCount) { return }
+        }
+        $state.Kind = $Kind
+        $state.Index = $Index
+        & $refreshEditor
+    }
+
+    foreach ($tile in $selectors) {
+        $tile.Add_Click({
+            param($sender, $eventArgs)
+            $parts = ([string]$sender.Tag).Split(':')
+            & $selectControl -Kind ([string]$parts[0]) -Index ([int]$parts[1])
+        })
+    }
+
+    $handleCombo = {
+        param($Combo, $Map, [string]$Slot)
+        if ($state.Suppress) { return }
+        $selectedIndex = [int]$Combo.SelectedIndex
+        if ($selectedIndex -lt 0 -or $selectedIndex -ge $Map.Count) { return }
+        $chosen = [string]$Map[$selectedIndex]
+        $previous = [string](& $getCurrentAction $Slot)
+        $configured = Resolve-AdaptiveConfiguredAction -SelectedAction $chosen -PreviousAction $previous
+        if (-not [string]::IsNullOrWhiteSpace($configured)) { & $setCurrentAction $Slot ([string]$configured) }
+        & $refreshEditor
+    }
+
+    $row1Combo.Add_SelectedIndexChanged({ & $handleCombo $row1Combo $state.Map1 '1' })
+    $row2Combo.Add_SelectedIndexChanged({ & $handleCombo $row2Combo $state.Map2 '2' })
+    $row3Combo.Add_SelectedIndexChanged({ & $handleCombo $row3Combo $state.Map3 '3' })
+
+    $cancel = New-Object MugenDeejWindowing.MugenButton
+    $cancel.Text = Get-ButtonFeatureText -Key 'Cancel'
+    $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+    $cancel.Location = [System.Drawing.Point]::new(580, 560)
+    $cancel.Size = [System.Drawing.Size]::new(100, 36)
+    $settingsForm.Controls.Add($cancel)
+
+    $save = New-Object MugenDeejWindowing.MugenButton
+    $save.Text = Get-ButtonFeatureText -Key 'Save'
+    $save.Tag = 'MugenPrimary'
+    $save.Location = [System.Drawing.Point]::new(692, 560)
+    $save.Size = [System.Drawing.Size]::new(106, 36)
+    $settingsForm.Controls.Add($save)
+    $save.Add_Click({
+        $script:AdaptiveToggleActions = @($pendingToggles)
+        $script:AdaptiveEncoderActions = @($pendingEncoders)
+        Save-AdaptiveActions
+        $settingsForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
+        $settingsForm.Close()
+    })
+
+    $liveTimer = New-Object System.Windows.Forms.Timer
+    $liveTimer.Interval = 50
+    $liveTimer.Add_Tick({
+        $latestToggles = @($script:LatestToggles)
+        for ($i = 0; $i -lt [Math]::Min($latestToggles.Count, @($state.LastToggles).Count); $i++) {
+            if ([int]$latestToggles[$i] -ne [int]$state.LastToggles[$i]) {
+                & $selectControl -Kind 't' -Index $i
+                break
+            }
+        }
+
+        $latestEncoders = @($script:LatestEncoders)
+        for ($i = 0; $i -lt $latestEncoders.Count; $i++) {
+            $oldPos = if (@($state.LastEncoderPositions).Count -gt $i) { [int64]$state.LastEncoderPositions[$i] } else { [int64]$latestEncoders[$i].Position }
+            $oldPush = if (@($state.LastEncoderPush).Count -gt $i) { [int]$state.LastEncoderPush[$i] } else { 1 }
+            $newPos = [int64]$latestEncoders[$i].Position
+            $newPush = if ([bool]$latestEncoders[$i].HasPush) { [int]$latestEncoders[$i].Push } else { 1 }
+            if ($newPos -ne $oldPos -or ($newPush -eq 0 -and $oldPush -ne 0)) {
+                & $selectControl -Kind 'e' -Index $i
+                break
+            }
+        }
+
+        $state.LastToggles = @($latestToggles)
+        $state.LastEncoderPositions = @($latestEncoders | ForEach-Object { [int64]$_.Position })
+        $state.LastEncoderPush = @($latestEncoders | ForEach-Object { if ([bool]$_.HasPush) { [int]$_.Push } else { 1 } })
+
+        if ($state.Kind -eq 't') {
+            $isOn = (@($script:LatestToggles).Count -gt [int]$state.Index -and [int]$script:LatestToggles[[int]$state.Index] -eq 1)
+            $liveState.Text = if ($script:Language -eq 'ru') { 'Сейчас: ' + $(if ($isOn) { 'ВКЛ' } else { 'ВЫКЛ' }) } else { 'Now: ' + $(if ($isOn) { 'ON' } else { 'OFF' }) }
+        }
+        else {
+            $index = [int]$state.Index
+            if (@($script:LatestEncoders).Count -gt $index) {
+                $enc = $script:LatestEncoders[$index]
+                $pushText = if ([bool]$enc.HasPush) {
+                    if ([int]$enc.Push -eq 0) { $(if ($script:Language -eq 'ru') { 'нажат' } else { 'pressed' }) } else { $(if ($script:Language -eq 'ru') { 'отпущен' } else { 'released' }) }
+                }
+                else { $(if ($script:Language -eq 'ru') { 'без кнопки' } else { 'no push' }) }
+                $liveState.Text = if ($script:Language -eq 'ru') { 'Позиция: {0} · {1}' -f [int64]$enc.Position, $pushText } else { 'Position: {0} · {1}' -f [int64]$enc.Position, $pushText }
+            }
+        }
+        & $refreshSelectors
+    })
+
+    Apply-ThemeToForm -Form $settingsForm -ThemeName (Get-EffectiveTheme)
+    $saveNotice.ForeColor = [System.Drawing.Color]::FromArgb(230, 170, 70)
+    & $refreshEditor
+
+    $settingsForm.Add_Shown({
+        Ensure-FormVisible -Form $settingsForm -CenterIfOffscreen
+        $liveTimer.Start()
+    })
+    $settingsForm.Add_FormClosed({ $liveTimer.Stop(); $liveTimer.Dispose() })
+    $settingsForm.AcceptButton = $save
+    $settingsForm.CancelButton = $cancel
+    [void]$settingsForm.ShowDialog($form)
+    if (-not $settingsForm.IsDisposed) { $settingsForm.Dispose() }
+}
+
+'@
+
+$te
