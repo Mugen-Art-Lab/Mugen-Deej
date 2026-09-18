@@ -382,6 +382,37 @@ User review of #54 found two final copy/title inconsistencies:
 - typed settings window title is now `Настройка тумблеров и энкодеров — Mugen Deej` / `Toggle and encoder settings — Mugen Deej`;
 - the large in-window heading is now `Настройка тумблеров и энкодеров` / `Toggle and encoder settings`.
 
+## Integrated #57 — Adaptive mouse-wheel actions
+
+Workflow run:
+
+- run number: **#57**
+- run ID: `35346766213`
+- built code head: `1825dfd24929d992c52d7348ac211511740c212a`
+- result: **SUCCESS**
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-57`
+- artifact ID: `10546848410`
+- outer Actions digest: `sha256:31521c57568a86f92255dc704743ece124024434b9690f109fa95833a02ace30`
+- inner program ZIP SHA-256: `687466f2b341175b1bfa1cc43c4264967c07d6fae1a1b545efdc1c675f0863c5`
+- Windows PowerShell 5.1 parse/runtime marker check: PASS
+- launcher/package: PASS
+
+This build starts the editor/creative-app experiment discussed after #55. Adaptive toggle/encoder actions can now emit mouse-wheel input through Win32 `SendInput`.
+
+Added actions:
+
+- vertical wheel up/down;
+- native horizontal wheel left/right;
+- Ctrl + wheel up/down;
+- Shift + wheel up/down;
+- Alt + wheel up/down.
+
+The implementation adds a dedicated `MugenMouseWheel` helper to the staged C# runtime. One encoder detent maps to one standard 120-unit Windows wheel notch, so the existing cumulative-position recovery still preserves missed detents up to the existing 32-action packet safety cap.
+
+The actions are available in the existing Adaptive action dropdowns for toggle ON/OFF and encoder CW/CCW/push. They are persisted in `adaptive-actions.json` and accepted by the existing safe-action validator / universal backup flow.
+
+**CI PASS only for the new mouse-wheel transport.** Real-machine testing still needed, ideally with E1 CW/CCW mapped to wheel actions and verified in one or more apps (browser, Photoshop, Premiere, etc.). Do not call Photoshop/Premiere behavior PASS until actually exercised because applications differ in which modifier + wheel combinations they consume.
+
 ## Backup rule
 
 Backups are universal Mugen Deej settings snapshots, not controller-specific files. A backup made with one topology may be restored while a different topology or no controller is connected.
@@ -404,7 +435,7 @@ Nonblocking teardown has CI coverage but its final real-hardware re-test remains
 
 ## Immediate next work
 
-Hardware-review Integrated #55. The #44 capability filtering across Legacy, Extended, and two Adaptive topologies is real-machine PASS. Recheck the shortened first-run copy, typed settings title/heading consistency, and the centered inner-ring cue for push-capable encoders. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
+Hardware-review Integrated #57. The #44 capability filtering across Legacy, Extended, and two Adaptive topologies is real-machine PASS. Recheck the #55 first-run/settings-title polish, then exercise the new mouse-wheel actions on a real encoder. Actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests.
 
 ## Working rules
 
