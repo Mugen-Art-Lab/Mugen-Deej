@@ -180,9 +180,28 @@ Portable backup creation now writes `schemaVersion = 2` and includes:
 
 Restore still accepts schema v1. A v1 restore preserves the current typed mappings because v1 never contained that family. A v2 restore includes typed mappings. Topology mismatch remains informational rather than a hard restore lock, and the emergency pre-restore backup/rollback path now also contains typed mappings.
 
-### #35 hardware status
+### #35 real-machine review
 
-**Not hardware-tested yet.** CI proves staging, UTF-8/BOM handling and Windows PowerShell 5.1 parsing, but the new settings dialog, action execution, polished full-state visuals, and backup v2 behavior need real-machine testing.
+Integrated #35 has now been launched on the real machine.
+
+Observed PASS / accepted visually:
+
+- the new typed settings dialog opens correctly for the 5/29/2/1 fixture and exposes T1, T2 and E1;
+- toggle editor presents separate ON/OFF action rows;
+- encoder editor presents CW/CCW/push rows;
+- Save writes typed mappings successfully (`Adaptive actions saved: toggles=2; encoders=1` in the runtime log);
+- the polished full controller-state window is visually preferred over the old monospace dump;
+- the 0/0/12/6 profile reconnects and the full-state window shows all 12 toggles and 6 encoders;
+- RU -> EN -> RU switching completed without an exception in the observed session.
+
+Still **not hardware PASS** for actual mapped-action execution: the supplied log shows mappings being saved but does not show a configured toggle/encoder action firing. Backup schema v2 restore also still needs an explicit real-machine exercise.
+
+User UI feedback from this review:
+
+- the new main `Настроить переключатели` button looked typographically lighter than the existing settings buttons;
+- the regulator-settings button being the only blue/primary Configure action looked inconsistent once three peer settings buttons existed;
+- the compact 0/0/12/6 summary visibly has room for at least one more encoder before overflow.
+
 
 Recommended first look:
 
@@ -191,6 +210,29 @@ Recommended first look:
 3. Use `0/0/12/6`, open `Показать все…`, and inspect scrolling/live switch/knob visuals.
 4. Create a backup with typed mappings, inspect restore confirmation with another topology attached, and verify dormant mappings survive.
 5. Recheck Legacy/Extended briefly because the settings-row layout changed.
+
+## Integrated #39 — settings-row polish
+
+Workflow run:
+
+- run number: **#39**
+- run ID: `35335088427`
+- built code head: `c82956f922e8a8b4ba500c11712dd73fd798729e`
+- result: **SUCCESS**
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-39`
+- artifact ID: `10542641813`
+- outer Actions digest: `sha256:2c321d17c6c6c8854b78db400bd5f92a6f6e2456934449715ccfe1df42b59ef6`
+- inner program ZIP SHA-256: `a338f9817274888b03c20e3a23a345df91a6443f11b0a42a08e103f966381bdf`
+- Windows PowerShell 5.1 parse check: PASS
+- launcher/package: PASS
+
+Changes based directly on the #35 screenshots:
+
+1. `Настроить переключатели / Configure switches / encoders` now explicitly uses Segoe UI Semibold 10, matching the other main Configure buttons.
+2. `Настроить регуляторы / Configure controls` is no longer the sole blue primary action; the three Configure buttons are visual peers.
+3. The bounded main Adaptive summary now shows up to **3 encoders** instead of 2. For the synthetic 12-toggle/6-encoder profile this reduces overflow by one while retaining the bounded-height design.
+
+The first #38 attempt failed during staging because the patch script accidentally interpolated `$settingsButton` under StrictMode. This was fixed by literal quoting; #39 is the green replacement build.
 
 ## Backup rule
 
@@ -214,7 +256,7 @@ Nonblocking teardown has CI coverage but its final real-hardware re-test remains
 
 ## Immediate next work
 
-Hardware-review Integrated #35. Do not call its new typed mappings, polished full-state UI, or backup schema v2 hardware PASS until exercised on the real machine. After that, iterate on the interaction model/visual details from screenshots and logs before broadening virtual-controller mapping semantics for typed controls.
+Hardware-review Integrated #39. The #35 typed settings/full-state visuals have now been seen on the real machine, but actual mapped toggle/encoder action execution and backup schema v2 restore still require explicit real-machine tests. Recheck the neutral/semibold three-button settings row and the new three-encoder compact summary before broadening virtual-controller mapping semantics for typed controls.
 
 ## Working rules
 
