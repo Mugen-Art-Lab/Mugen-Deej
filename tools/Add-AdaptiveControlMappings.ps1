@@ -1621,8 +1621,8 @@ $text = Replace-RegexBlockExactlyOnceLiteral `
 # than making regulator settings look like the single preferred action.
 $text = Replace-LiteralExactlyOnce `
     -Text $text `
-    -OldText "$settingsButton.Tag = 'MugenPrimary'" `
-    -NewText "$settingsButton.Tag = ''" `
+    -OldText '$settingsButton.Tag = ''MugenPrimary''' `
+    -NewText '$settingsButton.Tag = ''''' `
     -Label 'make regulator settings button neutral'
 
 $utf8 = New-Object System.Text.UTF8Encoding($false)
