@@ -699,6 +699,33 @@ Mouse-wheel action hardware status is now **PASS** based on the user's #75 test 
 
 Real-machine visual review of the new typed assignment table is still required.
 
+## Integrated #81 — typed assignment list consistency
+
+Workflow run:
+
+- run number: **#81**
+- run ID: `35375288992`
+- built code head: `22045f4b4707ca29bd53542ef6ec246e63d39cb7`
+- result: **SUCCESS**
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-81`
+- artifact ID: `10560195400`
+- outer Actions digest: `sha256:183c420639e82a4aa2122571a53d22b4271e7ddf7d30a30bdf9152d573b3a86a`
+- inner program ZIP SHA-256: `06acfc13c619328fa8c1104c64b872887407caf37f91ef5b0d390fe1e7112f0c`
+- Windows PowerShell 5.1 parse/runtime marker check: PASS
+- launcher/package: PASS
+
+User review of #79 showed the new toggle/encoder assignment summary looked inconsistent and visually broken in dark mode because it used a DataGridView, unlike the already-good button editor summary.
+
+#81 changes:
+
+- replaced the typed assignment DataGridView with the same ListView-style summary used by the large-button editor;
+- dark-theme body rendering now follows the existing ListView theme path;
+- filter wording changed from “Все действия / All actions” to “Все назначения / All mappings” so it describes the list contents correctly;
+- summary caption now matches the button editor wording: “Назначения: X из Y / Assignments: X of Y”;
+- clicking a typed assignment row selects the corresponding toggle or encoder in the editor, matching the button editor interaction model.
+
+Horizontal mouse-wheel note: the #75 log proves Mugen dispatched native HWHEEL actions, but the user did not yet observe a visible horizontal movement in a target application. Treat native horizontal scrolling as software-dispatch PASS, end-to-end visible behavior still to be confirmed in an application that supports horizontal-wheel input.
+
 ## Backup rule
 
 Backups are universal Mugen Deej settings snapshots, not controller-specific files. A backup made with one topology may be restored while a different topology or no controller is connected.
