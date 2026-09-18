@@ -290,6 +290,12 @@ jobs:
           if ($runtimeText -notmatch 'First-run wizard refresh failed') {
             throw 'Development runtime is missing the guarded first-run timer refresh.'
           }
+          if ($runtimeText -notmatch 'Resume recovery armed for fresh detection') {
+            throw 'Development runtime is missing same-COM resume replug detection.'
+          }
+          if ($runtimeText -notmatch '\$script:KnownPorts = @\(\$currentPorts \| Where-Object \{ \$_ -ne \$portName \}\)') {
+            throw 'Development runtime does not forget the stale resume port before auto-reconnect.'
+          }
           if ($runtimeText -notmatch 'Toggles & encoders') {
             throw 'Development runtime is missing compact typed-settings labels.'
           }
