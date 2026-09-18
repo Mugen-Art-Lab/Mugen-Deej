@@ -223,9 +223,12 @@ $script:LegacyButtonActionConfigPath = Join-Path $script:BaseDir 'button-actions
 $script:ButtonActionConfigPath = Join-Path $script:BaseDir 'button-actions.json'
 $script:LegacyButtonActionConfigPath = Join-Path $script:BaseDir 'button-actions.dev.json'
 $script:AdaptiveActionConfigPath = Join-Path $script:BaseDir 'adaptive-actions.json'
+$script:AdaptiveProfileConfigPath = Join-Path $script:BaseDir 'adaptive-profiles.json'
 $script:AdaptiveActionsLoaded = $false
 $script:AdaptiveToggleActions = @()
 $script:AdaptiveEncoderActions = @()
+$script:AdaptiveProfilesLoaded = $false
+$script:AdaptiveProfiles = @()
 $script:AdaptiveSettingsButton = $null
 '@ `
     -Label 'add Adaptive action config state'
