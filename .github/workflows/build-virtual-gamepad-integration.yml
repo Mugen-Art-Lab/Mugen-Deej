@@ -350,6 +350,21 @@ jobs:
           if ($runtimeText -notmatch 'MugenMouseWheel\]::Scroll') {
             throw 'Development runtime does not execute Adaptive wheel actions through SendInput.'
           }
+          if ($runtimeText -notmatch 'function Get-AdaptiveActionDisplay') {
+            throw 'Development runtime is missing typed-action display formatting.'
+          }
+          if ($runtimeText -notmatch 'Назначено: \{0\} из \{1\}') {
+            throw 'Development runtime is missing the typed-action assignment summary.'
+          }
+          if ($runtimeText -notmatch 'Каждый шаг поворота энкодера выполняет назначенное действие один раз') {
+            throw 'Development runtime still uses technical encoder help copy.'
+          }
+          if ($runtimeText -match 'один раз на каждый детент') {
+            throw 'Development runtime still exposes the detent term in typed settings.'
+          }
+          if ($runtimeText -match 'защитный лимит: 32 действия за пакет') {
+            throw 'Development runtime still exposes serial packet safety internals in typed settings.'
+          }
 
           $integrationModule = '.\artifacts\Mugen-Deej-VirtualGamepad-Integrated-Dev\virtual-gamepad\MugenDeej.VirtualGamepad.ps1'
           $integrationText = [System.IO.File]::ReadAllText((Resolve-Path $integrationModule), [System.Text.Encoding]::UTF8)
