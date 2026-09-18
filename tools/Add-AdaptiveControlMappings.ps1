@@ -451,7 +451,7 @@ function Show-AdaptiveControlSettings {
     }
 
     $settingsForm = New-Object System.Windows.Forms.Form
-    $settingsForm.Text = if ($script:Language -eq 'ru') { 'Тумблеры и энкодеры — Mugen Deej' } else { 'Toggles and encoders — Mugen Deej' }
+    $settingsForm.Text = if ($script:Language -eq 'ru') { 'Настройка тумблеров и энкодеров — Mugen Deej' } else { 'Toggle and encoder settings — Mugen Deej' }
     $settingsForm.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterParent
     $settingsForm.ClientSize = [System.Drawing.Size]::new(820, 610)
     $settingsForm.MinimumSize = [System.Drawing.Size]::new(836, 649)
@@ -463,7 +463,7 @@ function Show-AdaptiveControlSettings {
     Set-FormAppIcon -Form $settingsForm
 
     $heading = New-Object System.Windows.Forms.Label
-    $heading.Text = if ($script:Language -eq 'ru') { 'Действия тумблеров и энкодеров' } else { 'Toggle and encoder actions' }
+    $heading.Text = if ($script:Language -eq 'ru') { 'Настройка тумблеров и энкодеров' } else { 'Toggle and encoder settings' }
     $heading.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 16)
     $heading.AutoSize = $true
     $heading.Location = [System.Drawing.Point]::new(22, 18)
@@ -1976,10 +1976,10 @@ function Show-FirstRunWizard {
         if ($connected) {
             $introLine1.Text = if ($ru) { 'Контроллер найден и готов к работе.' } else { 'Your controller is connected and ready.' }
             $introLine2.Text = if ($ru) {
-                'Подвигайте крутилки, нажмите кнопки или переключатели — в главном окне сразу видно, что получает Mugen.'
+                'Проверьте органы управления — их состояние сразу видно в главном окне.'
             }
             else {
-                'Turn a knob, press a button, or flip a switch — the main window shows what Mugen receives.'
+                'Try the controls — their state appears immediately in the main window.'
             }
 
             $port = if ([string]::IsNullOrWhiteSpace($script:ConnectedPort)) { '—' } else { $script:ConnectedPort }
