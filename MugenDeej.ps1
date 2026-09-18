@@ -8668,6 +8668,19 @@ function Fail-ResumePreservedConnection {
     [MugenDeejAudio.AudioMixer]::InvalidateSessions()
     $script:LastReconnectAttempt = Get-Date
     $script:ResumeAutoReconnectSuppressed = $true
+
+    # The stale pre-suspend handle can fail even while Windows has already
+    # recreated the same COM number. Treat the previous controller port as
+    # unseen after cleanup so the normal 500 ms port-snapshot path gets one
+    # fresh, targeted auto-reconnect opportunity. This also catches a very fast
+    # unplug/replug where Windows reuses the same COM number between snapshots.
+    $currentPorts = @(Get-PortNames)
+    $script:KnownPorts = @($currentPorts | Where-Object { $_ -ne $portName })
+    $script:PendingNewPorts = @($script:PendingNewPorts | Where-Object { $_ -ne $portName })
+    Reset-PortProbeState -PortName $portName
+    $script:LastPortSnapshotCheck = [DateTime]::MinValue
+    Write-Log ("Resume recovery armed for fresh detection of {0}; currentPorts={1}" -f $portName, ($currentPorts -join ', ')) 'INFO'
+
     Set-Status (T -Key 'StatusResumeReconnectFailed' -Args @($portName)) 'warn'
     Update-TrayText
     Update-DriverStatus
