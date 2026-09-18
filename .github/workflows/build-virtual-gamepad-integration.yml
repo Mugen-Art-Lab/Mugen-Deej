@@ -284,6 +284,18 @@ jobs:
           if ($runtimeText -notmatch 'Analog controls') {
             throw 'Development runtime is missing compact analog-settings labels.'
           }
+          if ($runtimeText -notmatch 'public static class MugenMouseWheel') {
+            throw 'Development runtime is missing the mouse-wheel SendInput helper.'
+          }
+          if ($runtimeText -notmatch 'mouse:ctrlwheelup') {
+            throw 'Development runtime is missing modified mouse-wheel Adaptive actions.'
+          }
+          if ($runtimeText -notmatch 'mouse:hwheelright') {
+            throw 'Development runtime is missing horizontal mouse-wheel Adaptive actions.'
+          }
+          if ($runtimeText -notmatch 'MugenMouseWheel\]::Scroll') {
+            throw 'Development runtime does not execute Adaptive wheel actions through SendInput.'
+          }
 
           $integrationModule = '.\artifacts\Mugen-Deej-VirtualGamepad-Integrated-Dev\virtual-gamepad\MugenDeej.VirtualGamepad.ps1'
           $integrationText = [System.IO.File]::ReadAllText((Resolve-Path $integrationModule), [System.Text.Encoding]::UTF8)
