@@ -42,7 +42,12 @@ if ($tailStart -lt 0 -or $tailEnd -le $tailStart) {
 $newTail = @'
 $largeDispatch = @(
     'function Show-ButtonSettings {'
-    '    if ($script:IsConnected -and $script:DetectedButtonCount -gt 12) {'
+    '    $useProfiledAdaptiveEditor = ('
+    '        $script:IsConnected -and'
+    '        [string]$script:ControllerProtocol -eq ''adaptive'' -and'
+    '        $script:DetectedButtonCount -gt 0'
+    '    )'
+    '    if ($useProfiledAdaptiveEditor -or ($script:IsConnected -and $script:DetectedButtonCount -gt 12)) {'
     '        Show-LargeButtonSettings'
     '        return'
     '    }'
