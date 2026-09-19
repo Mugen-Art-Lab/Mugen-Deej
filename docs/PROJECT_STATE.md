@@ -25,11 +25,13 @@ Hardware-tested stable behavior:
 
 ### Current active milestone
 
-Integrated **#99** is the current hardware-review build. Foreground application profiles now cover ordinary momentary buttons as well as Adaptive toggles/encoders. The button profile layer is protocol-agnostic on the PC side: Legacy has no buttons and is unchanged; Extended and Adaptive can both use application-specific button mappings with the existing `button-actions.json` retained as Global fallback.
+Integrated **#101** is the current hardware-review build. Foreground application profiles cover ordinary momentary buttons plus Adaptive toggles/encoders, and physical buttons can now act as stateful digital Xbox stick directions (left/right stick, four cardinal directions each). Release returns the virtual axis to center; opposite directions cancel to center; Xbox buttons and stick directions are submitted as one coherent state.
 
-Backward compatibility is deliberate. Existing installs with no profile file continue to use their old Global mappings. #89/#90 application profiles that predate per-profile buttons inherit Global buttons. Backup schema v1 from stable v1.0.0 is still accepted, older v2 backups without application profiles remain accepted, and older v2 profile payloads without `buttons` remain valid. Stateful virtual Xbox buttons release safely across foreground-profile changes and held physical inputs are suppressed until release.
+Profile switching is based on the **effective profile**. A dedicated game profile -> unprofiled window transition becomes Game -> Global and neutralizes state. Moving between two unprofiled applications remains Global -> Global and does not reset merely because the foreground process changed. Any physical input held across a real profile boundary is suppressed until release so it cannot become a synthetic action in the new profile. This explicitly covers multi-monitor borderless-fullscreen workflows where focus changes by mouse click as well as Alt+Tab/Win+Tab.
 
-#99 also carries the typed-settings layout fix reported during #90 review (Russian profile label clipping and bottom Save/Cancel clipping). See `docs/CURRENT_HANDOFF.md` for run/artifact hashes and the exact real-machine test sequence.
+Backward compatibility remains deliberate: Legacy has no buttons and is unchanged; Extended and Adaptive can use the same PC-side button/profile layer without firmware changes; `button-actions.json` remains Global; old #89/#90 profiles without `buttons` inherit Global; backup v1 and older v2 shapes remain accepted. Digital stick mappings are stored as ordinary button-action strings, so #101 does not require a backup schema bump.
+
+See `docs/CURRENT_HANDOFF.md` for #101 run/artifact hashes and the exact real-machine test sequence.
 
 Goal: keep Mugen Deej a generic low-cost DIY controller router while adding optional game-controller output on the PC side.
 

@@ -24,11 +24,14 @@ A v2 snapshot stores:
 - momentary `buttonActions`;
 - first-class Adaptive toggle/encoder action mappings;
 - foreground-application profiles for ordinary button mappings plus Adaptive toggle/encoder mappings, when present;
+- virtual Xbox button/stick-direction mappings as ordinary strings inside Global/per-profile button action arrays;
 - informational source protocol/topology metadata.
 
 Restore accepts both schema v1 and v2. A stable-era v1 backup restores its existing global config and `buttonActions` normally. Because v1 has no typed-action or application-profile payload, restoring v1 intentionally preserves whatever current toggle/encoder mappings and application profiles already exist rather than treating absent newer fields as an instruction to erase them.
 
 Current v2 backups include the optional versioned application-profile payload. Older v2 files created before profiles existed remain valid; if `adaptiveProfiles` is absent, the current application profiles are preserved. #89/#90-era v2 profiles may exist but have no per-profile `buttons` member. Those profiles remain valid: missing/empty per-profile button mappings inherit the restored Global `buttonActions` until the user explicitly edits and saves buttons for that application.
+
+#101 digital Xbox stick-direction mappings do not require a new backup schema. They use the same button-action string slots already carried by stable-era `buttonActions` and by optional per-profile `buttons` arrays. Older backups simply cannot contain those newer action strings; restoring them behaves exactly as before. A current backup containing a digital stick mapping remains a normal v2 Mugen Deej backup.
 
 Restore continues to validate the backup before writing, creates an emergency pre-restore backup, and rolls back from that emergency copy if restore itself fails. The current emergency snapshot is v2 and includes both typed mappings and Adaptive application profiles.
 
@@ -87,6 +90,7 @@ The user-facing wording should describe the outcome, not ask the user to underst
 - Migrate older schemas explicitly; do not reinterpret v1 fields ambiguously.
 - Keep `button-actions.json` as the Global button mapping store; application profiles override it only when a matching profile actually contains button mappings.
 - Missing per-profile `buttons` is inheritance, not deletion: fall back to Global.
+- Adding new button-action kinds (such as #101 digital stick directions) should not force a backup schema bump while they fit the existing versioned action-string container.
 - Legacy remains unaffected by button profiles because its discovered button count is zero; Extended requires no firmware change to use PC-side button profiles.
 - Hardware discovery remains authoritative for what controls exist in the live UI.
 - Backup contents remain authoritative for saved user mappings/preferences, including dormant mappings for currently absent controls.

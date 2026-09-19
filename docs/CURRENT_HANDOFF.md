@@ -854,6 +854,72 @@ Hardware review required:
 5. if virtual Xbox mapping is enabled, hold a mapped physical button while changing foreground app and confirm the old virtual button releases and the held input does not re-fire until physically released;
 6. perform an explicit restore test from an old v1.0.0 backup; later also exercise current schema v2 restore with application profiles.
 
+## Integrated #101 — digital virtual-stick mappings and effective-profile state boundaries
+
+Workflow run:
+
+- run number: **#101**
+- run ID: `35435916767`
+- built code head: `76554c9f51d9b90dad241be0fffa6095e7932ee4`
+- result: **SUCCESS**
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-101`
+- artifact ID: `10581899812`
+- outer Actions digest: `sha256:a2d56c715060343c05589dff7261001669bec756f27e60c4c7dfd6b3ee785ff1`
+- inner program ZIP SHA-256: `eae035fe056cbc9652e6b0759600a1a98b2cba12026deb42df88cd3bd87eaf1c`
+- Windows PowerShell 5.1 parse/runtime marker check: PASS
+- HIDMaestro helper build: PASS
+- launcher/package: PASS
+
+#101 extends the stateful virtual Xbox output layer from buttons to digital stick axes. A physical Mugen button can now be mapped to any cardinal direction of either Xbox stick:
+
+- left stick ← / → / ↑ / ↓;
+- right stick ← / → / ↑ / ↓.
+
+Behavior is intentionally digital and stateful:
+
+- press/hold -> the selected virtual stick axis goes to full deflection;
+- release -> that axis returns to center;
+- multiple physical buttons mapped to the same direction keep the direction active until all are released;
+- opposite directions on the same axis cancel to center;
+- button and stick outputs are submitted together as one virtual-controller state so mixed mappings stay coherent.
+
+The elevated helper now accepts a combined `state <mask> <LX> <LY> <RX> <RY>` command. Stick components are signed `-1 / 0 / +1` on the Mugen side and are normalized to HIDMaestro's `0.0 / 0.5 / 1.0` axis range by the helper. The old `buttons <mask>` command remains accepted for compatibility, and `release` now neutralizes both buttons and axes.
+
+The virtual-control picker is now a general Xbox-control picker rather than button-only UI. Existing Xbox button mappings remain available and the two stick-direction rows were added beneath them. This does **not** add analog slider->axis routing yet; #101 is the digital button->axis slice only.
+
+Foreground safety is based on the **effective action profile**, not on Alt+Tab or on every foreground process change:
+
+- if Game.exe has its own profile and focus moves to an unprofiled app, the effective profile changes Game -> Global, so state is neutralized;
+- if focus moves between two unrelated unprofiled apps, both resolve to Global, so there is no artificial reset;
+- if a physical button is already held across an effective-profile change, the old virtual button/stick state is released/centered and that physical input is suppressed until its real release;
+- therefore a held control cannot become a synthetic press or stick deflection in the newly selected profile.
+
+This covers multi-monitor borderless-fullscreen use: clicking OBS, chat, browser, Explorer, taskbar-driven windows, Win+Tab, Alt+Tab, etc. all feed the same foreground-process resolver. Unprofiled processes simply use Global.
+
+#100 was red only because an older CI marker still searched for the pre-#101 log wording `Virtual gamepad button profile changed`. The implementation/staging step had already passed, including the helper compile. #101 updates the guard to the new generalized output-profile marker and is fully green.
+
+Compatibility remains deliberate:
+
+- no profile file -> Global behavior only, as before;
+- Legacy -> no button inputs, so the new digital-axis mapping layer is inert;
+- Extended and Adaptive -> both can use button->Xbox-button and button->stick-direction mappings with no firmware changes;
+- old profile objects without `buttons` -> inherit Global;
+- old backup schema v1 remains accepted;
+- older v2 backups/profile payloads remain accepted;
+- digital stick mappings are ordinary button-action strings, so no backup schema bump is required.
+
+Real-machine review required:
+
+1. retain the #90 regression check: E1 CW / CCW / push must not cause reconnect;
+2. visually confirm the typed-settings clipping fix;
+3. map four physical buttons to left-stick ← / → / ↑ / ↓ and verify press/hold/release in `joy.cpl` or a game;
+4. verify opposite directions held together produce center;
+5. mix an Xbox button mapping with a stick-direction mapping and verify both can be held simultaneously;
+6. create an application profile with different virtual mappings, hold a mapped control, then change focus by clicking another monitor/window; old output must neutralize and the held control must not re-fire until released;
+7. move between two unprofiled applications and confirm both remain Global without a needless profile-boundary reset;
+8. later repeat a button-profile smoke test on Extended firmware and perform explicit old-v1/current-v2 backup restore tests.
+
+
 ## Backup rule
 
 Backups are universal Mugen Deej settings snapshots, not controller-specific files. A backup made with one topology may be restored while a different topology or no controller is connected.
@@ -876,21 +942,21 @@ Nonblocking teardown has CI coverage but its final real-hardware re-test remains
 
 ## Immediate next work
 
-Hardware-review Integrated #99. First confirm E1 CW/CCW/push no longer causes the false `Count` disconnect and visually re-check the typed-settings dialog clipping. Then test foreground profiles with both typed controls and ordinary buttons on the current Adaptive fixture: Excel/browser/application-specific mappings plus Global fallback. When convenient, repeat a button-profile smoke test on Extended hardware/firmware; Legacy needs no special profile path because it exposes no buttons. Old v1.0.0 backup restore and current v2 restore with application profiles still require explicit real-machine tests.
+Hardware-review Integrated #101. First retain the pending #90 checks (E1 CW/CCW/push without false reconnect and typed-settings clipping), then exercise the new stateful Xbox output: digital left/right-stick directions from physical buttons, release-to-center, opposite-direction cancellation, mixed button+axis holds, and effective-profile switching by clicking between windows/monitors rather than relying only on Alt+Tab. Unprofiled applications must all resolve to the same Global profile. Extended button-profile smoke testing and explicit old-v1/current-v2 backup restore tests remain pending.
 
 
 ## Foreground profile switching safety requirement
 
 Application profiles are keyed to the **actual Windows foreground process**, not to Alt+Tab specifically. A profile change can therefore happen through any normal focus transition: clicking another window on another monitor, clicking OBS/chat/browser while a borderless-fullscreen game remains visible, using the taskbar/Start menu, Win+Tab, Alt+Tab, or another application bringing a window to the foreground.
 
-For stateful virtual-controller outputs (held Xbox buttons and future digital-to-axis mappings), every foreground profile transition must be treated as a state boundary:
+For stateful virtual-controller outputs (held Xbox buttons and the digital stick-axis mappings implemented in #101), every **effective profile** transition must be treated as a state boundary:
 
 - release the old profile's virtual button state;
 - return any profile-owned virtual axes to neutral;
 - suppress physical controls that were already held across the transition until they are physically released;
 - do not synthesize a fresh press/axis deflection merely because the new profile maps that same held control differently.
 
-This rule is independent of how focus changed and must be driven by foreground-process identity. Borderless-fullscreen multi-monitor use is a required real-world scenario.
+This rule is independent of how focus changed and is driven by foreground-process identity resolved through the saved profile set. A foreground change that still resolves to the same Global profile (for example Explorer -> Notepad when neither has a dedicated profile) is not a profile boundary and must not cause a needless reset. Borderless-fullscreen multi-monitor use is a required real-world scenario.
 
 ## Working rules
 
