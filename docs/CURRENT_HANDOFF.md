@@ -1006,3 +1006,21 @@ Hardware status: wiring is physically assembled; firmware/end-to-end behavior is
 - Do not hardcode 5/29/2/1 into generic Adaptive behavior.
 - For any build-triggering change: wait for the workflow result, fix/rebuild if red, then hand the ready inner program ZIP directly rather than making the tester hunt through Actions.
 - Keep this handoff current after meaningful code, CI, UI, or hardware observations.
+
+
+### Cardboard matrix wiring hardware PASS (2026-09-20)
+
+The real 4x8 cardboard panel matrix is now hardware-tested for all 28 momentary buttons.
+
+A wiring mistake was found during bring-up: the first assembly accidentally chained row diodes in series along each row. That produced a characteristic failure where C1..C4 worked but C5..C8 did not, even though the column buses had continuity. Swapping C1/D4 with C5/D8 proved the Uno pin/firmware path was healthy and localized the fault to the physical matrix.
+
+Corrected electrical rule used on the working panel:
+
+- each switch keeps its own diode;
+- COLUMN -> switch -> diode -> shared ROW bus;
+- all diode cathode/striped ends for a row join one common row conductor in parallel;
+- row diodes must not be chained in series.
+
+After adding proper shared row buses, **all 28 buttons respond correctly in Mugen Deej**. This is a real hardware PASS for the momentary-button matrix portion of the 5 / 28 / 2 / 1 prototype.
+
+Toggles/encoder remain separately testable; slider channels are still software placeholders until real potentiometers are installed.
