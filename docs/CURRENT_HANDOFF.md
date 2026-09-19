@@ -1024,3 +1024,16 @@ Corrected electrical rule used on the working panel:
 After adding proper shared row buses, **all 28 buttons respond correctly in Mugen Deej**. This is a real hardware PASS for the momentary-button matrix portion of the 5 / 28 / 2 / 1 prototype.
 
 Toggles/encoder remain separately testable; slider channels are still software placeholders until real potentiometers are installed.
+
+
+### Full digital panel smoke test PASS (2026-09-20)
+
+After the row-bus repair, the cardboard Uno prototype was exercised as a complete digital panel in Mugen Deej:
+
+- Adaptive v3 discovery shows 5 sliders / 28 buttons / 2 toggles / 1 encoder at 115200;
+- all 28 momentary buttons register;
+- both toggles and the encoder/push were reported working by the hardware tester;
+- a heavy simultaneous multi-button hold was tested successfully; the runtime log shows more than twenty distinct buttons entering pressed state before the release burst, with no apparent matrix ghosting/fan-out artifact in that test;
+- the five slider channels are still deliberate software placeholders at 0 / 25 / 50 / 75 / 100 percent until real potentiometers are installed.
+
+This upgrades the current cardboard prototype's **digital control set** from bring-up/pending to real hardware PASS. Analog potentiometers remain pending.
