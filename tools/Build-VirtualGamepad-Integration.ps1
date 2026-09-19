@@ -26,23 +26,80 @@ function Replace-RegexExactlyOnce {
     return $regex.Replace($Text, $Replacement, 1)
 }
 
+function Replace-LiteralExactlyOnce {
+    param(
+        [Parameter(Mandatory = $true)][string]$Text,
+        [Parameter(Mandatory = $true)][string]$OldText,
+        [Parameter(Mandatory = $true)][string]$NewText,
+        [Parameter(Mandatory = $true)][string]$Label
+    )
+
+    $first = $Text.IndexOf($OldText, [System.StringComparison]::Ordinal)
+    $last = $Text.LastIndexOf($OldText, [System.StringComparison]::Ordinal)
+    if ($first -lt 0 -or $first -ne $last) {
+        throw "Integration literal patch '$Label' expected exactly one match."
+    }
+
+    return $Text.Substring(0, $first) + $NewText + $Text.Substring($first + $OldText.Length)
+}
+
 $source = (Resolve-Path -LiteralPath $SourcePath).Path
 $text = [System.IO.File]::ReadAllText($source, [System.Text.Encoding]::UTF8)
 
 # Stable main remains 1.0.0. The integrated experimental branch is the v2
 # prototype line and should identify itself as such in title/log/backup metadata.
-$text = Replace-RegexExactlyOnce `
+$text = Replace-LiteralExactlyOnce `
     -Text $text `
-    -Pattern "(?m)^\$script:AppVersion = '1\.0\.0'\r?$" `
-    -Replacement '$script:AppVersion = ''2.0.0 Prototype''' `
+    -OldText "$script:AppVersion = '1.0.0'" `
+    -NewText "$script:AppVersion = '2.0.0 Prototype'" `
     -Label 'set prototype product version'
 
 # Stable 1.0.0 did not know virtual Xbox action strings. Preserve both virtual
 # buttons and digital stick directions when controller discovery normalizes the
 # loaded button-action array; otherwise a reconnect silently turns them into none.
-$text = Replace-RegexExactlyOnce `
+$normalizeVirtualOld = @'
+        if (
+            -not $valid -and
+            $action -match '^(launch64|folder64|url64|command64):(.+)$'
+        ) {
+            $decoded = Decode-ButtonActionPayload -Payload $Matches[2]
+            $valid = -not [string]::IsNullOrWhiteSpace($decoded)
+        }
+
+        if (-not $valid) {
+            $action = 'none'
+        }
+'@
+
+$normalizeVirtualNew = @'
+        if (
+            -not $valid -and
+            $action -match '^(launch64|folder64|url64|command64):(.+)$'
+        ) {
+            $decoded = Decode-ButtonActionPayload -Payload $Matches[2]
+            $valid = -not [string]::IsNullOrWhiteSpace($decoded)
+        }
+
+        # Preserve virtual gamepad actions during button normalization.
+        if (
+            -not $valid -and
+            $script:VirtualGamepadFeatureAvailable -and
+            (Test-MugenVirtualGamepadAction -Action $action)
+        ) {
+            $valid = $true
+        }
+
+        if (-not $valid) {
+            $action = 'none'
+        }
+'@
+
+$text = Replace-LiteralExactlyOnce `
     -Text $text `
-    -Pattern "(?ms)^(        if \(\r?\n            -not \$valid -and\r?\n            \$action -match '\^\(launch64\|folder64\|url64\|command64\):\(\.\+\)\
+    -OldText $normalizeVirtualOld `
+    -NewText $normalizeVirtualNew `
+    -Label 'preserve virtual actions during normalization'
+
 # Load the integration module from the packaged app directory. The stable
 # source file itself stays untouched on this experimental branch; CI produces
 # a patched development runtime and validates every anchor before packaging.
