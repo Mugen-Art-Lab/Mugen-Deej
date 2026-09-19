@@ -437,8 +437,8 @@ jobs:
           if ($integrationText -notmatch 'Virtual controller teardown is pending in the background; UI remains responsive') {
             throw 'Integration module is missing the nonblocking teardown implementation.'
           }
-          if ($integrationText -notmatch 'Virtual gamepad button profile changed') {
-            throw 'Integration module is missing safe foreground-profile switching for stateful virtual buttons.'
+          if ($integrationText -notmatch 'Virtual gamepad output profile changed') {
+            throw 'Integration module is missing safe effective-profile switching for stateful virtual outputs.'
           }
           if ($integrationText -notmatch 'VirtualGamepadSuppressedPhysicalButtons') {
             throw 'Integration module is missing held-button suppression across profile changes.'
