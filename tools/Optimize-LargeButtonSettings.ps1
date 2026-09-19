@@ -128,11 +128,6 @@ function Show-LargeButtonSettings {
         Map = New-Object System.Collections.ArrayList
     }
 
-    $pendingVirtualEnabled = $false
-    if ($script:VirtualGamepadFeatureAvailable) {
-        $pendingVirtualEnabled = Get-MugenVirtualGamepadEnabled
-    }
-
     $buttonForm = New-Object System.Windows.Forms.Form
     $buttonForm.Text = Get-ButtonFeatureText -Key 'Title'
     $buttonForm.StartPosition = 'CenterParent'
@@ -214,49 +209,19 @@ function Show-LargeButtonSettings {
     $profileHint.Visible = $profileUiEnabled
     $buttonForm.Controls.Add($profileHint)
 
-    $virtualRowY = if ($profileUiEnabled) { 221 } else { 139 }
-    $virtualComboY = if ($profileUiEnabled) { 216 } else { 134 }
-    $virtualStatusY = if ($profileUiEnabled) { 255 } else { 173 }
-    $panelY = if ($profileUiEnabled) { 290 } else { 208 }
+    # Virtual-controller power now lives on the main window. Button settings
+    # only describe mappings, so the editor starts immediately after profiles.
     $actionButtonY = if ($profileUiEnabled) { 650 } else { 570 }
 
-    $virtualLabel = New-Object System.Windows.Forms.Label
-    $virtualLabel.Text = if ($script:Language -eq 'ru') { 'Виртуальный контроллер:' } else { 'Virtual controller:' }
-    $virtualLabel.Location = [System.Drawing.Point]::new(25, $virtualRowY)
-    $virtualLabel.Size = [System.Drawing.Size]::new(180, 28)
-    $buttonForm.Controls.Add($virtualLabel)
-
-    $virtualCombo = New-Object MugenDeejWindowing.MugenComboBox
-    $virtualCombo.DropDownStyle = 'DropDownList'
-    $virtualCombo.Location = [System.Drawing.Point]::new(210, $virtualComboY)
-    $virtualCombo.Size = [System.Drawing.Size]::new(310, 30)
-    [void]$virtualCombo.Items.Add($(if ($script:Language -eq 'ru') { 'Выключен' } else { 'Off' }))
-    [void]$virtualCombo.Items.Add('Xbox 360 / XInput')
-    $virtualCombo.SelectedIndex = $(if ($pendingVirtualEnabled) { 1 } else { 0 })
-    $virtualCombo.Enabled = $script:VirtualGamepadFeatureAvailable
-    $buttonForm.Controls.Add($virtualCombo)
-
-    $virtualStatus = New-Object System.Windows.Forms.Label
-    $virtualStatus.Text = if ($script:Language -eq 'ru') {
-        'Для создания XInput-геймпада могут потребоваться повышенные права Windows.'
-    }
-    else {
-        'Creating the XInput gamepad may require Windows administrator elevation.'
-    }
-    $virtualStatus.ForeColor = [System.Drawing.Color]::DimGray
-    $virtualStatus.Location = [System.Drawing.Point]::new(25, $virtualStatusY)
-    $virtualStatus.Size = [System.Drawing.Size]::new(710, 28)
-    $buttonForm.Controls.Add($virtualStatus)
-
     $panel = New-Object System.Windows.Forms.Panel
-    $panel.Location = [System.Drawing.Point]::new(22, $panelY)
-    $panel.Size = [System.Drawing.Size]::new(716, 344)
+    $panel.Location = [System.Drawing.Point]::new(22, $(if ($profileUiEnabled) { 218 } else { 139 }))
+    $panel.Size = [System.Drawing.Size]::new(716, $(if ($profileUiEnabled) { 404 } else { 427 }))
     $panel.AutoScroll = $false
     $buttonForm.Controls.Add($panel)
 
     $selectorFlow = New-Object System.Windows.Forms.FlowLayoutPanel
     $selectorFlow.Location = [System.Drawing.Point]::new(8, 8)
-    $selectorFlow.Size = [System.Drawing.Size]::new(254, 326)
+    $selectorFlow.Size = [System.Drawing.Size]::new(254, $(if ($profileUiEnabled) { 386 } else { 409 }))
     $selectorFlow.FlowDirection = [System.Windows.Forms.FlowDirection]::LeftToRight
     $selectorFlow.WrapContents = $true
     $selectorFlow.AutoScroll = $true
@@ -303,7 +268,7 @@ function Show-LargeButtonSettings {
 
     $assignmentList = New-Object System.Windows.Forms.ListView
     $assignmentList.Location = [System.Drawing.Point]::new(282, 158)
-    $assignmentList.Size = [System.Drawing.Size]::new(420, 176)
+    $assignmentList.Size = [System.Drawing.Size]::new(420, $(if ($profileUiEnabled) { 236 } else { 259 }))
     $assignmentList.View = [System.Windows.Forms.View]::Details
     $assignmentList.FullRowSelect = $true
     $assignmentList.HideSelection = $false
@@ -869,10 +834,6 @@ function Show-LargeButtonSettings {
             Save-ButtonActions
         }
 
-        if ($script:VirtualGamepadFeatureAvailable) {
-            Set-MugenVirtualGamepadEnabled -Enabled ($virtualCombo.SelectedIndex -eq 1)
-            [void](Sync-MugenVirtualGamepadState -Values @($script:LatestButtons))
-        }
         $buttonForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
         $buttonForm.Close()
     })
