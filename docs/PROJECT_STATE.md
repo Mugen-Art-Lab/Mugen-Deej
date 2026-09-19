@@ -299,3 +299,5 @@ Manual profile switching comes first. Automatic switching by game/process is def
 - Experimental work stays off `main` until real-hardware smoke tests pass.
 - Keep this file and the integration/test notes current so a new chat can resume from the repository.
 - Cardboard Uno prototype matrix hardware PASS: after correcting the row wiring to parallel shared buses (one diode per switch, no series-chained row diodes), all 28 momentary buttons register correctly in Mugen. The prior C5..C8 failure was physical matrix wiring, not Uno pins or desktop parsing.
+
+- Full digital cardboard-panel smoke test PASS: 28 buttons, 2 toggles, and encoder/push work on real Uno hardware; a >20-button simultaneous hold also registered cleanly. Five slider channels remain software placeholders pending real potentiometers.
