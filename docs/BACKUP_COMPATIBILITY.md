@@ -23,10 +23,12 @@ A v2 snapshot stores:
 - the main `config` object;
 - momentary `buttonActions`;
 - first-class Adaptive toggle/encoder action mappings;
-- Adaptive foreground-application profiles for toggle/encoder mappings, when present;
+- foreground-application profiles for ordinary button mappings plus Adaptive toggle/encoder mappings, when present;
 - informational source protocol/topology metadata.
 
-Restore accepts both schema v1 and v2. A v1 backup has no typed-action payload, so restoring v1 intentionally preserves whatever current toggle/encoder mappings and application profiles already exist rather than treating their absence as an instruction to erase them. Current v2 backups also include Adaptive application profiles. Older v2 files created before profiles existed remain valid; if their optional `adaptiveProfiles` payload is absent, the current application profiles are preserved.
+Restore accepts both schema v1 and v2. A stable-era v1 backup restores its existing global config and `buttonActions` normally. Because v1 has no typed-action or application-profile payload, restoring v1 intentionally preserves whatever current toggle/encoder mappings and application profiles already exist rather than treating absent newer fields as an instruction to erase them.
+
+Current v2 backups include the optional versioned application-profile payload. Older v2 files created before profiles existed remain valid; if `adaptiveProfiles` is absent, the current application profiles are preserved. #89/#90-era v2 profiles may exist but have no per-profile `buttons` member. Those profiles remain valid: missing/empty per-profile button mappings inherit the restored Global `buttonActions` until the user explicitly edits and saves buttons for that application.
 
 Restore continues to validate the backup before writing, creates an emergency pre-restore backup, and rolls back from that emergency copy if restore itself fails. The current emergency snapshot is v2 and includes both typed mappings and Adaptive application profiles.
 
@@ -36,7 +38,7 @@ Source topology is used only for a human-readable restore summary. The backup re
 
 Adaptive v3 can report arbitrary controller shapes. The current 5 sliders / 29 buttons / 2 toggles / 1 encoder Uno fixture is only one regression topology.
 
-A user may legitimately create a backup while using a large Adaptive panel and later restore it while a Legacy controller, a smaller Extended controller, another Adaptive topology, or no controller at all is connected.
+A user may legitimately create a backup while using a large Adaptive panel and later restore it while a Legacy controller, a smaller Extended controller, another Adaptive topology, or no controller at all is connected. The reverse is also valid: a stable v1.0.0 backup made with Legacy or Extended hardware must restore in the current build without requiring Adaptive firmware.
 
 Restore must therefore never assume that the hardware present at restore time has the same protocol generation or control counts as the hardware used when the backup was created.
 
@@ -58,7 +60,7 @@ Example: restoring a backup made from a 5/29/2/1 Adaptive panel while a 5-slider
 
 ## Schema v2 metadata
 
-The current development v2 schema records informational source metadata including the app version, detected protocol generation, and detected slider/button/toggle/encoder counts. It includes typed mappings for toggles and encoders plus an optional versioned `adaptiveProfiles` payload for foreground-application overrides.
+The current development v2 schema records informational source metadata including the app version, detected protocol generation, and detected slider/button/toggle/encoder counts. It includes Global typed mappings for toggles/encoders plus an optional versioned `adaptiveProfiles` payload for foreground-application overrides. Profile objects may contain `buttons`, `toggles`, and `encoders`; the `buttons` member is optional for backward compatibility with #89/#90-era profile files. The historical internal filename/schema name remains `adaptive-profiles.json`/version 1 for compatibility even though button overrides are now usable with Extended controllers too.
 
 The source topology is diagnostic metadata, not a hard restore lock. Legacy and Extended have no stable device identity, and Adaptive v3 currently has no device-ID field, so compatibility can be judged only from protocol/topology, not from proof that the same physical controller is attached.
 
@@ -83,6 +85,9 @@ The user-facing wording should describe the outcome, not ask the user to underst
 - Keep the existing emergency pre-restore backup and rollback behavior.
 - Continue validating backup schema before writing anything.
 - Migrate older schemas explicitly; do not reinterpret v1 fields ambiguously.
+- Keep `button-actions.json` as the Global button mapping store; application profiles override it only when a matching profile actually contains button mappings.
+- Missing per-profile `buttons` is inheritance, not deletion: fall back to Global.
+- Legacy remains unaffected by button profiles because its discovered button count is zero; Extended requires no firmware change to use PC-side button profiles.
 - Hardware discovery remains authoritative for what controls exist in the live UI.
 - Backup contents remain authoritative for saved user mappings/preferences, including dormant mappings for currently absent controls.
 - Do not create separate Legacy/Extended/Adaptive backup file types unless a future feature introduces a genuinely different export concept.

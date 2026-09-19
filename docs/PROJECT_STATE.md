@@ -25,9 +25,11 @@ Hardware-tested stable behavior:
 
 ### Current active milestone
 
-Integrated **#90** is the current hardware-review build. #89 introduced automatic foreground-application profiles for Adaptive toggles/encoders (Global fallback plus per-process mappings). Its first real-machine encoder test exposed a PowerShell 5.1 one-element collection unrolling bug: encoder input was parsed correctly, then `$source.Count` failed and the generic serial-error path falsely reported a lost controller. #90 forces typed profile/global mapping sources to remain arrays for both toggles and encoders.
+Integrated **#99** is the current hardware-review build. Foreground application profiles now cover ordinary momentary buttons as well as Adaptive toggles/encoders. The button profile layer is protocol-agnostic on the PC side: Legacy has no buttons and is unchanged; Extended and Adaptive can both use application-specific button mappings with the existing `button-actions.json` retained as Global fallback.
 
-Next hardware check: E1 CW/CCW/push must no longer trigger reconnect; then continue Excel/browser/Global foreground-profile switching. See `docs/CURRENT_HANDOFF.md` for the exact run/artifact hashes and the current test sequence.
+Backward compatibility is deliberate. Existing installs with no profile file continue to use their old Global mappings. #89/#90 application profiles that predate per-profile buttons inherit Global buttons. Backup schema v1 from stable v1.0.0 is still accepted, older v2 backups without application profiles remain accepted, and older v2 profile payloads without `buttons` remain valid. Stateful virtual Xbox buttons release safely across foreground-profile changes and held physical inputs are suppressed until release.
+
+#99 also carries the typed-settings layout fix reported during #90 review (Russian profile label clipping and bottom Save/Cancel clipping). See `docs/CURRENT_HANDOFF.md` for run/artifact hashes and the exact real-machine test sequence.
 
 Goal: keep Mugen Deej a generic low-cost DIY controller router while adding optional game-controller output on the PC side.
 

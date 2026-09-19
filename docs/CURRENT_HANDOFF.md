@@ -805,6 +805,55 @@ Real-machine retest required before marking this hardware PASS:
 
 One separate `Serial port is no longer open` event appeared once during the #89 test session after a recovery cycle. Treat it separately from the deterministic `Count` regression. Re-investigate only if it still occurs after #90.
 
+## Integrated #99 — button application profiles across protocol generations
+
+Workflow run:
+
+- run number: **#99**
+- run ID: `35422370013`
+- built code head: `5484ff86b7251142af968f2f7996ab2a146c18e3`
+- result: **SUCCESS**
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-99`
+- artifact ID: `10577809511`
+- outer Actions digest: `sha256:92689ee58fa4af55cdca486347f48ed090b4c9140077a6d288b17aa32ddc07b2`
+- inner program ZIP SHA-256: `ff9197a870b8853fdd14734801c00f5a4a372651b29cac2b90b94d948c4db270`
+- Windows PowerShell 5.1 parse/runtime marker check: PASS
+- launcher/package: PASS
+
+The interrupted #91-#98 development chain extended the foreground-profile model from typed controls to ordinary momentary buttons. Intermediate red runs were fixed before handoff; #98 was the first fully green Adaptive-button implementation, and #99 generalizes that implementation so the profile layer is a PC-side feature rather than an Adaptive-firmware feature.
+
+Current behavior:
+
+- `button-actions.json` remains the **Global** button mapping store and therefore preserves the established v1.0.0/Legacy/Extended compatibility path;
+- per-application button overrides are optional `buttons` arrays inside the existing versioned `adaptive-profiles.json` profile objects;
+- profiles created by #89/#90 have no `buttons` member; missing/empty button payload therefore inherits Global instead of erasing old mappings;
+- Legacy controllers expose no momentary buttons, so the new button-profile layer is inert for Legacy;
+- Extended and Adaptive controllers with buttons can both use Global plus foreground-application overrides without firmware changes;
+- the button settings editor now exposes the same `Global / application` selector for any connected button-capable controller;
+- profile editing remains transactional: profile switches keep drafts in memory; Save commits Global plus all edited application profiles; Cancel discards them;
+- ordinary button actions resolve the foreground profile at the press edge;
+- stateful virtual Xbox buttons are profile-switch safe: when the foreground profile changes, the old virtual mask is released and any physical button already held across the switch is suppressed until its real release, preventing a stuck old virtual button or a synthetic press in the new profile.
+
+The typed-settings visual report from #90 is also included in this build: the Russian `Профиль действий:` label has more room, the dialog has extra vertical space, and Save/Cancel no longer sit flush against the lower edge. This still needs real-machine visual confirmation.
+
+Compatibility decisions for old users/backups:
+
+- no profile file -> behavior is exactly Global, using the existing button mapping/config files;
+- old #89/#90 profile files without button mappings -> typed mappings keep working and buttons inherit Global;
+- old backup schema v1 -> existing global config/button mappings restore normally; setting families that did not exist in v1 (typed mappings/application profiles) are preserved rather than interpreted as empty;
+- older schema v2 files without `adaptiveProfiles` -> current application profiles are preserved;
+- older schema v2 files with application profiles but without per-profile `buttons` -> those profiles remain valid and inherit restored Global button mappings;
+- source controller topology remains informational only, so restoring a backup made with Legacy/Extended/Adaptive hardware does not fabricate controls or require the same firmware generation to be connected.
+
+Hardware review required:
+
+1. repeat E1 CW / CCW / push and confirm #90's false `Count` disconnect is gone;
+2. visually confirm the typed-settings clipping fix in Russian and English;
+3. on the current Adaptive fixture, create two application profiles and verify one physical button changes action with foreground application while an unrelated app uses Global;
+4. repeat the same button-profile smoke test with an Extended controller/firmware when convenient;
+5. if virtual Xbox mapping is enabled, hold a mapped physical button while changing foreground app and confirm the old virtual button releases and the held input does not re-fire until physically released;
+6. perform an explicit restore test from an old v1.0.0 backup; later also exercise current schema v2 restore with application profiles.
+
 ## Backup rule
 
 Backups are universal Mugen Deej settings snapshots, not controller-specific files. A backup made with one topology may be restored while a different topology or no controller is connected.
@@ -827,7 +876,7 @@ Nonblocking teardown has CI coverage but its final real-hardware re-test remains
 
 ## Immediate next work
 
-Hardware-review Integrated #90. First confirm that the #89 single-encoder `Count` regression is gone by exercising E1 CW, CCW and push without any visual disconnect/recovery. If clean, resume the foreground application-profile test: Excel profile -> horizontal scroll, browser profile -> Ctrl+wheel zoom, unrelated app -> Global fallback. The hibernate/runtime same-COM recovery paths and vertical/Ctrl/native-horizontal wheel actions are already real-machine PASS. Universal backup schema v2 restore still requires an explicit real-machine test, now including the optional application-profile payload.
+Hardware-review Integrated #99. First confirm E1 CW/CCW/push no longer causes the false `Count` disconnect and visually re-check the typed-settings dialog clipping. Then test foreground profiles with both typed controls and ordinary buttons on the current Adaptive fixture: Excel/browser/application-specific mappings plus Global fallback. When convenient, repeat a button-profile smoke test on Extended hardware/firmware; Legacy needs no special profile path because it exposes no buttons. Old v1.0.0 backup restore and current v2 restore with application profiles still require explicit real-machine tests.
 
 ## Working rules
 
