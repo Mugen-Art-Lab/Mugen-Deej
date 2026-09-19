@@ -395,7 +395,7 @@ jobs:
           if ($runtimeText -notmatch 'Button application-profile settings saved') {
             throw 'Development runtime is missing transactional button-profile editor persistence.'
           }
-          if ($runtimeText -notmatch "\$script:AppVersion = '2\.0\.0 Prototype'") {
+          if ($runtimeText -notmatch '\$script:AppVersion = ''2\.0\.0 Prototype''') {
             throw 'Development runtime still reports the stable 1.0.0 product version.'
           }
           if ($runtimeText -notmatch 'Preserve virtual gamepad actions during button normalization') {
