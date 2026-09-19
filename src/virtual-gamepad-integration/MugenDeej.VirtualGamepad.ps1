@@ -16,6 +16,7 @@ $script:VirtualGamepadUiState = 'disabled'
 $script:VirtualGamepadUiTimer = $null
 $script:VirtualGamepadStatusDot = $null
 $script:VirtualGamepadStatusLabel = $null
+$script:VirtualGamepadToggleButton = $null
 $script:VirtualGamepadLastMask = [uint32]::MaxValue
 $script:VirtualGamepadLastOutputSignature = ''
 $script:VirtualGamepadLastButtonProfileKey = ''
@@ -82,12 +83,34 @@ function Ensure-MugenVirtualGamepadStatusUi {
     if ($null -eq $script:VirtualGamepadStatusLabel -or $script:VirtualGamepadStatusLabel.IsDisposed) {
         $script:VirtualGamepadStatusLabel = New-Object System.Windows.Forms.Label
         $script:VirtualGamepadStatusLabel.AutoSize = $false
-        $script:VirtualGamepadStatusLabel.Size = [System.Drawing.Size]::new(560, 25)
+        $script:VirtualGamepadStatusLabel.Size = [System.Drawing.Size]::new(448, 25)
         $script:VirtualGamepadStatusLabel.Location = [System.Drawing.Point]::new(46, 30)
         $script:VirtualGamepadStatusLabel.TextAlign = 'MiddleLeft'
         $script:VirtualGamepadStatusLabel.ForeColor = $physicalLabel.ForeColor
         $script:VirtualGamepadStatusLabel.Visible = $false
         $panel.Controls.Add($script:VirtualGamepadStatusLabel)
+    }
+
+    # Canonical virtual-gamepad on/off control. XInput is a device-level feature,
+    # not a setting that should be discoverable only inside physical-button mappings.
+    if ($null -eq $script:VirtualGamepadToggleButton -or $script:VirtualGamepadToggleButton.IsDisposed) {
+        $script:VirtualGamepadToggleButton = New-Object MugenDeejWindowing.MugenButton
+        $script:VirtualGamepadToggleButton.Tag = 'MugenSection'
+        $script:VirtualGamepadToggleButton.Location = [System.Drawing.Point]::new(506, 15)
+        $script:VirtualGamepadToggleButton.Size = [System.Drawing.Size]::new(112, 30)
+        $script:VirtualGamepadToggleButton.Add_Click({
+            try {
+                $nextEnabled = -not (Get-MugenVirtualGamepadEnabled)
+                Set-MugenVirtualGamepadEnabled -Enabled $nextEnabled
+                [void](Sync-MugenVirtualGamepadState -Values @($script:LatestButtons))
+                Update-MugenVirtualGamepadStatusUi
+            }
+            catch {
+                Write-Log ('Virtual gamepad main toggle failed: {0}' -f $_.Exception.Message) 'WARN'
+            }
+        })
+        $panel.Controls.Add($script:VirtualGamepadToggleButton)
+        try { Apply-ThemeToControl -Control $script:VirtualGamepadToggleButton -ThemeName (Get-EffectiveTheme) } catch { }
     }
 
     return $true
@@ -105,18 +128,27 @@ function Update-MugenVirtualGamepadStatusUi {
         [bool]$script:VirtualGamepadConfig.enabled
     )
 
+    if ($null -ne $script:VirtualGamepadToggleButton -and -not $script:VirtualGamepadToggleButton.IsDisposed) {
+        $script:VirtualGamepadToggleButton.Text = if ($script:Language -eq 'ru') {
+            if ($enabled) { 'XInput: Вкл' } else { 'XInput: Выкл' }
+        }
+        else {
+            if ($enabled) { 'XInput: On' } else { 'XInput: Off' }
+        }
+    }
+
     if (-not $enabled) {
         $script:VirtualGamepadStatusDot.Visible = $false
         $script:VirtualGamepadStatusLabel.Visible = $false
         $physicalDot.Location = [System.Drawing.Point]::new(14, 12)
         $physicalLabel.Location = [System.Drawing.Point]::new(46, 10)
-        $physicalLabel.Size = [System.Drawing.Size]::new(560, 38)
+        $physicalLabel.Size = [System.Drawing.Size]::new(448, 38)
         return
     }
 
     $physicalDot.Location = [System.Drawing.Point]::new(14, 0)
     $physicalLabel.Location = [System.Drawing.Point]::new(46, 0)
-    $physicalLabel.Size = [System.Drawing.Size]::new(560, 29)
+    $physicalLabel.Size = [System.Drawing.Size]::new(448, 29)
 
     $script:VirtualGamepadStatusDot.Visible = $true
     $script:VirtualGamepadStatusLabel.Visible = $true

@@ -210,14 +210,14 @@ function Show-LargeButtonSettings {
     }
     $profileHint.ForeColor = [System.Drawing.Color]::DimGray
     $profileHint.Location = [System.Drawing.Point]::new(25, 170)
-    $profileHint.Size = [System.Drawing.Size]::new(710, 28)
+    $profileHint.Size = [System.Drawing.Size]::new(710, 42)
     $profileHint.Visible = $profileUiEnabled
     $buttonForm.Controls.Add($profileHint)
 
-    $virtualRowY = if ($profileUiEnabled) { 209 } else { 139 }
-    $virtualComboY = if ($profileUiEnabled) { 204 } else { 134 }
-    $virtualStatusY = if ($profileUiEnabled) { 243 } else { 173 }
-    $panelY = if ($profileUiEnabled) { 278 } else { 208 }
+    $virtualRowY = if ($profileUiEnabled) { 221 } else { 139 }
+    $virtualComboY = if ($profileUiEnabled) { 216 } else { 134 }
+    $virtualStatusY = if ($profileUiEnabled) { 255 } else { 173 }
+    $panelY = if ($profileUiEnabled) { 290 } else { 208 }
     $actionButtonY = if ($profileUiEnabled) { 650 } else { 570 }
 
     $virtualLabel = New-Object System.Windows.Forms.Label

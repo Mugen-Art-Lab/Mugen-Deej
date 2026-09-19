@@ -459,7 +459,7 @@ function Copy-AdaptiveProfileButtons {
     foreach ($item in @($Items)) {
         $copy += ConvertTo-SafeProfileButtonAction -Action ([string]$item)
     }
-    return ,$copy
+    return $copy
 }
 
 function Get-ProfiledButtonActionContext {
@@ -516,7 +516,7 @@ function Copy-AdaptiveProfileToggles {
             off = ConvertTo-SafeAdaptiveAction -Action ([string]$item.off)
         }
     }
-    return ,$copy
+    return $copy
 }
 
 function Copy-AdaptiveProfileEncoders {
@@ -529,7 +529,7 @@ function Copy-AdaptiveProfileEncoders {
             push = ConvertTo-SafeAdaptiveAction -Action ([string]$item.push)
         }
     }
-    return ,$copy
+    return $copy
 }
 
 function Initialize-AdaptiveProfiles {

@@ -395,6 +395,21 @@ jobs:
           if ($runtimeText -notmatch 'Button application-profile settings saved') {
             throw 'Development runtime is missing transactional button-profile editor persistence.'
           }
+          if ($runtimeText -notmatch "\$script:AppVersion = '2\.0\.0 Prototype'") {
+            throw 'Development runtime still reports the stable 1.0.0 product version.'
+          }
+          if ($runtimeText -notmatch 'Preserve virtual gamepad actions during button normalization') {
+            throw 'Development runtime can still discard virtual gamepad actions during normalization.'
+          }
+          if ($runtimeText -match 'return ,\$copy') {
+            throw 'Development runtime still contains nested-array profile copy helpers.'
+          }
+          if ($runtimeText -notmatch 'Virtual gamepad main toggle failed') {
+            throw 'Development runtime is missing the standalone main-window XInput toggle.'
+          }
+          if ($runtimeText -notmatch '\$profileHint\.Size = \[System\.Drawing\.Size\]::new\(710, 42\)') {
+            throw 'Development runtime is missing the two-line application-profile hint layout.'
+          }
           if ($runtimeText -notmatch 'Button application profiles are protocol-agnostic') {
             throw 'Development runtime still restricts button application profiles to a firmware generation.'
           }
