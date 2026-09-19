@@ -471,10 +471,10 @@ function Get-ProfiledButtonActionContext {
         Actions = @($globalActions)
     }
 
-    # Stage automatic button profiles for Adaptive first so Legacy/Extended
-    # remain byte-for-byte compatible with their established action behavior.
-    if ([string]$script:ControllerProtocol -ne 'adaptive') { return $globalContext }
-
+    # Button application profiles are protocol-agnostic. Legacy exposes no
+    # momentary buttons, while Extended and Adaptive use the same established
+    # button-action transport. With no matching profile (or an older profile
+    # that has no button payload), Global remains the exact compatibility path.
     $profile = Get-ForegroundAdaptiveProfile
     if ($null -eq $profile) { return $globalContext }
 

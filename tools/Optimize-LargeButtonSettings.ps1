@@ -87,17 +87,14 @@ function Get-LargeButtonActionDisplay {
 }
 
 function Show-LargeButtonSettings {
+    # Application profiles belong to the PC-side button mapping layer, not to
+    # a firmware generation. Legacy simply has zero buttons; Extended and
+    # Adaptive can both use the same Global/per-application editor.
     $profileUiEnabled = (
-        [string]$script:ControllerProtocol -eq 'adaptive' -and
+        $script:IsConnected -and
         [int]$script:DetectedButtonCount -gt 0
     )
-    if (
-        -not $script:IsConnected -or
-        $script:DetectedButtonCount -le 0 -or
-        (-not $profileUiEnabled -and $script:DetectedButtonCount -le 12)
-    ) {
-        return
-    }
+    if (-not $profileUiEnabled) { return }
 
     $buildStarted = Get-Date
     Normalize-ButtonActions -Count $script:DetectedButtonCount

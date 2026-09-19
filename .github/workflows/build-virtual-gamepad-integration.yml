@@ -395,6 +395,18 @@ jobs:
           if ($runtimeText -notmatch 'Button application-profile settings saved') {
             throw 'Development runtime is missing transactional button-profile editor persistence.'
           }
+          if ($runtimeText -notmatch 'Button application profiles are protocol-agnostic') {
+            throw 'Development runtime still restricts button application profiles to a firmware generation.'
+          }
+          if ($runtimeText -notmatch 'Profiles created by #89 predate button mappings') {
+            throw 'Development runtime is missing old-profile button fallback compatibility.'
+          }
+          if ($runtimeText -notmatch 'Restored backup schema v1: current Adaptive mappings and application profiles were preserved') {
+            throw 'Development runtime is missing old backup schema v1 compatibility.'
+          }
+          if ($runtimeText -notmatch '\$useProfiledButtonEditor = \(') {
+            throw 'Development runtime does not route Extended/Adaptive button controllers through the profiled editor.'
+          }
           if ($runtimeText -notmatch '\$profileLabel.Size = \[System.Drawing.Size\]::new\(145, 30\)') {
             throw 'Development runtime is missing the typed profile-label clipping fix.'
           }
@@ -482,6 +494,7 @@ jobs:
           The virtual controller is OFF by default. Its setting is stored in virtual-controller.json next to the app.
           Windows startup registration is intentionally disabled in this development package so it cannot replace the stable Mugen Deej autostart path.
           Adaptive toggles and encoders now have first-class action mapping: separate toggle ON/OFF actions plus encoder CW/CCW/push actions. These typed controls can use standard Mugen actions; virtual-gamepad output remains mapped from momentary buttons in this milestone.
+          Momentary-button application profiles are PC-side and work with both Extended and Adaptive controllers. Legacy controllers remain unchanged because they expose no buttons. Existing button-actions.json remains the Global fallback, and older backups/profiles without per-application button payloads continue to load through that Global path.
           '@
           [System.IO.File]::WriteAllText(
             (Join-Path $stage 'VIRTUAL-GAMEPAD-DEV.txt'),
