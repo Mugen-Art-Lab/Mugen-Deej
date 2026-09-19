@@ -101,6 +101,7 @@ function Show-LargeButtonSettings {
 
     $buildStarted = Get-Date
     Normalize-ButtonActions -Count $script:DetectedButtonCount
+    Initialize-AdaptiveActions
     Initialize-AdaptiveProfiles
 
     $pendingActions = New-Object System.Collections.ArrayList
