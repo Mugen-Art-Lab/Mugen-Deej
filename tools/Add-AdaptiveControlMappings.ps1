@@ -416,6 +416,97 @@ function Ensure-AdaptiveActionCapacity {
     $script:AdaptiveEncoderActions = @($encoders)
 }
 
+function Test-ProfileButtonAction {
+    param([string]$Action)
+
+    if ([string]::IsNullOrWhiteSpace($Action) -or $Action -eq 'none') { return $true }
+    if ($Action -match '^mute:\d+$') { return $true }
+    if ($Action -in @(
+        'media:playpause',
+        'media:previous',
+        'media:next',
+        'media:stop',
+        'system:volumeup',
+        'system:volumedown',
+        'system:volumemute'
+    )) { return $true }
+
+    if ($script:VirtualGamepadFeatureAvailable -and (Test-MugenVirtualGamepadAction -Action $Action)) { return $true }
+
+    if ($Action -match '^hotkey:(\d{1,3}):(\d{1,2})$') {
+        $vk = [int]$Matches[1]
+        $mask = [int]$Matches[2]
+        return ($vk -gt 0 -and $vk -le 255 -and $mask -ge 0 -and $mask -le 15)
+    }
+
+    if ($Action -match '^(launch64|folder64|url64|command64):(.+)$') {
+        $decoded = Decode-ButtonActionPayload -Payload $Matches[2]
+        return (-not [string]::IsNullOrWhiteSpace($decoded))
+    }
+
+    return $false
+}
+
+function ConvertTo-SafeProfileButtonAction {
+    param([string]$Action)
+    if (Test-ProfileButtonAction -Action $Action) { return [string]$Action }
+    return 'none'
+}
+
+function Copy-AdaptiveProfileButtons {
+    param([object[]]$Items)
+    $copy = @()
+    foreach ($item in @($Items)) {
+        $copy += ConvertTo-SafeProfileButtonAction -Action ([string]$item)
+    }
+    return ,$copy
+}
+
+function Get-ProfiledButtonActionContext {
+    Initialize-ButtonActions
+
+    $globalActions = @($script:ButtonActions | ForEach-Object { [string]$_ })
+    $globalContext = [pscustomobject][ordered]@{
+        Key = '__global__'
+        Actions = @($globalActions)
+    }
+
+    # Stage automatic button profiles for Adaptive first so Legacy/Extended
+    # remain byte-for-byte compatible with their established action behavior.
+    if ([string]$script:ControllerProtocol -ne 'adaptive') { return $globalContext }
+
+    $profile = Get-ForegroundAdaptiveProfile
+    if ($null -eq $profile) { return $globalContext }
+
+    $profileButtons = @()
+    if ($null -ne $profile.PSObject.Properties['buttons']) {
+        $profileButtons = @(Copy-AdaptiveProfileButtons -Items @($profile.buttons))
+    }
+
+    # #89 profiles did not contain button mappings. Empty/missing means inherit
+    # Global until the user explicitly edits/saves button mappings for that app.
+    if ($profileButtons.Count -eq 0) { return $globalContext }
+
+    $processName = Normalize-TargetName -Value ([string]$profile.process)
+    if ([string]::IsNullOrWhiteSpace($processName)) { return $globalContext }
+
+    return [pscustomobject][ordered]@{
+        Key = $processName.ToLowerInvariant()
+        Actions = @($profileButtons)
+    }
+}
+
+function Get-ProfiledButtonAction {
+    param([int]$ButtonIndex)
+
+    if ($ButtonIndex -lt 0) { return 'none' }
+    $context = Get-ProfiledButtonActionContext
+    $actions = @($context.Actions)
+    if ($ButtonIndex -ge $actions.Count) { return 'none' }
+
+    return ConvertTo-SafeProfileButtonAction -Action ([string]$actions[$ButtonIndex])
+}
+
 function Copy-AdaptiveProfileToggles {
     param([object[]]$Items)
     $copy = @()
@@ -463,9 +554,15 @@ function Initialize-AdaptiveProfiles {
             $name = [string]$raw.name
             if ([string]::IsNullOrWhiteSpace($name)) { $name = Get-FriendlyProcessName -ProcessName $processName }
 
+            $buttons = @()
+            if ($null -ne $raw.PSObject.Properties['buttons']) {
+                $buttons = @(Copy-AdaptiveProfileButtons -Items @($raw.buttons))
+            }
+
             $profiles += [pscustomobject][ordered]@{
                 name = $name
                 process = $processName
+                buttons = @($buttons)
                 toggles = @(Copy-AdaptiveProfileToggles -Items @($raw.toggles))
                 encoders = @(Copy-AdaptiveProfileEncoders -Items @($raw.encoders))
             }
@@ -484,9 +581,15 @@ function Save-AdaptiveProfiles {
 
     $profiles = @()
     foreach ($profile in @($script:AdaptiveProfiles)) {
+        $buttons = @()
+        if ($null -ne $profile.PSObject.Properties['buttons']) {
+            $buttons = @(Copy-AdaptiveProfileButtons -Items @($profile.buttons))
+        }
+
         $profiles += [pscustomobject][ordered]@{
             name = [string]$profile.name
             process = Normalize-TargetName -Value ([string]$profile.process)
+            buttons = @($buttons)
             toggles = @(Copy-AdaptiveProfileToggles -Items @($profile.toggles))
             encoders = @(Copy-AdaptiveProfileEncoders -Items @($profile.encoders))
         }
@@ -849,6 +952,7 @@ function Show-AdaptiveControlSettings {
     Ensure-AdaptiveActionCapacity -ToggleCount ([int]$script:DetectedToggleCount) -EncoderCount ([int]$script:DetectedEncoderCount)
 
     Initialize-AdaptiveProfiles
+    Initialize-ButtonActions
 
     $pendingToggles = New-Object System.Collections.ArrayList
     foreach ($item in @($script:AdaptiveToggleActions)) {
@@ -861,9 +965,15 @@ function Show-AdaptiveControlSettings {
 
     $workingProfiles = New-Object System.Collections.ArrayList
     foreach ($profile in @($script:AdaptiveProfiles)) {
+        $profileButtons = @()
+        if ($null -ne $profile.PSObject.Properties['buttons']) {
+            $profileButtons = @(Copy-AdaptiveProfileButtons -Items @($profile.buttons))
+        }
+
         [void]$workingProfiles.Add([pscustomobject][ordered]@{
             name = [string]$profile.name
             process = [string]$profile.process
+            buttons = @($profileButtons)
             toggles = @(Copy-AdaptiveProfileToggles -Items @($profile.toggles))
             encoders = @(Copy-AdaptiveProfileEncoders -Items @($profile.encoders))
         })
@@ -879,9 +989,9 @@ function Show-AdaptiveControlSettings {
     $settingsForm = New-Object System.Windows.Forms.Form
     $settingsForm.Text = if ($script:Language -eq 'ru') { 'Настройка тумблеров и энкодеров — Mugen Deej' } else { 'Toggle and encoder settings — Mugen Deej' }
     $settingsForm.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterParent
-    $settingsForm.ClientSize = [System.Drawing.Size]::new(820, 776)
-    $settingsForm.MinimumSize = [System.Drawing.Size]::new(836, 815)
-    $settingsForm.MaximumSize = [System.Drawing.Size]::new(836, 815)
+    $settingsForm.ClientSize = [System.Drawing.Size]::new(820, 796)
+    $settingsForm.MinimumSize = [System.Drawing.Size]::new(836, 835)
+    $settingsForm.MaximumSize = [System.Drawing.Size]::new(836, 835)
     $settingsForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
     $settingsForm.MaximizeBox = $false
     $settingsForm.MinimizeBox = $false
@@ -918,14 +1028,14 @@ function Show-AdaptiveControlSettings {
     $profileLabel = New-Object System.Windows.Forms.Label
     $profileLabel.Text = if ($script:Language -eq 'ru') { 'Профиль действий:' } else { 'Action profile:' }
     $profileLabel.Location = [System.Drawing.Point]::new(25, 143)
-    $profileLabel.Size = [System.Drawing.Size]::new(125, 25)
+    $profileLabel.Size = [System.Drawing.Size]::new(145, 30)
     $profileLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
     $settingsForm.Controls.Add($profileLabel)
 
     $profileCombo = New-Object MugenDeejWindowing.MugenComboBox
     $profileCombo.DropDownStyle = 'DropDownList'
-    $profileCombo.Location = [System.Drawing.Point]::new(150, 140)
-    $profileCombo.Size = [System.Drawing.Size]::new(430, 30)
+    $profileCombo.Location = [System.Drawing.Point]::new(170, 140)
+    $profileCombo.Size = [System.Drawing.Size]::new(410, 30)
     $settingsForm.Controls.Add($profileCombo)
 
     $addProfileButton = New-Object MugenDeejWindowing.MugenButton
@@ -949,12 +1059,12 @@ function Show-AdaptiveControlSettings {
     $selectorGroup = New-Object MugenDeejWindowing.MugenGroupBox
     $selectorGroup.Text = if ($script:Language -eq 'ru') { 'Органы управления' } else { 'Physical controls' }
     $selectorGroup.Location = [System.Drawing.Point]::new(22, 202)
-    $selectorGroup.Size = [System.Drawing.Size]::new(248, 528)
+    $selectorGroup.Size = [System.Drawing.Size]::new(248, 516)
     $settingsForm.Controls.Add($selectorGroup)
 
     $selectorFlow = New-Object System.Windows.Forms.FlowLayoutPanel
     $selectorFlow.Location = [System.Drawing.Point]::new(12, 30)
-    $selectorFlow.Size = [System.Drawing.Size]::new(224, 484)
+    $selectorFlow.Size = [System.Drawing.Size]::new(224, 472)
     $selectorFlow.FlowDirection = [System.Windows.Forms.FlowDirection]::LeftToRight
     $selectorFlow.WrapContents = $true
     $selectorFlow.AutoScroll = $true
@@ -963,7 +1073,7 @@ function Show-AdaptiveControlSettings {
     $editorGroup = New-Object MugenDeejWindowing.MugenGroupBox
     $editorGroup.Text = if ($script:Language -eq 'ru') { 'Выбранный орган управления' } else { 'Selected control' }
     $editorGroup.Location = [System.Drawing.Point]::new(282, 202)
-    $editorGroup.Size = [System.Drawing.Size]::new(516, 528)
+    $editorGroup.Size = [System.Drawing.Size]::new(516, 516)
     $settingsForm.Controls.Add($editorGroup)
 
     $selectedHeading = New-Object System.Windows.Forms.Label
@@ -1037,7 +1147,7 @@ function Show-AdaptiveControlSettings {
 
     $assignmentList = New-Object System.Windows.Forms.ListView
     $assignmentList.Location = [System.Drawing.Point]::new(18, 348)
-    $assignmentList.Size = [System.Drawing.Size]::new(476, 156)
+    $assignmentList.Size = [System.Drawing.Size]::new(476, 144)
     $assignmentList.View = [System.Windows.Forms.View]::Details
     $assignmentList.FullRowSelect = $true
     $assignmentList.HideSelection = $false
@@ -1521,6 +1631,7 @@ function Show-AdaptiveControlSettings {
             $profile = [pscustomobject][ordered]@{
                 name = (Get-FriendlyProcessName -ProcessName $processName)
                 process = $processName
+                buttons = @(Copy-AdaptiveProfileButtons -Items @($script:ButtonActions))
                 toggles = @(Copy-AdaptiveProfileToggles -Items @($globalDraft.toggles))
                 encoders = @(Copy-AdaptiveProfileEncoders -Items @($globalDraft.encoders))
             }
@@ -1548,14 +1659,14 @@ function Show-AdaptiveControlSettings {
     $cancel = New-Object MugenDeejWindowing.MugenButton
     $cancel.Text = Get-ButtonFeatureText -Key 'Cancel'
     $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-    $cancel.Location = [System.Drawing.Point]::new(580, 726)
+    $cancel.Location = [System.Drawing.Point]::new(580, 744)
     $cancel.Size = [System.Drawing.Size]::new(100, 36)
     $settingsForm.Controls.Add($cancel)
 
     $save = New-Object MugenDeejWindowing.MugenButton
     $save.Text = Get-ButtonFeatureText -Key 'Save'
     $save.Tag = 'MugenPrimary'
-    $save.Location = [System.Drawing.Point]::new(692, 726)
+    $save.Location = [System.Drawing.Point]::new(692, 744)
     $save.Size = [System.Drawing.Size]::new(106, 36)
     $settingsForm.Controls.Add($save)
     $save.Add_Click({
@@ -1655,6 +1766,39 @@ $text = Replace-LiteralExactlyOnce `
     -OldText 'function Initialize-AdaptiveControlStates {' `
     -NewText ($actionHelpers + 'function Initialize-AdaptiveControlStates {') `
     -Label 'inject Adaptive action persistence/editor helpers'
+
+$text = Replace-LiteralExactlyOnce `
+    -Text $text `
+    -OldText @'
+    Initialize-ButtonActions
+
+    if (
+        $ButtonIndex -lt 0 -or
+        $ButtonIndex -ge @($script:ButtonActions).Count
+    ) {
+        return
+    }
+
+    $now = Get-Date
+'@ `
+    -NewText @'
+    Initialize-ButtonActions
+
+    if ($ButtonIndex -lt 0) { return }
+    $action = Get-ProfiledButtonAction -ButtonIndex $ButtonIndex
+
+    $now = Get-Date
+'@ `
+    -Label 'resolve button press action through foreground profile'
+
+$text = Replace-LiteralExactlyOnce `
+    -Text $text `
+    -OldText @'
+    $action = [string]$script:ButtonActions[$ButtonIndex]
+
+'@ `
+    -NewText '' `
+    -Label 'remove global-only button action lookup'
 
 # ---------------------------------------------------------------------------
 # Execute first-class actions from actual state transitions / encoder detents
@@ -2357,6 +2501,7 @@ function New-MugenDeejBackupSnapshot {
             [pscustomobject][ordered]@{
                 name = [string]$_.name
                 process = [string]$_.process
+                buttons = @(Copy-AdaptiveProfileButtons -Items @($_.buttons))
                 toggles = @(Copy-AdaptiveProfileToggles -Items @($_.toggles))
                 encoders = @(Copy-AdaptiveProfileEncoders -Items @($_.encoders))
             }
@@ -2457,9 +2602,15 @@ function Restore-MugenDeejBackupInteractive {
                 foreach ($profile in @($backup.adaptiveProfiles.profiles)) {
                     $processName = Normalize-TargetName -Value ([string]$profile.process)
                     if ([string]::IsNullOrWhiteSpace($processName)) { continue }
+                    $profileButtons = @()
+                    if ($null -ne $profile.PSObject.Properties['buttons']) {
+                        $profileButtons = @(Copy-AdaptiveProfileButtons -Items @($profile.buttons))
+                    }
+
                     $restoredProfiles += [pscustomobject][ordered]@{
                         name = [string]$profile.name
                         process = $processName
+                        buttons = @($profileButtons)
                         toggles = @(Copy-AdaptiveProfileToggles -Items @($profile.toggles))
                         encoders = @(Copy-AdaptiveProfileEncoders -Items @($profile.encoders))
                     }
@@ -2517,9 +2668,15 @@ function Restore-MugenDeejBackupInteractive {
                 foreach ($profile in @($rollback.adaptiveProfiles.profiles)) {
                     $processName = Normalize-TargetName -Value ([string]$profile.process)
                     if ([string]::IsNullOrWhiteSpace($processName)) { continue }
+                    $profileButtons = @()
+                    if ($null -ne $profile.PSObject.Properties['buttons']) {
+                        $profileButtons = @(Copy-AdaptiveProfileButtons -Items @($profile.buttons))
+                    }
+
                     $rollbackProfiles += [pscustomobject][ordered]@{
                         name = [string]$profile.name
                         process = $processName
+                        buttons = @($profileButtons)
                         toggles = @(Copy-AdaptiveProfileToggles -Items @($profile.toggles))
                         encoders = @(Copy-AdaptiveProfileEncoders -Items @($profile.encoders))
                     }
