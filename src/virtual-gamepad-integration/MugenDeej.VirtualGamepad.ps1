@@ -17,6 +17,9 @@ $script:VirtualGamepadUiTimer = $null
 $script:VirtualGamepadStatusDot = $null
 $script:VirtualGamepadStatusLabel = $null
 $script:VirtualGamepadLastMask = [uint32]::MaxValue
+$script:VirtualGamepadLastButtonProfileKey = ''
+$script:VirtualGamepadSuppressedPhysicalButtons = @{}
+$script:VirtualGamepadLastPhysicalButtons = @()
 $script:VirtualGamepadLastStartFailure = [DateTime]::MinValue
 $script:VirtualGamepadStartFailureCooldownSeconds = 20
 
@@ -335,6 +338,9 @@ function Reset-MugenVirtualGamepadBridgeObjects {
     $script:VirtualGamepadPipe = $null
     $script:VirtualGamepadActive = $false
     $script:VirtualGamepadLastMask = [uint32]::MaxValue
+    $script:VirtualGamepadLastButtonProfileKey = ''
+    $script:VirtualGamepadSuppressedPhysicalButtons = @{}
+    $script:VirtualGamepadLastPhysicalButtons = @()
 }
 
 function Fail-MugenVirtualGamepadStart {
@@ -530,16 +536,55 @@ function Start-MugenVirtualGamepad {
     }
 }
 
+function Get-MugenVirtualGamepadButtonProfileContext {
+    $fallbackActions = @($script:ButtonActions | ForEach-Object { [string]$_ })
+    $fallback = [pscustomobject][ordered]@{
+        Key = '__global__'
+        Actions = @($fallbackActions)
+    }
+
+    try {
+        if ($null -eq (Get-Command -Name Get-ProfiledButtonActionContext -CommandType Function -ErrorAction SilentlyContinue)) {
+            return $fallback
+        }
+
+        $context = Get-ProfiledButtonActionContext
+        if ($null -eq $context) { return $fallback }
+
+        $key = [string]$context.Key
+        if ([string]::IsNullOrWhiteSpace($key)) { $key = '__global__' }
+        return [pscustomobject][ordered]@{
+            Key = $key
+            Actions = @($context.Actions | ForEach-Object { [string]$_ })
+        }
+    }
+    catch {
+        Write-Log ('Virtual controller profile lookup failed; using Global buttons: {0}' -f $_.Exception.Message) 'WARN'
+        return $fallback
+    }
+}
+
 function Get-MugenVirtualGamepadMask {
-    param([int[]]$Values)
+    param(
+        [int[]]$Values,
+        [object[]]$Actions
+    )
 
     [uint32]$mask = 0
     $valuesArray = @($Values)
-    $actionsArray = @($script:ButtonActions)
+    $actionsArray = @($Actions)
     $count = [Math]::Min($valuesArray.Count, $actionsArray.Count)
 
-    for ($i = 0; $i -lt $count; $i++) {
-        if ([int]$valuesArray[$i] -ne 0) { continue }
+    for ($i = 0; $i -lt $valuesArray.Count; $i++) {
+        if ([int]$valuesArray[$i] -ne 0) {
+            if ($script:VirtualGamepadSuppressedPhysicalButtons.ContainsKey($i)) {
+                $script:VirtualGamepadSuppressedPhysicalButtons.Remove($i)
+            }
+            continue
+        }
+
+        if ($script:VirtualGamepadSuppressedPhysicalButtons.ContainsKey($i)) { continue }
+        if ($i -ge $count) { continue }
 
         $action = ([string]$actionsArray[$i]).ToLowerInvariant()
         if ($script:VirtualGamepadActionBits.ContainsKey($action)) {
@@ -563,7 +608,8 @@ function Update-MugenVirtualGamepadButtonStates {
         return
     }
 
-    if (-not $script:IsConnected -or $script:DetectedButtonCount -le 0 -or @($Values).Count -eq 0) {
+    $valuesArray = @($Values)
+    if (-not $script:IsConnected -or $script:DetectedButtonCount -le 0 -or $valuesArray.Count -eq 0) {
         if ($script:VirtualGamepadActive -or $script:VirtualGamepadStarting) {
             Stop-MugenVirtualGamepad -Reason 'physical controller unavailable'
         }
@@ -573,7 +619,49 @@ function Update-MugenVirtualGamepadButtonStates {
 
     if (-not (Start-MugenVirtualGamepad)) { return }
 
-    [uint32]$mask = Get-MugenVirtualGamepadMask -Values @($Values)
+    $context = Get-MugenVirtualGamepadButtonProfileContext
+    $profileKey = [string]$context.Key
+    $previousProfileKey = [string]$script:VirtualGamepadLastButtonProfileKey
+    $previousValues = @($script:VirtualGamepadLastPhysicalButtons)
+
+    if ([string]::IsNullOrWhiteSpace($previousProfileKey)) {
+        $script:VirtualGamepadLastButtonProfileKey = $profileKey
+    }
+    elseif ($previousProfileKey -ne $profileKey) {
+        try {
+            if (
+                $script:VirtualGamepadLastMask -ne [uint32]::MaxValue -and
+                $script:VirtualGamepadLastMask -ne [uint32]0
+            ) {
+                [void](Send-MugenVirtualGamepadCommand -Command 'buttons 0')
+            }
+
+            $script:VirtualGamepadLastMask = [uint32]0
+            $script:VirtualGamepadSuppressedPhysicalButtons = @{}
+
+            # A button that was already physically held before the foreground
+            # profile changed must not become a fresh press in the new profile.
+            # It stays suppressed until its real release edge arrives.
+            for ($i = 0; $i -lt $valuesArray.Count; $i++) {
+                $wasHeld = ($previousValues.Count -gt $i -and [int]$previousValues[$i] -eq 0)
+                $isHeld = ([int]$valuesArray[$i] -eq 0)
+                if ($wasHeld -and $isHeld) {
+                    $script:VirtualGamepadSuppressedPhysicalButtons[$i] = $true
+                }
+            }
+
+            $script:VirtualGamepadLastButtonProfileKey = $profileKey
+            Write-Log ('Virtual gamepad button profile changed: {0} -> {1}; held inputs suppressed until release={2}' -f $previousProfileKey, $profileKey, $script:VirtualGamepadSuppressedPhysicalButtons.Count) 'INFO'
+        }
+        catch {
+            Write-Log ('Virtual controller profile-switch release failed: {0}' -f $_.Exception.Message) 'WARN'
+            Stop-MugenVirtualGamepad -Reason 'profile-switch release failed'
+            return
+        }
+    }
+
+    [uint32]$mask = Get-MugenVirtualGamepadMask -Values $valuesArray -Actions @($context.Actions)
+    $script:VirtualGamepadLastPhysicalButtons = @($valuesArray)
     if ($mask -eq $script:VirtualGamepadLastMask) { return }
 
     try {
