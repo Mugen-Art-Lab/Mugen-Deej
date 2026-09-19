@@ -578,7 +578,7 @@ function Get-MugenVirtualGamepadMask {
     for ($i = 0; $i -lt $valuesArray.Count; $i++) {
         if ([int]$valuesArray[$i] -ne 0) {
             if ($script:VirtualGamepadSuppressedPhysicalButtons.ContainsKey($i)) {
-                $script:VirtualGamepadSuppressedPhysicalButtons.Remove($i)
+                [void]$script:VirtualGamepadSuppressedPhysicalButtons.Remove($i)
             }
             continue
         }
