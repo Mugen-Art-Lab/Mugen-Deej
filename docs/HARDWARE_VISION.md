@@ -113,38 +113,37 @@ Profile export/import is therefore a core architectural capability, not merely a
 
 ## Candidate first large prototype
 
-The first large prototype target is now concrete:
+The first large prototype has moved from paper planning into a real cardboard bring-up build.
 
-- Arduino Nano-class controller;
-- 5 analog controls;
-- 5×6 switch matrix = 30 matrix positions;
-- 29 standalone momentary buttons;
-- the rotary encoder's push switch occupying the 30th matrix position;
-- one diode per matrix key (1N4148-class part);
-- 2 latching guarded toggle switches;
-- 1 quadrature rotary encoder with push switch;
+Actual first physical control set:
+
+- Arduino Uno for initial testing, with Nano migration planned after validation;
+- five analog channels represented temporarily by software placeholders until potentiometers are fitted;
+- 4×8 switch matrix;
+- 28 standalone momentary buttons in C1..C7 across four rows;
+- 2 latching toggles in R1C8 / R2C8;
+- one diode per populated matrix position (1N4148-class part);
+- one ready-made quadrature encoder module with separate S1/S2/KEY/5V/GND;
+- encoder push uses the module's dedicated KEY line rather than a matrix position;
 - USB serial connection to Mugen Deej.
 
-The encoder and two guarded toggles have been ordered for the prototype. The complete configuration is **not hardware-tested yet**.
+Current Uno pin budget:
 
-Experimental firmware and wiring notes live in:
+- D2/D3 — encoder S1/S2;
+- A2 — encoder KEY;
+- D4..D11 — matrix columns C1..C8;
+- D12/D13/A0/A1 — matrix rows R1..R4;
+- D0/D1 — USB serial, reserved;
+- A3..A5 remain free on Uno while software slider placeholders are used.
 
-- `arduino/MugenDeejPanelPrototype/MugenDeejPanelPrototype.ino`
-- `arduino/MugenDeejPanelPrototype/README.md`
+Dedicated firmware/wiring notes for the actual build live in:
 
-The already-tested 5-control / 6-button reference firmware remains separate in `arduino/MugenDeejController/`.
+- `arduino/MugenDeejCardboardUnoPrototype/MugenDeejCardboardUnoPrototype.ino`
+- `arduino/MugenDeejCardboardUnoPrototype/README.md`
 
-### ATmega328P / classic Nano pin budget
+The earlier `MugenDeejPanelPrototype` 5×6 sketch remains useful as design history, but it no longer describes the exact first physical panel.
 
-With `D0/D1` reserved for serial, a classic Nano fits the target without an I/O expander:
-
-- `A0–A4` — five analog controls;
-- `D2/D3` — quadrature encoder A/B;
-- `D4–D8 + A5` — six matrix columns;
-- `D9–D13` — five matrix rows;
-- `A6/A7` — two latching toggles read with `analogRead()` and external pull-up wiring.
-
-The encoder push switch uses one normal matrix position, so it requires no additional GPIO. This uses the classic Nano essentially completely while keeping the first prototype cheap and simple.
+The current physical build is **not hardware-tested yet**. Its intended Adaptive topology is 5 / 28 / 2 / 1 at 115200 baud.
 
 ## Control semantics Mugen should eventually understand
 

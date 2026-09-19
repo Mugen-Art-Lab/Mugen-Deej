@@ -33,6 +33,8 @@ Backward compatibility remains deliberate: Legacy has no buttons and is unchange
 
 See `docs/CURRENT_HANDOFF.md` for #101 run/artifact hashes and the exact real-machine test sequence.
 
+The first large physical cardboard panel is now wired for Uno bring-up as a 4x8 matrix: 28 momentary buttons, 2 matrix toggles, and a separate S1/S2/KEY encoder module. A dedicated Adaptive v3 sketch exposes 5 temporary software sliders + 28 buttons + 2 toggles + 1 encoder/push at 115200. Hardware validation is pending before the same wiring is migrated to Nano and real potentiometers.
+
 Goal: keep Mugen Deej a generic low-cost DIY controller router while adding optional game-controller output on the PC side.
 
 ```text

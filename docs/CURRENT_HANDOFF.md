@@ -958,6 +958,45 @@ For stateful virtual-controller outputs (held Xbox buttons and the digital stick
 
 This rule is independent of how focus changed and is driven by foreground-process identity resolved through the saved profile set. A foreground change that still resolves to the same Global profile (for example Explorer -> Notepad when neither has a dedicated profile) is not a profile boundary and must not cause a needless reset. Borderless-fullscreen multi-monitor use is a required real-world scenario.
 
+
+## Physical cardboard prototype — Uno bring-up wiring
+
+The first large real panel has now been physically assembled enough for firmware bring-up. Actual control set differs slightly from the earlier 5x6 planning sketch:
+
+- 28 standalone momentary buttons;
+- 2 latching toggles;
+- one ready-made rotary encoder module with separate `S1 / S2 / KEY / 5V / GND`;
+- encoder push therefore uses dedicated `KEY` instead of consuming a matrix cell;
+- five potentiometers are not installed yet, so the first firmware keeps the known software placeholder values `0 / 256 / 512 / 768 / 1023`.
+
+The panel matrix is now **4x8**:
+
+```text
+        C1  C2  C3  C4  C5  C6  C7  C8
+R1      B1  B2  B3  B4  B5  B6  B7  T1
+R2      B8  B9  B10 B11 B12 B13 B14 T2
+R3      B15 B16 B17 B18 B19 B20 B21 spare
+R4      B22 B23 B24 B25 B26 B27 B28 spare
+```
+
+Uno bring-up pin map:
+
+- encoder: D2=S1, D3=S2, A2=KEY, plus 5V/GND;
+- columns C1..C8: D4..D11;
+- rows R1..R4: D12, D13, A0, A1;
+- D0/D1 remain reserved for USB serial.
+
+Every matrix position uses its own diode with the striped cathode facing the ROW bus for the firmware's active-LOW scan.
+
+Dedicated firmware now lives at:
+
+- `arduino/MugenDeejCardboardUnoPrototype/MugenDeejCardboardUnoPrototype.ino`
+- `arduino/MugenDeejCardboardUnoPrototype/README.md`
+
+It emits Adaptive v3 at 115200 as **5 / 28 / 2 / 1**. The 5 slider fields are temporary software placeholders until real potentiometers are fitted.
+
+Hardware status: wiring is physically assembled; firmware/end-to-end behavior is **not hardware PASS yet**.
+
 ## Working rules
 
 - Stable `main` stays untouched until feature work is hardware-proven.
