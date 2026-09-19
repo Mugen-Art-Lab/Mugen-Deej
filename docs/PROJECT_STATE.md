@@ -301,3 +301,17 @@ Manual profile switching comes first. Automatic switching by game/process is def
 - Cardboard Uno prototype matrix hardware PASS: after correcting the row wiring to parallel shared buses (one diode per switch, no series-chained row diodes), all 28 momentary buttons register correctly in Mugen. The prior C5..C8 failure was physical matrix wiring, not Uno pins or desktop parsing.
 
 - Full digital cardboard-panel smoke test PASS: 28 buttons, 2 toggles, and encoder/push work on real Uno hardware; a >20-button simultaneous hold also registered cleanly. Five slider channels remain software placeholders pending real potentiometers.
+
+
+## Current hardware-review build — Integrated #108
+
+Integrated #108 is the current dev package for the real 5/28/2/1 cardboard controller.
+
+- run ID `35474728701`, run #108 — SUCCESS;
+- built code head `8baafb0d9870ff23b1b9fb82b2c2ad7ca200317c`;
+- artifact ID `10593492558`;
+- inner ZIP SHA-256 `607defc6e9256714ebea0ace14d1fb80922f9ff611fe0a5e38337909d63f417c`.
+
+The build fixes the real save failure that logged `button-actions.json: System.Object[]`: application-profile copy helpers no longer produce nested arrays, and virtual Xbox/stick action strings survive the legacy button-normalization pass. It also expands the clipped RU profile help text, moves virtual-controller power out of the large button-mapping editor to a dedicated main-window XInput on/off control, and brands only the dev-stage package as `Mugen Deej 2.0.0 Prototype`. Stable `main` remains public 1.0.0.
+
+#108 is CI PASS, not hardware PASS. Re-test mapping persistence across Save/editor reopen/app restart/controller reconnect, the new main XInput control, and joy.cpl digital-stick behavior before promoting any of those fixes.

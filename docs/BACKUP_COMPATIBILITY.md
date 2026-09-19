@@ -95,3 +95,12 @@ The user-facing wording should describe the outcome, not ask the user to underst
 - Hardware discovery remains authoritative for what controls exist in the live UI.
 - Backup contents remain authoritative for saved user mappings/preferences, including dormant mappings for currently absent controls.
 - Do not create separate Legacy/Extended/Adaptive backup file types unless a future feature introduces a genuinely different export concept.
+
+
+## #108 persistence repair and version metadata
+
+Integrated #108 does **not** change the backup schema.
+
+The observed `System.Object[]` button-save failure was an in-memory array-shape bug in application-profile copy helpers, not a new data model. The repaired helpers emit the same ordinary action-string arrays already defined by schema v2. The additional normalizer guard likewise only preserves existing `virtual:xbox:*` strings that schema v2 already carries in Global/per-profile button action slots.
+
+The development package now reports `2.0.0 Prototype` in `createdBy` for newly created backups. `createdBy` is informational version metadata and does not alter schema compatibility; restore continues to key compatibility on `format` / `schemaVersion`, not on an exact application-version match. Stable main remains 1.0.0.

@@ -942,7 +942,17 @@ Nonblocking teardown has CI coverage but its final real-hardware re-test remains
 
 ## Immediate next work
 
-Hardware-review Integrated #101. First retain the pending #90 checks (E1 CW/CCW/push without false reconnect and typed-settings clipping), then exercise the new stateful Xbox output: digital left/right-stick directions from physical buttons, release-to-center, opposite-direction cancellation, mixed button+axis holds, and effective-profile switching by clicking between windows/monitors rather than relying only on Alt+Tab. Unprofiled applications must all resolve to the same Global profile. Extended button-profile smoke testing and explicit old-v1/current-v2 backup restore tests remain pending.
+Hardware-review **Integrated #108**. The cardboard panel's digital hardware is now proven, so the next pass should focus on the newly fixed software path:
+
+1. confirm the title bar/log identify the dev package as `Mugen Deej 2.0.0 Prototype`;
+2. open RU button settings and confirm the General/application-profile explanation is fully visible;
+3. assign B1/B2/etc. to left-stick directions, Save, close/reopen the editor, and confirm the assignments persist;
+4. restart/reconnect the controller and confirm those virtual mappings still persist (normalization must not rewrite them to `none`);
+5. use the new main-window `XInput: Вкл/Выкл` control and verify the virtual pad appears/disappears without returning to button settings;
+6. verify press/hold/release deflects/centers the stick in joy.cpl, then test opposite-direction cancellation and mixed virtual button+axis holds;
+7. retain effective-profile boundary safety checks and the pending Extended-profile / old-v1-current-v2 backup restore tests.
+
+CI/code inspection for #108 is green but **none of the #108 UI/persistence changes are hardware PASS until this retest is completed**.
 
 
 ## Foreground profile switching safety requirement
@@ -995,7 +1005,7 @@ Dedicated firmware now lives at:
 
 It emits Adaptive v3 at 115200 as **5 / 28 / 2 / 1**. The 5 slider fields are temporary software placeholders until real potentiometers are fitted.
 
-Hardware status: wiring is physically assembled; firmware/end-to-end behavior is **not hardware PASS yet**.
+Hardware status: the complete digital set (28 buttons, 2 toggles, encoder/push) is now **hardware PASS**; only the five real analog potentiometers remain pending.
 
 ## Working rules
 
@@ -1037,3 +1047,40 @@ After the row-bus repair, the cardboard Uno prototype was exercised as a complet
 - the five slider channels are still deliberate software placeholders at 0 / 25 / 50 / 75 / 100 percent until real potentiometers are installed.
 
 This upgrades the current cardboard prototype's **digital control set** from bring-up/pending to real hardware PASS. Analog potentiometers remain pending.
+
+
+## Integrated #108 — virtual mapping persistence, standalone XInput power, v2 prototype identity
+
+A real cardboard-panel test exposed a deterministic persistence bug in the button editor. After selecting a virtual stick action and pressing Save, the runtime logged the Global button array as `System.Object[]` instead of 28 action strings. The same session repeatedly reproduced that save shape.
+
+Root causes:
+
+- `Copy-AdaptiveProfileButtons`, `Copy-AdaptiveProfileToggles`, and `Copy-AdaptiveProfileEncoders` returned `,$copy` even though every caller already wrapped the result in `@(...)`; this created a nested array and corrupted the saved Global/profile button action shape;
+- the stable 1.0.0 button normalizer still predates `virtual:xbox:*` actions, so a correctly saved virtual mapping could also be rewritten to `none` during controller capability normalization/reconnect.
+
+#108 fixes both paths:
+
+- profile-copy helpers now return the normal array and callers remain responsible for array capture;
+- the staged integrated runtime explicitly preserves every action recognized by `Test-MugenVirtualGamepadAction`, including digital stick directions;
+- the RU application-profile explanation in the large button editor now has a real two-line area instead of clipping;
+- virtual-controller power is no longer presented as part of the large physical-button mapping editor;
+- a dedicated main-status-card `XInput: Вкл/Выкл` / `XInput: On/Off` control owns the virtual-controller enable state;
+- the dev-stage runtime now identifies itself as **Mugen Deej 2.0.0 Prototype** in title/log/backup metadata while stable `main` remains 1.0.0.
+
+Workflow run:
+
+- run number: **#108**
+- run ID: `35474728701`
+- built code head: `8baafb0d9870ff23b1b9fb82b2c2ad7ca200317c`
+- result: **SUCCESS**
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-108`
+- artifact ID: `10593492558`
+- outer Actions digest: `sha256:f5ec19d92fab5c5d7c8791d4938fcd240fdd9eb7217408a01587abcd7de4274d`
+- inner program ZIP SHA-256: `607defc6e9256714ebea0ace14d1fb80922f9ff611fe0a5e38337909d63f417c`
+- staging: PASS
+- Windows PowerShell 5.1 parse/runtime marker check: PASS
+- helper/launcher/package/upload: PASS
+
+Runs #102-#107 were development/CI repair iterations while introducing this slice; #108 is the first fully green package and is the only build from this sequence to hand to the hardware tester.
+
+No backup schema bump is introduced. The action values are still ordinary strings in the existing Global/per-profile button arrays; #108 repairs their in-memory/save shape and validation rather than changing the file format.
