@@ -404,9 +404,6 @@ jobs:
           if ($runtimeText -match 'return ,\$copy') {
             throw 'Development runtime still contains nested-array profile copy helpers.'
           }
-          if ($runtimeText -notmatch 'Virtual gamepad main toggle failed') {
-            throw 'Development runtime is missing the standalone main-window XInput toggle.'
-          }
           if ($runtimeText -notmatch '\$profileHint\.Size = \[System\.Drawing\.Size\]::new\(710, 42\)') {
             throw 'Development runtime is missing the two-line application-profile hint layout.'
           }
@@ -440,6 +437,9 @@ jobs:
 
           $integrationModule = '.\artifacts\Mugen-Deej-VirtualGamepad-Integrated-Dev\virtual-gamepad\MugenDeej.VirtualGamepad.ps1'
           $integrationText = [System.IO.File]::ReadAllText((Resolve-Path $integrationModule), [System.Text.Encoding]::UTF8)
+          if ($integrationText -notmatch 'Virtual gamepad main toggle failed') {
+            throw 'Integration module is missing the standalone main-window XInput toggle.'
+          }
           if ($integrationText -notmatch '\$script:VirtualGamepadStarting = \$false') {
             throw 'Integration module is missing the virtual-controller start reentrancy guard.'
           }
