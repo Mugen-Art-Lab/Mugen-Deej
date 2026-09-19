@@ -878,6 +878,20 @@ Nonblocking teardown has CI coverage but its final real-hardware re-test remains
 
 Hardware-review Integrated #99. First confirm E1 CW/CCW/push no longer causes the false `Count` disconnect and visually re-check the typed-settings dialog clipping. Then test foreground profiles with both typed controls and ordinary buttons on the current Adaptive fixture: Excel/browser/application-specific mappings plus Global fallback. When convenient, repeat a button-profile smoke test on Extended hardware/firmware; Legacy needs no special profile path because it exposes no buttons. Old v1.0.0 backup restore and current v2 restore with application profiles still require explicit real-machine tests.
 
+
+## Foreground profile switching safety requirement
+
+Application profiles are keyed to the **actual Windows foreground process**, not to Alt+Tab specifically. A profile change can therefore happen through any normal focus transition: clicking another window on another monitor, clicking OBS/chat/browser while a borderless-fullscreen game remains visible, using the taskbar/Start menu, Win+Tab, Alt+Tab, or another application bringing a window to the foreground.
+
+For stateful virtual-controller outputs (held Xbox buttons and future digital-to-axis mappings), every foreground profile transition must be treated as a state boundary:
+
+- release the old profile's virtual button state;
+- return any profile-owned virtual axes to neutral;
+- suppress physical controls that were already held across the transition until they are physically released;
+- do not synthesize a fresh press/axis deflection merely because the new profile maps that same held control differently.
+
+This rule is independent of how focus changed and must be driven by foreground-process identity. Borderless-fullscreen multi-monitor use is a required real-world scenario.
+
 ## Working rules
 
 - Stable `main` stays untouched until feature work is hardware-proven.
