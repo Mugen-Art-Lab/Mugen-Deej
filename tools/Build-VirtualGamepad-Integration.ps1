@@ -50,8 +50,8 @@ $text = [System.IO.File]::ReadAllText($source, [System.Text.Encoding]::UTF8)
 # prototype line and should identify itself as such in title/log/backup metadata.
 $text = Replace-LiteralExactlyOnce `
     -Text $text `
-    -OldText "$script:AppVersion = '1.0.0'" `
-    -NewText "$script:AppVersion = '2.0.0 Prototype'" `
+    -OldText '$script:AppVersion = ''1.0.0''' `
+    -NewText '$script:AppVersion = ''2.0.0 Prototype''' `
     -Label 'set prototype product version'
 
 # Stable 1.0.0 did not know virtual Xbox action strings. Preserve both virtual
