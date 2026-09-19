@@ -386,6 +386,18 @@ jobs:
           if ($runtimeText -notmatch 'Adaptive application profiles restored from backup') {
             throw 'Development runtime is missing Adaptive application-profile restore.'
           }
+          if ($runtimeText -notmatch 'function Get-ProfiledButtonActionContext') {
+            throw 'Development runtime is missing foreground application-profile resolution for buttons.'
+          }
+          if ($runtimeText -notmatch 'buttons = @\(Copy-AdaptiveProfileButtons') {
+            throw 'Development runtime application profiles do not persist button mappings.'
+          }
+          if ($runtimeText -notmatch 'Button application-profile settings saved') {
+            throw 'Development runtime is missing transactional button-profile editor persistence.'
+          }
+          if ($runtimeText -notmatch '\$profileLabel.Size = \[System.Drawing.Size\]::new\(145, 30\)') {
+            throw 'Development runtime is missing the typed profile-label clipping fix.'
+          }
           if ($runtimeText -notmatch 'System.Windows.Forms.ListView') {
             throw 'Development runtime is missing the ListView-based typed assignment summary.'
           }
@@ -412,6 +424,12 @@ jobs:
           }
           if ($integrationText -notmatch 'Virtual controller teardown is pending in the background; UI remains responsive') {
             throw 'Integration module is missing the nonblocking teardown implementation.'
+          }
+          if ($integrationText -notmatch 'Virtual gamepad button profile changed') {
+            throw 'Integration module is missing safe foreground-profile switching for stateful virtual buttons.'
+          }
+          if ($integrationText -notmatch 'VirtualGamepadSuppressedPhysicalButtons') {
+            throw 'Integration module is missing held-button suppression across profile changes.'
           }
 
       - name: Build Mugen Deej launcher
