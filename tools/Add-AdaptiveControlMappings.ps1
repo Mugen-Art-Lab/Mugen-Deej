@@ -560,7 +560,7 @@ function Get-AdaptiveToggleMappedAction {
 
     Initialize-AdaptiveActions
     $profile = Get-ForegroundAdaptiveProfile
-    $source = if ($null -ne $profile) { @($profile.toggles) } else { @($script:AdaptiveToggleActions) }
+    $source = @(if ($null -ne $profile) { @($profile.toggles) } else { @($script:AdaptiveToggleActions) })
 
     if ($Index -lt 0 -or $Index -ge $source.Count) { return 'none' }
     if ($State -eq 1) { return ConvertTo-SafeAdaptiveAction -Action ([string]$source[$Index].on) }
@@ -572,7 +572,7 @@ function Get-AdaptiveEncoderMappedAction {
 
     Initialize-AdaptiveActions
     $profile = Get-ForegroundAdaptiveProfile
-    $source = if ($null -ne $profile) { @($profile.encoders) } else { @($script:AdaptiveEncoderActions) }
+    $source = @(if ($null -ne $profile) { @($profile.encoders) } else { @($script:AdaptiveEncoderActions) })
 
     if ($Index -lt 0 -or $Index -ge $source.Count) { return 'none' }
     return ConvertTo-SafeAdaptiveAction -Action ([string]$source[$Index].$Kind)
