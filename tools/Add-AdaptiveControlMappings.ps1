@@ -1797,7 +1797,10 @@ $text = Replace-LiteralExactlyOnce `
     $action = [string]$script:ButtonActions[$ButtonIndex]
 
 '@ `
-    -NewText '' `
+    -NewText @'
+    # Foreground-profile button action was resolved before debounce handling.
+
+'@ `
     -Label 'remove global-only button action lookup'
 
 # ---------------------------------------------------------------------------
