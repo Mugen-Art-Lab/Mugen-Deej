@@ -23,7 +23,7 @@
 
   Matrix electrical convention:
     columns use INPUT_PULLUP
-    one row at a time is driven LOW
+    one row at a time is driven LOW; inactive diode-isolated rows stay HIGH
     each key has its own diode:
       COLUMN -> switch -> diode anode -> diode cathode/stripe -> ROW
 
@@ -123,9 +123,11 @@ void setup() {
     pinMode(MATRIX_COL_PINS[col], INPUT_PULLUP);
   }
 
+  // Per-key diodes let inactive rows stay actively HIGH. This is especially
+  // useful on Uno D13, whose onboard LED makes it a poor floating input.
   for (uint8_t row = 0; row < NUM_ROWS; ++row) {
-    pinMode(MATRIX_ROW_PINS[row], INPUT);
-    digitalWrite(MATRIX_ROW_PINS[row], LOW);
+    pinMode(MATRIX_ROW_PINS[row], OUTPUT);
+    digitalWrite(MATRIX_ROW_PINS[row], HIGH);
   }
 
   // The encoder module itself has components on the PCB, but INPUT_PULLUP is
@@ -183,7 +185,7 @@ void loop() {
 
 void scanMatrix(uint8_t *states) {
   for (uint8_t row = 0; row < NUM_ROWS; ++row) {
-    pinMode(MATRIX_ROW_PINS[row], OUTPUT);
+    // Exactly one row is LOW while all other diode-isolated rows remain HIGH.
     digitalWrite(MATRIX_ROW_PINS[row], LOW);
 
     delayMicroseconds(4);
@@ -193,8 +195,7 @@ void scanMatrix(uint8_t *states) {
       states[index] = digitalRead(MATRIX_COL_PINS[col]);
     }
 
-    pinMode(MATRIX_ROW_PINS[row], INPUT);
-    digitalWrite(MATRIX_ROW_PINS[row], LOW);
+    digitalWrite(MATRIX_ROW_PINS[row], HIGH);
   }
 }
 
