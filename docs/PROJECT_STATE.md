@@ -1,6 +1,6 @@
 # Mugen Deej — living project state
 
-Last updated: 2026-09-17
+Last updated: 2026-09-19
 
 This is the authoritative short handoff for active development. Detailed prototype history is in `docs/VIRTUAL_CONTROLLER_TEST_LOG.md`; current product-integration work is in `docs/VIRTUAL_GAMEPAD_INTEGRATION.md`.
 
@@ -22,6 +22,12 @@ Hardware-tested stable behavior:
 ## Active branch
 
 `feature/virtual-gamepad-ui`
+
+### Current active milestone
+
+Integrated **#90** is the current hardware-review build. #89 introduced automatic foreground-application profiles for Adaptive toggles/encoders (Global fallback plus per-process mappings). Its first real-machine encoder test exposed a PowerShell 5.1 one-element collection unrolling bug: encoder input was parsed correctly, then `$source.Count` failed and the generic serial-error path falsely reported a lost controller. #90 forces typed profile/global mapping sources to remain arrays for both toggles and encoders.
+
+Next hardware check: E1 CW/CCW/push must no longer trigger reconnect; then continue Excel/browser/Global foreground-profile switching. See `docs/CURRENT_HANDOFF.md` for the exact run/artifact hashes and the current test sequence.
 
 Goal: keep Mugen Deej a generic low-cost DIY controller router while adding optional game-controller output on the PC side.
 
