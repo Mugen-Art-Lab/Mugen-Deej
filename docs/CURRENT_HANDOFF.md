@@ -769,6 +769,42 @@ Universal backup schema remains user-facing **v2**. Current v2 snapshots now car
 
 This is **CI PASS; foreground profile switching still requires real-machine testing**.
 
+## Integrated #90 — single typed-control collection fix
+
+Workflow run:
+
+- run number: **#90**
+- run ID: `35420391673`
+- built code head: `1bd9a3871e4bde1291c075ff8b48e3a6e97fce6b`
+- result: **SUCCESS**
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-90`
+- artifact ID: `10577322181`
+- outer Actions digest: `sha256:30ff95007351022d1d81f4f59d32ceb9df28787f4010884cae99cd8ca6f0ce9c`
+- inner program ZIP SHA-256: `a748a7553a71d24af8006fde7f9e604e950ec6590ee3962faa68fa5a228309bc`
+- Windows PowerShell 5.1 parse/runtime marker check: PASS
+- launcher/package: PASS
+
+The first real-machine exercise of #89 exposed a regression immediately when the single Adaptive encoder changed state. Mugen successfully parsed and logged the encoder movement (and likewise encoder push), then the runtime threw `Property "Count" cannot be found on this object`. The generic serial error path interpreted that exception as a lost controller connection, closed COM14, and armed the normal same-COM recovery loop. Recovery then rediscovered the same Adaptive 5/29/2/1 controller at 115200 and the new cumulative encoder position was visible after reconnect.
+
+This was not an Uno reset or protocol loss. The #89 foreground-profile lookup selected its mapping source through a PowerShell `if` expression. PowerShell 5.1 pipeline unrolling turns a one-element result into the element itself rather than an array. With the current fixture there are two toggles but only one encoder, so the encoder source could become a single PSCustomObject and `$source.Count` then failed.
+
+#90 fixes the source selection by wrapping the complete conditional result in an array expression for **both** typed families:
+
+- toggle profile/global source -> always an array;
+- encoder profile/global source -> always an array.
+
+The toggle path was fixed defensively too, so a future one-toggle topology cannot hit the same failure.
+
+Real-machine retest required before marking this hardware PASS:
+
+1. E1 CW;
+2. E1 CCW;
+3. E1 push press/release;
+4. confirm COM14 stays connected with no false recovery cycle;
+5. then continue the #89 foreground-profile test: Excel -> horizontal scroll, browser -> Ctrl+wheel zoom, unrelated app -> Global fallback.
+
+One separate `Serial port is no longer open` event appeared once during the #89 test session after a recovery cycle. Treat it separately from the deterministic `Count` regression. Re-investigate only if it still occurs after #90.
+
 ## Backup rule
 
 Backups are universal Mugen Deej settings snapshots, not controller-specific files. A backup made with one topology may be restored while a different topology or no controller is connected.
@@ -791,7 +827,7 @@ Nonblocking teardown has CI coverage but its final real-hardware re-test remains
 
 ## Immediate next work
 
-Hardware-review Integrated #75. The #59 first-run wizard resume crash fix, #69 card-surface fix, #73 hibernate/unplug/resume/same-COM reconnect path, and #75 ordinary runtime serial-loss/same-COM automatic recovery are all real-machine PASS. After recovery, encoder CW/CCW, encoder push, and both toggles remain live. Next exercise the #57 mouse-wheel mapped actions on the encoder. Backup schema v2 restore still requires an explicit real-machine test.
+Hardware-review Integrated #90. First confirm that the #89 single-encoder `Count` regression is gone by exercising E1 CW, CCW and push without any visual disconnect/recovery. If clean, resume the foreground application-profile test: Excel profile -> horizontal scroll, browser profile -> Ctrl+wheel zoom, unrelated app -> Global fallback. The hibernate/runtime same-COM recovery paths and vertical/Ctrl/native-horizontal wheel actions are already real-machine PASS. Universal backup schema v2 restore still requires an explicit real-machine test, now including the optional application-profile payload.
 
 ## Working rules
 
