@@ -17,6 +17,7 @@ $script:VirtualGamepadUiTimer = $null
 $script:VirtualGamepadStatusDot = $null
 $script:VirtualGamepadStatusLabel = $null
 $script:VirtualGamepadLastMask = [uint32]::MaxValue
+$script:VirtualGamepadLastOutputSignature = ''
 $script:VirtualGamepadLastButtonProfileKey = ''
 $script:VirtualGamepadSuppressedPhysicalButtons = @{}
 $script:VirtualGamepadLastPhysicalButtons = @()
@@ -34,6 +35,17 @@ $script:VirtualGamepadActionBits = @{
     'virtual:xbox:start' = [uint32]128
     'virtual:xbox:l3' = [uint32]256
     'virtual:xbox:r3' = [uint32]512
+}
+
+$script:VirtualGamepadAxisActions = @{
+    'virtual:xbox:lsx:left' = $true
+    'virtual:xbox:lsx:right' = $true
+    'virtual:xbox:lsy:up' = $true
+    'virtual:xbox:lsy:down' = $true
+    'virtual:xbox:rsx:left' = $true
+    'virtual:xbox:rsx:right' = $true
+    'virtual:xbox:rsy:up' = $true
+    'virtual:xbox:rsy:down' = $true
 }
 
 function Ensure-MugenVirtualGamepadStatusUi {
@@ -271,7 +283,12 @@ function Set-MugenVirtualGamepadEnabled {
 function Test-MugenVirtualGamepadAction {
     param([string]$Action)
     if ([string]::IsNullOrWhiteSpace($Action)) { return $false }
-    return $script:VirtualGamepadActionBits.ContainsKey($Action.ToLowerInvariant())
+
+    $normalized = $Action.ToLowerInvariant()
+    return (
+        $script:VirtualGamepadActionBits.ContainsKey($normalized) -or
+        $script:VirtualGamepadAxisActions.ContainsKey($normalized)
+    )
 }
 
 function Get-MugenVirtualGamepadActionDefinitions {
@@ -288,7 +305,15 @@ function Get-MugenVirtualGamepadActionDefinitions {
         [pscustomobject]@{ Action = 'virtual:xbox:back';  Display = $(if ($ru) { "$prefix — Назад / View" } else { "$prefix — Back / View" }) },
         [pscustomobject]@{ Action = 'virtual:xbox:start'; Display = $(if ($ru) { "$prefix — Старт / Menu" } else { "$prefix — Start / Menu" }) },
         [pscustomobject]@{ Action = 'virtual:xbox:l3';    Display = "$prefix — L3" },
-        [pscustomobject]@{ Action = 'virtual:xbox:r3';    Display = "$prefix — R3" }
+        [pscustomobject]@{ Action = 'virtual:xbox:r3';    Display = "$prefix — R3" },
+        [pscustomobject]@{ Action = 'virtual:xbox:lsx:left';  Display = $(if ($ru) { "$prefix — левый стик ←" } else { "$prefix — left stick ←" }) },
+        [pscustomobject]@{ Action = 'virtual:xbox:lsx:right'; Display = $(if ($ru) { "$prefix — левый стик →" } else { "$prefix — left stick →" }) },
+        [pscustomobject]@{ Action = 'virtual:xbox:lsy:up';    Display = $(if ($ru) { "$prefix — левый стик ↑" } else { "$prefix — left stick ↑" }) },
+        [pscustomobject]@{ Action = 'virtual:xbox:lsy:down';  Display = $(if ($ru) { "$prefix — левый стик ↓" } else { "$prefix — left stick ↓" }) },
+        [pscustomobject]@{ Action = 'virtual:xbox:rsx:left';  Display = $(if ($ru) { "$prefix — правый стик ←" } else { "$prefix — right stick ←" }) },
+        [pscustomobject]@{ Action = 'virtual:xbox:rsx:right'; Display = $(if ($ru) { "$prefix — правый стик →" } else { "$prefix — right stick →" }) },
+        [pscustomobject]@{ Action = 'virtual:xbox:rsy:up';    Display = $(if ($ru) { "$prefix — правый стик ↑" } else { "$prefix — right stick ↑" }) },
+        [pscustomobject]@{ Action = 'virtual:xbox:rsy:down';  Display = $(if ($ru) { "$prefix — правый стик ↓" } else { "$prefix — right stick ↓" }) }
     )
 }
 
@@ -338,6 +363,7 @@ function Reset-MugenVirtualGamepadBridgeObjects {
     $script:VirtualGamepadPipe = $null
     $script:VirtualGamepadActive = $false
     $script:VirtualGamepadLastMask = [uint32]::MaxValue
+    $script:VirtualGamepadLastOutputSignature = ''
     $script:VirtualGamepadLastButtonProfileKey = ''
     $script:VirtualGamepadSuppressedPhysicalButtons = @{}
     $script:VirtualGamepadLastPhysicalButtons = @()
@@ -564,13 +590,22 @@ function Get-MugenVirtualGamepadButtonProfileContext {
     }
 }
 
-function Get-MugenVirtualGamepadMask {
+function Get-MugenVirtualGamepadOutputState {
     param(
         [int[]]$Values,
         [object[]]$Actions
     )
 
     [uint32]$mask = 0
+    $leftXNegative = $false
+    $leftXPositive = $false
+    $leftYNegative = $false
+    $leftYPositive = $false
+    $rightXNegative = $false
+    $rightXPositive = $false
+    $rightYNegative = $false
+    $rightYPositive = $false
+
     $valuesArray = @($Values)
     $actionsArray = @($Actions)
     $count = [Math]::Min($valuesArray.Count, $actionsArray.Count)
@@ -589,10 +624,34 @@ function Get-MugenVirtualGamepadMask {
         $action = ([string]$actionsArray[$i]).ToLowerInvariant()
         if ($script:VirtualGamepadActionBits.ContainsKey($action)) {
             $mask = $mask -bor [uint32]$script:VirtualGamepadActionBits[$action]
+            continue
+        }
+
+        switch ($action) {
+            'virtual:xbox:lsx:left' { $leftXNegative = $true; break }
+            'virtual:xbox:lsx:right' { $leftXPositive = $true; break }
+            'virtual:xbox:lsy:up' { $leftYPositive = $true; break }
+            'virtual:xbox:lsy:down' { $leftYNegative = $true; break }
+            'virtual:xbox:rsx:left' { $rightXNegative = $true; break }
+            'virtual:xbox:rsx:right' { $rightXPositive = $true; break }
+            'virtual:xbox:rsy:up' { $rightYPositive = $true; break }
+            'virtual:xbox:rsy:down' { $rightYNegative = $true; break }
         }
     }
 
-    return $mask
+    $lx = if ($leftXNegative -and -not $leftXPositive) { -1 } elseif ($leftXPositive -and -not $leftXNegative) { 1 } else { 0 }
+    $ly = if ($leftYNegative -and -not $leftYPositive) { -1 } elseif ($leftYPositive -and -not $leftYNegative) { 1 } else { 0 }
+    $rx = if ($rightXNegative -and -not $rightXPositive) { -1 } elseif ($rightXPositive -and -not $rightXNegative) { 1 } else { 0 }
+    $ry = if ($rightYNegative -and -not $rightYPositive) { -1 } elseif ($rightYPositive -and -not $rightYNegative) { 1 } else { 0 }
+
+    return [pscustomobject][ordered]@{
+        Mask = [uint32]$mask
+        LX = [int]$lx
+        LY = [int]$ly
+        RX = [int]$rx
+        RY = [int]$ry
+        Signature = ('{0}|{1}|{2}|{3}|{4}' -f [uint32]$mask, $lx, $ly, $rx, $ry)
+    }
 }
 
 function Update-MugenVirtualGamepadButtonStates {
@@ -629,19 +688,18 @@ function Update-MugenVirtualGamepadButtonStates {
     }
     elseif ($previousProfileKey -ne $profileKey) {
         try {
-            if (
-                $script:VirtualGamepadLastMask -ne [uint32]::MaxValue -and
-                $script:VirtualGamepadLastMask -ne [uint32]0
-            ) {
-                [void](Send-MugenVirtualGamepadCommand -Command 'buttons 0')
-            }
+            # Profile identity, not the focus-change mechanism, is the boundary.
+            # Game -> unprofiled Explorer/OBS means Game -> Global; two unrelated
+            # unprofiled apps both resolve to Global and therefore do not reset.
+            [void](Send-MugenVirtualGamepadCommand -Command 'state 0 0 0 0 0')
 
             $script:VirtualGamepadLastMask = [uint32]0
+            $script:VirtualGamepadLastOutputSignature = '0|0|0|0|0'
             $script:VirtualGamepadSuppressedPhysicalButtons = @{}
 
-            # A button that was already physically held before the foreground
-            # profile changed must not become a fresh press in the new profile.
-            # It stays suppressed until its real release edge arrives.
+            # A physical button already held across a profile boundary must not
+            # become a fresh button press or stick deflection in the new profile.
+            # It remains suppressed until a real release frame arrives.
             for ($i = 0; $i -lt $valuesArray.Count; $i++) {
                 $wasHeld = ($previousValues.Count -gt $i -and [int]$previousValues[$i] -eq 0)
                 $isHeld = ([int]$valuesArray[$i] -eq 0)
@@ -651,7 +709,7 @@ function Update-MugenVirtualGamepadButtonStates {
             }
 
             $script:VirtualGamepadLastButtonProfileKey = $profileKey
-            Write-Log ('Virtual gamepad button profile changed: {0} -> {1}; held inputs suppressed until release={2}' -f $previousProfileKey, $profileKey, $script:VirtualGamepadSuppressedPhysicalButtons.Count) 'INFO'
+            Write-Log ('Virtual gamepad output profile changed: {0} -> {1}; state neutralized; held inputs suppressed until release={2}' -f $previousProfileKey, $profileKey, $script:VirtualGamepadSuppressedPhysicalButtons.Count) 'INFO'
         }
         catch {
             Write-Log ('Virtual controller profile-switch release failed: {0}' -f $_.Exception.Message) 'WARN'
@@ -660,13 +718,15 @@ function Update-MugenVirtualGamepadButtonStates {
         }
     }
 
-    [uint32]$mask = Get-MugenVirtualGamepadMask -Values $valuesArray -Actions @($context.Actions)
+    $output = Get-MugenVirtualGamepadOutputState -Values $valuesArray -Actions @($context.Actions)
     $script:VirtualGamepadLastPhysicalButtons = @($valuesArray)
-    if ($mask -eq $script:VirtualGamepadLastMask) { return }
+    if ([string]$output.Signature -eq [string]$script:VirtualGamepadLastOutputSignature) { return }
 
     try {
-        [void](Send-MugenVirtualGamepadCommand -Command ('buttons ' + [string]$mask))
-        $script:VirtualGamepadLastMask = $mask
+        $command = 'state {0} {1} {2} {3} {4}' -f [uint32]$output.Mask, [int]$output.LX, [int]$output.LY, [int]$output.RX, [int]$output.RY
+        [void](Send-MugenVirtualGamepadCommand -Command $command)
+        $script:VirtualGamepadLastMask = [uint32]$output.Mask
+        $script:VirtualGamepadLastOutputSignature = [string]$output.Signature
     }
     catch {
         Write-Log ('Virtual controller state update failed: {0}' -f $_.Exception.Message) 'WARN'

@@ -117,10 +117,10 @@ function Show-MugenVirtualGamepadButtonPicker {
     )
 
     $picker = New-Object System.Windows.Forms.Form
-    $picker.Text = $(if ($script:Language -eq 'ru') { 'Кнопка виртуального геймпада' } else { 'Virtual gamepad button' })
+    $picker.Text = $(if ($script:Language -eq 'ru') { 'Управление виртуального геймпада' } else { 'Virtual gamepad control' })
     $picker.StartPosition = 'CenterParent'
-    $picker.ClientSize = [System.Drawing.Size]::new(520, 370)
-    $picker.MinimumSize = [System.Drawing.Size]::new(536, 409)
+    $picker.ClientSize = [System.Drawing.Size]::new(520, 540)
+    $picker.MinimumSize = [System.Drawing.Size]::new(536, 579)
     $picker.Font = New-Object System.Drawing.Font('Segoe UI', 10)
     $picker.FormBorderStyle = 'FixedDialog'
     $picker.MaximizeBox = $false
@@ -129,17 +129,17 @@ function Show-MugenVirtualGamepadButtonPicker {
     Set-FormAppIcon -Form $picker
 
     $heading = New-Object System.Windows.Forms.Label
-    $heading.Text = $(if ($script:Language -eq 'ru') { 'Выберите кнопку Xbox' } else { 'Choose an Xbox button' })
+    $heading.Text = $(if ($script:Language -eq 'ru') { 'Выберите управление Xbox' } else { 'Choose an Xbox control' })
     $heading.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 15)
     $heading.AutoSize = $true
     $heading.Location = [System.Drawing.Point]::new(24, 18)
     $picker.Controls.Add($heading)
 
     $hint = New-Object System.Windows.Forms.Label
-    $hint.Text = $(if ($script:Language -eq 'ru') { 'Физическая кнопка Mugen будет удерживать эту кнопку виртуального XInput-геймпада.' } else { 'The physical Mugen button will hold this button on the virtual XInput gamepad.' })
+    $hint.Text = $(if ($script:Language -eq 'ru') { 'Пока физическая кнопка Mugen зажата, она удерживает кнопку Xbox или отклоняет выбранный стик.' } else { 'While the physical Mugen button is held, it holds an Xbox button or deflects the selected stick.' })
     $hint.ForeColor = [System.Drawing.Color]::DimGray
     $hint.Location = [System.Drawing.Point]::new(27, 53)
-    $hint.Size = [System.Drawing.Size]::new(465, 38)
+    $hint.Size = [System.Drawing.Size]::new(465, 42)
     $picker.Controls.Add($hint)
 
     $choices = @(
@@ -152,8 +152,37 @@ function Show-MugenVirtualGamepadButtonPicker {
         @('A',           'virtual:xbox:a',      28, 258, 105, 44),
         @('B',           'virtual:xbox:b',     148, 258, 105, 44),
         @('X',           'virtual:xbox:x',     268, 258, 105, 44),
-        @('Y',           'virtual:xbox:y',     388, 258, 105, 44)
+        @('Y',           'virtual:xbox:y',     388, 258, 105, 44),
+        @('←',           'virtual:xbox:lsx:left',  148, 354, 76, 40),
+        @('→',           'virtual:xbox:lsx:right', 232, 354, 76, 40),
+        @('↑',           'virtual:xbox:lsy:up',    316, 354, 76, 40),
+        @('↓',           'virtual:xbox:lsy:down',  400, 354, 76, 40),
+        @('←',           'virtual:xbox:rsx:left',  148, 405, 76, 40),
+        @('→',           'virtual:xbox:rsx:right', 232, 405, 76, 40),
+        @('↑',           'virtual:xbox:rsy:up',    316, 405, 76, 40),
+        @('↓',           'virtual:xbox:rsy:down',  400, 405, 76, 40)
     )
+
+    $stickHeading = New-Object System.Windows.Forms.Label
+    $stickHeading.Text = $(if ($script:Language -eq 'ru') { 'Направления стиков' } else { 'Stick directions' })
+    $stickHeading.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 10)
+    $stickHeading.Location = [System.Drawing.Point]::new(28, 318)
+    $stickHeading.Size = [System.Drawing.Size]::new(464, 24)
+    $picker.Controls.Add($stickHeading)
+
+    $leftStickLabel = New-Object System.Windows.Forms.Label
+    $leftStickLabel.Text = $(if ($script:Language -eq 'ru') { 'Левый стик' } else { 'Left stick' })
+    $leftStickLabel.Location = [System.Drawing.Point]::new(28, 361)
+    $leftStickLabel.Size = [System.Drawing.Size]::new(112, 24)
+    $leftStickLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+    $picker.Controls.Add($leftStickLabel)
+
+    $rightStickLabel = New-Object System.Windows.Forms.Label
+    $rightStickLabel.Text = $(if ($script:Language -eq 'ru') { 'Правый стик' } else { 'Right stick' })
+    $rightStickLabel.Location = [System.Drawing.Point]::new(28, 412)
+    $rightStickLabel.Size = [System.Drawing.Size]::new(112, 24)
+    $rightStickLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+    $picker.Controls.Add($rightStickLabel)
 
     foreach ($choice in $choices) {
         $choiceButton = New-Object MugenDeejWindowing.MugenButton
@@ -177,7 +206,14 @@ function Show-MugenVirtualGamepadButtonPicker {
     $cancel = New-Object MugenDeejWindowing.MugenButton
     $cancel.Text = $(if ($script:Language -eq 'ru') { 'Отмена' } else { 'Cancel' })
     $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-    $cancel.Location = [System.Drawing.Point]::new(387, 320)
+    $axisHint = New-Object System.Windows.Forms.Label
+    $axisHint.Text = $(if ($script:Language -eq 'ru') { 'Если одновременно зажаты противоположные направления одной оси, она остаётся в центре.' } else { 'If opposite directions on the same axis are held together, that axis stays centered.' })
+    $axisHint.ForeColor = [System.Drawing.Color]::DimGray
+    $axisHint.Location = [System.Drawing.Point]::new(28, 456)
+    $axisHint.Size = [System.Drawing.Size]::new(360, 48)
+    $picker.Controls.Add($axisHint)
+
+    $cancel.Location = [System.Drawing.Point]::new(387, 487)
     $cancel.Size = [System.Drawing.Size]::new(105, 36)
     $picker.Controls.Add($cancel)
     $picker.CancelButton = $cancel
@@ -276,7 +312,7 @@ $text = Replace-RegexExactlyOnce `
                 [void]$state.ActionMap.Add($currentVirtualAction)
             }
 
-            [void]$combo.Items.Add($(if ($script:Language -eq 'ru') { 'Выбрать кнопку геймпада…' } else { 'Choose gamepad button…' }))
+            [void]$combo.Items.Add($(if ($script:Language -eq 'ru') { 'Выбрать управление геймпада…' } else { 'Choose gamepad control…' }))
             [void]$state.ActionMap.Add('virtual:xbox:configure')
         }
 

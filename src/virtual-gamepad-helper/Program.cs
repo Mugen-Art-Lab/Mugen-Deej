@@ -195,6 +195,7 @@ internal static class Program
                     if (line.Equals("release", StringComparison.OrdinalIgnoreCase))
                     {
                         state.Buttons = HMButton.None;
+                        state.Axes = HMGamepadStateHelpers.StandardAxes(profile);
                         controller.SubmitState(in state);
                         writer.WriteLine("OK");
                         continue;
@@ -203,9 +204,47 @@ internal static class Program
                     if (line.Equals("quit", StringComparison.OrdinalIgnoreCase))
                     {
                         state.Buttons = HMButton.None;
+                        state.Axes = HMGamepadStateHelpers.StandardAxes(profile);
                         controller.SubmitState(in state);
                         writer.WriteLine("BYE");
                         break;
+                    }
+
+                    // Full state for Mugen's stateful virtual mappings:
+                    // state <buttonMask> <LX> <LY> <RX> <RY>
+                    // Stick components are signed digital values -1, 0 or +1.
+                    // HIDMaestro's normalized axis range is [0..1], center 0.5.
+                    if (line.StartsWith("state ", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string[] parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        if (
+                            parts.Length != 6 ||
+                            !uint.TryParse(parts[1], out uint mask) ||
+                            !int.TryParse(parts[2], out int lx) ||
+                            !int.TryParse(parts[3], out int ly) ||
+                            !int.TryParse(parts[4], out int rx) ||
+                            !int.TryParse(parts[5], out int ry) ||
+                            lx < -1 || lx > 1 ||
+                            ly < -1 || ly > 1 ||
+                            rx < -1 || rx > 1 ||
+                            ry < -1 || ry > 1
+                        )
+                        {
+                            writer.WriteLine("ERR|invalid controller state");
+                            continue;
+                        }
+
+                        state.Buttons = (HMButton)mask;
+                        state.Axes = HMGamepadStateHelpers.StandardAxes(
+                            profile,
+                            leftStickX: (lx + 1) / 2f,
+                            leftStickY: (ly + 1) / 2f,
+                            rightStickX: (rx + 1) / 2f,
+                            rightStickY: (ry + 1) / 2f
+                        );
+                        controller.SubmitState(in state);
+                        writer.WriteLine("OK");
+                        continue;
                     }
 
                     if (line.StartsWith("buttons ", StringComparison.OrdinalIgnoreCase))
@@ -231,6 +270,7 @@ internal static class Program
                 try
                 {
                     state.Buttons = HMButton.None;
+                    state.Axes = HMGamepadStateHelpers.StandardAxes(profile);
                     controller.SubmitState(in state);
                 }
                 catch

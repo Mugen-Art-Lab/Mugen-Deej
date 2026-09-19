@@ -629,7 +629,7 @@ function Show-LargeButtonSettings {
                         [void]$actionCombo.Items.Add((Get-MugenVirtualGamepadActionDisplay -Action $currentAction))
                         [void]$state.ActionMap.Add($currentAction)
                     }
-                    [void]$actionCombo.Items.Add($(if ($script:Language -eq 'ru') { 'Выбрать кнопку геймпада…' } else { 'Choose gamepad button…' }))
+                    [void]$actionCombo.Items.Add($(if ($script:Language -eq 'ru') { 'Выбрать управление геймпада…' } else { 'Choose gamepad control…' }))
                     [void]$state.ActionMap.Add('virtual:xbox:configure')
                 }
 

@@ -443,6 +443,27 @@ jobs:
           if ($integrationText -notmatch 'VirtualGamepadSuppressedPhysicalButtons') {
             throw 'Integration module is missing held-button suppression across profile changes.'
           }
+          if ($integrationText -notmatch 'virtual:xbox:lsx:left') {
+            throw 'Integration module is missing digital left-stick axis mappings.'
+          }
+          if ($integrationText -notmatch 'function Get-MugenVirtualGamepadOutputState') {
+            throw 'Integration module is missing combined virtual button/axis state calculation.'
+          }
+          if ($integrationText -notmatch 'state 0 0 0 0 0') {
+            throw 'Integration module does not neutralize virtual axes on application-profile transitions.'
+          }
+          if ($integrationText -notmatch 'Profile identity, not the focus-change mechanism, is the boundary') {
+            throw 'Integration module is missing effective-profile transition semantics.'
+          }
+
+          $helperSource = '.\src\virtual-gamepad-helper\Program.cs'
+          $helperText = [System.IO.File]::ReadAllText((Resolve-Path $helperSource), [System.Text.Encoding]::UTF8)
+          if ($helperText -notmatch 'line\.StartsWith\("state "') {
+            throw 'Virtual controller helper is missing combined state command parsing.'
+          }
+          if ($helperText -notmatch 'leftStickX: \(lx \+ 1\) / 2f') {
+            throw 'Virtual controller helper is missing normalized stick-axis output.'
+          }
 
       - name: Build Mugen Deej launcher
         shell: pwsh
@@ -495,6 +516,7 @@ jobs:
           Windows startup registration is intentionally disabled in this development package so it cannot replace the stable Mugen Deej autostart path.
           Adaptive toggles and encoders now have first-class action mapping: separate toggle ON/OFF actions plus encoder CW/CCW/push actions. These typed controls can use standard Mugen actions; virtual-gamepad output remains mapped from momentary buttons in this milestone.
           Momentary-button application profiles are PC-side and work with both Extended and Adaptive controllers. Legacy controllers remain unchanged because they expose no buttons. Existing button-actions.json remains the Global fallback, and older backups/profiles without per-application button payloads continue to load through that Global path.
+          Physical buttons can also hold the virtual Xbox left/right stick in any cardinal direction. Releasing the button returns that axis to center; opposite directions cancel to center. Effective profile changes neutralize all virtual state and suppress already-held physical inputs until release.
           '@
           [System.IO.File]::WriteAllText(
             (Join-Path $stage 'VIRTUAL-GAMEPAD-DEV.txt'),
