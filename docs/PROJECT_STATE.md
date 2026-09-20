@@ -303,12 +303,12 @@ Manual profile switching comes first. Automatic switching by game/process is def
 - Full digital cardboard-panel smoke test PASS: 28 buttons, 2 toggles, and encoder/push work on real Uno hardware; a >20-button simultaneous hold also registered cleanly. Five slider channels remain software placeholders pending real potentiometers.
 
 
-## Current hardware-review build — Integrated #134
+## Current hardware-review build — Integrated #142
 
-#134 makes the current 2.0 virtual-gamepad policy explicit: XInput is exposed only when the active physical controller uses Adaptive v3. Legacy and Extended remain focused on their established audio/action behavior; their main-window XInput controls and new virtual-mapping choices are hidden, and an already-running virtual HID is torn down if one of those protocols becomes active.
+#134's Adaptive-only XInput policy passed the first real protocol-switch check: Legacy correctly hid the XInput controls and the virtual HID cleanup completed. The same test exposed a broader COM hotplug recovery issue: Windows could briefly enumerate the returning Adaptive COM port while `SerialPort.Open()` still reported that the port did not exist. Mugen treated that as an ordinary failed open and imposed a 60-second cooldown.
 
-The saved XInput preference is not erased when a Legacy/Extended controller is used. Returning to Adaptive can therefore restore XInput automatically; explicitly disabling XInput on Adaptive still remains disabled across protocol changes.
+#142 treats only that explicit "enumerated but not openable yet" condition as transient. It retries after 2 seconds, while true access-denied/busy ports retain the existing long backoff. COM enumeration is also deduplicated so transient Windows duplicates do not leak into recovery state/logs.
 
-Run #134 (ID `35527037157`) succeeded at head `f9a89202b4380a1d83cabd58fadbb8609ee4efaf`; artifact ID `10610021853`; outer digest `sha256:62f8c025fc1ae53f1de6febb4f9cc50baa6719c2007d708c431d2e66c3cf92ca`; inner ZIP SHA-256 `47627fbf2024ea2a6c393ecebbc339283730b211876ad3831b7b929626606f9d`.
+Run #142 (ID `35530843054`) succeeded at head `7a2045c2b6769756b3717781af5ea4e47f286481`; artifact ID `10611700235`; outer digest `sha256:1f3fb32de042297ab442512c6f213c454e3211ff3a8b0b5b41e9be8f631e3859`; inner ZIP SHA-256 `fd87ce0a51ab5521ba9772b50f40cfc8c5ba7f8d7ba8bfbc9b83e27b624137a1`.
 
-#134 is CI PASS. Real-machine acceptance requires the Adaptive -> Legacy/Extended -> Adaptive protocol-switch sequence, confirming virtual-HID teardown, hidden old-protocol UI, normal old-protocol actions, and restoration of the saved Adaptive XInput preference.
+#142 is CI PASS. Real-machine acceptance is the same stress sequence that exposed the bug: Adaptive/XInput ON -> Legacy -> Adaptive. If Windows publishes the returning COM name before it is ready, the expected log is `transient hotplug state ... retry in 2 s`, followed by prompt reconnection rather than the previous ~60-second stall. The #134 Legacy/Extended XInput hiding policy must remain unchanged.
