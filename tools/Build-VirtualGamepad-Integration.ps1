@@ -156,15 +156,7 @@ $1
 # half-translated for seconds. Update visible text first; only refresh the
 # hidden diagnostics driver card when it is actually visible.
 $languageStatusPattern = @'
-(?ms)^(    Apply-MainLocalization?
-)    Update-DriverStatus?
-(    if ($script:IsConnected) {?
-        Set-Status (Get-ControllerConnectedStatusText -PortName $script:ConnectedPort) 'ok'?
-    }?
-    else {?
-        Set-Status (T -Key 'StatusNotConnected') 'idle'?
-    }?
-)(    Write-Log "Interface language changed to $newLanguage"?$)
+(?ms)^(    Apply-MainLocalization\r?\n)    Update-DriverStatus\r?\n(    if \(\$script:IsConnected\) \{\r?\n        Set-Status \(Get-ControllerConnectedStatusText -PortName \$script:ConnectedPort\) 'ok'\r?\n    \}\r?\n    else \{\r?\n        Set-Status \(T -Key 'StatusNotConnected'\) 'idle'\r?\n    \}\r?\n)(    Write-Log "Interface language changed to \$newLanguage"\r?$)
 '@
 $languageStatusReplacement = @'
 $1$2    if ($script:VirtualGamepadFeatureAvailable) {

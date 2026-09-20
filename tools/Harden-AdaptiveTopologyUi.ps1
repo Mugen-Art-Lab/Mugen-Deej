@@ -140,6 +140,7 @@ function Get-ControllerConnectedStatusText {
     if ($parts.Count -eq 0) { $parts.Add('no controls') }
     return ('{0} · {1}' -f $PortName, ($parts -join ' · '))
 }
+'@
 
 $text = Replace-RegexBlockExactlyOnceLiteral `
     -Text $text `
