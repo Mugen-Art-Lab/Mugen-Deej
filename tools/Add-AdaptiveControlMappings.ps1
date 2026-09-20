@@ -2331,7 +2331,19 @@ function Set-MainButtonLayout {
     $adaptiveMetrics = Get-AdaptiveInputStatusLayoutMetrics
     $hasAnyInput = ($HasButtons -or [bool]$adaptiveMetrics.HasControls)
 
-    $mainY = 160
+    # The status card grows when XInput adds its second row. Start the rest
+    # of the main content below the actual card bottom rather than a fixed Y.
+    $statusPanelVariable = Get-Variable -Name statusPanel -Scope Script -ErrorAction SilentlyContinue
+    $mainY = if (
+        $null -ne $statusPanelVariable -and
+        $null -ne $statusPanelVariable.Value -and
+        -not $statusPanelVariable.Value.IsDisposed
+    ) {
+        [int]$statusPanelVariable.Value.Bottom + 12
+    }
+    else {
+        160
+    }
     if ($hasSliders) {
         $knobGroup.Location = [System.Drawing.Point]::new(24, $mainY)
         $mainY += $knobGroup.Height + 12
