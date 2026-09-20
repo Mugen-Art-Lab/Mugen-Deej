@@ -182,6 +182,12 @@ jobs:
           if ($runtimeText -notmatch "Development build: Windows startup registration sync suppressed") {
             throw 'Development runtime is missing the startup-isolation marker.'
           }
+          if ($runtimeText -notmatch "return \('\{0\} · \{1\}' -f \$PortName") {
+            throw 'Development runtime is missing compact capability-driven connected status text.'
+          }
+          if ($runtimeText -notmatch 'if \(\$advancedPanel\.Visible\) \{\s*Update-DriverStatus') {
+            throw 'Development runtime still performs the slow driver refresh on every language switch.'
+          }
           if ($runtimeText -notmatch "Protocol = 'adaptive'") {
             throw 'Development runtime is missing Adaptive v3 protocol parsing.'
           }
@@ -458,11 +464,20 @@ jobs:
           if ($integrationText -notmatch '\$targetHeight = if \(\$Enabled\) \{ 98 \} else \{ 72 \}') {
             throw 'Integration module is missing the expanded two-row status-card layout.'
           }
-          if ($integrationText -notmatch '\$physicalLabel\.Size = \[System\.Drawing\.Size\]::new\(560, 32\)') {
-            throw 'Integration module does not give the physical status row full width.'
+          if ($integrationText -notmatch '\$physicalLabel\.Size = \[System\.Drawing\.Size\]::new\(444, 32\)') {
+            throw 'Integration module is missing the compact physical status row.'
           }
-          if ($integrationText -notmatch 'VirtualGamepadToggleButton\.Location = \[System\.Drawing\.Point\]::new\(506, 52\)') {
-            throw 'Integration module does not place XInput with the virtual-controller row.'
+          if ($integrationText -notmatch 'VirtualGamepadToggleButton\.Location = \[System\.Drawing\.Point\]::new\(506, 9\)') {
+            throw 'Integration module does not keep XInput on the compact physical-status row.'
+          }
+          if ($integrationText -notmatch 'if \(\[string\]\$script:VirtualGamepadUiState -eq \$State\) \{ return \}') {
+            throw 'Integration module still repaints identical virtual lifecycle states on every heartbeat.'
+          }
+          if ($integrationText -notmatch '\$script:VirtualGamepadUiTimer\.Stop\(\)') {
+            throw 'Integration module still leaves the bootstrap status timer running forever.'
+          }
+          if ($integrationText -notmatch 'Stop-MugenVirtualGamepadProfileTimer') {
+            throw 'Integration module is missing inactive foreground-profile timer shutdown.'
           }
           if ($integrationText -notmatch '\$script:VirtualGamepadStarting = \$false') {
             throw 'Integration module is missing the virtual-controller start reentrancy guard.'

@@ -125,46 +125,50 @@ function Set-MugenVirtualGamepadStatusLayout {
 
     $targetHeight = if ($Enabled) { 98 } else { 72 }
     $layoutChanged = ($panel.Height -ne $targetHeight)
+    $modeChanged = (
+        $null -eq $script:VirtualGamepadLastStatusLayoutEnabled -or
+        [bool]$script:VirtualGamepadLastStatusLayoutEnabled -ne $Enabled
+    )
 
-    # The physical-controller summary owns the full first row. In #113 the
-    # XInput button occupied the same row, reducing the text width enough to
-    # wrap "2 toggles / 1 encoder" onto an awkward second line. The button now
-    # belongs to the virtual-controller row, where it is semantically related.
+    # Geometry is event-driven. Re-applying Label/Panel layout every 25 ms
+    # physical heartbeat caused expensive WinForms re-layout/ellipsis work
+    # even while XInput was OFF.
+    if (-not $layoutChanged -and -not $modeChanged) { return }
+
+    $script:VirtualGamepadLastStatusLayoutEnabled = $Enabled
     $panel.Size = [System.Drawing.Size]::new(632, $targetHeight)
-    $physicalDot.Location = [System.Drawing.Point]::new(14, 13)
-    $physicalLabel.Location = [System.Drawing.Point]::new(46, 7)
-    $physicalLabel.Size = [System.Drawing.Size]::new(560, 32)
-    $physicalLabel.AutoEllipsis = $true
+    $physicalLabel.AutoEllipsis = $false
     $physicalLabel.TextAlign = 'MiddleLeft'
 
     if ($Enabled) {
+        # Row 1: compact physical-controller summary + XInput power.
+        # Row 2: virtual-controller lifecycle/status.
+        $physicalDot.Location = [System.Drawing.Point]::new(14, 13)
+        $physicalLabel.Location = [System.Drawing.Point]::new(46, 7)
+        $physicalLabel.Size = [System.Drawing.Size]::new(444, 32)
+        $script:VirtualGamepadToggleButton.Location = [System.Drawing.Point]::new(506, 9)
+
         $script:VirtualGamepadStatusDot.Location = [System.Drawing.Point]::new(16, 58)
         $script:VirtualGamepadStatusLabel.Location = [System.Drawing.Point]::new(46, 51)
-        $script:VirtualGamepadStatusLabel.Size = [System.Drawing.Size]::new(444, 32)
-        $script:VirtualGamepadToggleButton.Location = [System.Drawing.Point]::new(506, 52)
+        $script:VirtualGamepadStatusLabel.Size = [System.Drawing.Size]::new(560, 32)
     }
     else {
-        # Keep the compact single-status card, but put the enable control below
-        # the full-width physical summary so even a rich topology stays on one
-        # line instead of competing with the button.
-        $script:VirtualGamepadToggleButton.Location = [System.Drawing.Point]::new(506, 37)
+        # One compact row when XInput is off. The connected-status text is
+        # intentionally concise so it fits beside the power button.
+        $physicalDot.Location = [System.Drawing.Point]::new(14, 20)
+        $physicalLabel.Location = [System.Drawing.Point]::new(46, 9)
+        $physicalLabel.Size = [System.Drawing.Size]::new(444, 50)
+        $script:VirtualGamepadToggleButton.Location = [System.Drawing.Point]::new(506, 21)
     }
 
-    if (
-        $layoutChanged -or
-        $null -eq $script:VirtualGamepadLastStatusLayoutEnabled -or
-        [bool]$script:VirtualGamepadLastStatusLayoutEnabled -ne $Enabled
-    ) {
-        $script:VirtualGamepadLastStatusLayoutEnabled = $Enabled
-        try {
-            if ($null -ne (Get-Command -Name Set-MainButtonLayout -CommandType Function -ErrorAction SilentlyContinue)) {
-                $hasButtons = ($script:IsConnected -and [int]$script:DetectedButtonCount -gt 0)
-                Set-MainButtonLayout -HasButtons $hasButtons
-            }
+    try {
+        if ($null -ne (Get-Command -Name Set-MainButtonLayout -CommandType Function -ErrorAction SilentlyContinue)) {
+            $hasButtons = ($script:IsConnected -and [int]$script:DetectedButtonCount -gt 0)
+            Set-MainButtonLayout -HasButtons $hasButtons
         }
-        catch {
-            Write-Log ('Virtual gamepad status layout refresh failed: {0}' -f $_.Exception.Message) 'WARN'
-        }
+    }
+    catch {
+        Write-Log ('Virtual gamepad status layout refresh failed: {0}' -f $_.Exception.Message) 'WARN'
     }
 }
 
@@ -253,6 +257,11 @@ function Set-MugenVirtualGamepadUiState {
         [string]$State
     )
 
+    # Serial heartbeats repeat the same complete button state at ~25 ms.
+    # Do not rebuild/repaint the status card when the lifecycle state did not
+    # actually change.
+    if ([string]$script:VirtualGamepadUiState -eq $State) { return }
+
     $script:VirtualGamepadUiState = $State
     try { Update-MugenVirtualGamepadStatusUi } catch { }
 }
@@ -260,12 +269,19 @@ function Set-MugenVirtualGamepadUiState {
 function Ensure-MugenVirtualGamepadUiTimer {
     if ($null -ne $script:VirtualGamepadUiTimer) { return }
 
+    # This timer only waits for the base WinForms status card to exist. Once
+    # the integration controls are attached, all further updates are driven by
+    # explicit state/language/theme events; there is no reason to repaint the
+    # card forever while XInput is off.
     $script:VirtualGamepadUiTimer = New-Object System.Windows.Forms.Timer
-    $script:VirtualGamepadUiTimer.Interval = 500
+    $script:VirtualGamepadUiTimer.Interval = 250
     $script:VirtualGamepadUiTimer.Add_Tick({
         try {
             Initialize-MugenVirtualGamepadConfig
-            Update-MugenVirtualGamepadStatusUi
+            if (Ensure-MugenVirtualGamepadStatusUi) {
+                Update-MugenVirtualGamepadStatusUi
+                $script:VirtualGamepadUiTimer.Stop()
+            }
         }
         catch { }
     })
@@ -448,7 +464,14 @@ function Clear-MugenVirtualGamepadStartWait {
     $script:VirtualGamepadStartDeadline = [DateTime]::MinValue
 }
 
+function Stop-MugenVirtualGamepadProfileTimer {
+    if ($null -ne $script:VirtualGamepadProfileTimer) {
+        try { $script:VirtualGamepadProfileTimer.Stop() } catch { }
+    }
+}
+
 function Reset-MugenVirtualGamepadBridgeObjects {
+    Stop-MugenVirtualGamepadProfileTimer
     if ($null -ne $script:VirtualGamepadWriter) { try { $script:VirtualGamepadWriter.Dispose() } catch { } }
     if ($null -ne $script:VirtualGamepadReader) { try { $script:VirtualGamepadReader.Dispose() } catch { } }
     if ($null -ne $script:VirtualGamepadPipe) { try { $script:VirtualGamepadPipe.Dispose() } catch { } }
@@ -525,6 +548,8 @@ function Complete-MugenVirtualGamepadStart {
         $script:VirtualGamepadLastMask = [uint32]::MaxValue
         $script:VirtualGamepadLastStartFailure = [DateTime]::MinValue
         Stop-MugenVirtualGamepadStartTimer
+        Ensure-MugenVirtualGamepadProfileTimer
+        $script:VirtualGamepadProfileTimer.Start()
         Set-MugenVirtualGamepadUiState -State 'ready'
         Write-Log 'Virtual controller ready: Mugen Deej Virtual Gamepad (Xbox 360 / XInput).' 'INFO'
 
@@ -853,6 +878,9 @@ function Update-MugenVirtualGamepadButtonStates {
 function Ensure-MugenVirtualGamepadProfileTimer {
     if ($null -ne $script:VirtualGamepadProfileTimer) { return }
 
+    # Foreground-profile checks are only useful while a virtual controller is
+    # actually live. Keeping this WinForms timer stopped while XInput is off
+    # removes another permanent UI-thread wake-up from ordinary Mugen use.
     $script:VirtualGamepadProfileTimer = New-Object System.Windows.Forms.Timer
     $script:VirtualGamepadProfileTimer.Interval = 200
     $script:VirtualGamepadProfileTimer.Add_Tick({
@@ -868,7 +896,6 @@ function Ensure-MugenVirtualGamepadProfileTimer {
         }
         catch { }
     })
-    $script:VirtualGamepadProfileTimer.Start()
 }
 
 function Sync-MugenVirtualGamepadState {

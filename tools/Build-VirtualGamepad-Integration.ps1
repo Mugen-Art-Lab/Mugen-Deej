@@ -150,18 +150,32 @@ $1
     -Label 'route stateful button frames'
 
 
-# Keep the physical and virtual status rows in the same language immediately
-# after the base language-switch handler finishes.
+# Keep the physical and virtual status rows in the same language immediately.
+# The old handler refreshed driver/PnP state synchronously BEFORE the status
+# text. On machines where Win32_PnPEntity is slow, the entire form could look
+# half-translated for seconds. Update visible text first; only refresh the
+# hidden diagnostics driver card when it is actually visible.
 $languageStatusPattern = @'
-(?ms)^(    if \(\$script:IsConnected\) \{\r?\n        Set-Status \(Get-ControllerConnectedStatusText -PortName \$script:ConnectedPort\) 'ok'\r?\n    \}\r?\n    else \{\r?\n        Set-Status \(T -Key 'StatusNotConnected'\) 'idle'\r?\n    \}\r?\n)(    Write-Log "Interface language changed to \$newLanguage"\r?$)
+(?ms)^(    Apply-MainLocalization?
+)    Update-DriverStatus?
+(    if ($script:IsConnected) {?
+        Set-Status (Get-ControllerConnectedStatusText -PortName $script:ConnectedPort) 'ok'?
+    }?
+    else {?
+        Set-Status (T -Key 'StatusNotConnected') 'idle'?
+    }?
+)(    Write-Log "Interface language changed to $newLanguage"?$)
 '@
 $languageStatusReplacement = @'
-$1    if ($script:VirtualGamepadFeatureAvailable) {
+$1$2    if ($script:VirtualGamepadFeatureAvailable) {
         Refresh-MugenVirtualGamepadLocalizedStatus
     }
-$2
+    if ($advancedPanel.Visible) {
+        Update-DriverStatus
+    }
+$3
 '@
-$text = Replace-RegexExactlyOnce -Text $text -Pattern $languageStatusPattern -Replacement $languageStatusReplacement -Label 'refresh virtual status localization'
+$text = Replace-RegexExactlyOnce -Text $text -Pattern $languageStatusPattern -Replacement $languageStatusReplacement -Label 'refresh visible localization before optional driver query'
 
 # A physical-controller disconnect tears down the virtual device as well.
 $text = Replace-RegexExactlyOnce `

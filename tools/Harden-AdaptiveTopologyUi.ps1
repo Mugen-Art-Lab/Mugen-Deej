@@ -119,26 +119,28 @@ function Get-ControllerConnectedStatusText {
         $sliderCount = [int]$script:Config.connection.expectedSliders
     }
 
+    # Main-card text is deliberately compact. The green status dot already
+    # communicates "connected", so repeating the full sentence wastes the
+    # width needed by self-described 5/28/2/1 (and larger) topologies.
     if ($script:Language -eq 'ru') {
         $parts = New-Object 'System.Collections.Generic.List[string]'
-        if ($sliderCount -gt 0) { $parts.Add(('{0} регуляторов' -f $sliderCount)) }
+        if ($sliderCount -gt 0) { $parts.Add(('{0} рег.' -f $sliderCount)) }
         if ($buttonCount -gt 0) { $parts.Add(('{0} кнопок' -f $buttonCount)) }
-        if ($toggleCount -gt 0) { $parts.Add(('{0} тумблеров' -f $toggleCount)) }
-        if ($encoderCount -gt 0) { $parts.Add(('{0} энкодеров' -f $encoderCount)) }
+        if ($toggleCount -gt 0) { $parts.Add(('{0} тумбл.' -f $toggleCount)) }
+        if ($encoderCount -gt 0) { $parts.Add(('{0} энкодер.' -f $encoderCount)) }
         if ($parts.Count -eq 0) { $parts.Add('нет органов управления') }
-        return ('Контроллер подключён — {0} · {1}' -f $PortName, ($parts -join ' · '))
+        return ('{0} · {1}' -f $PortName, ($parts -join ' · '))
     }
 
     $parts = New-Object 'System.Collections.Generic.List[string]'
     if ($sliderCount -gt 0) { $parts.Add(('{0} controls' -f $sliderCount)) }
     if ($buttonCount -gt 0) { $parts.Add(('{0} buttons' -f $buttonCount)) }
     if ($toggleCount -gt 0) { $parts.Add(('{0} toggles' -f $toggleCount)) }
-    if ($encoderCount -gt 0) { $parts.Add(('{0} encoders' -f $encoderCount)) }
+    if ($encoderCount -gt 0) { $parts.Add(('{0} encoder' -f $encoderCount)) }
     if ($parts.Count -eq 0) { $parts.Add('no controls') }
-    return ('Controller connected — {0} · {1}' -f $PortName, ($parts -join ' · '))
+    return ('{0} · {1}' -f $PortName, ($parts -join ' · '))
 }
 
-'@
 $text = Replace-RegexBlockExactlyOnceLiteral `
     -Text $text `
     -Pattern '(?ms)^function Get-ControllerConnectedStatusText \{.*?^function Set-DetectedControllerCapabilities \{' `
