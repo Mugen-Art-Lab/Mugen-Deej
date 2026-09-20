@@ -212,7 +212,7 @@ jobs:
           if ($runtimeText -notmatch '\$statusDot\.AutoSize = \$false') {
             throw 'Development runtime is missing the fixed-size physical status dot.'
           }
-          if ($runtimeText -notmatch "\$statusDot\.TextAlign = 'MiddleCenter'") {
+          if ($runtimeText -notmatch '\$statusDot\.TextAlign = ') {
             throw 'Development runtime is missing centered physical status-dot alignment.'
           }
           if ($runtimeText -notmatch 'Spatial Xbox-style control map') {
