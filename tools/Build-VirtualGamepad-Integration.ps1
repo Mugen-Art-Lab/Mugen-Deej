@@ -210,8 +210,8 @@ function Show-MugenVirtualGamepadButtonPicker {
     $picker = New-Object System.Windows.Forms.Form
     $picker.Text = $(if ($script:Language -eq 'ru') { 'Управление виртуального геймпада' } else { 'Virtual gamepad control' })
     $picker.StartPosition = 'CenterParent'
-    $picker.ClientSize = [System.Drawing.Size]::new(520, 610)
-    $picker.MinimumSize = [System.Drawing.Size]::new(536, 649)
+    $picker.ClientSize = [System.Drawing.Size]::new(760, 625)
+    $picker.MinimumSize = [System.Drawing.Size]::new(776, 664)
     $picker.Font = New-Object System.Drawing.Font('Segoe UI', 10)
     $picker.FormBorderStyle = 'FixedDialog'
     $picker.MaximizeBox = $false
@@ -227,66 +227,88 @@ function Show-MugenVirtualGamepadButtonPicker {
     $picker.Controls.Add($heading)
 
     $hint = New-Object System.Windows.Forms.Label
-    $hint.Text = $(if ($script:Language -eq 'ru') { 'Пока физическая кнопка Mugen зажата, она удерживает кнопку Xbox, полностью нажимает LT/RT или отклоняет выбранный стик.' } else { 'While the physical Mugen button is held, it holds an Xbox button, fully presses LT/RT, or deflects the selected stick.' })
+    $hint.Text = $(if ($script:Language -eq 'ru') { 'Схема повторяет расположение Xbox-контроллера. Физическая кнопка Mugen удерживает выбранный элемент; LT/RT нажимаются полностью.' } else { 'The map follows an Xbox controller layout. The physical Mugen button holds the selected control; LT/RT are full-press.' })
     $hint.ForeColor = [System.Drawing.Color]::DimGray
     $hint.Location = [System.Drawing.Point]::new(27, 53)
-    $hint.Size = [System.Drawing.Size]::new(465, 42)
+    $hint.Size = [System.Drawing.Size]::new(706, 42)
     $picker.Controls.Add($hint)
 
+    # Spatial Xbox-style control map: shoulders at the top, left stick / D-pad
+    # on the left, ABXY / right stick on the right, View/Menu in the middle.
     $choices = @(
-        @('LT',          'virtual:xbox:lt',     28, 101, 105, 42),
-        @('LB',          'virtual:xbox:lb',    148, 101, 105, 42),
-        @('RB',          'virtual:xbox:rb',    268, 101, 105, 42),
-        @('RT',          'virtual:xbox:rt',    388, 101, 105, 42),
-        @('Back / View', 'virtual:xbox:back',   28, 151, 218, 42),
-        @('Start / Menu','virtual:xbox:start', 274, 151, 218, 42),
-        @('L3',          'virtual:xbox:l3',     28, 201, 218, 42),
-        @('R3',          'virtual:xbox:r3',    274, 201, 218, 42),
-        @('A',           'virtual:xbox:a',      28, 258, 105, 44),
-        @('B',           'virtual:xbox:b',     148, 258, 105, 44),
-        @('X',           'virtual:xbox:x',     268, 258, 105, 44),
-        @('Y',           'virtual:xbox:y',     388, 258, 105, 44),
-        @('←',           'virtual:xbox:lsx:left',  148, 354, 76, 40),
-        @('→',           'virtual:xbox:lsx:right', 232, 354, 76, 40),
-        @('↑',           'virtual:xbox:lsy:up',    316, 354, 76, 40),
-        @('↓',           'virtual:xbox:lsy:down',  400, 354, 76, 40),
-        @('←',           'virtual:xbox:rsx:left',  148, 405, 76, 40),
-        @('→',           'virtual:xbox:rsx:right', 232, 405, 76, 40),
-        @('↑',           'virtual:xbox:rsy:up',    316, 405, 76, 40),
-        @('↓',           'virtual:xbox:rsy:down',  400, 405, 76, 40),
-        @('←',           'virtual:xbox:dpad:left',  148, 456, 76, 40),
-        @('→',           'virtual:xbox:dpad:right', 232, 456, 76, 40),
-        @('↑',           'virtual:xbox:dpad:up',    316, 456, 76, 40),
-        @('↓',           'virtual:xbox:dpad:down',  400, 456, 76, 40)
-    )
+        @('LT',          'virtual:xbox:lt',         38, 108, 132, 36),
+        @('LB',          'virtual:xbox:lb',         38, 150, 132, 36),
+        @('RT',          'virtual:xbox:rt',        590, 108, 132, 36),
+        @('RB',          'virtual:xbox:rb',        590, 150, 132, 36),
 
-    $stickHeading = New-Object System.Windows.Forms.Label
-    $stickHeading.Text = $(if ($script:Language -eq 'ru') { 'Направления стиков' } else { 'Stick directions' })
-    $stickHeading.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 10)
-    $stickHeading.Location = [System.Drawing.Point]::new(28, 318)
-    $stickHeading.Size = [System.Drawing.Size]::new(464, 24)
-    $picker.Controls.Add($stickHeading)
+        @('View',        'virtual:xbox:back',      278, 150,  96, 38),
+        @('Menu',        'virtual:xbox:start',     386, 150,  96, 38),
+
+        @('↑',           'virtual:xbox:lsy:up',    154, 236,  52, 36),
+        @('←',           'virtual:xbox:lsx:left',   96, 278,  52, 36),
+        @('L3',          'virtual:xbox:l3',        154, 278,  52, 36),
+        @('→',           'virtual:xbox:lsx:right', 212, 278,  52, 36),
+        @('↓',           'virtual:xbox:lsy:down',  154, 320,  52, 36),
+
+        @('Y',           'virtual:xbox:y',         604, 236,  52, 36),
+        @('X',           'virtual:xbox:x',         546, 278,  52, 36),
+        @('B',           'virtual:xbox:b',         662, 278,  52, 36),
+        @('A',           'virtual:xbox:a',         604, 320,  52, 36),
+
+        @('↑',           'virtual:xbox:dpad:up',   154, 416,  52, 36),
+        @('←',           'virtual:xbox:dpad:left',  96, 458,  52, 36),
+        @('→',           'virtual:xbox:dpad:right',212, 458,  52, 36),
+        @('↓',           'virtual:xbox:dpad:down', 154, 500,  52, 36),
+
+        @('↑',           'virtual:xbox:rsy:up',    604, 416,  52, 36),
+        @('←',           'virtual:xbox:rsx:left',  546, 458,  52, 36),
+        @('R3',          'virtual:xbox:r3',        604, 458,  52, 36),
+        @('→',           'virtual:xbox:rsx:right', 662, 458,  52, 36),
+        @('↓',           'virtual:xbox:rsy:down',  604, 500,  52, 36)
+    )
 
     $leftStickLabel = New-Object System.Windows.Forms.Label
     $leftStickLabel.Text = $(if ($script:Language -eq 'ru') { 'Левый стик' } else { 'Left stick' })
-    $leftStickLabel.Location = [System.Drawing.Point]::new(28, 361)
-    $leftStickLabel.Size = [System.Drawing.Size]::new(112, 24)
-    $leftStickLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+    $leftStickLabel.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 10)
+    $leftStickLabel.Location = [System.Drawing.Point]::new(96, 205)
+    $leftStickLabel.Size = [System.Drawing.Size]::new(168, 24)
+    $leftStickLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
     $picker.Controls.Add($leftStickLabel)
 
-    $rightStickLabel = New-Object System.Windows.Forms.Label
-    $rightStickLabel.Text = $(if ($script:Language -eq 'ru') { 'Правый стик' } else { 'Right stick' })
-    $rightStickLabel.Location = [System.Drawing.Point]::new(28, 412)
-    $rightStickLabel.Size = [System.Drawing.Size]::new(112, 24)
-    $rightStickLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
-    $picker.Controls.Add($rightStickLabel)
+    $faceLabel = New-Object System.Windows.Forms.Label
+    $faceLabel.Text = $(if ($script:Language -eq 'ru') { 'Основные кнопки' } else { 'Face buttons' })
+    $faceLabel.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 10)
+    $faceLabel.Location = [System.Drawing.Point]::new(546, 205)
+    $faceLabel.Size = [System.Drawing.Size]::new(168, 24)
+    $faceLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $picker.Controls.Add($faceLabel)
 
     $dpadLabel = New-Object System.Windows.Forms.Label
     $dpadLabel.Text = $(if ($script:Language -eq 'ru') { 'Крестовина' } else { 'D-pad' })
-    $dpadLabel.Location = [System.Drawing.Point]::new(28, 463)
-    $dpadLabel.Size = [System.Drawing.Size]::new(112, 24)
-    $dpadLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+    $dpadLabel.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 10)
+    $dpadLabel.Location = [System.Drawing.Point]::new(96, 385)
+    $dpadLabel.Size = [System.Drawing.Size]::new(168, 24)
+    $dpadLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
     $picker.Controls.Add($dpadLabel)
+
+    $rightStickLabel = New-Object System.Windows.Forms.Label
+    $rightStickLabel.Text = $(if ($script:Language -eq 'ru') { 'Правый стик' } else { 'Right stick' })
+    $rightStickLabel.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 10)
+    $rightStickLabel.Location = [System.Drawing.Point]::new(546, 385)
+    $rightStickLabel.Size = [System.Drawing.Size]::new(168, 24)
+    $rightStickLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $picker.Controls.Add($rightStickLabel)
+
+    # A small non-clickable hub makes the D-pad read as a cross rather than a
+    # loose set of four arrows.
+    $dpadHub = New-Object System.Windows.Forms.Label
+    $dpadHub.Text = '✚'
+    $dpadHub.Font = New-Object System.Drawing.Font('Segoe UI Symbol', 16)
+    $dpadHub.ForeColor = [System.Drawing.Color]::DimGray
+    $dpadHub.Location = [System.Drawing.Point]::new(154, 458)
+    $dpadHub.Size = [System.Drawing.Size]::new(52, 36)
+    $dpadHub.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $picker.Controls.Add($dpadHub)
 
     foreach ($choice in $choices) {
         $choiceButton = New-Object MugenDeejWindowing.MugenButton
@@ -307,17 +329,21 @@ function Show-MugenVirtualGamepadButtonPicker {
         $picker.Controls.Add($choiceButton)
     }
 
+    # Keep the decorative D-pad hub above the surrounding clickable arrows.
+    $dpadHub.BringToFront()
+
+    $axisHint = New-Object System.Windows.Forms.Label
+    $axisHint.Text = $(if ($script:Language -eq 'ru') { 'Противоположные направления одной оси взаимно гасятся и оставляют её в центре.' } else { 'Opposite directions on the same axis cancel each other and leave that axis centered.' })
+    $axisHint.ForeColor = [System.Drawing.Color]::DimGray
+    $axisHint.Location = [System.Drawing.Point]::new(278, 425)
+    $axisHint.Size = [System.Drawing.Size]::new(204, 72)
+    $axisHint.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $picker.Controls.Add($axisHint)
+
     $cancel = New-Object MugenDeejWindowing.MugenButton
     $cancel.Text = $(if ($script:Language -eq 'ru') { 'Отмена' } else { 'Cancel' })
     $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-    $axisHint = New-Object System.Windows.Forms.Label
-    $axisHint.Text = $(if ($script:Language -eq 'ru') { 'Если одновременно зажаты противоположные направления одной оси, она остаётся в центре.' } else { 'If opposite directions on the same axis are held together, that axis stays centered.' })
-    $axisHint.ForeColor = [System.Drawing.Color]::DimGray
-    $axisHint.Location = [System.Drawing.Point]::new(28, 507)
-    $axisHint.Size = [System.Drawing.Size]::new(360, 48)
-    $picker.Controls.Add($axisHint)
-
-    $cancel.Location = [System.Drawing.Point]::new(387, 557)
+    $cancel.Location = [System.Drawing.Point]::new(628, 568)
     $cancel.Size = [System.Drawing.Size]::new(105, 36)
     $picker.Controls.Add($cancel)
     $picker.CancelButton = $cancel

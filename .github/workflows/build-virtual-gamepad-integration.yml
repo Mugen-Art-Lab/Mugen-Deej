@@ -209,6 +209,18 @@ jobs:
           if ($runtimeText -notmatch 'Desktop control hub') {
             throw 'Development runtime still uses the old audio-only product subtitle.'
           }
+          if ($runtimeText -notmatch 'Spatial Xbox-style control map') {
+            throw 'Development runtime is missing the spatial Xbox control picker.'
+          }
+          if ($runtimeText -notmatch '\$picker\.ClientSize = \[System\.Drawing\.Size\]::new\(760, 625\)') {
+            throw 'Development runtime is missing the wide Xbox-map picker layout.'
+          }
+          if ($runtimeText -notmatch "'virtual:xbox:a',\s+604, 320") {
+            throw 'Development runtime does not place ABXY in the Xbox-style right-side diamond.'
+          }
+          if ($runtimeText -notmatch "'virtual:xbox:dpad:left',\s+96, 458") {
+            throw 'Development runtime does not place the D-pad on the lower-left side.'
+          }
           if ($runtimeText -notmatch 'native overwrite prompt follows the Windows shell language') {
             throw 'Development runtime is missing the app-localized backup overwrite handler.'
           }
