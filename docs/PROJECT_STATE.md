@@ -303,12 +303,22 @@ Manual profile switching comes first. Automatic switching by game/process is def
 - Full digital cardboard-panel smoke test PASS: 28 buttons, 2 toggles, and encoder/push work on real Uno hardware; a >20-button simultaneous hold also registered cleanly. Five slider channels remain software placeholders pending real potentiometers.
 
 
-## Current hardware-review build — Integrated #120
+## Current hardware-review build — Integrated #122
 
-#119 was superseded before visual/Y-axis acceptance because real-machine testing exposed two runtime regressions: valid v2 backups with empty Adaptive mapping arrays were rejected by mandatory PowerShell collection binding, and the Adaptive Russian count helper was removed by a later final-stage patch even though its call sites remained.
+Real-machine #120 review is now a partial hardware PASS:
 
-#120 makes empty button/toggle/encoder mapping arrays first-class valid states and moves the Russian plural formatter inside the connected-status function so it survives the final staging order. CI additionally asserts the packaged runtime contains the empty-collection annotations and no stale external helper call.
+- schema-v2 restore with empty Adaptive mapping families: **PASS**;
+- emergency pre-restore backup + restart path: **PASS**;
+- restored 28-button action file reload after restart: **PASS**;
+- corrected virtual-stick Y direction in joy.cpl: **PASS**;
+- Adaptive 5/28/2/1 detection and virtual Xbox ready path remain healthy.
 
-Run #120 (ID `35499932683`) succeeded at head `8d3b918d7029e54f26935384bca53783cadab170`; artifact ID `10602405485`; outer digest `sha256:6ac0e4a6cfc4e66b201d47a2d277ec21b8c5ff5470ae08929a4891a6a1200bd8`; inner ZIP SHA-256 `32b84a9cf067b004d597f80056c0957166954f6a398efa10595c38f26332ca6a`.
+The next user-visible gaps were missing D-pad mappings and an English Windows-native overwrite prompt while Mugen itself was set to Russian.
 
-#120 is CI PASS only. Hardware review should first retry the exact #119 backup restore and Adaptive connection, then continue the pending status-layout and stick-Y checks.
+#122 adds four D-pad actions and sends them as an 8-way HIDMaestro `HMHat`. Perpendicular simultaneous directions become diagonals; opposing directions cancel on their axis. The Xbox picker gets a bilingual `Крестовина / D-pad` row.
+
+Backup overwrite confirmation is now app-owned: the native SaveFileDialog overwrite prompt is disabled and Mugen shows its existing themed RU/EN Yes/No warning instead. The file picker itself remains native Windows UI.
+
+Run #122 (ID `35501405258`) succeeded at head `bf2f31b51d62f686950415485eefd91744ec36c0`; artifact ID `10602541332`; outer digest `sha256:04b2b9031e79acebf1450a16682f3f161a70ba9d1dd55a1d6ba5c56cfbcf9b7f`; inner ZIP SHA-256 `1927f1b81c612b3102459089e33bbfc0655a1e7a184d208e42c168c22c448991`.
+
+#122 is CI PASS only for the new D-pad/overwrite slice. The next hardware/UI checks are joy.cpl D-pad cardinal+diagonal behavior and RU/EN overwrite-dialog localization. The compact two-row status-card visual review also remains open.

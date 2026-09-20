@@ -1301,3 +1301,47 @@ Immediate real-machine #120 order:
 2. restore the same backup that failed under #119; an empty mapping family must no longer block restore;
 3. accept restart and confirm the restored button/XInput mappings survive;
 4. only then resume the pending #119 checks: compact two-row status alignment and corrected joy.cpl Y direction.
+
+
+## #120 real-machine PASS + D-pad / backup-overwrite follow-up -> Integrated #122
+
+Real-machine testing of #120 closed the two regressions that had blocked #119:
+
+- **backup restore PASS:** the same schema-v2 backup that previously failed now restores successfully, creates an emergency pre-restore backup, requests restart, and comes back with all 28 button actions loaded;
+- **virtual stick Y PASS:** the Windows game-controller panel now moves in the same direction as the Mugen action labels, so semantic ↑ is device-up and ↓ is device-down;
+- the real Adaptive controller still detects as 5 / 28 / 2 / 1 and the virtual Xbox reaches ready normally after restore.
+
+The #120 session log confirms restore at 14:54:22, restart at 14:54:35, post-restart load of 28 button actions, Adaptive 5/28/2/1 detection, and virtual-controller ready. Later the user saved the four left-stick and four right-stick digital direction mappings again successfully.
+
+Two UX gaps were then identified:
+
+1. the Xbox control picker had face/shoulder/menu/stick controls but no D-pad / крестовина;
+2. SaveFileDialog's native overwrite confirmation followed the Windows shell language instead of the language selected inside Mugen.
+
+Integrated #122 adds:
+
+- four stateful D-pad actions: left/right/up/down;
+- 8-way hat synthesis, so simultaneous perpendicular D-pad buttons produce diagonals while opposite directions on one axis cancel to centre;
+- a third picker row labelled `Крестовина` / `D-pad`;
+- helper state transport extended from mask+4 stick components to mask+4 stick components+2 D-pad components;
+- D-pad output uses HIDMaestro `HMHat`, not fake stick movement or ordinary Xbox button bits;
+- backup SaveFileDialog disables the OS overwrite prompt and uses Mugen's own themed RU/EN Yes/No warning instead. The rest of the file picker remains native Windows UI.
+
+Workflow:
+
+- #121 failed only because the workflow itself embedded a Cyrillic static-check literal in a Windows PowerShell 5.1 inline script; staged product code and helper build were not the reported failure;
+- #122 replaced that CI assertion with an ASCII-safe marker and is **SUCCESS**;
+- run ID: `35501405258`;
+- code head: `bf2f31b51d62f686950415485eefd91744ec36c0`;
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-122`;
+- artifact ID: `10602541332`;
+- outer digest: `sha256:04b2b9031e79acebf1450a16682f3f161a70ba9d1dd55a1d6ba5c56cfbcf9b7f`;
+- inner program ZIP SHA-256: `1927f1b81c612b3102459089e33bbfc0655a1e7a184d208e42c168c22c448991`;
+- staging, Windows PowerShell 5.1 parse/marker checks, helper/launcher build, package and upload: PASS.
+
+Immediate #122 real-machine checks:
+
+1. assign four physical buttons to D-pad ← → ↑ ↓ and verify the hat in joy.cpl, including at least one diagonal such as ↑+→;
+2. verify opposite directions cancel cleanly (←+→ or ↑+↓);
+3. save a backup over an existing filename in RU and then EN; only Mugen's themed bilingual overwrite confirmation should appear;
+4. continue the pending visual review of the compact physical/virtual two-row status card.

@@ -113,3 +113,10 @@ Schema v2 intentionally permits empty `buttonActions.actions`, `adaptiveActions.
 Integrated #119 incorrectly rejected such arrays at write/restore time because mandatory PowerShell array parameters did not declare `AllowEmptyCollection`. This could also prevent the emergency rollback from completing if the pre-restore snapshot had zero button actions.
 
 Integrated #120 explicitly accepts empty collections in the button and Adaptive action writers. Empty means “no assignments stored”, not “invalid backup”. Backup schema validation continues to reject missing properties, null items, unsupported versions, or malformed payloads.
+
+
+## #120 real-machine restore verification and localized overwrite UX
+
+The empty-collection restore repair from #120 is real-machine verified. A schema-v2 backup containing zero Adaptive toggle/encoder assignments restored successfully, an emergency pre-restore snapshot was created, Mugen restarted, and the 28 saved button actions were loaded again.
+
+#122 does not change backup schema or payload semantics. It changes only overwrite UX: the native Windows SaveFileDialog overwrite prompt is disabled because that prompt follows the shell language, which may differ from Mugen's selected language. If the selected path already exists, Mugen now asks for replacement using its own themed RU/EN Yes/No dialog before writing the same schema-v2 backup.
