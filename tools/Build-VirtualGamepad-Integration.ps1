@@ -149,6 +149,20 @@ $1
 '@ `
     -Label 'route stateful button frames'
 
+
+# Keep the physical and virtual status rows in the same language immediately
+# after the base language-switch handler finishes.
+$languageStatusPattern = @'
+(?ms)^(    if \(\$script:IsConnected\) \{\r?\n        Set-Status \(Get-ControllerConnectedStatusText -PortName \$script:ConnectedPort\) 'ok'\r?\n    \}\r?\n    else \{\r?\n        Set-Status \(T -Key 'StatusNotConnected'\) 'idle'\r?\n    \}\r?\n)(    Write-Log "Interface language changed to \$newLanguage"\r?$)
+'@
+$languageStatusReplacement = @'
+$1    if ($script:VirtualGamepadFeatureAvailable) {
+        Refresh-MugenVirtualGamepadLocalizedStatus
+    }
+$2
+'@
+$text = Replace-RegexExactlyOnce -Text $text -Pattern $languageStatusPattern -Replacement $languageStatusReplacement -Label 'refresh virtual status localization'
+
 # A physical-controller disconnect tears down the virtual device as well.
 $text = Replace-RegexExactlyOnce `
     -Text $text `
