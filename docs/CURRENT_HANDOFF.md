@@ -1233,3 +1233,41 @@ Immediate #117 real-machine order:
 2. switch RU -> EN -> RU and confirm the physical status row changes immediately with the rest of the window;
 3. confirm the compact one-row physical summary + XInput button looks intentional rather than clipped/floating;
 4. only after the base UI is clean, enable XInput and retry the Snipping Tool selection during `connecting` to test the #114 startup-neutral workaround.
+
+
+## #117 real-machine UI/XInput review -> Integrated #119
+
+Real-machine review of #117 confirmed that the severe idle-status churn regression was substantially improved and the Adaptive controller still enumerates correctly as 5 sliders / 28 buttons / 2 toggles / 1 encoder on COM14 @ 115200. The user then enabled XInput successfully; the helper progressed through the visible connecting state and reached ready.
+
+The #117 review exposed three smaller but concrete issues:
+
+1. **Status wording scope.** Removing the redundant "Controller connected" prefix made sense for the long Adaptive four-family summary, but #117 also abbreviated nouns (`рег.`, `тумбл.`, etc.) and applied the new formatter globally. This was unnecessary. Legacy/Extended are short enough and should retain their original connected-status sentence. Adaptive should omit only the redundant prefix while keeping full words.
+2. **Two-row status composition.** The physical and virtual rows were too far apart. The physical marker inherited the base 16 pt status-dot font while the virtual marker was independently created at 11 pt, so the circles visibly differed in size and baseline.
+3. **Virtual stick Y orientation.** The Mugen actions are semantic directions (`left stick ↑`, `left stick ↓`), but the helper mapped semantic +Y directly to HIDMaestro normalized 1.0. In the Windows game-controller panel that means downward screen motion. The result was that the action labelled ↑ moved the virtual stick down and ↓ moved it up. This is a device-layer bug, distinct from a game's optional camera/look "invert Y" preference.
+
+Integrated #119 fixes these items:
+
+- Legacy/Extended restore their previous `Controller connected — ...` / `Контроллер подключён — ...` wording;
+- Adaptive v3 uses a prefix-free full-word topology such as `COM14 · 5 регуляторов · 28 кнопок · 2 тумблера · 1 энкодер`;
+- Adaptive Russian count labels now use proper 1/2-4/5+ noun forms in the main status formatter;
+- the XInput-off card returns to the original 60 px height;
+- the XInput-on card is only 68 px high, with the two rows tightly stacked;
+- the virtual and physical status dots now use the same font, X coordinate, and row rhythm;
+- left and right virtual-stick Y are normalized as `(1 - y) / 2`, so Mugen's semantic ↑ is visibly up in joy.cpl. Game-level invert-Y remains the game's concern.
+
+Build:
+
+- run **#119**, run ID `35498563298` — SUCCESS;
+- code head `76c628fb2a72a0f3c6dae7647e225b6bd83054e2`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-119`, ID `10601159147`;
+- outer digest `sha256:b608906c3935c264cdc2eaed00ba323351761665a0bd28b9e6a624aa36167c66`;
+- inner program ZIP SHA-256 `38a627cb331fe677aaf0cd1f7af082bd38432fa99572ae7dfc2c79d42a71464a`;
+- staging, Windows PowerShell 5.1 parse/marker checks, helper/launcher build, packaging and upload: PASS.
+
+Immediate real-machine #119 checks:
+
+1. with XInput OFF, confirm the Adaptive status uses full words and still fits on one row;
+2. with XInput ON, confirm the two status rows are visually tight and both green/blue dots are identical and aligned;
+3. in joy.cpl, map one physical button to left-stick ↑ and one to ↓ and verify the cross moves in the labelled direction;
+4. repeat for right-stick Y if desired;
+5. Legacy/Extended formatting remains to be regression-checked when those fixtures are next available.

@@ -303,28 +303,19 @@ Manual profile switching comes first. Automatic switching by game/process is def
 - Full digital cardboard-panel smoke test PASS: 28 buttons, 2 toggles, and encoder/push work on real Uno hardware; a >20-button simultaneous hold also registered cleanly. Five slider channels remain software placeholders pending real potentiometers.
 
 
-## Current hardware-review build — Integrated #117
+## Current hardware-review build — Integrated #119
 
-#114 was not suitable for continued hardware testing. Before the Snipping Tool startup-neutral check could be run, real-machine review exposed severe ordinary UI lag with XInput OFF, a poor physical-status composition, and a half-completed RU -> EN switch.
+#117 removed the major XInput-off UI churn and reached a usable real-machine state. Follow-up visual/XInput testing then found a presentation issue and one real virtual-axis semantic bug: the Adaptive connected-status line was over-abbreviated, the two status rows had excessive spacing with mismatched dot sizes, and the virtual Y axis was reversed relative to the action labels in the Windows game-controller panel.
 
-The #114 log still detects the real Adaptive controller correctly as 5 / 28 / 2 / 1, but rapid encoder runs contain repeated UI-side pauses and the final log line is the `language=en` config save rather than the expected completed language-change log entry. This matches the screenshot: most controls already changed to English while the physical connected-status row remained Russian.
+#119 keeps the #117 responsiveness fixes and changes only this follow-up slice:
 
-Root cause/fixes now in #117:
+- Legacy/Extended connected-status wording is restored to the established full sentence;
+- Adaptive uses a prefix-free but full-word topology summary;
+- XInput-off status height is back to 60 px; XInput-on is 68 px;
+- physical/virtual status dots share the same font and alignment;
+- both virtual-stick Y axes are flipped at the HID normalization boundary so semantic ↑ is device-up and semantic ↓ is device-down;
+- game-level invert-Y is intentionally not implemented in Mugen.
 
-- repeated ~25 ms disabled heartbeats no longer repaint the virtual-gamepad status UI when the lifecycle state is unchanged;
-- status geometry is applied only on real layout-mode changes;
-- the bootstrap status timer shuts itself off after initial attachment;
-- the foreground-profile timer only runs while the virtual gamepad is live;
-- connected topology text is compact enough to coexist with the XInput button on one row;
-- language switching finishes visible status localization before optional driver diagnostics work, and skips the synchronous driver/PnP refresh while diagnostics are hidden;
-- #114's pre-PnP neutral XUSB/GIP seed remains intact for the still-pending Snipping Tool startup test.
+Run #119 (ID `35498563298`) succeeded at head `76c628fb2a72a0f3c6dae7647e225b6bd83054e2`; artifact ID `10601159147`; inner ZIP SHA-256 `38a627cb331fe677aaf0cd1f7af082bd38432fa99572ae7dfc2c79d42a71464a`.
 
-Build:
-
-- run ID `35494524807`, run #117 — SUCCESS;
-- head `f60be1ae6070e55592f34bdacc4ba20cc3ffa188`;
-- artifact ID `10600107736`;
-- outer digest `sha256:fb4fa564d80c8c18741a321c4de9e8f7b892771965acb9225e85aceaa4812e7d`;
-- inner ZIP SHA-256 `de7cddac3f9184ebb0434f7cc5af8f16919f2c8e4814962f0fb871cb0989cb64`.
-
-#117 is CI PASS only. First verify smooth ordinary operation with XInput OFF, then RU/EN status switching and compact layout, and only then retry the connecting-phase Snipping Tool drift reproduction.
+Hardware/UI PASS is still pending for #119. The next test is visual status alignment plus joy.cpl verification of the corrected Y direction.
