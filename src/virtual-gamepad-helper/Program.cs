@@ -287,14 +287,15 @@ internal static class Program
                     }
 
                     // Full state for Mugen's stateful virtual mappings:
-                    // state <buttonMask> <LX> <LY> <RX> <RY> <DPadX> <DPadY>
+                    // state <buttonMask> <LX> <LY> <RX> <RY> <DPadX> <DPadY> <LT> <RT>
                     // Stick / D-pad components are signed digital values -1, 0 or +1.
+                    // LT/RT are digital full-press values 0 or 1 for this milestone.
                     // HIDMaestro's normalized stick range is [0..1], center 0.5.
                     if (line.StartsWith("state ", StringComparison.OrdinalIgnoreCase))
                     {
                         string[] parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
                         if (
-                            parts.Length != 8 ||
+                            parts.Length != 10 ||
                             !uint.TryParse(parts[1], out uint mask) ||
                             !int.TryParse(parts[2], out int lx) ||
                             !int.TryParse(parts[3], out int ly) ||
@@ -302,12 +303,16 @@ internal static class Program
                             !int.TryParse(parts[5], out int ry) ||
                             !int.TryParse(parts[6], out int dpadX) ||
                             !int.TryParse(parts[7], out int dpadY) ||
+                            !int.TryParse(parts[8], out int lt) ||
+                            !int.TryParse(parts[9], out int rt) ||
                             lx < -1 || lx > 1 ||
                             ly < -1 || ly > 1 ||
                             rx < -1 || rx > 1 ||
                             ry < -1 || ry > 1 ||
                             dpadX < -1 || dpadX > 1 ||
-                            dpadY < -1 || dpadY > 1
+                            dpadY < -1 || dpadY > 1 ||
+                            lt < 0 || lt > 1 ||
+                            rt < 0 || rt > 1
                         )
                         {
                             writer.WriteLine("ERR|invalid controller state");
@@ -336,7 +341,9 @@ internal static class Program
                             // preference belongs to the game, not the device.
                             leftStickY: (1 - ly) / 2f,
                             rightStickX: (rx + 1) / 2f,
-                            rightStickY: (1 - ry) / 2f
+                            rightStickY: (1 - ry) / 2f,
+                            leftTrigger: lt,
+                            rightTrigger: rt
                         );
                         controller.SubmitState(in state);
                         writer.WriteLine("OK");

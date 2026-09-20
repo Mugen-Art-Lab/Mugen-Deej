@@ -227,15 +227,17 @@ function Show-MugenVirtualGamepadButtonPicker {
     $picker.Controls.Add($heading)
 
     $hint = New-Object System.Windows.Forms.Label
-    $hint.Text = $(if ($script:Language -eq 'ru') { 'Пока физическая кнопка Mugen зажата, она удерживает кнопку Xbox или отклоняет выбранный стик.' } else { 'While the physical Mugen button is held, it holds an Xbox button or deflects the selected stick.' })
+    $hint.Text = $(if ($script:Language -eq 'ru') { 'Пока физическая кнопка Mugen зажата, она удерживает кнопку Xbox, полностью нажимает LT/RT или отклоняет выбранный стик.' } else { 'While the physical Mugen button is held, it holds an Xbox button, fully presses LT/RT, or deflects the selected stick.' })
     $hint.ForeColor = [System.Drawing.Color]::DimGray
     $hint.Location = [System.Drawing.Point]::new(27, 53)
     $hint.Size = [System.Drawing.Size]::new(465, 42)
     $picker.Controls.Add($hint)
 
     $choices = @(
-        @('LB',          'virtual:xbox:lb',     28, 101, 218, 42),
-        @('RB',          'virtual:xbox:rb',    274, 101, 218, 42),
+        @('LT',          'virtual:xbox:lt',     28, 101, 105, 42),
+        @('LB',          'virtual:xbox:lb',    148, 101, 105, 42),
+        @('RB',          'virtual:xbox:rb',    268, 101, 105, 42),
+        @('RT',          'virtual:xbox:rt',    388, 101, 105, 42),
         @('Back / View', 'virtual:xbox:back',   28, 151, 218, 42),
         @('Start / Menu','virtual:xbox:start', 274, 151, 218, 42),
         @('L3',          'virtual:xbox:l3',     28, 201, 218, 42),

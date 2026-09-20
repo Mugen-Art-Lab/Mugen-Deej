@@ -206,6 +206,9 @@ jobs:
           if ($runtimeText -notmatch '\$dialog\.OverwritePrompt = \$false') {
             throw 'Development runtime still delegates backup overwrite confirmation to the OS language.'
           }
+          if ($runtimeText -notmatch 'Desktop control hub') {
+            throw 'Development runtime still uses the old audio-only product subtitle.'
+          }
           if ($runtimeText -notmatch 'native overwrite prompt follows the Windows shell language') {
             throw 'Development runtime is missing the app-localized backup overwrite handler.'
           }
@@ -485,8 +488,8 @@ jobs:
           if ($integrationText -notmatch 'VirtualGamepadProfileTimer\.Interval = 200') {
             throw 'Integration module is missing low-rate foreground-profile checks.'
           }
-          if ($integrationText -notmatch 'Virtual gamepad: connected') {
-            throw 'Integration module still changes the user-facing virtual-gamepad name after connection.'
+          if ($integrationText -notmatch 'Virtual gamepad · connected') {
+            throw 'Integration module is missing the stable virtual-gamepad status name/format.'
           }
           if ($integrationText -notmatch '\$targetHeight = if \(\$Enabled\) \{ 68 \} else \{ 60 \}') {
             throw 'Integration module is missing the compact two-row status-card layout.'
@@ -497,8 +500,11 @@ jobs:
           if ($integrationText -notmatch 'VirtualGamepadStatusDot\.Location = \[System\.Drawing\.Point\]::new\(14, 34\)') {
             throw 'Integration module does not vertically align the virtual status marker.'
           }
-          if ($integrationText -notmatch 'VirtualGamepadToggleButton\.Location = \[System\.Drawing\.Point\]::new\(506, 3\)') {
-            throw 'Integration module does not keep XInput on the compact physical-status row.'
+          if ($integrationText -notmatch 'VirtualGamepadStatusLabel\.Size = \[System\.Drawing\.Size\]::new\(444, 28\)') {
+            throw 'Integration module is missing the aligned two-row status text column.'
+          }
+          if ($integrationText -notmatch 'VirtualGamepadToggleButton\.Location = \[System\.Drawing\.Point\]::new\(506, 19\)') {
+            throw 'Integration module does not center XInput across the two-row status card.'
           }
           if ($integrationText -notmatch 'if \(\[string\]\$script:VirtualGamepadUiState -eq \$State\) \{ return \}') {
             throw 'Integration module still repaints identical virtual lifecycle states on every heartbeat.'
@@ -514,6 +520,12 @@ jobs:
           }
           if ($integrationText -notmatch 'DPadX = \[int\]\$dpadX') {
             throw 'Integration module is missing D-pad state synthesis.'
+          }
+          if ($integrationText -notmatch 'virtual:xbox:lt') {
+            throw 'Integration module is missing digital full-press LT/RT actions.'
+          }
+          if ($integrationText -notmatch 'LT = \[int\]\$lt') {
+            throw 'Integration module is missing trigger state synthesis.'
           }
           if ($integrationText -notmatch '\$script:VirtualGamepadStarting = \$false') {
             throw 'Integration module is missing the virtual-controller start reentrancy guard.'
@@ -560,11 +572,17 @@ jobs:
           if ($helperText -notmatch 'rightStickY: \(1 - ry\) / 2f') {
             throw 'Virtual controller helper is missing corrected right-stick Y orientation.'
           }
-          if ($helperText -notmatch 'parts\.Length != 8') {
-            throw 'Virtual controller helper is missing D-pad fields in the state protocol.'
+          if ($helperText -notmatch 'parts\.Length != 10') {
+            throw 'Virtual controller helper is missing D-pad/trigger fields in the state protocol.'
           }
           if ($helperText -notmatch 'HMHat\.NorthWest') {
             throw 'Virtual controller helper is missing 8-way D-pad output.'
+          }
+          if ($helperText -notmatch 'leftTrigger: lt') {
+            throw 'Virtual controller helper is missing left-trigger output.'
+          }
+          if ($helperText -notmatch 'rightTrigger: rt') {
+            throw 'Virtual controller helper is missing right-trigger output.'
           }
           if ($helperText -notmatch 'PRESEED_GIP_NEUTRAL') {
             throw 'Virtual controller helper is missing the pre-PnP neutral XUSB seed.'
