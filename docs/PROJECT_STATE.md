@@ -303,14 +303,12 @@ Manual profile switching comes first. Automatic switching by game/process is def
 - Full digital cardboard-panel smoke test PASS: 28 buttons, 2 toggles, and encoder/push work on real Uno hardware; a >20-button simultaneous hold also registered cleanly. Five slider channels remain software placeholders pending real potentiometers.
 
 
-## Current hardware-review build — Integrated #129
+## Current hardware-review build — Integrated #134
 
-#125 spatial Xbox picker received positive real-machine visual feedback; #126 only clarified its hint copy. #129 is a main-window polish pass.
+#134 makes the current 2.0 virtual-gamepad policy explicit: XInput is exposed only when the active physical controller uses Adaptive v3. Legacy and Extended remain focused on their established audio/action behavior; their main-window XInput controls and new virtual-mapping choices are hidden, and an already-running virtual HID is torn down if one of those protocols becomes active.
 
-The status markers no longer rely on auto-sized bullet glyph baselines. Physical and virtual dots are fixed 16 x 16 centered controls and are positioned by row centre in both the one-row and two-row status layouts.
+The saved XInput preference is not erased when a Legacy/Extended controller is used. Returning to Adaptive can therefore restore XInput automatically; explicitly disabling XInput on Adaptive still remains disabled across protocol changes.
 
-Product subtitle is intentionally protocol-agnostic rather than changing between Legacy, Extended and Adaptive. The current wording is `Настольная панель управления / Desktop control surface`. This reflects the broader product without exposing firmware/protocol distinctions as product identity.
+Run #134 (ID `35527037157`) succeeded at head `f9a89202b4380a1d83cabd58fadbb8609ee4efaf`; artifact ID `10610021853`; outer digest `sha256:62f8c025fc1ae53f1de6febb4f9cc50baa6719c2007d708c431d2e66c3cf92ca`; inner ZIP SHA-256 `47627fbf2024ea2a6c393ecebbc339283730b211876ad3831b7b929626606f9d`.
 
-Run #129 (ID `35509790159`) succeeded at head `bf07070a7c7a7ea33450837caecbc04c9e69a56f`; artifact ID `10605255172`; inner ZIP SHA-256 `78b0948cd72430eb7a49fc801653c71c164432bd27f9ced25f0cde595582b97a`.
-
-#129 is CI PASS. Real-machine acceptance is visual: confirm dot alignment/size and whether the new universal subtitle feels correct.
+#134 is CI PASS. Real-machine acceptance requires the Adaptive -> Legacy/Extended -> Adaptive protocol-switch sequence, confirming virtual-HID teardown, hidden old-protocol UI, normal old-protocol actions, and restoration of the saved Adaptive XInput preference.
