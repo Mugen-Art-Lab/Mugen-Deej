@@ -303,31 +303,28 @@ Manual profile switching comes first. Automatic switching by game/process is def
 - Full digital cardboard-panel smoke test PASS: 28 buttons, 2 toggles, and encoder/push work on real Uno hardware; a >20-button simultaneous hold also registered cleanly. Five slider channels remain software placeholders pending real potentiometers.
 
 
-## Current hardware-review build — Integrated #114
+## Current hardware-review build — Integrated #117
 
-Real-machine #113 review upgraded several fixes from CI-only to actual UI/hardware PASS:
+#114 was not suitable for continued hardware testing. Before the Snipping Tool startup-neutral check could be run, real-machine review exposed severe ordinary UI lag with XInput OFF, a poor physical-status composition, and a half-completed RU -> EN switch.
 
-- XInput-enabled interface/encoder responsiveness: **PASS**;
-- complete RU <-> EN main-status localization: **PASS**;
-- stable generic visible name `Виртуальный геймпад / Virtual gamepad`: **PASS**.
+The #114 log still detects the real Adaptive controller correctly as 5 / 28 / 2 / 1, but rapid encoder runs contain repeated UI-side pauses and the final log line is the `language=en` config save rather than the expected completed language-change log entry. This matches the screenshot: most controls already changed to English while the physical connected-status row remained Russian.
 
-The same review found that the physical 5/28/2/1 summary still wrapped, and exposed a new startup-only behavior: while XInput was still connecting, Windows Snipping Tool's capture-selection cursor could drift up-left; it stopped after READY.
+Root cause/fixes now in #117:
 
-The log puts that startup window at roughly 16.8 s on the test machine. Pinned HIDMaestro v1.8.0 source shows why this can happen: its shared XUSB/GIP input mapping is created and zero-filled before the virtual Xbox is fully exposed, while zero in the unsigned 16-bit stick fields means full negative deflection. Mugen's correct neutral frame was previously submitted only after `CreateController` returned.
-
-Integrated #114 therefore:
-
-- gives the physical status summary the full first row and moves the XInput toggle beside the virtual-status second row;
-- best-effort pre-seeds the pinned HIDMaestro v1.8.0 GIP stick fields to 0x7FFF before `CreateController`, so Windows should never observe the temporary all-zero/full-up-left XInput state;
-- retains the normal public `SubmitState` neutral frame after creation;
-- logs `PRESEED_GIP_NEUTRAL` / `PRESEED_GIP_NEUTRAL_WARN` for diagnosis.
+- repeated ~25 ms disabled heartbeats no longer repaint the virtual-gamepad status UI when the lifecycle state is unchanged;
+- status geometry is applied only on real layout-mode changes;
+- the bootstrap status timer shuts itself off after initial attachment;
+- the foreground-profile timer only runs while the virtual gamepad is live;
+- connected topology text is compact enough to coexist with the XInput button on one row;
+- language switching finishes visible status localization before optional driver diagnostics work, and skips the synchronous driver/PnP refresh while diagnostics are hidden;
+- #114's pre-PnP neutral XUSB/GIP seed remains intact for the still-pending Snipping Tool startup test.
 
 Build:
 
-- run ID `35492818128`, run #114 — SUCCESS;
-- built code head `5fc4722a46cc6120eb2934ef10aa1f833117c203`;
-- artifact ID `10599817400`;
-- outer Actions digest `sha256:eba0d17dd4322cac1f898394b6b6c032adf8c223b6833df2cd15802aa63ee58e`;
-- inner ZIP SHA-256 `746b7ad9158d94cd02639df6c572a8f52b4bb5a59501497a5770a070f4823cdd`.
+- run ID `35494524807`, run #117 — SUCCESS;
+- head `f60be1ae6070e55592f34bdacc4ba20cc3ffa188`;
+- artifact ID `10600107736`;
+- outer digest `sha256:fb4fa564d80c8c18741a321c4de9e8f7b892771965acb9225e85aceaa4812e7d`;
+- inner ZIP SHA-256 `de7cddac3f9184ebb0434f7cc5af8f16919f2c8e4814962f0fb871cb0989cb64`.
 
-#114 is CI PASS. The next real-machine checks are specifically: no status wrapping in RU/EN, and no Snipping Tool up-left drift during the `connecting` phase. joy.cpl OEM naming and the remaining virtual-mapping persistence/profile tests are still pending.
+#117 is CI PASS only. First verify smooth ordinary operation with XInput OFF, then RU/EN status switching and compact layout, and only then retry the connecting-phase Snipping Tool drift reproduction.

@@ -1182,3 +1182,54 @@ Workflow:
 - staging / Windows PowerShell 5.1 parse checks / helper / launcher / package / upload: PASS.
 
 Do not call the startup-neutral workaround hardware PASS until the Snipping Tool reproduction is re-tested during the connecting phase.
+
+
+## #114 real-machine regression review -> Integrated #117
+
+The first real-machine launch of #114 was stopped before the Snipping Tool startup-neutral test because the ordinary Mugen UI became badly laggy even with XInput OFF. The screenshot also showed the attempted status-card composition was not acceptable: the physical summary was ellipsized and the XInput button floated on a mostly empty lower area.
+
+The uploaded runtime log confirms two useful facts:
+
+- COM14 / Adaptive v3 still detects correctly as 5 sliders / 28 buttons / 2 toggles / 1 encoder;
+- during fast encoder motion there are repeated 150-800 ms holes between logged detents, consistent with UI-thread stalls rather than serial topology loss;
+- switching RU -> EN saved `language=en`, but the log ends immediately after the config save and never reaches `Interface language changed to en`. The screenshot likewise shows the main UI already in English while the physical status row remains Russian, which localizes the stall to the remainder of the language-switch UI handler.
+
+Code inspection found the #114 regression path:
+
+- while XInput was disabled, every ~25 ms complete physical button heartbeat still called `Set-MugenVirtualGamepadUiState disabled`;
+- that function repainted/re-laid-out the virtual status card even though the lifecycle state had not changed;
+- #114 made that repaint heavier by setting physical-label layout/ellipsis properties on every call;
+- two WinForms timers also remained permanently active while XInput was off (500 ms status refresh and 200 ms foreground-profile refresh);
+- language switching still performed a synchronous `Update-DriverStatus` / PnP-CIM query before finishing the visible status localization.
+
+Integrated #117 fixes this slice:
+
+- identical virtual lifecycle states are ignored, so disabled heartbeats do not repaint the UI;
+- status-card geometry only changes when enabled/disabled layout mode actually changes;
+- the bootstrap status timer stops permanently once the integration controls have attached;
+- the 200 ms foreground-profile timer exists but only runs while the virtual controller is actually ready;
+- the physical connected summary is intentionally compact (for example `COM14 · 5 рег. · 28 кнопок · 2 тумбл. · 1 энкодер.`) so it fits beside the XInput button;
+- XInput returns to the first physical-status row; the second row is used only for virtual lifecycle status when enabled;
+- RU/EN visible status text is refreshed before any driver query, and the slow driver refresh is skipped while the diagnostics panel is hidden;
+- the #114 pre-PnP neutral-XInput seed remains present and still needs its original Snipping Tool hardware test.
+
+Workflow:
+
+- run number: **#117**
+- run ID: `35494524807`
+- built code head: `f60be1ae6070e55592f34bdacc4ba20cc3ffa188`
+- result: **SUCCESS**
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-117`
+- artifact ID: `10600107736`
+- outer Actions digest: `sha256:fb4fa564d80c8c18741a321c4de9e8f7b892771965acb9225e85aceaa4812e7d`
+- inner program ZIP SHA-256: `de7cddac3f9184ebb0434f7cc5af8f16919f2c8e4814962f0fb871cb0989cb64`
+- staging, Windows PowerShell 5.1 parsing/markers, launcher, package and upload: PASS.
+
+#115 and #116 were intermediate CI repair runs and are not tester builds. #117 is the build to exercise.
+
+Immediate #117 real-machine order:
+
+1. leave XInput OFF and spin the encoder rapidly; ordinary UI feedback should remain smooth;
+2. switch RU -> EN -> RU and confirm the physical status row changes immediately with the rest of the window;
+3. confirm the compact one-row physical summary + XInput button looks intentional rather than clipped/floating;
+4. only after the base UI is clean, enable XInput and retry the Snipping Tool selection during `connecting` to test the #114 startup-neutral workaround.
