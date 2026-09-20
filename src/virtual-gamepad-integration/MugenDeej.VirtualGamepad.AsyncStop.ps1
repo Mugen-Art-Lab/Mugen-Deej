@@ -50,6 +50,7 @@ function Complete-MugenVirtualGamepadStop {
         $script:VirtualGamepadConfigLoaded -and
         $null -ne $script:VirtualGamepadConfig -and
         [bool]$script:VirtualGamepadConfig.enabled -and
+        (Test-MugenVirtualGamepadProtocolAvailable) -and
         $script:IsConnected -and
         $script:DetectedButtonCount -gt 0
     ) {
@@ -128,7 +129,8 @@ function Stop-MugenVirtualGamepad {
     if (
         $script:VirtualGamepadConfigLoaded -and
         $null -ne $script:VirtualGamepadConfig -and
-        [bool]$script:VirtualGamepadConfig.enabled
+        [bool]$script:VirtualGamepadConfig.enabled -and
+        (Test-MugenVirtualGamepadProtocolAvailable)
     ) {
         Set-MugenVirtualGamepadUiState -State 'waiting'
     }
@@ -142,7 +144,8 @@ function Start-MugenVirtualGamepad {
         if (
             $script:VirtualGamepadConfigLoaded -and
             $null -ne $script:VirtualGamepadConfig -and
-            [bool]$script:VirtualGamepadConfig.enabled
+            [bool]$script:VirtualGamepadConfig.enabled -and
+            (Test-MugenVirtualGamepadProtocolAvailable)
         ) {
             Set-MugenVirtualGamepadUiState -State 'waiting'
         }
