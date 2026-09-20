@@ -126,22 +126,28 @@ function Set-MugenVirtualGamepadStatusLayout {
     $targetHeight = if ($Enabled) { 98 } else { 72 }
     $layoutChanged = ($panel.Height -ne $targetHeight)
 
+    # The physical-controller summary owns the full first row. In #113 the
+    # XInput button occupied the same row, reducing the text width enough to
+    # wrap "2 toggles / 1 encoder" onto an awkward second line. The button now
+    # belongs to the virtual-controller row, where it is semantically related.
+    $panel.Size = [System.Drawing.Size]::new(632, $targetHeight)
+    $physicalDot.Location = [System.Drawing.Point]::new(14, 13)
+    $physicalLabel.Location = [System.Drawing.Point]::new(46, 7)
+    $physicalLabel.Size = [System.Drawing.Size]::new(560, 32)
+    $physicalLabel.AutoEllipsis = $true
+    $physicalLabel.TextAlign = 'MiddleLeft'
+
     if ($Enabled) {
-        $panel.Size = [System.Drawing.Size]::new(632, $targetHeight)
-        $physicalDot.Location = [System.Drawing.Point]::new(14, 12)
-        $physicalLabel.Location = [System.Drawing.Point]::new(46, 6)
-        $physicalLabel.Size = [System.Drawing.Size]::new(444, 42)
-        $script:VirtualGamepadStatusDot.Location = [System.Drawing.Point]::new(16, 59)
-        $script:VirtualGamepadStatusLabel.Location = [System.Drawing.Point]::new(46, 54)
-        $script:VirtualGamepadStatusLabel.Size = [System.Drawing.Size]::new(444, 30)
-        $script:VirtualGamepadToggleButton.Location = [System.Drawing.Point]::new(506, 34)
+        $script:VirtualGamepadStatusDot.Location = [System.Drawing.Point]::new(16, 58)
+        $script:VirtualGamepadStatusLabel.Location = [System.Drawing.Point]::new(46, 51)
+        $script:VirtualGamepadStatusLabel.Size = [System.Drawing.Size]::new(444, 32)
+        $script:VirtualGamepadToggleButton.Location = [System.Drawing.Point]::new(506, 52)
     }
     else {
-        $panel.Size = [System.Drawing.Size]::new(632, $targetHeight)
-        $physicalDot.Location = [System.Drawing.Point]::new(14, 20)
-        $physicalLabel.Location = [System.Drawing.Point]::new(46, 9)
-        $physicalLabel.Size = [System.Drawing.Size]::new(444, 50)
-        $script:VirtualGamepadToggleButton.Location = [System.Drawing.Point]::new(506, 21)
+        # Keep the compact single-status card, but put the enable control below
+        # the full-width physical summary so even a rich topology stays on one
+        # line instead of competing with the button.
+        $script:VirtualGamepadToggleButton.Location = [System.Drawing.Point]::new(506, 37)
     }
 
     if (

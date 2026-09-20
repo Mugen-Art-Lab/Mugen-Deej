@@ -74,6 +74,73 @@ internal static class Program
         return 0;
     }
 
+    private static void TryPreseedXbox360NeutralStartupState()
+    {
+        // HIDMaestro v1.8.0 creates Global\HIDMaestroInput0 before the
+        // xbox-360-wired device/companion finishes PnP setup. That section is
+        // initially all zeroes. For the XUSB/GIP payload, however, a zero
+        // 16-bit stick value means full negative deflection, not centre.
+        //
+        // Mugen normally submits a proper neutral HMGamepadState immediately
+        // after CreateController returns, but Windows can already observe the
+        // temporary all-zero XInput state while CreateController is waiting
+        // for PnP/XInput readiness. Some shell UI (notably the Snipping Tool
+        // selection overlay) reacts to that transient up-left stick.
+        //
+        // The pinned SDK keeps SharedMemoryIO internal, so pre-create seeding
+        // uses reflection deliberately and best-effort. EnsureInputMapping is
+        // idempotent; SetupController reuses this mapping rather than zeroing
+        // it again. If a future SDK changes the internal type/layout, startup
+        // continues normally and the diagnostic log records the fallback.
+        try
+        {
+            const int controllerIndex = 0;
+            const int gipDataOffset = 8 + 256; // SeqNo + DataSize + Data[256]
+
+            var assembly = typeof(HMContext).Assembly;
+            var ioType = assembly.GetType("HIDMaestro.Internal.SharedMemoryIO", throwOnError: true);
+            var ensure = ioType!.GetMethod(
+                "EnsureInputMapping",
+                System.Reflection.BindingFlags.Static |
+                System.Reflection.BindingFlags.Public |
+                System.Reflection.BindingFlags.NonPublic
+            );
+            if (ensure is null)
+            {
+                throw new MissingMethodException(ioType.FullName, "EnsureInputMapping");
+            }
+
+            object? result = ensure.Invoke(null, new object[] { controllerIndex });
+            if (result is not IntPtr view || view == IntPtr.Zero)
+            {
+                throw new InvalidOperationException("EnsureInputMapping returned no mapping view.");
+            }
+
+            // Match HMController.SubmitState's exact 0.5 conversion:
+            // (ushort)(0.5 * 65535) == 32767 == 0x7FFF.
+            const ushort center = 32767;
+            byte[] gip = new byte[14];
+            gip[0] = (byte)(center & 0xFF); gip[1] = (byte)(center >> 8); // LX
+            gip[2] = (byte)(center & 0xFF); gip[3] = (byte)(center >> 8); // LY
+            gip[4] = (byte)(center & 0xFF); gip[5] = (byte)(center >> 8); // RX
+            gip[6] = (byte)(center & 0xFF); gip[7] = (byte)(center >> 8); // RY
+            // LT/RT, buttons and HMHat.None are all zero in bytes 8..13.
+
+            System.Runtime.InteropServices.Marshal.Copy(
+                gip,
+                0,
+                IntPtr.Add(view, gipDataOffset),
+                gip.Length
+            );
+
+            Log("PRESEED_GIP_NEUTRAL controller=0; sticks=0x7FFF; triggers=0; buttons=0; hat=None");
+        }
+        catch (Exception ex)
+        {
+            Log("PRESEED_GIP_NEUTRAL_WARN " + ex);
+        }
+    }
+
     private static int RunServer(string[] args)
     {
         string? pipeName = GetArgValue(args, "--pipe");
@@ -115,6 +182,13 @@ internal static class Program
             if (profile is null)
             {
                 throw new InvalidOperationException($"HIDMaestro profile not found: {profileId}");
+            }
+
+            // Pre-seed XUSB before PnP exposes the virtual pad. Without this,
+            // HIDMaestro's zero-filled startup GIP frame reads as full up-left.
+            if (profile.Id.Equals("xbox-360-wired", StringComparison.OrdinalIgnoreCase))
+            {
+                TryPreseedXbox360NeutralStartupState();
             }
 
             using var controller = context.CreateController(profile, identityKey);

@@ -458,6 +458,12 @@ jobs:
           if ($integrationText -notmatch '\$targetHeight = if \(\$Enabled\) \{ 98 \} else \{ 72 \}') {
             throw 'Integration module is missing the expanded two-row status-card layout.'
           }
+          if ($integrationText -notmatch '\$physicalLabel\.Size = \[System\.Drawing\.Size\]::new\(560, 32\)') {
+            throw 'Integration module does not give the physical status row full width.'
+          }
+          if ($integrationText -notmatch 'VirtualGamepadToggleButton\.Location = \[System\.Drawing\.Point\]::new\(506, 52\)') {
+            throw 'Integration module does not place XInput with the virtual-controller row.'
+          }
           if ($integrationText -notmatch '\$script:VirtualGamepadStarting = \$false') {
             throw 'Integration module is missing the virtual-controller start reentrancy guard.'
           }
@@ -496,6 +502,12 @@ jobs:
           }
           if ($helperText -notmatch 'leftStickX: \(lx \+ 1\) / 2f') {
             throw 'Virtual controller helper is missing normalized stick-axis output.'
+          }
+          if ($helperText -notmatch 'PRESEED_GIP_NEUTRAL') {
+            throw 'Virtual controller helper is missing the pre-PnP neutral XUSB seed.'
+          }
+          if ($helperText -notmatch 'gipDataOffset = 8 \+ 256') {
+            throw 'Virtual controller helper is missing the pinned HIDMaestro GIP shared-memory offset.'
           }
 
       - name: Build Mugen Deej launcher
