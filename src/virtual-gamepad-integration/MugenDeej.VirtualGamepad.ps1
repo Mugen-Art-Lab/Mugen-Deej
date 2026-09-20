@@ -16,6 +16,7 @@ $script:VirtualGamepadUiState = 'disabled'
 $script:VirtualGamepadUiTimer = $null
 $script:VirtualGamepadProfileTimer = $null
 $script:VirtualGamepadLastStatusLayoutEnabled = $null
+$script:VirtualGamepadLastProtocolAvailable = $null
 $script:VirtualGamepadStatusDot = $null
 $script:VirtualGamepadStatusLabel = $null
 $script:VirtualGamepadToggleButton = $null
@@ -61,6 +62,13 @@ $script:VirtualGamepadDpadActions = @{
 $script:VirtualGamepadTriggerActions = @{
     'virtual:xbox:lt' = $true
     'virtual:xbox:rt' = $true
+}
+
+# The 2.0 product exposes virtual gamepad output only for Adaptive v3.
+# Legacy/Extended mappings remain readable for compatibility, but their live
+# UI/runtime must not create or advertise a virtual HID device.
+function Test-MugenVirtualGamepadProtocolAvailable {
+    return ([string]$script:ControllerProtocol -eq 'adaptive')
 }
 
 
@@ -192,7 +200,10 @@ function Update-MugenVirtualGamepadStatusUi {
     if (-not (Ensure-MugenVirtualGamepadStatusUi)) { return }
 
     $physicalLabel = (Get-Variable -Name statusLabel -Scope Script).Value
+    $protocolAvailable = Test-MugenVirtualGamepadProtocolAvailable
+    $script:VirtualGamepadLastProtocolAvailable = $protocolAvailable
     $enabled = (
+        $protocolAvailable -and
         $script:VirtualGamepadConfigLoaded -and
         $null -ne $script:VirtualGamepadConfig -and
         [bool]$script:VirtualGamepadConfig.enabled
@@ -201,6 +212,7 @@ function Update-MugenVirtualGamepadStatusUi {
     Set-MugenVirtualGamepadStatusLayout -Enabled $enabled
 
     if ($null -ne $script:VirtualGamepadToggleButton -and -not $script:VirtualGamepadToggleButton.IsDisposed) {
+        $script:VirtualGamepadToggleButton.Visible = $protocolAvailable
         $script:VirtualGamepadToggleButton.Text = if ($script:Language -eq 'ru') {
             if ($enabled) { 'XInput: Вкл' } else { 'XInput: Выкл' }
         }
@@ -209,7 +221,7 @@ function Update-MugenVirtualGamepadStatusUi {
         }
     }
 
-    if (-not $enabled) {
+    if (-not $protocolAvailable -or -not $enabled) {
         $script:VirtualGamepadStatusDot.Visible = $false
         $script:VirtualGamepadStatusLabel.Visible = $false
         return
@@ -391,8 +403,9 @@ function Set-MugenVirtualGamepadEnabled {
     $script:VirtualGamepadConfig.enabled = $Enabled
     Save-MugenVirtualGamepadConfig
 
-    if (-not $Enabled) {
+    if (-not $Enabled -or -not (Test-MugenVirtualGamepadProtocolAvailable)) {
         Set-MugenVirtualGamepadUiState -State 'disabled'
+        try { Update-MugenVirtualGamepadStatusUi } catch { }
     }
     elseif ($script:VirtualGamepadActive) {
         Set-MugenVirtualGamepadUiState -State 'ready'
@@ -641,6 +654,11 @@ function Start-MugenVirtualGamepad {
     Initialize-MugenVirtualGamepadConfig
 
     if (-not [bool]$script:VirtualGamepadConfig.enabled) { return $false }
+    if (-not (Test-MugenVirtualGamepadProtocolAvailable)) {
+        Set-MugenVirtualGamepadUiState -State 'disabled'
+        try { Update-MugenVirtualGamepadStatusUi } catch { }
+        return $false
+    }
     if ($script:VirtualGamepadActive) { return $true }
     if ($script:VirtualGamepadStarting) { return $false }
     if (-not $script:IsConnected -or $script:DetectedButtonCount -le 0) {
@@ -841,6 +859,19 @@ function Update-MugenVirtualGamepadButtonStates {
 
     Initialize-MugenVirtualGamepadConfig
 
+    $protocolAvailable = Test-MugenVirtualGamepadProtocolAvailable
+    if ($null -eq $script:VirtualGamepadLastProtocolAvailable -or [bool]$script:VirtualGamepadLastProtocolAvailable -ne $protocolAvailable) {
+        try { Update-MugenVirtualGamepadStatusUi } catch { }
+    }
+
+    if (-not $protocolAvailable) {
+        if ($script:VirtualGamepadActive -or $script:VirtualGamepadStarting) {
+            Stop-MugenVirtualGamepad -Reason ('virtual controller unavailable for protocol: ' + [string]$script:ControllerProtocol)
+        }
+        Set-MugenVirtualGamepadUiState -State 'disabled'
+        return
+    }
+
     if (-not [bool]$script:VirtualGamepadConfig.enabled) {
         if ($script:VirtualGamepadActive -or $script:VirtualGamepadStarting) {
             Stop-MugenVirtualGamepad -Reason 'virtual controller disabled'
@@ -931,6 +962,7 @@ function Ensure-MugenVirtualGamepadProfileTimer {
         try {
             if (
                 $script:VirtualGamepadActive -and
+                (Test-MugenVirtualGamepadProtocolAvailable) -and
                 $script:IsConnected -and
                 $script:DetectedButtonCount -gt 0 -and
                 @($script:LatestButtons).Count -gt 0
@@ -946,6 +978,17 @@ function Sync-MugenVirtualGamepadState {
     param([int[]]$Values = @())
 
     Initialize-MugenVirtualGamepadConfig
+
+    $protocolAvailable = Test-MugenVirtualGamepadProtocolAvailable
+    if ($null -eq $script:VirtualGamepadLastProtocolAvailable -or [bool]$script:VirtualGamepadLastProtocolAvailable -ne $protocolAvailable) {
+        try { Update-MugenVirtualGamepadStatusUi } catch { }
+    }
+
+    if (-not $protocolAvailable) {
+        Stop-MugenVirtualGamepad -Reason ('virtual controller unavailable for protocol: ' + [string]$script:ControllerProtocol)
+        Set-MugenVirtualGamepadUiState -State 'disabled'
+        return $false
+    }
 
     if (-not [bool]$script:VirtualGamepadConfig.enabled) {
         Stop-MugenVirtualGamepad -Reason 'virtual controller disabled in settings'
