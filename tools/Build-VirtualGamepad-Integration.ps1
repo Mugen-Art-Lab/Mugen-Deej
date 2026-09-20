@@ -227,7 +227,7 @@ function Show-MugenVirtualGamepadButtonPicker {
     $picker.Controls.Add($heading)
 
     $hint = New-Object System.Windows.Forms.Label
-    $hint.Text = $(if ($script:Language -eq 'ru') { 'Схема повторяет расположение Xbox-контроллера. Физическая кнопка Mugen удерживает выбранный элемент; LT/RT нажимаются полностью.' } else { 'The map follows an Xbox controller layout. The physical Mugen button holds the selected control; LT/RT are full-press.' })
+    $hint.Text = $(if ($script:Language -eq 'ru') { 'Выберите, что будет делать выбранная кнопка на виртуальном Xbox-контроллере. LT/RT нажимаются полностью.' } else { 'Choose what the selected button should do on the virtual Xbox controller. LT/RT are full-press.' })
     $hint.ForeColor = [System.Drawing.Color]::DimGray
     $hint.Location = [System.Drawing.Point]::new(27, 53)
     $hint.Size = [System.Drawing.Size]::new(706, 42)
