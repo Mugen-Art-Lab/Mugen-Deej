@@ -188,6 +188,21 @@ jobs:
           if ($runtimeText -notmatch 'Adaptive v3 can expose four independent families') {
             throw 'Development runtime is missing full-word Adaptive connected-status text.'
           }
+          if ($runtimeText -match 'Format-RussianControllerCount') {
+            throw 'Development runtime still calls the staging-only Russian count helper.'
+          }
+          if ($runtimeText -notmatch '\$formatRussianCount = \{') {
+            throw 'Development runtime is missing the self-contained Adaptive Russian plural formatter.'
+          }
+          if ($runtimeText -notmatch '\[AllowEmptyCollection\(\)\]\[object\[\]\]\$Actions') {
+            throw 'Development runtime still rejects valid empty button-action arrays.'
+          }
+          if ($runtimeText -notmatch '\[AllowEmptyCollection\(\)\]\[object\[\]\]\$Toggles') {
+            throw 'Development runtime still rejects valid empty Adaptive toggle arrays.'
+          }
+          if ($runtimeText -notmatch '\[AllowEmptyCollection\(\)\]\[object\[\]\]\$Encoders') {
+            throw 'Development runtime still rejects valid empty Adaptive encoder arrays.'
+          }
           if ($runtimeText -notmatch 'if \(\$advancedPanel\.Visible\) \{\s*Update-DriverStatus') {
             throw 'Development runtime still performs the slow driver refresh on every language switch.'
           }

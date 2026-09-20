@@ -318,8 +318,8 @@ function Read-AdaptiveActionConfigFile {
 function Write-AdaptiveActionConfigFile {
     param(
         [Parameter(Mandatory = $true)][string]$Path,
-        [Parameter(Mandatory = $true)][object[]]$Toggles,
-        [Parameter(Mandatory = $true)][object[]]$Encoders
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Toggles,
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Encoders
     )
 
     $safeToggles = @()
@@ -2460,6 +2460,28 @@ $text = Replace-RegexBlockExactlyOnceLiteral `
     -Pattern '(?ms)^function Update-AdaptiveInputFeatureUi \{.*?^function Update-ButtonFeatureUi \{' `
     -Replacement ($mainLayout + 'function Update-ButtonFeatureUi {') `
     -Label 'add first-class typed settings button to compact main layout'
+
+# Fresh installs and pre-restore emergency snapshots may legitimately contain
+# zero button actions. Mandatory PowerShell collection parameters reject @()
+# unless AllowEmptyCollection is explicit, which made both restore and rollback
+# fail for an otherwise valid backup.
+$text = Replace-LiteralExactlyOnce `
+    -Text $text `
+    -OldText @'
+function Write-ButtonActionConfigFile {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][object[]]$Actions
+    )
+'@ `
+    -NewText @'
+function Write-ButtonActionConfigFile {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Actions
+    )
+'@ `
+    -Label 'allow empty button action config writes'
 
 # ---------------------------------------------------------------------------
 # Universal backup schema v2: preserve typed mappings, still read v1 safely

@@ -104,34 +104,6 @@ $text = Replace-RegexBlockExactlyOnceLiteral `
     -Label 'keep zero-slider Adaptive shape validation strict'
 
 $connectedStatus = @'
-function Format-RussianControllerCount {
-    param(
-        [Parameter(Mandatory = $true)][int]$Count,
-        [Parameter(Mandatory = $true)][string]$One,
-        [Parameter(Mandatory = $true)][string]$Few,
-        [Parameter(Mandatory = $true)][string]$Many
-    )
-
-    $absolute = [Math]::Abs($Count)
-    $mod100 = $absolute % 100
-    $mod10 = $absolute % 10
-
-    $noun = if ($mod100 -ge 11 -and $mod100 -le 14) {
-        $Many
-    }
-    elseif ($mod10 -eq 1) {
-        $One
-    }
-    elseif ($mod10 -ge 2 -and $mod10 -le 4) {
-        $Few
-    }
-    else {
-        $Many
-    }
-
-    return ('{0} {1}' -f $Count, $noun)
-}
-
 function Get-ControllerConnectedStatusText {
     param([Parameter(Mandatory = $true)][string]$PortName)
 
@@ -160,21 +132,51 @@ function Get-ControllerConnectedStatusText {
         return ('Controller connected — {0} · {1} controls' -f $PortName, $sliderCount)
     }
 
+    # Keep this formatter inside the status function. The final Adaptive
+    # mappings stage rewrites the block immediately before this function.
+    $formatRussianCount = {
+        param(
+            [int]$Count,
+            [string]$One,
+            [string]$Few,
+            [string]$Many
+        )
+
+        $absolute = [Math]::Abs($Count)
+        $mod100 = $absolute % 100
+        $mod10 = $absolute % 10
+
+        $noun = if ($mod100 -ge 11 -and $mod100 -le 14) {
+            $Many
+        }
+        elseif ($mod10 -eq 1) {
+            $One
+        }
+        elseif ($mod10 -ge 2 -and $mod10 -le 4) {
+            $Few
+        }
+        else {
+            $Many
+        }
+
+        return ('{0} {1}' -f $Count, $noun)
+    }
+
     # Adaptive v3 can expose four independent families, so omit only the
     # redundant "controller connected" prefix. Keep the nouns fully written.
     if ($script:Language -eq 'ru') {
         $parts = New-Object 'System.Collections.Generic.List[string]'
         if ($sliderCount -gt 0) {
-            $parts.Add((Format-RussianControllerCount -Count $sliderCount -One 'регулятор' -Few 'регулятора' -Many 'регуляторов'))
+            $parts.Add((& $formatRussianCount $sliderCount 'регулятор' 'регулятора' 'регуляторов'))
         }
         if ($buttonCount -gt 0) {
-            $parts.Add((Format-RussianControllerCount -Count $buttonCount -One 'кнопка' -Few 'кнопки' -Many 'кнопок'))
+            $parts.Add((& $formatRussianCount $buttonCount 'кнопка' 'кнопки' 'кнопок'))
         }
         if ($toggleCount -gt 0) {
-            $parts.Add((Format-RussianControllerCount -Count $toggleCount -One 'тумблер' -Few 'тумблера' -Many 'тумблеров'))
+            $parts.Add((& $formatRussianCount $toggleCount 'тумблер' 'тумблера' 'тумблеров'))
         }
         if ($encoderCount -gt 0) {
-            $parts.Add((Format-RussianControllerCount -Count $encoderCount -One 'энкодер' -Few 'энкодера' -Many 'энкодеров'))
+            $parts.Add((& $formatRussianCount $encoderCount 'энкодер' 'энкодера' 'энкодеров'))
         }
         if ($parts.Count -eq 0) { $parts.Add('нет органов управления') }
         return ('{0} · {1}' -f $PortName, ($parts -join ' · '))
