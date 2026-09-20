@@ -130,7 +130,10 @@ $text = Replace-LiteralExactlyOnce `
 # Windows can briefly return duplicate COM names while USB serial devices are
 # being torn down/re-enumerated. Keep discovery snapshots stable so a single
 # physical port cannot appear twice in recovery diagnostics or pending lists.
-$text = Replace-RegexExactlyOnce `
+# Use the literal block replacer here: .NET Regex.Replace treats $_ in
+# replacement text as "the entire input string", which would duplicate the
+# whole runtime inside Get-PortNames.
+$text = Replace-RegexBlockExactlyOnceLiteral `
     -Text $text `
     -Pattern '(?m)^function Get-PortNames \{\r?\n    return @\(\[System\.IO\.Ports\.SerialPort\]::GetPortNames\(\) \| Sort-Object \{ \[int\]\(\$_ -replace ''\\D'',''0''\) \}\)\r?\n\}' `
     -Replacement @'
