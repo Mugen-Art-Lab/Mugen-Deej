@@ -51,6 +51,13 @@ $script:VirtualGamepadAxisActions = @{
     'virtual:xbox:rsy:down' = $true
 }
 
+$script:VirtualGamepadDpadActions = @{
+    'virtual:xbox:dpad:left' = $true
+    'virtual:xbox:dpad:right' = $true
+    'virtual:xbox:dpad:up' = $true
+    'virtual:xbox:dpad:down' = $true
+}
+
 
 function Ensure-MugenVirtualGamepadStatusUi {
     $panelVariable = Get-Variable -Name statusPanel -Scope Script -ErrorAction SilentlyContinue
@@ -397,7 +404,8 @@ function Test-MugenVirtualGamepadAction {
     $normalized = $Action.ToLowerInvariant()
     return (
         $script:VirtualGamepadActionBits.ContainsKey($normalized) -or
-        $script:VirtualGamepadAxisActions.ContainsKey($normalized)
+        $script:VirtualGamepadAxisActions.ContainsKey($normalized) -or
+        $script:VirtualGamepadDpadActions.ContainsKey($normalized)
     )
 }
 
@@ -423,7 +431,11 @@ function Get-MugenVirtualGamepadActionDefinitions {
         [pscustomobject]@{ Action = 'virtual:xbox:rsx:left';  Display = $(if ($ru) { "$prefix — правый стик ←" } else { "$prefix — right stick ←" }) },
         [pscustomobject]@{ Action = 'virtual:xbox:rsx:right'; Display = $(if ($ru) { "$prefix — правый стик →" } else { "$prefix — right stick →" }) },
         [pscustomobject]@{ Action = 'virtual:xbox:rsy:up';    Display = $(if ($ru) { "$prefix — правый стик ↑" } else { "$prefix — right stick ↑" }) },
-        [pscustomobject]@{ Action = 'virtual:xbox:rsy:down';  Display = $(if ($ru) { "$prefix — правый стик ↓" } else { "$prefix — right stick ↓" }) }
+        [pscustomobject]@{ Action = 'virtual:xbox:rsy:down';  Display = $(if ($ru) { "$prefix — правый стик ↓" } else { "$prefix — right stick ↓" }) },
+        [pscustomobject]@{ Action = 'virtual:xbox:dpad:left';  Display = $(if ($ru) { "$prefix — крестовина ←" } else { "$prefix — D-pad ←" }) },
+        [pscustomobject]@{ Action = 'virtual:xbox:dpad:right'; Display = $(if ($ru) { "$prefix — крестовина →" } else { "$prefix — D-pad →" }) },
+        [pscustomobject]@{ Action = 'virtual:xbox:dpad:up';    Display = $(if ($ru) { "$prefix — крестовина ↑" } else { "$prefix — D-pad ↑" }) },
+        [pscustomobject]@{ Action = 'virtual:xbox:dpad:down';  Display = $(if ($ru) { "$prefix — крестовина ↓" } else { "$prefix — D-pad ↓" }) }
     )
 }
 
@@ -724,6 +736,10 @@ function Get-MugenVirtualGamepadOutputState {
     $rightXPositive = $false
     $rightYNegative = $false
     $rightYPositive = $false
+    $dpadXNegative = $false
+    $dpadXPositive = $false
+    $dpadYNegative = $false
+    $dpadYPositive = $false
 
     $valuesArray = @($Values)
     $actionsArray = @($Actions)
@@ -755,6 +771,10 @@ function Get-MugenVirtualGamepadOutputState {
             'virtual:xbox:rsx:right' { $rightXPositive = $true; break }
             'virtual:xbox:rsy:up' { $rightYPositive = $true; break }
             'virtual:xbox:rsy:down' { $rightYNegative = $true; break }
+            'virtual:xbox:dpad:left' { $dpadXNegative = $true; break }
+            'virtual:xbox:dpad:right' { $dpadXPositive = $true; break }
+            'virtual:xbox:dpad:up' { $dpadYPositive = $true; break }
+            'virtual:xbox:dpad:down' { $dpadYNegative = $true; break }
         }
     }
 
@@ -762,6 +782,8 @@ function Get-MugenVirtualGamepadOutputState {
     $ly = if ($leftYNegative -and -not $leftYPositive) { -1 } elseif ($leftYPositive -and -not $leftYNegative) { 1 } else { 0 }
     $rx = if ($rightXNegative -and -not $rightXPositive) { -1 } elseif ($rightXPositive -and -not $rightXNegative) { 1 } else { 0 }
     $ry = if ($rightYNegative -and -not $rightYPositive) { -1 } elseif ($rightYPositive -and -not $rightYNegative) { 1 } else { 0 }
+    $dpadX = if ($dpadXNegative -and -not $dpadXPositive) { -1 } elseif ($dpadXPositive -and -not $dpadXNegative) { 1 } else { 0 }
+    $dpadY = if ($dpadYNegative -and -not $dpadYPositive) { -1 } elseif ($dpadYPositive -and -not $dpadYNegative) { 1 } else { 0 }
 
     return [pscustomobject][ordered]@{
         Mask = [uint32]$mask
@@ -769,7 +791,9 @@ function Get-MugenVirtualGamepadOutputState {
         LY = [int]$ly
         RX = [int]$rx
         RY = [int]$ry
-        Signature = ('{0}|{1}|{2}|{3}|{4}' -f [uint32]$mask, $lx, $ly, $rx, $ry)
+        DPadX = [int]$dpadX
+        DPadY = [int]$dpadY
+        Signature = ('{0}|{1}|{2}|{3}|{4}|{5}|{6}' -f [uint32]$mask, $lx, $ly, $rx, $ry, $dpadX, $dpadY)
     }
 }
 
@@ -834,10 +858,10 @@ function Update-MugenVirtualGamepadButtonStates {
     elseif ($previousProfileKey -ne $profileKey) {
         try {
             # Profile identity, not the focus-change mechanism, is the boundary.
-            [void](Send-MugenVirtualGamepadCommand -Command 'state 0 0 0 0 0')
+            [void](Send-MugenVirtualGamepadCommand -Command 'state 0 0 0 0 0 0 0')
 
             $script:VirtualGamepadLastMask = [uint32]0
-            $script:VirtualGamepadLastOutputSignature = '0|0|0|0|0'
+            $script:VirtualGamepadLastOutputSignature = '0|0|0|0|0|0|0'
             $script:VirtualGamepadSuppressedPhysicalButtons = @{}
 
             for ($i = 0; $i -lt $valuesArray.Count; $i++) {
@@ -863,7 +887,7 @@ function Update-MugenVirtualGamepadButtonStates {
     if ([string]$output.Signature -eq [string]$script:VirtualGamepadLastOutputSignature) { return }
 
     try {
-        $command = 'state {0} {1} {2} {3} {4}' -f [uint32]$output.Mask, [int]$output.LX, [int]$output.LY, [int]$output.RX, [int]$output.RY
+        $command = 'state {0} {1} {2} {3} {4} {5} {6}' -f [uint32]$output.Mask, [int]$output.LX, [int]$output.LY, [int]$output.RX, [int]$output.RY, [int]$output.DPadX, [int]$output.DPadY
         [void](Send-MugenVirtualGamepadCommand -Command $command)
         $script:VirtualGamepadLastMask = [uint32]$output.Mask
         $script:VirtualGamepadLastOutputSignature = [string]$output.Signature

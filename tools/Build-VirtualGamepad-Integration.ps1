@@ -210,8 +210,8 @@ function Show-MugenVirtualGamepadButtonPicker {
     $picker = New-Object System.Windows.Forms.Form
     $picker.Text = $(if ($script:Language -eq 'ru') { 'Управление виртуального геймпада' } else { 'Virtual gamepad control' })
     $picker.StartPosition = 'CenterParent'
-    $picker.ClientSize = [System.Drawing.Size]::new(520, 540)
-    $picker.MinimumSize = [System.Drawing.Size]::new(536, 579)
+    $picker.ClientSize = [System.Drawing.Size]::new(520, 610)
+    $picker.MinimumSize = [System.Drawing.Size]::new(536, 649)
     $picker.Font = New-Object System.Drawing.Font('Segoe UI', 10)
     $picker.FormBorderStyle = 'FixedDialog'
     $picker.MaximizeBox = $false
@@ -251,7 +251,11 @@ function Show-MugenVirtualGamepadButtonPicker {
         @('←',           'virtual:xbox:rsx:left',  148, 405, 76, 40),
         @('→',           'virtual:xbox:rsx:right', 232, 405, 76, 40),
         @('↑',           'virtual:xbox:rsy:up',    316, 405, 76, 40),
-        @('↓',           'virtual:xbox:rsy:down',  400, 405, 76, 40)
+        @('↓',           'virtual:xbox:rsy:down',  400, 405, 76, 40),
+        @('←',           'virtual:xbox:dpad:left',  148, 456, 76, 40),
+        @('→',           'virtual:xbox:dpad:right', 232, 456, 76, 40),
+        @('↑',           'virtual:xbox:dpad:up',    316, 456, 76, 40),
+        @('↓',           'virtual:xbox:dpad:down',  400, 456, 76, 40)
     )
 
     $stickHeading = New-Object System.Windows.Forms.Label
@@ -274,6 +278,13 @@ function Show-MugenVirtualGamepadButtonPicker {
     $rightStickLabel.Size = [System.Drawing.Size]::new(112, 24)
     $rightStickLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
     $picker.Controls.Add($rightStickLabel)
+
+    $dpadLabel = New-Object System.Windows.Forms.Label
+    $dpadLabel.Text = $(if ($script:Language -eq 'ru') { 'Крестовина' } else { 'D-pad' })
+    $dpadLabel.Location = [System.Drawing.Point]::new(28, 463)
+    $dpadLabel.Size = [System.Drawing.Size]::new(112, 24)
+    $dpadLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+    $picker.Controls.Add($dpadLabel)
 
     foreach ($choice in $choices) {
         $choiceButton = New-Object MugenDeejWindowing.MugenButton
@@ -300,11 +311,11 @@ function Show-MugenVirtualGamepadButtonPicker {
     $axisHint = New-Object System.Windows.Forms.Label
     $axisHint.Text = $(if ($script:Language -eq 'ru') { 'Если одновременно зажаты противоположные направления одной оси, она остаётся в центре.' } else { 'If opposite directions on the same axis are held together, that axis stays centered.' })
     $axisHint.ForeColor = [System.Drawing.Color]::DimGray
-    $axisHint.Location = [System.Drawing.Point]::new(28, 456)
+    $axisHint.Location = [System.Drawing.Point]::new(28, 507)
     $axisHint.Size = [System.Drawing.Size]::new(360, 48)
     $picker.Controls.Add($axisHint)
 
-    $cancel.Location = [System.Drawing.Point]::new(387, 487)
+    $cancel.Location = [System.Drawing.Point]::new(387, 557)
     $cancel.Size = [System.Drawing.Size]::new(105, 36)
     $picker.Controls.Add($cancel)
     $picker.CancelButton = $cancel

@@ -203,6 +203,15 @@ jobs:
           if ($runtimeText -notmatch '\[AllowEmptyCollection\(\)\]\[object\[\]\]\$Encoders') {
             throw 'Development runtime still rejects valid empty Adaptive encoder arrays.'
           }
+          if ($runtimeText -notmatch '\$dialog\.OverwritePrompt = \$false') {
+            throw 'Development runtime still delegates backup overwrite confirmation to the OS language.'
+          }
+          if ($runtimeText -notmatch 'Файл резервной копии уже существует') {
+            throw 'Development runtime is missing the Russian overwrite confirmation.'
+          }
+          if ($runtimeText -notmatch 'The backup file already exists') {
+            throw 'Development runtime is missing the English overwrite confirmation.'
+          }
           if ($runtimeText -notmatch 'if \(\$advancedPanel\.Visible\) \{\s*Update-DriverStatus') {
             throw 'Development runtime still performs the slow driver refresh on every language switch.'
           }
@@ -500,6 +509,12 @@ jobs:
           if ($integrationText -notmatch 'Stop-MugenVirtualGamepadProfileTimer') {
             throw 'Integration module is missing inactive foreground-profile timer shutdown.'
           }
+          if ($integrationText -notmatch 'virtual:xbox:dpad:up') {
+            throw 'Integration module is missing D-pad actions.'
+          }
+          if ($integrationText -notmatch 'DPadX = \[int\]\$dpadX') {
+            throw 'Integration module is missing D-pad state synthesis.'
+          }
           if ($integrationText -notmatch '\$script:VirtualGamepadStarting = \$false') {
             throw 'Integration module is missing the virtual-controller start reentrancy guard.'
           }
@@ -544,6 +559,12 @@ jobs:
           }
           if ($helperText -notmatch 'rightStickY: \(1 - ry\) / 2f') {
             throw 'Virtual controller helper is missing corrected right-stick Y orientation.'
+          }
+          if ($helperText -notmatch 'parts\.Length != 8') {
+            throw 'Virtual controller helper is missing D-pad fields in the state protocol.'
+          }
+          if ($helperText -notmatch 'HMHat\.NorthWest') {
+            throw 'Virtual controller helper is missing 8-way D-pad output.'
           }
           if ($helperText -notmatch 'PRESEED_GIP_NEUTRAL') {
             throw 'Virtual controller helper is missing the pre-PnP neutral XUSB seed.'

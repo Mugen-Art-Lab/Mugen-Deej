@@ -6934,11 +6934,28 @@ function Save-MugenDeejBackupInteractive {
     $dialog.Filter = 'Mugen Deej backup (*.backup)|*.backup|All files (*.*)|*.*'
     $dialog.DefaultExt = 'backup'
     $dialog.AddExtension = $true
-    $dialog.OverwritePrompt = $true
+    # The native overwrite prompt follows the Windows shell language, which
+    # can differ from the language selected inside Mugen.
+    $dialog.OverwritePrompt = $false
     $dialog.FileName = Get-MugenDeejBackupFileName
 
     if ($dialog.ShowDialog($form) -ne [System.Windows.Forms.DialogResult]::OK) {
         return
+    }
+
+    if (Test-Path -LiteralPath $dialog.FileName -PathType Leaf) {
+        $nl = [Environment]::NewLine
+        $overwriteMessage = if ($script:Language -eq 'ru') {
+            'Файл резервной копии уже существует:' + $nl + $nl + $dialog.FileName + $nl + $nl + 'Заменить его?'
+        }
+        else {
+            'The backup file already exists:' + $nl + $nl + $dialog.FileName + $nl + $nl + 'Replace it?'
+        }
+
+        $overwriteResult = Show-MugenDeejStyledDialog -Message $overwriteMessage -Buttons 'YesNo' -Kind 'Warning'
+        if ($overwriteResult -ne [System.Windows.Forms.DialogResult]::Yes) {
+            return
+        }
     }
 
     try {
