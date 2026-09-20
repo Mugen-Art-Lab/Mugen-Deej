@@ -1495,3 +1495,45 @@ Immediate real-machine #134 sequence:
 4. open Extended Button Settings and confirm no virtual-controller enable UI or new Xbox-control picker choice is offered;
 5. return to Adaptive and confirm the saved XInput preference brings the virtual controller back automatically;
 6. explicitly turn XInput OFF on Adaptive, cycle through Legacy/Extended and back to Adaptive, and confirm it stays OFF.
+
+
+## #134 protocol-switch recovery finding -> Integrated #142 transient COM hotplug fix
+
+The real Adaptive -> Legacy -> Adaptive switch exposed a separate reconnect problem after the Adaptive-only XInput policy itself behaved correctly.
+
+Observed real-machine sequence from the supplied runtime log:
+
+- Adaptive COM14/XInput was active, then COM14 disappeared;
+- Legacy COM5 appeared and connected correctly at 9600;
+- after Legacy was removed, Windows continued to enumerate COM14 intermittently;
+- Mugen attempted to open COM14 while Windows was in the transitional state where the name was visible but `SerialPort.Open()` returned `IOException: Port 'COM14' does not exist`;
+- the ordinary failed-open path assigned a 60-second cooldown, so the valid returning Adaptive controller was not retried promptly;
+- the same log also showed duplicate `COM14, COM14` entries in port snapshots.
+
+#142 hardens general USB/COM hotplug recovery rather than special-casing firmware switching:
+
+- `Get-PortNames` now sorts and deduplicates the Windows COM list before recovery/new-port logic consumes it;
+- a new `Test-IsTransientPortOpenError` classifier recognizes the explicit Windows "port does not exist / cannot find file" hotplug transition in English/Russian exception chains;
+- that specific transient state gets a 2-second cooldown instead of the ordinary 60-second failed-open cooldown;
+- transient open failures reset accumulated failure state so a just-returning device is not poisoned by an earlier disappearance;
+- true `UnauthorizedAccess / access denied / port busy` errors keep their existing long/exponential backoff;
+- generic unknown open failures also keep the existing 60-second policy.
+
+CI note: #135-#141 were staging-only patch-construction failures while making the new runtime patch literal-safe. One useful root cause was caught in the patcher itself: .NET regex replacement treats `$_` in replacement text as "the entire input string", so the COM-dedup patch must use the literal block replacer. No failed run produced a user test artifact.
+
+Workflow:
+
+- run **#142**, run ID `35530843054` — SUCCESS;
+- built code head `7a2045c2b6769756b3717781af5ea4e47f286481`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-142`, ID `10611700235`;
+- outer Actions digest `sha256:1f3fb32de042297ab442512c6f213c454e3211ff3a8b0b5b41e9be8f631e3859`;
+- inner program ZIP SHA-256 `fd87ce0a51ab5521ba9772b50f40cfc8c5ba7f8d7ba8bfbc9b83e27b624137a1`;
+- staging, Windows PowerShell 5.1 parse/runtime assertions, helper/launcher build, packaging and upload: PASS.
+
+Immediate real-machine #142 check:
+
+1. reproduce the previous switch: Adaptive/XInput ON -> Legacy -> remove Legacy -> return Adaptive;
+2. if Windows again briefly reports COM14 but refuses `Open()`, the log should say `transient hotplug state ... retry in 2 s`, not `retry in 60 s`;
+3. Adaptive should reconnect on the next short retry without the previous roughly one-minute stall;
+4. port lists in recovery diagnostics should not contain duplicate COM names;
+5. verify Legacy/Extended still hide and tear down XInput exactly as #134 intended.
