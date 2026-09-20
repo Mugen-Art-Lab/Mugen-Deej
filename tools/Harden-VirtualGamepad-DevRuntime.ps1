@@ -126,6 +126,54 @@ $text = Replace-LiteralExactlyOnce `
 # ---------------------------------------------------------------------------
 # Experimental serial auto-baud staging
 # ---------------------------------------------------------------------------
+
+# Windows can briefly return duplicate COM names while USB serial devices are
+# being torn down/re-enumerated. Keep discovery snapshots stable so a single
+# physical port cannot appear twice in recovery diagnostics or pending lists.
+$text = Replace-RegexExactlyOnce `
+    -Text $text `
+    -Pattern '(?m)^function Get-PortNames \{\r?\n    return @\(\[System\.IO\.Ports\.SerialPort\]::GetPortNames\(\) \| Sort-Object \{ \[int\]\(\$_ -replace ''\\D'',''0''\) \}\)\r?\n\}' `
+    -Replacement @'
+function Get-PortNames {
+    return @(
+        [System.IO.Ports.SerialPort]::GetPortNames() |
+            Sort-Object { [int]($_ -replace '\D','0') } |
+            Select-Object -Unique
+    )
+}
+'@ `
+    -Label 'deduplicate COM port enumeration'
+
+# A freshly enumerated COM name can be visible through GetPortNames() a moment
+# before CreateFile/SerialPort.Open can use it. Treat only that explicit
+# "port does not exist" condition as hotplug-transient; true access-denied
+# errors keep their long busy-port backoff.
+$text = Replace-RegexExactlyOnce `
+    -Text $text `
+    -Pattern '(?m)^function Get-ExceptionDiagnosticText \{' `
+    -Replacement @'
+function Test-IsTransientPortOpenError {
+    param([Parameter(Mandatory = $true)]$ErrorRecord)
+
+    $exception = $ErrorRecord.Exception
+    while ($null -ne $exception) {
+        $message = [string]$exception.Message
+        if (
+            $message -match 'port.+does not exist|specified port.+does not exist|the system cannot find the file specified|cannot find the file' -or
+            $message -match 'порт.+не существует|не уда[её]тся найти указанный файл|системе не уда[её]тся найти указанный файл'
+        ) {
+            return $true
+        }
+        $exception = $exception.InnerException
+    }
+
+    return $false
+}
+
+function Get-ExceptionDiagnosticText {
+'@ `
+    -Label 'add transient COM-open classifier'
+
 # Keep stable/main untouched while the large-panel prototype is unproven.
 # Existing 9600-baud controllers remain the first choice on a clean config.
 # Once a controller is detected at 115200, that rate is remembered and tried
@@ -363,7 +411,16 @@ function Open-And-ProbePort {
         }
         else {
             $diagnostic = Get-ExceptionDiagnosticText -ErrorRecord $_
-            if (Test-IsPortBusyError -ErrorRecord $_) {
+            if (Test-IsTransientPortOpenError -ErrorRecord $_) {
+                # GetPortNames() may publish a hotplugged COM name before the
+                # serial device is actually openable. Do not poison that port
+                # with the ordinary 60-second failed-open cooldown.
+                Reset-PortProbeState -PortName $PortName
+                $retrySeconds = 2
+                Set-PortProbeCooldown -PortName $PortName -Seconds $retrySeconds
+                Write-Log "Failed to open ${PortName}; transient hotplug state; $diagnostic; retry in $retrySeconds s" 'WARN'
+            }
+            elseif (Test-IsPortBusyError -ErrorRecord $_) {
                 if ($script:LastScanBusyPorts -notcontains $PortName) {
                     $script:LastScanBusyPorts += $PortName
                 }
