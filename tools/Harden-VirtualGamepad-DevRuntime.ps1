@@ -149,36 +149,28 @@ function Get-PortNames {
 # Once a controller is detected at 115200, that rate is remembered and tried
 # first on the next connection. A fixed mode remains available through config.
 
-$oldDefaultBaudBlock = @'
-            baudRate = 9600
-            expectedSliders = 5
-'@
 $newDefaultBaudBlock = @'
             baudRate = 9600
             baudRateMode = 'auto'
             lastWorkingBaudRate = 0
             expectedSliders = 5
 '@
-$text = Replace-LiteralExactlyOnce `
+$text = Replace-RegexBlockExactlyOnceLiteral `
     -Text $text `
-    -OldText $oldDefaultBaudBlock `
-    -NewText $newDefaultBaudBlock `
+    -Pattern '(?m)^            baudRate = 9600\r?\n            expectedSliders = 5$' `
+    -Replacement $newDefaultBaudBlock `
     -Label 'add default auto-baud config'
 
-$oldMigrationBaudBlock = @'
-    Add-MissingConfigProperty -Object $Config.connection -Name 'baudRate' -Value 9600
-    Add-MissingConfigProperty -Object $Config.connection -Name 'expectedSliders' -Value 5
-'@
 $newMigrationBaudBlock = @'
     Add-MissingConfigProperty -Object $Config.connection -Name 'baudRate' -Value 9600
     Add-MissingConfigProperty -Object $Config.connection -Name 'baudRateMode' -Value 'auto'
     Add-MissingConfigProperty -Object $Config.connection -Name 'lastWorkingBaudRate' -Value 0
     Add-MissingConfigProperty -Object $Config.connection -Name 'expectedSliders' -Value 5
 '@
-$text = Replace-LiteralExactlyOnce `
+$text = Replace-RegexBlockExactlyOnceLiteral `
     -Text $text `
-    -OldText $oldMigrationBaudBlock `
-    -NewText $newMigrationBaudBlock `
+    -Pattern '(?m)^    Add-MissingConfigProperty -Object \$Config\.connection -Name ''baudRate'' -Value 9600\r?\n    Add-MissingConfigProperty -Object \$Config\.connection -Name ''expectedSliders'' -Value 5$' `
+    -Replacement $newMigrationBaudBlock `
     -Label 'migrate auto-baud config'
 
 $autoBaudReplacement = @'
