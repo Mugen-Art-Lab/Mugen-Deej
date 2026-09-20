@@ -303,12 +303,14 @@ Manual profile switching comes first. Automatic switching by game/process is def
 - Full digital cardboard-panel smoke test PASS: 28 buttons, 2 toggles, and encoder/push work on real Uno hardware; a >20-button simultaneous hold also registered cleanly. Five slider channels remain software placeholders pending real potentiometers.
 
 
-## Current hardware-review build — Integrated #125
+## Current hardware-review build — Integrated #129
 
-#124 remains the current functional baseline for triggers, D-pad transport, status-card work and the broader product subtitle. #125 is a focused UI iteration on top of it: the virtual Xbox control picker is now arranged spatially like an Xbox controller instead of as a flat settings table.
+#125 spatial Xbox picker received positive real-machine visual feedback; #126 only clarified its hint copy. #129 is a main-window polish pass.
 
-The picker uses a 760 x 625 fixed dialog with shoulders at the top, View/Menu in the middle, left stick upper-left, ABXY upper-right, D-pad lower-left and right stick lower-right. L3/R3 sit in the centres of their respective stick clusters. No mapping identifiers or backup schema changed.
+The status markers no longer rely on auto-sized bullet glyph baselines. Physical and virtual dots are fixed 16 x 16 centered controls and are positioned by row centre in both the one-row and two-row status layouts.
 
-Run #125 (ID `35508249973`) succeeded at head `610201c1c371fde0cc69c76d729f167bdec15f58`; artifact ID `10604323278`; outer digest `sha256:618587f1a1ed01620271d001bbd8e1eb62c3f527882fb4c1ba60b09e032d7f62`; inner ZIP SHA-256 `608db08f09489361390bffc67045a2430947d9b4115a3c110ae801f084a0841c`.
+Product subtitle is intentionally protocol-agnostic rather than changing between Legacy, Extended and Adaptive. The current wording is `Настольная панель управления / Desktop control surface`. This reflects the broader product without exposing firmware/protocol distinctions as product identity.
 
-#125 is CI PASS only for the picker geometry. Real-machine acceptance is intentionally visual: inspect recognizability, spacing and RU/EN clipping and adjust from screenshots.
+Run #129 (ID `35509790159`) succeeded at head `bf07070a7c7a7ea33450837caecbc04c9e69a56f`; artifact ID `10605255172`; inner ZIP SHA-256 `78b0948cd72430eb7a49fc801653c71c164432bd27f9ced25f0cde595582b97a`.
+
+#129 is CI PASS. Real-machine acceptance is visual: confirm dot alignment/size and whether the new universal subtitle feels correct.

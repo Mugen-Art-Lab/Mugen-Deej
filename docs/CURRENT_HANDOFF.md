@@ -1427,3 +1427,31 @@ Immediate #125 UI review:
 2. verify ABXY, D-pad, L3/R3 and shoulder placement feel natural relative to the real Xbox layout;
 3. confirm the wider fixed dialog still fits comfortably on the test display and no text clips in RU/EN;
 4. adjust spacing/button sizes by eye from the real screenshot rather than treating #125 geometry as final.
+
+
+## #125/#126 picker acceptance + status/header polish -> Integrated #129
+
+Real-machine review of the spatial Xbox picker was positive: the user explicitly preferred the spatial map over the previous flat button table. #126 only clarified the picker hint text; geometry remained unchanged.
+
+The next screenshot highlighted two main-window polish points:
+
+- the physical/virtual status bullets still looked vertically displaced because they were rendered as auto-sized font glyphs with baseline-dependent metrics;
+- the subtitle `Настольный центр управления / Desktop control hub` was broader than the old audio-only wording, but the question arose whether it should vary by Legacy/Extended/Adaptive firmware.
+
+Decision for #129: **do not couple product identity to transport protocol**. Legacy, Extended and Adaptive are firmware/protocol capabilities, not separate products, and Extended already supports physical buttons/virtual gamepad behavior beyond pure audio. Use one neutral broad subtitle for all modes:
+
+- RU: `Настольная панель управления`
+- EN: `Desktop control surface`
+
+Status bullets are now fixed-size 16 x 16 centered labels using the same typography. In the two-row XInput card their centres are aligned to the physical and virtual text-row centres; the single-row disabled card is aligned the same way. This avoids Segoe UI glyph-baseline drift and keeps both green/blue dots visually identical.
+
+Workflow:
+
+- #127/#128 were CI-only assertion repairs; product staging was not the underlying failure;
+- run **#129**, run ID `35509790159` — SUCCESS;
+- code head `bf07070a7c7a7ea33450837caecbc04c9e69a56f`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-129`, ID `10605255172`;
+- outer digest `sha256:f2709b2144ec8cf46622d753a62f702bb7170ca55f5982cce6b9de7e786a68c4`;
+- inner program ZIP SHA-256 `78b0948cd72430eb7a49fc801653c71c164432bd27f9ced25f0cde595582b97a`.
+
+Immediate #129 visual check: compare both status bullets with XInput ON and OFF and judge the new universal subtitle wording in the real window.
