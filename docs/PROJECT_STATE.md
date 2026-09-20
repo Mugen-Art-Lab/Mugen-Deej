@@ -303,22 +303,18 @@ Manual profile switching comes first. Automatic switching by game/process is def
 - Full digital cardboard-panel smoke test PASS: 28 buttons, 2 toggles, and encoder/push work on real Uno hardware; a >20-button simultaneous hold also registered cleanly. Five slider channels remain software placeholders pending real potentiometers.
 
 
-## Current hardware-review build — Integrated #122
+## Current hardware-review build — Integrated #124
 
-Real-machine #120 review is now a partial hardware PASS:
+#122 real-machine review confirmed backup restore/restart remains healthy and the localized Russian overwrite dialog works. D-pad assignments were created and persisted as ordinary virtual action strings; explicit joy.cpl D-pad output evidence is still pending.
 
-- schema-v2 restore with empty Adaptive mapping families: **PASS**;
-- emergency pre-restore backup + restart path: **PASS**;
-- restored 28-button action file reload after restart: **PASS**;
-- corrected virtual-stick Y direction in joy.cpl: **PASS**;
-- Adaptive 5/28/2/1 detection and virtual Xbox ready path remain healthy.
+#124 adds digital full-press Xbox triggers: a physical button mapped to LT or RT drives that analog trigger to 100% while held and back to 0% on release. This deliberately matches the current digital stick-direction model. Analog potentiometer -> trigger routing remains future work.
 
-The next user-visible gaps were missing D-pad mappings and an English Windows-native overwrite prompt while Mugen itself was set to Russian.
+The virtual helper state frame now carries buttons, four stick directions, D-pad X/Y, LT and RT. The picker top row is `LT | LB | RB | RT`. No backup schema bump is required because LT/RT remain ordinary `virtual:xbox:*` action strings in the existing button mapping containers.
 
-#122 adds four D-pad actions and sends them as an 8-way HIDMaestro `HMHat`. Perpendicular simultaneous directions become diagonals; opposing directions cancel on their axis. The Xbox picker gets a bilingual `Крестовина / D-pad` row.
+#124 also refines the main status card: physical and virtual rows share an aligned text column and tighter row geometry, the XInput toggle is centered over the full two-row card, and virtual status uses the same middle-dot separator style as the physical summary.
 
-Backup overwrite confirmation is now app-owned: the native SaveFileDialog overwrite prompt is disabled and Mugen shows its existing themed RU/EN Yes/No warning instead. The file picker itself remains native Windows UI.
+The product subtitle is broadened from the audio-only wording to `Настольный центр управления` / `Desktop control hub`.
 
-Run #122 (ID `35501405258`) succeeded at head `bf2f31b51d62f686950415485eefd91744ec36c0`; artifact ID `10602541332`; outer digest `sha256:04b2b9031e79acebf1450a16682f3f161a70ba9d1dd55a1d6ba5c56cfbcf9b7f`; inner ZIP SHA-256 `1927f1b81c612b3102459089e33bbfc0655a1e7a184d208e42c168c22c448991`.
+Run #124 (ID `35504754125`) succeeded at code head `f8bc133d8e41678ad9dcb3906038386e8b867f5a`; artifact ID `10603432810`; outer digest `sha256:d3d286c7d8aacf8e2a6e5c1408f5d4ef3a5e6e08e35b5392ee7bec276fc1a315`; inner ZIP SHA-256 `51adb7e3f7fa51a6191de06fc4bddb4a704074b61ecb3444224223f1e9693bf7`.
 
-#122 is CI PASS only for the new D-pad/overwrite slice. The next hardware/UI checks are joy.cpl D-pad cardinal+diagonal behavior and RU/EN overwrite-dialog localization. The compact two-row status-card visual review also remains open.
+#124 is CI PASS for the new trigger/status/subtitle slice. LT/RT real-machine output, revised status composition, and subtitle acceptance are pending.

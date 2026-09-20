@@ -120,3 +120,12 @@ Integrated #120 explicitly accepts empty collections in the button and Adaptive 
 The empty-collection restore repair from #120 is real-machine verified. A schema-v2 backup containing zero Adaptive toggle/encoder assignments restored successfully, an emergency pre-restore snapshot was created, Mugen restarted, and the 28 saved button actions were loaded again.
 
 #122 does not change backup schema or payload semantics. It changes only overwrite UX: the native Windows SaveFileDialog overwrite prompt is disabled because that prompt follows the shell language, which may differ from Mugen's selected language. If the selected path already exists, Mugen now asks for replacement using its own themed RU/EN Yes/No dialog before writing the same schema-v2 backup.
+
+
+## #124 LT/RT action compatibility
+
+Integrated #124 adds `virtual:xbox:lt` and `virtual:xbox:rt` as digital full-press trigger actions. They use the same existing Global/per-application button-action string slots as Xbox buttons, digital stick directions, and D-pad directions.
+
+Therefore schema v2 does **not** change. A #124 backup can contain LT/RT action strings and restore them through the existing button mapping payload. Older builds that predate those action kinds should not be used to edit a newer configuration because their action normalizer may not understand future virtual-action strings; forward compatibility is not implied by the v2 schema.
+
+The current LT/RT mapping is intentionally digital: held = 100%, released = 0%. Future analog potentiometer -> trigger mappings would be a separate control-routing feature and do not need to be conflated with the current button-action storage model.

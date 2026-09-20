@@ -1345,3 +1345,51 @@ Immediate #122 real-machine checks:
 2. verify opposite directions cancel cleanly (←+→ or ↑+↓);
 3. save a backup over an existing filename in RU and then EN; only Mugen's themed bilingual overwrite confirmation should appear;
 4. continue the pending visual review of the compact physical/virtual two-row status card.
+
+
+## #122 real-machine follow-up -> Integrated #124
+
+The #122 real-machine session confirmed the backup path remains healthy after the overwrite-localization change. The same schema-v2 backup restored, created an emergency copy, restarted through the launcher, re-detected the Adaptive controller as 5/28/2/1, and reloaded 28 button actions.
+
+The new D-pad picker was exercised and its mappings persisted correctly. The session saved:
+- button 16 -> D-pad up;
+- button 22 -> D-pad left;
+- button 23 -> D-pad down;
+- button 24 -> D-pad right.
+
+The localized overwrite UX is visibly correct in Russian: selecting an already-existing backup filename now produces Mugen's themed RU Yes/No dialog instead of the English native Windows overwrite prompt. The subsequent log records the backup write completing. A joy.cpl screenshot of D-pad hat output was not captured in this handoff, so assignment/persistence and overwrite UX are PASS; final D-pad HID-output acceptance remains an explicit check.
+
+The same review identified three next-slice items:
+
+1. **Xbox triggers were missing.** For the current physical-button mapping model, LT/RT should behave like digital stick directions: while the Mugen button is held, the trigger is driven fully to 100%; release returns it to 0%. Future analog-control -> trigger routing is a separate milestone.
+2. **The two-row status card still looked composed as a first-row status plus a hanging XInput button.** The XInput toggle should visually belong to the entire card, while both text rows should share one column/rhythm.
+3. **The old subtitle "Desktop audio controller / Настольный аудиоконтроллер" is no longer representative.** Mugen now handles audio, buttons, app profiles, typed controls, and virtual gamepad output.
+
+Integrated #124 implements this slice:
+
+- adds `virtual:xbox:lt` and `virtual:xbox:rt` actions;
+- LT/RT are stateful full-press analog outputs (0 or 100%), not fake ordinary buttons;
+- the helper state protocol now carries mask + four stick components + two D-pad components + LT + RT;
+- the visual picker top row is now `LT | LB | RB | RT` without making the dialog taller;
+- saved assignment labels explicitly show `LT (100%)` / `RT (100%)`;
+- the two status text rows now use the same 444 px text column, 28 px row boxes, and consistent `·` separator wording;
+- the XInput toggle is vertically centered across the two-row status card instead of being attached to row 1;
+- subtitle becomes **`Настольный центр управления` / `Desktop control hub`**.
+
+Build:
+
+- #123 was an intermediate CI-only failure: a non-ASCII status-format literal in an inline Windows PowerShell 5.1 workflow assertion was parsed unreliably;
+- run **#124**, run ID `35504754125` — SUCCESS;
+- code head `f8bc133d8e41678ad9dcb3906038386e8b867f5a`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-124`, ID `10603432810`;
+- outer digest `sha256:d3d286c7d8aacf8e2a6e5c1408f5d4ef3a5e6e08e35b5392ee7bec276fc1a315`;
+- inner program ZIP SHA-256 `51adb7e3f7fa51a6191de06fc4bddb4a704074b61ecb3444224223f1e9693bf7`;
+- staging, Windows PowerShell 5.1 parse/marker checks, helper/launcher build, packaging and upload: PASS.
+
+Immediate #124 hardware/UI checks:
+
+1. map two physical buttons to LT and RT; in joy.cpl each trigger must jump from released to full while held and return to zero on release;
+2. press LT+RT together and verify both remain independent;
+3. inspect the revised two-row status card with XInput ready/connecting and RU/EN language switching;
+4. decide whether `Настольный центр управления / Desktop control hub` feels like the right product descriptor or should be renamed before consolidating the 2.0 UI;
+5. if convenient, explicitly capture one D-pad cardinal/diagonal joy.cpl test to close the remaining #122 HID-output evidence gap.
