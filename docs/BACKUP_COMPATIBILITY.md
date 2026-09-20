@@ -104,3 +104,12 @@ Integrated #108 does **not** change the backup schema.
 The observed `System.Object[]` button-save failure was an in-memory array-shape bug in application-profile copy helpers, not a new data model. The repaired helpers emit the same ordinary action-string arrays already defined by schema v2. The additional normalizer guard likewise only preserves existing `virtual:xbox:*` strings that schema v2 already carries in Global/per-profile button action slots.
 
 The development package now reports `2.0.0 Prototype` in `createdBy` for newly created backups. `createdBy` is informational version metadata and does not alter schema compatibility; restore continues to key compatibility on `format` / `schemaVersion`, not on an exact application-version match. Stable main remains 1.0.0.
+
+
+## Empty mapping families (prototype #120)
+
+Schema v2 intentionally permits empty `buttonActions.actions`, `adaptiveActions.toggles`, and `adaptiveActions.encoders` arrays. These are valid states for a fresh configuration, a backup taken before capability-driven mapping arrays have been expanded, or a controller whose corresponding mappings have never been assigned.
+
+Integrated #119 incorrectly rejected such arrays at write/restore time because mandatory PowerShell array parameters did not declare `AllowEmptyCollection`. This could also prevent the emergency rollback from completing if the pre-restore snapshot had zero button actions.
+
+Integrated #120 explicitly accepts empty collections in the button and Adaptive action writers. Empty means “no assignments stored”, not “invalid backup”. Backup schema validation continues to reject missing properties, null items, unsupported versions, or malformed payloads.

@@ -1271,3 +1271,33 @@ Immediate real-machine #119 checks:
 3. in joy.cpl, map one physical button to left-stick ↑ and one to ↓ and verify the cross moves in the labelled direction;
 4. repeat for right-stick Y if desired;
 5. Legacy/Extended formatting remains to be regression-checked when those fixtures are next available.
+
+
+## #119 backup/Adaptive runtime regression -> Integrated #120
+
+Real-machine #119 review uncovered two independent runtime bugs before the visual/Y-axis checks could be completed.
+
+1. **Valid backup restore rejected empty mapping families.** A v2 backup can legitimately contain zero Adaptive toggle/encoder assignments even when the hardware has those controls, and a fresh/pre-detection emergency snapshot can legitimately contain zero button actions. The writers used mandatory array parameters without `AllowEmptyCollection`, so PowerShell rejected `@()`. The observed restore failed on empty `Toggles`; the emergency rollback then failed independently on empty `Actions`.
+2. **Adaptive status plural helper disappeared during final staging.** #119 introduced `Format-RussianControllerCount` immediately before `Get-ControllerConnectedStatusText`. The later `Add-AdaptiveControlMappings` final-stage patch intentionally rewrites the block from `Update-AdaptiveControlStates` up to the start of `Get-ControllerConnectedStatusText`, swallowing the helper definition but leaving its call sites intact. This is syntactically valid, so the previous PS5 parse check did not catch it; it failed only when the real Adaptive controller reached connected-status formatting.
+
+#120 fixes both:
+
+- Adaptive/button config writers explicitly accept empty collections;
+- the Russian plural formatter is now local to `Get-ControllerConnectedStatusText`, outside the final-stage overwrite hazard;
+- CI now rejects any staged runtime that still references the vanished external helper and asserts all three empty-collection writer annotations.
+
+Build:
+
+- run **#120**, run ID `35499932683` — SUCCESS;
+- code head `8d3b918d7029e54f26935384bca53783cadab170`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-120`, ID `10602405485`;
+- outer digest `sha256:6ac0e4a6cfc4e66b201d47a2d277ec21b8c5ff5470ae08929a4891a6a1200bd8`;
+- inner program ZIP SHA-256 `32b84a9cf067b004d597f80056c0957166954f6a398efa10595c38f26332ca6a`;
+- staging, Windows PowerShell 5.1 parse/marker checks, launcher/helper build, packaging and upload: PASS.
+
+Immediate real-machine #120 order:
+
+1. start with the same Adaptive 5/28/2/1 controller and confirm connected status appears without the JIT exception;
+2. restore the same backup that failed under #119; an empty mapping family must no longer block restore;
+3. accept restart and confirm the restored button/XInput mappings survive;
+4. only then resume the pending #119 checks: compact two-row status alignment and corrected joy.cpl Y direction.
