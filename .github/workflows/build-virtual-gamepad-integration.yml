@@ -452,7 +452,7 @@ jobs:
           if ($integrationText -notmatch 'VirtualGamepadProfileTimer\.Interval = 200') {
             throw 'Integration module is missing low-rate foreground-profile checks.'
           }
-          if ($integrationText -notmatch 'Виртуальный геймпад: подключён') {
+          if ($integrationText -notmatch 'Virtual gamepad: connected') {
             throw 'Integration module still changes the user-facing virtual-gamepad name after connection.'
           }
           if ($integrationText -notmatch '\$targetHeight = if \(\$Enabled\) \{ 98 \} else \{ 72 \}') {
