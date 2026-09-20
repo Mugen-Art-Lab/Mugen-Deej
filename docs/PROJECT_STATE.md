@@ -303,18 +303,12 @@ Manual profile switching comes first. Automatic switching by game/process is def
 - Full digital cardboard-panel smoke test PASS: 28 buttons, 2 toggles, and encoder/push work on real Uno hardware; a >20-button simultaneous hold also registered cleanly. Five slider channels remain software placeholders pending real potentiometers.
 
 
-## Current hardware-review build — Integrated #124
+## Current hardware-review build — Integrated #125
 
-#122 real-machine review confirmed backup restore/restart remains healthy and the localized Russian overwrite dialog works. D-pad assignments were created and persisted as ordinary virtual action strings; explicit joy.cpl D-pad output evidence is still pending.
+#124 remains the current functional baseline for triggers, D-pad transport, status-card work and the broader product subtitle. #125 is a focused UI iteration on top of it: the virtual Xbox control picker is now arranged spatially like an Xbox controller instead of as a flat settings table.
 
-#124 adds digital full-press Xbox triggers: a physical button mapped to LT or RT drives that analog trigger to 100% while held and back to 0% on release. This deliberately matches the current digital stick-direction model. Analog potentiometer -> trigger routing remains future work.
+The picker uses a 760 x 625 fixed dialog with shoulders at the top, View/Menu in the middle, left stick upper-left, ABXY upper-right, D-pad lower-left and right stick lower-right. L3/R3 sit in the centres of their respective stick clusters. No mapping identifiers or backup schema changed.
 
-The virtual helper state frame now carries buttons, four stick directions, D-pad X/Y, LT and RT. The picker top row is `LT | LB | RB | RT`. No backup schema bump is required because LT/RT remain ordinary `virtual:xbox:*` action strings in the existing button mapping containers.
+Run #125 (ID `35508249973`) succeeded at head `610201c1c371fde0cc69c76d729f167bdec15f58`; artifact ID `10604323278`; outer digest `sha256:618587f1a1ed01620271d001bbd8e1eb62c3f527882fb4c1ba60b09e032d7f62`; inner ZIP SHA-256 `608db08f09489361390bffc67045a2430947d9b4115a3c110ae801f084a0841c`.
 
-#124 also refines the main status card: physical and virtual rows share an aligned text column and tighter row geometry, the XInput toggle is centered over the full two-row card, and virtual status uses the same middle-dot separator style as the physical summary.
-
-The product subtitle is broadened from the audio-only wording to `Настольный центр управления` / `Desktop control hub`.
-
-Run #124 (ID `35504754125`) succeeded at code head `f8bc133d8e41678ad9dcb3906038386e8b867f5a`; artifact ID `10603432810`; outer digest `sha256:d3d286c7d8aacf8e2a6e5c1408f5d4ef3a5e6e08e35b5392ee7bec276fc1a315`; inner ZIP SHA-256 `51adb7e3f7fa51a6191de06fc4bddb4a704074b61ecb3444224223f1e9693bf7`.
-
-#124 is CI PASS for the new trigger/status/subtitle slice. LT/RT real-machine output, revised status composition, and subtitle acceptance are pending.
+#125 is CI PASS only for the picker geometry. Real-machine acceptance is intentionally visual: inspect recognizability, spacing and RU/EN clipping and adjust from screenshots.

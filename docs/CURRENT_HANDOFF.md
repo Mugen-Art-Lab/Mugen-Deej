@@ -1393,3 +1393,37 @@ Immediate #124 hardware/UI checks:
 3. inspect the revised two-row status card with XInput ready/connecting and RU/EN language switching;
 4. decide whether `Настольный центр управления / Desktop control hub` feels like the right product descriptor or should be renamed before consolidating the 2.0 UI;
 5. if convenient, explicitly capture one D-pad cardinal/diagonal joy.cpl test to close the remaining #122 HID-output evidence gap.
+
+
+## #124 picker review -> Integrated #125 spatial Xbox map
+
+The #124 picker remained functionally complete but visually read like a configuration table rather than an Xbox controller. Real-machine review showed that even though LT/RT, bumpers, View/Menu, ABXY, sticks and D-pad could all be assigned, the flat row-by-row layout forced the user to translate labels mentally instead of recognizing the physical controller shape.
+
+Integrated #125 changes only the picker presentation:
+
+- window grows to 760 x 625;
+- LT/LB live at the upper-left and RT/RB at the upper-right;
+- View/Menu sit near the middle;
+- the left stick is an actual four-direction cluster with L3 in its center;
+- ABXY form the familiar Y/X-B/A diamond on the upper-right;
+- the D-pad is a lower-left cross with a small non-clickable hub;
+- the right stick is a lower-right four-direction cluster with R3 in its center;
+- RU/EN labels identify Left stick / Face buttons / D-pad / Right stick;
+- existing action semantics, saved action strings, backup schema, D-pad/trigger transport and helper behavior are unchanged.
+
+Workflow:
+
+- run **#125**, run ID `35508249973` — SUCCESS;
+- code head `610201c1c371fde0cc69c76d729f167bdec15f58`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-125`;
+- artifact ID `10604323278`;
+- outer digest `sha256:618587f1a1ed01620271d001bbd8e1eb62c3f527882fb4c1ba60b09e032d7f62`;
+- inner program ZIP SHA-256 `608db08f09489361390bffc67045a2430947d9b4115a3c110ae801f084a0841c`;
+- staging, Windows PowerShell 5.1 parse/marker checks, helper/launcher build, packaging and upload: PASS.
+
+Immediate #125 UI review:
+
+1. open the picker and judge whether the controller is recognizable without reading every label;
+2. verify ABXY, D-pad, L3/R3 and shoulder placement feel natural relative to the real Xbox layout;
+3. confirm the wider fixed dialog still fits comfortably on the test display and no text clips in RU/EN;
+4. adjust spacing/button sizes by eye from the real screenshot rather than treating #125 geometry as final.
