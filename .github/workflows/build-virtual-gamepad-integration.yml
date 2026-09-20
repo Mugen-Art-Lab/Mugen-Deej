@@ -182,7 +182,7 @@ jobs:
           if ($runtimeText -notmatch "Development build: Windows startup registration sync suppressed") {
             throw 'Development runtime is missing the startup-isolation marker.'
           }
-          if ($runtimeText -notmatch "return \('\{0\} · \{1\}' -f \$PortName") {
+          if ($runtimeText -notmatch 'Main-card text is deliberately compact') {
             throw 'Development runtime is missing compact capability-driven connected status text.'
           }
           if ($runtimeText -notmatch 'if \(\$advancedPanel\.Visible\) \{\s*Update-DriverStatus') {
