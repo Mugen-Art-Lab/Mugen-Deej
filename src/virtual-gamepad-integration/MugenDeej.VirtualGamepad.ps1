@@ -14,6 +14,8 @@ $script:VirtualGamepadStartDeadline = [DateTime]::MinValue
 $script:VirtualGamepadStartTimer = $null
 $script:VirtualGamepadUiState = 'disabled'
 $script:VirtualGamepadUiTimer = $null
+$script:VirtualGamepadProfileTimer = $null
+$script:VirtualGamepadLastStatusLayoutEnabled = $null
 $script:VirtualGamepadStatusDot = $null
 $script:VirtualGamepadStatusLabel = $null
 $script:VirtualGamepadToggleButton = $null
@@ -49,6 +51,7 @@ $script:VirtualGamepadAxisActions = @{
     'virtual:xbox:rsy:down' = $true
 }
 
+
 function Ensure-MugenVirtualGamepadStatusUi {
     $panelVariable = Get-Variable -Name statusPanel -Scope Script -ErrorAction SilentlyContinue
     $labelVariable = Get-Variable -Name statusLabel -Scope Script -ErrorAction SilentlyContinue
@@ -75,7 +78,6 @@ function Ensure-MugenVirtualGamepadStatusUi {
         $script:VirtualGamepadStatusDot.Text = '●'
         $script:VirtualGamepadStatusDot.Font = New-Object System.Drawing.Font('Segoe UI', 11)
         $script:VirtualGamepadStatusDot.AutoSize = $true
-        $script:VirtualGamepadStatusDot.Location = [System.Drawing.Point]::new(16, 31)
         $script:VirtualGamepadStatusDot.Visible = $false
         $panel.Controls.Add($script:VirtualGamepadStatusDot)
     }
@@ -83,20 +85,16 @@ function Ensure-MugenVirtualGamepadStatusUi {
     if ($null -eq $script:VirtualGamepadStatusLabel -or $script:VirtualGamepadStatusLabel.IsDisposed) {
         $script:VirtualGamepadStatusLabel = New-Object System.Windows.Forms.Label
         $script:VirtualGamepadStatusLabel.AutoSize = $false
-        $script:VirtualGamepadStatusLabel.Size = [System.Drawing.Size]::new(448, 25)
-        $script:VirtualGamepadStatusLabel.Location = [System.Drawing.Point]::new(46, 30)
+        $script:VirtualGamepadStatusLabel.Size = [System.Drawing.Size]::new(444, 26)
         $script:VirtualGamepadStatusLabel.TextAlign = 'MiddleLeft'
         $script:VirtualGamepadStatusLabel.ForeColor = $physicalLabel.ForeColor
         $script:VirtualGamepadStatusLabel.Visible = $false
         $panel.Controls.Add($script:VirtualGamepadStatusLabel)
     }
 
-    # Canonical virtual-gamepad on/off control. XInput is a device-level feature,
-    # not a setting that should be discoverable only inside physical-button mappings.
     if ($null -eq $script:VirtualGamepadToggleButton -or $script:VirtualGamepadToggleButton.IsDisposed) {
         $script:VirtualGamepadToggleButton = New-Object MugenDeejWindowing.MugenButton
         $script:VirtualGamepadToggleButton.Tag = 'MugenSection'
-        $script:VirtualGamepadToggleButton.Location = [System.Drawing.Point]::new(506, 15)
         $script:VirtualGamepadToggleButton.Size = [System.Drawing.Size]::new(112, 30)
         $script:VirtualGamepadToggleButton.Add_Click({
             try {
@@ -116,17 +114,65 @@ function Ensure-MugenVirtualGamepadStatusUi {
     return $true
 }
 
+function Set-MugenVirtualGamepadStatusLayout {
+    param([Parameter(Mandatory = $true)][bool]$Enabled)
+
+    if (-not (Ensure-MugenVirtualGamepadStatusUi)) { return }
+
+    $panel = (Get-Variable -Name statusPanel -Scope Script).Value
+    $physicalLabel = (Get-Variable -Name statusLabel -Scope Script).Value
+    $physicalDot = (Get-Variable -Name statusDot -Scope Script).Value
+
+    $targetHeight = if ($Enabled) { 98 } else { 72 }
+    $layoutChanged = ($panel.Height -ne $targetHeight)
+
+    if ($Enabled) {
+        $panel.Size = [System.Drawing.Size]::new(632, $targetHeight)
+        $physicalDot.Location = [System.Drawing.Point]::new(14, 12)
+        $physicalLabel.Location = [System.Drawing.Point]::new(46, 6)
+        $physicalLabel.Size = [System.Drawing.Size]::new(444, 42)
+        $script:VirtualGamepadStatusDot.Location = [System.Drawing.Point]::new(16, 59)
+        $script:VirtualGamepadStatusLabel.Location = [System.Drawing.Point]::new(46, 54)
+        $script:VirtualGamepadStatusLabel.Size = [System.Drawing.Size]::new(444, 30)
+        $script:VirtualGamepadToggleButton.Location = [System.Drawing.Point]::new(506, 34)
+    }
+    else {
+        $panel.Size = [System.Drawing.Size]::new(632, $targetHeight)
+        $physicalDot.Location = [System.Drawing.Point]::new(14, 20)
+        $physicalLabel.Location = [System.Drawing.Point]::new(46, 9)
+        $physicalLabel.Size = [System.Drawing.Size]::new(444, 50)
+        $script:VirtualGamepadToggleButton.Location = [System.Drawing.Point]::new(506, 21)
+    }
+
+    if (
+        $layoutChanged -or
+        $null -eq $script:VirtualGamepadLastStatusLayoutEnabled -or
+        [bool]$script:VirtualGamepadLastStatusLayoutEnabled -ne $Enabled
+    ) {
+        $script:VirtualGamepadLastStatusLayoutEnabled = $Enabled
+        try {
+            if ($null -ne (Get-Command -Name Set-MainButtonLayout -CommandType Function -ErrorAction SilentlyContinue)) {
+                $hasButtons = ($script:IsConnected -and [int]$script:DetectedButtonCount -gt 0)
+                Set-MainButtonLayout -HasButtons $hasButtons
+            }
+        }
+        catch {
+            Write-Log ('Virtual gamepad status layout refresh failed: {0}' -f $_.Exception.Message) 'WARN'
+        }
+    }
+}
+
 function Update-MugenVirtualGamepadStatusUi {
     if (-not (Ensure-MugenVirtualGamepadStatusUi)) { return }
 
     $physicalLabel = (Get-Variable -Name statusLabel -Scope Script).Value
-    $physicalDot = (Get-Variable -Name statusDot -Scope Script).Value
-
     $enabled = (
         $script:VirtualGamepadConfigLoaded -and
         $null -ne $script:VirtualGamepadConfig -and
         [bool]$script:VirtualGamepadConfig.enabled
     )
+
+    Set-MugenVirtualGamepadStatusLayout -Enabled $enabled
 
     if ($null -ne $script:VirtualGamepadToggleButton -and -not $script:VirtualGamepadToggleButton.IsDisposed) {
         $script:VirtualGamepadToggleButton.Text = if ($script:Language -eq 'ru') {
@@ -140,15 +186,8 @@ function Update-MugenVirtualGamepadStatusUi {
     if (-not $enabled) {
         $script:VirtualGamepadStatusDot.Visible = $false
         $script:VirtualGamepadStatusLabel.Visible = $false
-        $physicalDot.Location = [System.Drawing.Point]::new(14, 12)
-        $physicalLabel.Location = [System.Drawing.Point]::new(46, 10)
-        $physicalLabel.Size = [System.Drawing.Size]::new(448, 38)
         return
     }
-
-    $physicalDot.Location = [System.Drawing.Point]::new(14, 0)
-    $physicalLabel.Location = [System.Drawing.Point]::new(46, 0)
-    $physicalLabel.Size = [System.Drawing.Size]::new(448, 29)
 
     $script:VirtualGamepadStatusDot.Visible = $true
     $script:VirtualGamepadStatusLabel.Visible = $true
@@ -164,7 +203,7 @@ function Update-MugenVirtualGamepadStatusUi {
             $color = [System.Drawing.Color]::RoyalBlue
         }
         'ready' {
-            $text = if ($ru) { 'Mugen Deej Virtual Gamepad: подключён' } else { 'Mugen Deej Virtual Gamepad: connected' }
+            $text = if ($ru) { 'Виртуальный геймпад: подключён' } else { 'Virtual gamepad: connected' }
             $color = [System.Drawing.Color]::SeaGreen
         }
         'error' {
@@ -181,6 +220,24 @@ function Update-MugenVirtualGamepadStatusUi {
         $script:VirtualGamepadStatusLabel.Text = $text
     }
     $script:VirtualGamepadStatusDot.ForeColor = $color
+}
+
+function Refresh-MugenVirtualGamepadLocalizedStatus {
+    if (-not (Ensure-MugenVirtualGamepadStatusUi)) { return }
+
+    try {
+        if (
+            $script:IsConnected -and
+            -not [string]::IsNullOrWhiteSpace([string]$script:ConnectedPort) -and
+            $null -ne (Get-Command -Name Get-ControllerConnectedStatusText -CommandType Function -ErrorAction SilentlyContinue)
+        ) {
+            $physicalLabel = (Get-Variable -Name statusLabel -Scope Script).Value
+            $physicalLabel.Text = Get-ControllerConnectedStatusText -PortName ([string]$script:ConnectedPort)
+        }
+    }
+    catch { }
+
+    Update-MugenVirtualGamepadStatusUi
 }
 
 function Set-MugenVirtualGamepadUiState {
@@ -686,8 +743,26 @@ function Get-MugenVirtualGamepadOutputState {
     }
 }
 
-function Update-MugenVirtualGamepadButtonStates {
+
+function Test-MugenVirtualGamepadPhysicalStateChanged {
     param([int[]]$Values)
+
+    $current = @($Values)
+    $previous = @($script:VirtualGamepadLastPhysicalButtons)
+    if ($current.Count -ne $previous.Count) { return $true }
+
+    for ($i = 0; $i -lt $current.Count; $i++) {
+        if ([int]$current[$i] -ne [int]$previous[$i]) { return $true }
+    }
+
+    return $false
+}
+
+function Update-MugenVirtualGamepadButtonStates {
+    param(
+        [int[]]$Values,
+        [switch]$ForceProfileCheck
+    )
 
     Initialize-MugenVirtualGamepadConfig
 
@@ -710,6 +785,14 @@ function Update-MugenVirtualGamepadButtonStates {
 
     if (-not (Start-MugenVirtualGamepad)) { return }
 
+    # Unchanged 25 ms button heartbeats must not resolve the foreground process
+    # and rebuild profile state on the UI thread. A separate 200 ms profile
+    # timer retains safe focus/profile boundary behavior.
+    $physicalChanged = Test-MugenVirtualGamepadPhysicalStateChanged -Values $valuesArray
+    if (-not $physicalChanged -and -not $ForceProfileCheck) {
+        return
+    }
+
     $context = Get-MugenVirtualGamepadButtonProfileContext
     $profileKey = [string]$context.Key
     $previousProfileKey = [string]$script:VirtualGamepadLastButtonProfileKey
@@ -721,17 +804,12 @@ function Update-MugenVirtualGamepadButtonStates {
     elseif ($previousProfileKey -ne $profileKey) {
         try {
             # Profile identity, not the focus-change mechanism, is the boundary.
-            # Game -> unprofiled Explorer/OBS means Game -> Global; two unrelated
-            # unprofiled apps both resolve to Global and therefore do not reset.
             [void](Send-MugenVirtualGamepadCommand -Command 'state 0 0 0 0 0')
 
             $script:VirtualGamepadLastMask = [uint32]0
             $script:VirtualGamepadLastOutputSignature = '0|0|0|0|0'
             $script:VirtualGamepadSuppressedPhysicalButtons = @{}
 
-            # A physical button already held across a profile boundary must not
-            # become a fresh button press or stick deflection in the new profile.
-            # It remains suppressed until a real release frame arrives.
             for ($i = 0; $i -lt $valuesArray.Count; $i++) {
                 $wasHeld = ($previousValues.Count -gt $i -and [int]$previousValues[$i] -eq 0)
                 $isHeld = ([int]$valuesArray[$i] -eq 0)
@@ -766,6 +844,27 @@ function Update-MugenVirtualGamepadButtonStates {
     }
 }
 
+function Ensure-MugenVirtualGamepadProfileTimer {
+    if ($null -ne $script:VirtualGamepadProfileTimer) { return }
+
+    $script:VirtualGamepadProfileTimer = New-Object System.Windows.Forms.Timer
+    $script:VirtualGamepadProfileTimer.Interval = 200
+    $script:VirtualGamepadProfileTimer.Add_Tick({
+        try {
+            if (
+                $script:VirtualGamepadActive -and
+                $script:IsConnected -and
+                $script:DetectedButtonCount -gt 0 -and
+                @($script:LatestButtons).Count -gt 0
+            ) {
+                Update-MugenVirtualGamepadButtonStates -Values @($script:LatestButtons) -ForceProfileCheck
+            }
+        }
+        catch { }
+    })
+    $script:VirtualGamepadProfileTimer.Start()
+}
+
 function Sync-MugenVirtualGamepadState {
     param([int[]]$Values = @())
 
@@ -792,3 +891,4 @@ function Sync-MugenVirtualGamepadState {
 }
 
 Ensure-MugenVirtualGamepadUiTimer
+Ensure-MugenVirtualGamepadProfileTimer
