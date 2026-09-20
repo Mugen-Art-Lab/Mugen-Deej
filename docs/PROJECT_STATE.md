@@ -303,15 +303,25 @@ Manual profile switching comes first. Automatic switching by game/process is def
 - Full digital cardboard-panel smoke test PASS: 28 buttons, 2 toggles, and encoder/push work on real Uno hardware; a >20-button simultaneous hold also registered cleanly. Five slider channels remain software placeholders pending real potentiometers.
 
 
-## Current hardware-review build — Integrated #108
+## Current hardware-review build — Integrated #113
 
-Integrated #108 is the current dev package for the real 5/28/2/1 cardboard controller.
+#108 real-machine review verified the `2.0.0 Prototype` title and main-window XInput control, but exposed noticeable UI/input lag with XInput enabled, cramped status-card layout, and partial RU/EN status localization.
 
-- run ID `35474728701`, run #108 — SUCCESS;
-- built code head `8baafb0d9870ff23b1b9fb82b2c2ad7ca200317c`;
-- artifact ID `10593492558`;
-- inner ZIP SHA-256 `607defc6e9256714ebea0ace14d1fb80922f9ff611fe0a5e38337909d63f417c`.
+Integrated #113 addresses those findings:
 
-The build fixes the real save failure that logged `button-actions.json: System.Object[]`: application-profile copy helpers no longer produce nested arrays, and virtual Xbox/stick action strings survive the legacy button-normalization pass. It also expands the clipped RU profile help text, moves virtual-controller power out of the large button-mapping editor to a dedicated main-window XInput on/off control, and brands only the dev-stage package as `Mugen Deej 2.0.0 Prototype`. Stable `main` remains public 1.0.0.
+- unchanged 25 ms Adaptive button heartbeats no longer resolve the foreground process/profile on every frame;
+- a 200 ms profile timer preserves effective-profile switching and held-input suppression semantics;
+- the status card grows from 72 px disabled to 98 px enabled and the rest of the main layout follows its actual bottom edge;
+- language changes explicitly refresh both physical and virtual status rows;
+- the UI name remains `Виртуальный геймпад / Virtual gamepad` after connection;
+- helper OEM naming remains `Mugen Deej Virtual Gamepad` for joy.cpl/DirectInput.
 
-#108 is CI PASS, not hardware PASS. Re-test mapping persistence across Save/editor reopen/app restart/controller reconnect, the new main XInput control, and joy.cpl digital-stick behavior before promoting any of those fixes.
+Build:
+
+- run ID `35491496076`, run #113 — SUCCESS;
+- built code head `3623b98bab8a2e080552ae36d46ecdee7bed0d16`;
+- artifact ID `10599770256`;
+- outer Actions digest `sha256:813576049549fe9439725d6828cf102df47276134e71dada510ae245f9b20a09`;
+- inner ZIP SHA-256 `c071a0b532ec2a9a35bb4d43058f275a489177eaa880d8f53137954072b0cca9`.
+
+#113 is CI PASS only. Real-machine review must confirm responsiveness with XInput enabled, the two-row status layout, full language switching, mapping persistence, and joy.cpl naming before any of those fixes are marked hardware/UI PASS.

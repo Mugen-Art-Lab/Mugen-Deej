@@ -942,17 +942,18 @@ Nonblocking teardown has CI coverage but its final real-hardware re-test remains
 
 ## Immediate next work
 
-Hardware-review **Integrated #108**. The cardboard panel's digital hardware is now proven, so the next pass should focus on the newly fixed software path:
+Hardware-review **Integrated #113**. #108 proved the new 2.0.0 Prototype identity and standalone XInput control are visible on the real machine, but it also exposed three follow-up problems: noticeable UI/input lag while the virtual controller is enabled, a cramped two-row status card, and partial language switching in that status area.
 
-1. confirm the title bar/log identify the dev package as `Mugen Deej 2.0.0 Prototype`;
-2. open RU button settings and confirm the General/application-profile explanation is fully visible;
-3. assign B1/B2/etc. to left-stick directions, Save, close/reopen the editor, and confirm the assignments persist;
-4. restart/reconnect the controller and confirm those virtual mappings still persist (normalization must not rewrite them to `none`);
-5. use the new main-window `XInput: Вкл/Выкл` control and verify the virtual pad appears/disappears without returning to button settings;
-6. verify press/hold/release deflects/centers the stick in joy.cpl, then test opposite-direction cancellation and mixed virtual button+axis holds;
-7. retain effective-profile boundary safety checks and the pending Extended-profile / old-v1-current-v2 backup restore tests.
+For #113, verify:
 
-CI/code inspection for #108 is green but **none of the #108 UI/persistence changes are hardware PASS until this retest is completed**.
+1. with XInput enabled, rapidly rotate the encoder and press several physical buttons; the main UI should remain as responsive as it is with XInput disabled;
+2. the status card should have deliberate padding and enough height for the physical-controller row plus the virtual-gamepad row, with the rest of the window shifted down rather than overlapped/cramped;
+3. RU <-> EN switching should immediately update both status rows and the XInput button;
+4. the user-facing second row must stay named `Виртуальный геймпад / Virtual gamepad` in waiting, connecting, connected, and error states;
+5. joy.cpl must still show the OEM device name `Mugen Deej Virtual Gamepad`;
+6. continue the #108 mapping-persistence checks (Save/reopen/restart/reconnect), digital-stick behavior, and effective-profile boundary tests.
+
+#113 is CI PASS, not hardware/UI PASS until this real-machine review is complete.
 
 
 ## Foreground profile switching safety requirement
@@ -1084,3 +1085,43 @@ Workflow run:
 Runs #102-#107 were development/CI repair iterations while introducing this slice; #108 is the first fully green package and is the only build from this sequence to hand to the hardware tester.
 
 No backup schema bump is introduced. The action values are still ordinary strings in the existing Global/per-profile button arrays; #108 repairs their in-memory/save shape and validation rather than changing the file format.
+
+
+## #108 real-machine UI review -> Integrated #113
+
+Real-machine review of #108 confirmed the new product identity appears correctly as **Mugen Deej 2.0.0 Prototype** and the standalone XInput control is reachable from the main window. Enabling the virtual controller also successfully reached the connected state.
+
+The same review exposed three issues:
+
+- while XInput was enabled, the main interface became noticeably less responsive to physical input; encoder motion made the lag easiest to see;
+- the 60-ish pixel status card was being forced to hold a long physical-controller status line, a second virtual-controller row, and the XInput control, producing wrapping/crowding against the card edges;
+- changing language while virtual output was active could leave the physical status row in the previous language even though the rest of the main UI and virtual row had switched.
+
+The uploaded runtime log confirms the controller itself continued delivering encoder/button events after the virtual helper became ready, so this was treated as a desktop/UI-thread workload problem rather than serial input loss.
+
+Root performance issue found in code: every Adaptive heartbeat carries the complete physical button array, and the virtual-output bridge was resolving the foreground process/application profile on every unchanged heartbeat. With the cardboard firmware's ~25 ms stream, this meant repeated foreground-process/profile work on the WinForms thread even when no virtual button state changed.
+
+#113 changes:
+
+- unchanged physical button frames now take a cheap equality fast path;
+- foreground-profile boundary checks move to a dedicated 200 ms timer, preserving held-button/profile-switch safety without doing process lookup on every heartbeat;
+- the status card now expands to a real two-row layout when XInput is enabled and main-window content starts below the card's actual bottom instead of fixed Y=160;
+- physical + virtual status localization is refreshed together after RU/EN changes;
+- the user-facing virtual row is consistently `Виртуальный геймпад / Virtual gamepad` for waiting/connecting/connected/error;
+- the helper's OEM display name is intentionally unchanged, so joy.cpl/DirectInput should continue to show **Mugen Deej Virtual Gamepad**.
+
+Workflow:
+
+- run number: **#113**
+- run ID: `35491496076`
+- built code head: `3623b98bab8a2e080552ae36d46ecdee7bed0d16`
+- result: **SUCCESS**
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-113`
+- artifact ID: `10599770256`
+- outer Actions digest: `sha256:813576049549fe9439725d6828cf102df47276134e71dada510ae245f9b20a09`
+- inner program ZIP SHA-256: `c071a0b532ec2a9a35bb4d43058f275a489177eaa880d8f53137954072b0cca9`
+- staging: PASS
+- Windows PowerShell 5.1 parse/runtime marker check: PASS
+- helper/launcher/package/upload: PASS
+
+#112 failed only because a newly added Cyrillic CI literal was not safe in the Windows PowerShell 5.1 workflow command encoding. The runtime itself staged successfully. #113 replaces that CI assertion with an ASCII-safe marker and is the build to test.
