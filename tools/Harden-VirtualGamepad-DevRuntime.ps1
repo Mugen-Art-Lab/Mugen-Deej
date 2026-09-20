@@ -144,54 +144,6 @@ function Get-PortNames {
 '@ `
     -Label 'deduplicate COM port enumeration'
 
-# A freshly enumerated COM name can be visible through GetPortNames() a moment
-# before CreateFile/SerialPort.Open can use it. Treat only that explicit
-# "port does not exist" condition as hotplug-transient; true access-denied
-# errors keep their long busy-port backoff. The busy helper is a unique
-# structural anchor in the integrated runtime, unlike the diagnostic formatter.
-$busyAndTransientHelpers = @'
-function Test-IsPortBusyError {
-    param([Parameter(Mandatory = $true)]$ErrorRecord)
-
-    $exception = $ErrorRecord.Exception
-    while ($null -ne $exception) {
-        if ($exception -is [System.UnauthorizedAccessException]) { return $true }
-        $message = [string]$exception.Message
-        if ($message -match 'access to the port.+denied|access.+denied|доступ к порту.+закрыт|отказано в доступе') {
-            return $true
-        }
-        $exception = $exception.InnerException
-    }
-    return $false
-}
-
-function Test-IsTransientPortOpenError {
-    param([Parameter(Mandatory = $true)]$ErrorRecord)
-
-    $exception = $ErrorRecord.Exception
-    while ($null -ne $exception) {
-        $message = [string]$exception.Message
-        if (
-            $message -match 'port.+does not exist|specified port.+does not exist|the system cannot find the file specified|cannot find the file' -or
-            $message -match 'порт.+не существует|не уда[её]тся найти указанный файл|системе не уда[её]тся найти указанный файл'
-        ) {
-            return $true
-        }
-        $exception = $exception.InnerException
-    }
-
-    return $false
-}
-
-function Get-ExceptionDiagnosticText {
-'@
-
-$text = Replace-RegexBlockExactlyOnceLiteral `
-    -Text $text `
-    -Pattern '(?ms)^function Test-IsPortBusyError \{.*?^function Get-ExceptionDiagnosticText \{' `
-    -Replacement $busyAndTransientHelpers `
-    -Label 'add transient COM-open classifier'
-
 # Keep stable/main untouched while the large-panel prototype is unproven.
 # Existing 9600-baud controllers remain the first choice on a clean config.
 # Once a controller is detected at 115200, that rate is remembered and tried
@@ -256,6 +208,24 @@ function Get-ControllerBaudCandidates {
     }
 
     return @($ordered.ToArray())
+}
+
+function Test-IsTransientPortOpenError {
+    param([Parameter(Mandatory = $true)]$ErrorRecord)
+
+    $exception = $ErrorRecord.Exception
+    while ($null -ne $exception) {
+        $message = [string]$exception.Message
+        if (
+            $message -match 'port.+does not exist|specified port.+does not exist|the system cannot find the file specified|cannot find the file' -or
+            $message -match 'порт.+не существует|не уда[её]тся найти указанный файл|системе не уда[её]тся найти указанный файл'
+        ) {
+            return $true
+        }
+        $exception = $exception.InnerException
+    }
+
+    return $false
 }
 
 function Open-And-ProbePort {
