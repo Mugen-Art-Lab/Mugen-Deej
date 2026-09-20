@@ -383,6 +383,18 @@ jobs:
           if ($runtimeText -notmatch '\$script:ControllerRecoverySlowSeconds = 10') {
             throw 'Development runtime is missing low-frequency runtime recovery cadence.'
           }
+          if ($runtimeText -notmatch 'function Test-IsTransientPortOpenError') {
+            throw 'Development runtime is missing the transient COM-open classifier.'
+          }
+          if ($runtimeText -notmatch 'transient hotplug state') {
+            throw 'Development runtime still sends freshly enumerated-but-not-openable COM ports into the long failed-open backoff.'
+          }
+          if ($runtimeText -notmatch 'Set-PortProbeCooldown -PortName \$PortName -Seconds \$retrySeconds') {
+            throw 'Development runtime is missing the short transient hotplug cooldown.'
+          }
+          if ($runtimeText -notmatch 'Select-Object -Unique') {
+            throw 'Development runtime does not deduplicate transient duplicate COM names.'
+          }
           if ($runtimeText -notmatch '\$script:KnownPorts = @\(\$currentPorts \| Where-Object \{ \$_ -ne \$portName \}\)') {
             throw 'Development runtime does not forget the stale resume port before auto-reconnect.'
           }
