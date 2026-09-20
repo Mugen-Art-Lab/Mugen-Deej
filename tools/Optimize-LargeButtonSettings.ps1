@@ -589,7 +589,10 @@ function Show-LargeButtonSettings {
 
                 $currentAction = [string]$pendingActions[$index]
 
-                if ($script:VirtualGamepadFeatureAvailable) {
+                if (
+                    $script:VirtualGamepadFeatureAvailable -and
+                    (Test-MugenVirtualGamepadProtocolAvailable)
+                ) {
                     if (Test-MugenVirtualGamepadAction -Action $currentAction) {
                         [void]$actionCombo.Items.Add((Get-MugenVirtualGamepadActionDisplay -Action $currentAction))
                         [void]$state.ActionMap.Add($currentAction)
