@@ -3029,7 +3029,7 @@ $script:Strings = @{
         ThemeAuto = 'Авто'
         ThemeLight = 'Светлая'
         ThemeDark = 'Тёмная'
-        Subtitle = 'Настольный центр управления'
+        Subtitle = 'Настольная панель управления'
         Starting = 'Запуск…'
         KnobStatus = 'Состояние регуляторов'
         ConfigureKnobs = 'Настроить регуляторы'
@@ -3173,7 +3173,7 @@ $script:Strings = @{
         ThemeAuto = 'Auto'
         ThemeLight = 'Light'
         ThemeDark = 'Dark'
-        Subtitle = 'Desktop control hub'
+        Subtitle = 'Desktop control surface'
         Starting = 'Starting…'
         KnobStatus = 'Control status'
         ConfigureKnobs = 'Configure controls'
@@ -9273,9 +9273,11 @@ $form.Controls.Add($statusPanel)
 
 $statusDot = New-Object System.Windows.Forms.Label
 $statusDot.Text = '●'
-$statusDot.Font = New-Object System.Drawing.Font('Segoe UI', 16)
-$statusDot.AutoSize = $true
-$statusDot.Location = New-Object System.Drawing.Point(14, 12)
+$statusDot.Font = New-Object System.Drawing.Font('Segoe UI Symbol', 9)
+$statusDot.AutoSize = $false
+$statusDot.Size = New-Object System.Drawing.Size(16, 16)
+$statusDot.TextAlign = 'MiddleCenter'
+$statusDot.Location = New-Object System.Drawing.Point(15, 22)
 $statusPanel.Controls.Add($statusDot)
 
 $statusLabel = New-Object System.Windows.Forms.Label

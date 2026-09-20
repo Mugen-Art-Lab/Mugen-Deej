@@ -206,8 +206,11 @@ jobs:
           if ($runtimeText -notmatch '\$dialog\.OverwritePrompt = \$false') {
             throw 'Development runtime still delegates backup overwrite confirmation to the OS language.'
           }
-          if ($runtimeText -notmatch 'Desktop control hub') {
-            throw 'Development runtime still uses the old audio-only product subtitle.'
+          if ($runtimeText -notmatch 'Desktop control surface') {
+            throw 'Development runtime is missing the protocol-agnostic control-surface subtitle.'
+          }
+          if ($runtimeText -notmatch "\$statusDot\.Font = New-Object System\.Drawing\.Font\('Segoe UI Symbol', 9\)") {
+            throw 'Development runtime is missing the fixed centered physical status dot.'
           }
           if ($runtimeText -notmatch 'Spatial Xbox-style control map') {
             throw 'Development runtime is missing the spatial Xbox control picker.'
@@ -509,8 +512,11 @@ jobs:
           if ($integrationText -notmatch '\$script:VirtualGamepadStatusDot\.Font = \$physicalDot\.Font') {
             throw 'Integration module does not match physical and virtual status marker typography.'
           }
-          if ($integrationText -notmatch 'VirtualGamepadStatusDot\.Location = \[System\.Drawing\.Point\]::new\(14, 34\)') {
-            throw 'Integration module does not vertically align the virtual status marker.'
+          if ($integrationText -notmatch 'VirtualGamepadStatusDot\.Location = \[System\.Drawing\.Point\]::new\(15, 37\)') {
+            throw 'Integration module does not vertically center the virtual status marker.'
+          }
+          if ($integrationText -notmatch 'VirtualGamepadStatusDot\.Size = \[System\.Drawing\.Size\]::new\(16, 16\)') {
+            throw 'Integration module is missing the fixed-size virtual status dot.'
           }
           if ($integrationText -notmatch 'VirtualGamepadStatusLabel\.Size = \[System\.Drawing\.Size\]::new\(444, 28\)') {
             throw 'Integration module is missing the aligned two-row status text column.'

@@ -88,10 +88,12 @@ function Ensure-MugenVirtualGamepadStatusUi {
     if ($null -eq $script:VirtualGamepadStatusDot -or $script:VirtualGamepadStatusDot.IsDisposed) {
         $script:VirtualGamepadStatusDot = New-Object System.Windows.Forms.Label
         $script:VirtualGamepadStatusDot.Text = '●'
-        # Reuse the physical status marker typography so both rows have
-        # the same dot size and baseline.
+        # Fixed-size centered glyphs avoid Segoe UI baseline drift between the
+        # two status rows and remain stable across DPI/font metric changes.
         $script:VirtualGamepadStatusDot.Font = $physicalDot.Font
-        $script:VirtualGamepadStatusDot.AutoSize = $true
+        $script:VirtualGamepadStatusDot.AutoSize = $false
+        $script:VirtualGamepadStatusDot.Size = [System.Drawing.Size]::new(16, 16)
+        $script:VirtualGamepadStatusDot.TextAlign = 'MiddleCenter'
         $script:VirtualGamepadStatusDot.Visible = $false
         $panel.Controls.Add($script:VirtualGamepadStatusDot)
     }
@@ -154,11 +156,11 @@ function Set-MugenVirtualGamepadStatusLayout {
     if ($Enabled) {
         # Two tightly stacked status rows. Both markers use the same font and
         # X coordinate, so the rows read as one aligned status block.
-        $physicalDot.Location = [System.Drawing.Point]::new(14, 6)
+        $physicalDot.Location = [System.Drawing.Point]::new(15, 9)
         $physicalLabel.Location = [System.Drawing.Point]::new(46, 3)
         $physicalLabel.Size = [System.Drawing.Size]::new(444, 28)
 
-        $script:VirtualGamepadStatusDot.Location = [System.Drawing.Point]::new(14, 34)
+        $script:VirtualGamepadStatusDot.Location = [System.Drawing.Point]::new(15, 37)
         $script:VirtualGamepadStatusLabel.Location = [System.Drawing.Point]::new(46, 31)
         $script:VirtualGamepadStatusLabel.Size = [System.Drawing.Size]::new(444, 28)
 
@@ -169,7 +171,7 @@ function Set-MugenVirtualGamepadStatusLayout {
     else {
         # Restore the original single-row card height/vertical rhythm when the
         # virtual device is off.
-        $physicalDot.Location = [System.Drawing.Point]::new(14, 12)
+        $physicalDot.Location = [System.Drawing.Point]::new(15, 21)
         $physicalLabel.Location = [System.Drawing.Point]::new(46, 10)
         $physicalLabel.Size = [System.Drawing.Size]::new(444, 38)
         $script:VirtualGamepadToggleButton.Location = [System.Drawing.Point]::new(506, 15)
