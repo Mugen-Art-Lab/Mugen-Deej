@@ -147,11 +147,42 @@ function Get-PortNames {
 # A freshly enumerated COM name can be visible through GetPortNames() a moment
 # before CreateFile/SerialPort.Open can use it. Treat only that explicit
 # "port does not exist" condition as hotplug-transient; true access-denied
-# errors keep their long busy-port backoff.
-$text = Replace-RegexExactlyOnce `
-    -Text $text `
-    -Pattern '(?m)^function Get-ExceptionDiagnosticText \{' `
-    -Replacement @'
+# errors keep their long busy-port backoff. Anchor the insertion to the unique
+# busy-port helper because the integrated runtime contains more than one
+# diagnostic formatter.
+$oldBusyClassifier = @'
+function Test-IsPortBusyError {
+    param([Parameter(Mandatory = $true)]$ErrorRecord)
+
+    $exception = $ErrorRecord.Exception
+    while ($null -ne $exception) {
+        if ($exception -is [System.UnauthorizedAccessException]) { return $true }
+        $message = [string]$exception.Message
+        if ($message -match 'access to the port.+denied|access.+denied|доступ к порту.+закрыт|отказано в доступе') {
+            return $true
+        }
+        $exception = $exception.InnerException
+    }
+    return $false
+}
+'@
+
+$newBusyClassifier = @'
+function Test-IsPortBusyError {
+    param([Parameter(Mandatory = $true)]$ErrorRecord)
+
+    $exception = $ErrorRecord.Exception
+    while ($null -ne $exception) {
+        if ($exception -is [System.UnauthorizedAccessException]) { return $true }
+        $message = [string]$exception.Message
+        if ($message -match 'access to the port.+denied|access.+denied|доступ к порту.+закрыт|отказано в доступе') {
+            return $true
+        }
+        $exception = $exception.InnerException
+    }
+    return $false
+}
+
 function Test-IsTransientPortOpenError {
     param([Parameter(Mandatory = $true)]$ErrorRecord)
 
@@ -169,9 +200,12 @@ function Test-IsTransientPortOpenError {
 
     return $false
 }
+'@
 
-function Get-ExceptionDiagnosticText {
-'@ `
+$text = Replace-LiteralExactlyOnce `
+    -Text $text `
+    -OldText $oldBusyClassifier `
+    -NewText $newBusyClassifier `
     -Label 'add transient COM-open classifier'
 
 # Keep stable/main untouched while the large-panel prototype is unproven.
