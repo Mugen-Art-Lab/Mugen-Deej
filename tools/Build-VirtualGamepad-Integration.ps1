@@ -373,8 +373,12 @@ $text = Replace-RegexExactlyOnce `
     -Text $text `
     -Pattern '(?m)^(    \$buttonForm = New-Object System\.Windows\.Forms\.Form\r?)$' `
     -Replacement @'
+    $virtualProtocolAvailable = (
+        $script:VirtualGamepadFeatureAvailable -and
+        (Test-MugenVirtualGamepadProtocolAvailable)
+    )
     $pendingVirtualEnabled = $false
-    if ($script:VirtualGamepadFeatureAvailable) {
+    if ($virtualProtocolAvailable) {
         $pendingVirtualEnabled = Get-MugenVirtualGamepadEnabled
     }
 
@@ -387,8 +391,8 @@ $text = Replace-RegexExactlyOnce `
     -Text $text `
     -Pattern '(?m)^    \$buttonForm\.ClientSize = \[System\.Drawing\.Size\]::new\(720, 500\)\r?\n    \$buttonForm\.MinimumSize = \[System\.Drawing\.Size\]::new\(736, 539\)' `
     -Replacement @'
-    $buttonForm.ClientSize = [System.Drawing.Size]::new(720, 590)
-    $buttonForm.MinimumSize = [System.Drawing.Size]::new(736, 629)
+    $buttonForm.ClientSize = [System.Drawing.Size]::new(720, $(if ($virtualProtocolAvailable) { 590 } else { 500 }))
+    $buttonForm.MinimumSize = [System.Drawing.Size]::new(736, $(if ($virtualProtocolAvailable) { 629 } else { 539 }))
 '@ `
     -Label 'expand button settings dialog'
 
@@ -398,32 +402,34 @@ $text = Replace-RegexExactlyOnce `
     -Text $text `
     -Pattern '(?ms)^    \$panel = New-Object System\.Windows\.Forms\.Panel\r?\n    \$panel\.Location = \[System\.Drawing\.Point\]::new\(22, 132\)\r?\n    \$panel\.Size = \[System\.Drawing\.Size\]::new\(676, 296\)\r?\n    \$panel\.AutoScroll = \$true\r?\n    \$buttonForm\.Controls\.Add\(\$panel\)' `
     -Replacement @'
-    $virtualLabel = New-Object System.Windows.Forms.Label
-    $virtualLabel.Text = $(if ($script:Language -eq 'ru') { 'Виртуальный контроллер:' } else { 'Virtual controller:' })
-    $virtualLabel.Location = [System.Drawing.Point]::new(25, 139)
-    $virtualLabel.Size = [System.Drawing.Size]::new(180, 28)
-    $buttonForm.Controls.Add($virtualLabel)
+    $virtualCombo = $null
+    if ($virtualProtocolAvailable) {
+        $virtualLabel = New-Object System.Windows.Forms.Label
+        $virtualLabel.Text = $(if ($script:Language -eq 'ru') { 'Виртуальный контроллер:' } else { 'Virtual controller:' })
+        $virtualLabel.Location = [System.Drawing.Point]::new(25, 139)
+        $virtualLabel.Size = [System.Drawing.Size]::new(180, 28)
+        $buttonForm.Controls.Add($virtualLabel)
 
-    $virtualCombo = New-Object MugenDeejWindowing.MugenComboBox
-    $virtualCombo.DropDownStyle = 'DropDownList'
-    $virtualCombo.Location = [System.Drawing.Point]::new(210, 134)
-    $virtualCombo.Size = [System.Drawing.Size]::new(310, 30)
-    [void]$virtualCombo.Items.Add($(if ($script:Language -eq 'ru') { 'Выключен' } else { 'Off' }))
-    [void]$virtualCombo.Items.Add('Xbox 360 / XInput')
-    $virtualCombo.SelectedIndex = $(if ($pendingVirtualEnabled) { 1 } else { 0 })
-    $virtualCombo.Enabled = $script:VirtualGamepadFeatureAvailable
-    $buttonForm.Controls.Add($virtualCombo)
+        $virtualCombo = New-Object MugenDeejWindowing.MugenComboBox
+        $virtualCombo.DropDownStyle = 'DropDownList'
+        $virtualCombo.Location = [System.Drawing.Point]::new(210, 134)
+        $virtualCombo.Size = [System.Drawing.Size]::new(310, 30)
+        [void]$virtualCombo.Items.Add($(if ($script:Language -eq 'ru') { 'Выключен' } else { 'Off' }))
+        [void]$virtualCombo.Items.Add('Xbox 360 / XInput')
+        $virtualCombo.SelectedIndex = $(if ($pendingVirtualEnabled) { 1 } else { 0 })
+        $buttonForm.Controls.Add($virtualCombo)
 
-    $virtualStatus = New-Object System.Windows.Forms.Label
-    $virtualStatus.Text = $(if ($script:Language -eq 'ru') { 'Создаёт XInput-геймпад через повышенный helper. UAC появится при включении.' } else { 'Creates an XInput gamepad through the elevated helper. UAC appears when enabled.' })
-    $virtualStatus.ForeColor = [System.Drawing.Color]::DimGray
-    $virtualStatus.Location = [System.Drawing.Point]::new(25, 173)
-    $virtualStatus.Size = [System.Drawing.Size]::new(660, 34)
-    $buttonForm.Controls.Add($virtualStatus)
+        $virtualStatus = New-Object System.Windows.Forms.Label
+        $virtualStatus.Text = $(if ($script:Language -eq 'ru') { 'Создаёт XInput-геймпад через повышенный helper. UAC появится при включении.' } else { 'Creates an XInput gamepad through the elevated helper. UAC appears when enabled.' })
+        $virtualStatus.ForeColor = [System.Drawing.Color]::DimGray
+        $virtualStatus.Location = [System.Drawing.Point]::new(25, 173)
+        $virtualStatus.Size = [System.Drawing.Size]::new(660, 34)
+        $buttonForm.Controls.Add($virtualStatus)
+    }
 
     $panel = New-Object System.Windows.Forms.Panel
-    $panel.Location = [System.Drawing.Point]::new(22, 214)
-    $panel.Size = [System.Drawing.Size]::new(676, 310)
+    $panel.Location = [System.Drawing.Point]::new(22, $(if ($virtualProtocolAvailable) { 214 } else { 132 }))
+    $panel.Size = [System.Drawing.Size]::new(676, $(if ($virtualProtocolAvailable) { 310 } else { 296 }))
     $panel.AutoScroll = $true
     $buttonForm.Controls.Add($panel)
 '@ `
@@ -435,7 +441,7 @@ $text = Replace-RegexExactlyOnce `
     -Text $text `
     -Pattern '(?m)^(        \$action = \[string\]\$pendingActions\[\$i\]\r?)$' `
     -Replacement @'
-        if ($script:VirtualGamepadFeatureAvailable) {
+        if ($virtualProtocolAvailable) {
             $currentVirtualAction = [string]$pendingActions[$i]
             if (Test-MugenVirtualGamepadAction -Action $currentVirtualAction) {
                 [void]$combo.Items.Add((Get-MugenVirtualGamepadActionDisplay -Action $currentVirtualAction))
@@ -500,11 +506,11 @@ $text = Replace-RegexExactlyOnce `
 # Move the footer buttons with the taller content area.
 $text = $text.Replace(
     '$cancel.Location = [System.Drawing.Point]::new(472, 447)',
-    '$cancel.Location = [System.Drawing.Point]::new(472, 537)'
+    '$cancel.Location = [System.Drawing.Point]::new(472, $(if ($virtualProtocolAvailable) { 537 } else { 447 }))'
 )
 $text = $text.Replace(
     '$save.Location = [System.Drawing.Point]::new(588, 447)',
-    '$save.Location = [System.Drawing.Point]::new(588, 537)'
+    '$save.Location = [System.Drawing.Point]::new(588, $(if ($virtualProtocolAvailable) { 537 } else { 447 }))'
 )
 
 # Persist enabled state alongside button actions, then immediately reconcile
@@ -517,7 +523,7 @@ $text = Replace-RegexExactlyOnce `
         $script:ButtonActions = @($pendingActions)
         Save-ButtonActions
 
-        if ($script:VirtualGamepadFeatureAvailable) {
+        if ($virtualProtocolAvailable -and $null -ne $virtualCombo) {
             Set-MugenVirtualGamepadEnabled -Enabled ($virtualCombo.SelectedIndex -eq 1)
             [void](Sync-MugenVirtualGamepadState -Values @($script:LatestButtons))
         }
