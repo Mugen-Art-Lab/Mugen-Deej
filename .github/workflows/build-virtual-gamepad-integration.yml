@@ -500,6 +500,18 @@ jobs:
           if ($integrationText -notmatch 'Virtual gamepad main toggle failed') {
             throw 'Integration module is missing the standalone main-window XInput toggle.'
           }
+          if ($integrationText -notmatch 'function Test-MugenVirtualGamepadProtocolAvailable') {
+            throw 'Integration module is missing the Adaptive-only virtual-gamepad protocol gate.'
+          }
+          if ($integrationText -notmatch "ControllerProtocol -eq 'adaptive'") {
+            throw 'Integration module does not restrict virtual-gamepad availability to Adaptive v3.'
+          }
+          if ($integrationText -notmatch 'VirtualGamepadToggleButton\.Visible = \$protocolAvailable') {
+            throw 'Integration module does not hide the XInput toggle on Legacy/Extended controllers.'
+          }
+          if ($integrationText -notmatch 'virtual controller unavailable for protocol:') {
+            throw 'Integration module does not tear down virtual output when a non-Adaptive controller becomes active.'
+          }
           if ($integrationText -notmatch 'Test-MugenVirtualGamepadPhysicalStateChanged') {
             throw 'Integration module is missing the unchanged-button heartbeat fast path.'
           }
