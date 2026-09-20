@@ -303,25 +303,31 @@ Manual profile switching comes first. Automatic switching by game/process is def
 - Full digital cardboard-panel smoke test PASS: 28 buttons, 2 toggles, and encoder/push work on real Uno hardware; a >20-button simultaneous hold also registered cleanly. Five slider channels remain software placeholders pending real potentiometers.
 
 
-## Current hardware-review build — Integrated #113
+## Current hardware-review build — Integrated #114
 
-#108 real-machine review verified the `2.0.0 Prototype` title and main-window XInput control, but exposed noticeable UI/input lag with XInput enabled, cramped status-card layout, and partial RU/EN status localization.
+Real-machine #113 review upgraded several fixes from CI-only to actual UI/hardware PASS:
 
-Integrated #113 addresses those findings:
+- XInput-enabled interface/encoder responsiveness: **PASS**;
+- complete RU <-> EN main-status localization: **PASS**;
+- stable generic visible name `Виртуальный геймпад / Virtual gamepad`: **PASS**.
 
-- unchanged 25 ms Adaptive button heartbeats no longer resolve the foreground process/profile on every frame;
-- a 200 ms profile timer preserves effective-profile switching and held-input suppression semantics;
-- the status card grows from 72 px disabled to 98 px enabled and the rest of the main layout follows its actual bottom edge;
-- language changes explicitly refresh both physical and virtual status rows;
-- the UI name remains `Виртуальный геймпад / Virtual gamepad` after connection;
-- helper OEM naming remains `Mugen Deej Virtual Gamepad` for joy.cpl/DirectInput.
+The same review found that the physical 5/28/2/1 summary still wrapped, and exposed a new startup-only behavior: while XInput was still connecting, Windows Snipping Tool's capture-selection cursor could drift up-left; it stopped after READY.
+
+The log puts that startup window at roughly 16.8 s on the test machine. Pinned HIDMaestro v1.8.0 source shows why this can happen: its shared XUSB/GIP input mapping is created and zero-filled before the virtual Xbox is fully exposed, while zero in the unsigned 16-bit stick fields means full negative deflection. Mugen's correct neutral frame was previously submitted only after `CreateController` returned.
+
+Integrated #114 therefore:
+
+- gives the physical status summary the full first row and moves the XInput toggle beside the virtual-status second row;
+- best-effort pre-seeds the pinned HIDMaestro v1.8.0 GIP stick fields to 0x7FFF before `CreateController`, so Windows should never observe the temporary all-zero/full-up-left XInput state;
+- retains the normal public `SubmitState` neutral frame after creation;
+- logs `PRESEED_GIP_NEUTRAL` / `PRESEED_GIP_NEUTRAL_WARN` for diagnosis.
 
 Build:
 
-- run ID `35491496076`, run #113 — SUCCESS;
-- built code head `3623b98bab8a2e080552ae36d46ecdee7bed0d16`;
-- artifact ID `10599770256`;
-- outer Actions digest `sha256:813576049549fe9439725d6828cf102df47276134e71dada510ae245f9b20a09`;
-- inner ZIP SHA-256 `c071a0b532ec2a9a35bb4d43058f275a489177eaa880d8f53137954072b0cca9`.
+- run ID `35492818128`, run #114 — SUCCESS;
+- built code head `5fc4722a46cc6120eb2934ef10aa1f833117c203`;
+- artifact ID `10599817400`;
+- outer Actions digest `sha256:eba0d17dd4322cac1f898394b6b6c032adf8c223b6833df2cd15802aa63ee58e`;
+- inner ZIP SHA-256 `746b7ad9158d94cd02639df6c572a8f52b4bb5a59501497a5770a070f4823cdd`.
 
-#113 is CI PASS only. Real-machine review must confirm responsiveness with XInput enabled, the two-row status layout, full language switching, mapping persistence, and joy.cpl naming before any of those fixes are marked hardware/UI PASS.
+#114 is CI PASS. The next real-machine checks are specifically: no status wrapping in RU/EN, and no Snipping Tool up-left drift during the `connecting` phase. joy.cpl OEM naming and the remaining virtual-mapping persistence/profile tests are still pending.

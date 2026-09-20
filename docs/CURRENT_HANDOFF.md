@@ -677,7 +677,24 @@ Nonblocking teardown has CI coverage but its final real-hardware re-test remains
 
 ## Immediate next work
 
-Hardware-review Integrated #89. Resume/runtime same-COM recovery, the first-run wizard fixes, and vertical/Ctrl/native-horizontal encoder wheel actions are real-machine PASS. The next test is foreground application switching: Excel profile -> horizontal scroll, browser profile -> Ctrl+wheel zoom, unrelated app -> Global fallback. #89 profiles only Adaptive toggles/encoders on purpose; buttons/sliders can be folded into the same model after this first slice proves itself. Universal backup v2 restore still requires an explicit real-machine test, now including the optional application-profile payload.
+Hardware-review **Integrated #114** on the real 5 / 28 / 2 / 1 cardboard controller.
+
+#113 real-machine findings are now:
+
+- **PASS:** the XInput-enabled UI/encoder lag is gone;
+- **PASS:** RU <-> EN switching updates the physical status row, virtual status row and XInput button;
+- **PASS:** the visible second-row name remains generic `Виртуальный геймпад / Virtual gamepad` after connection;
+- **needs polish:** the long physical-controller summary still wraps because #113 shares its first row with the XInput button;
+- **new startup bug:** while the virtual controller is still in `connecting`, Windows Snipping Tool's selection cursor can drift up-left; the drift stops once the gamepad reaches `connected`.
+
+#114 has two focused fixes to test:
+
+1. the physical-controller summary gets the full first status row, while the XInput button moves to the virtual-controller row; confirm the 5/28/2/1 summary stays on one line in RU and EN;
+2. before HIDMaestro exposes the xbox-360-wired device during PnP setup, Mugen best-effort pre-seeds the pinned v1.8.0 XUSB/GIP shared-memory stick bytes to neutral (0x7FFF) instead of the SDK's temporary all-zero startup state. Reproduce the Snipping Tool test specifically during `connecting` and confirm the cursor no longer walks up-left.
+
+Keep testing mapping persistence, joy.cpl OEM naming, digital-stick mappings, and effective-profile transition safety after these two checks.
+
+#114 is CI PASS only until the real-machine startup/drift test is completed.
 
 ## Working rules
 
@@ -1125,3 +1142,43 @@ Workflow:
 - helper/launcher/package/upload: PASS
 
 #112 failed only because a newly added Cyrillic CI literal was not safe in the Windows PowerShell 5.1 workflow command encoding. The runtime itself staged successfully. #113 replaces that CI assertion with an ASCII-safe marker and is the build to test.
+
+
+## #113 real-machine PASS + transient startup drift -> Integrated #114
+
+The real cardboard controller was tested against #113.
+
+Confirmed on hardware/UI:
+
+- the previously reported XInput-enabled lag is gone; encoder and physical-button feedback remain responsive after the virtual controller is ready;
+- RU/EN switching now updates the complete main window status area;
+- the visible connected text remains `Виртуальный геймпад: подключён / Virtual gamepad: connected`.
+
+The runtime log shows XInput enable at 11:39:48.354, asynchronous helper start at 11:39:48.366, and READY at 11:40:05.133, so this machine exposes an approximately 16.8-second virtual-device creation window. After READY, dense encoder/button events continue normally.
+
+Two follow-ups remained:
+
+1. the physical status summary still wrapped because #113 reserved the right side of the first row for the XInput button;
+2. during the `connecting` window, entering Windows Snipping Tool's rectangle-selection mode could make the selection cursor drift up-left. The effect stopped as soon as the virtual controller became ready.
+
+Pinned HIDMaestro v1.8.0 source inspection explains the second symptom. `CreateController` creates the shared input mapping and exposes the Xbox/XUSB device before returning to Mugen. The SDK zero-initializes that mapping. Its XUSB/GIP stick representation is unsigned 16-bit, where centre is about 0x7FFF but zero is full negative deflection. Mugen's normal neutral `SubmitState` was already correct, but it happened only after `CreateController` returned. Therefore Windows could observe a temporary full up-left XInput state throughout PnP startup; shell UI that listens to gamepad navigation can react to it even though ordinary desktop pointer behavior may not make it obvious.
+
+#114 work:
+
+- status layout gives the physical-controller summary 560 px on the full first row and moves the XInput button to the second/virtual row;
+- the helper best-effort reflects the pinned HIDMaestro internal `EnsureInputMapping(0)` before `CreateController` and writes neutral XUSB/GIP stick bytes (0x7FFF for LX/LY/RX/RY; triggers/buttons/hat released). SetupController then reuses the already-created mapping instead of zeroing it again;
+- this workaround is deliberately guarded and diagnostic: if a future HIDMaestro internal layout changes, it logs `PRESEED_GIP_NEUTRAL_WARN` and continues rather than failing virtual-controller startup.
+
+Workflow:
+
+- run number: **#114**
+- run ID: `35492818128`
+- built code head: `5fc4722a46cc6120eb2934ef10aa1f833117c203`
+- result: **SUCCESS**
+- artifact: `Mugen-Deej-VirtualGamepad-Integrated-114`
+- artifact ID: `10599817400`
+- outer Actions digest: `sha256:eba0d17dd4322cac1f898394b6b6c032adf8c223b6833df2cd15802aa63ee58e`
+- inner program ZIP SHA-256: `746b7ad9158d94cd02639df6c572a8f52b4bb5a59501497a5770a070f4823cdd`
+- staging / Windows PowerShell 5.1 parse checks / helper / launcher / package / upload: PASS.
+
+Do not call the startup-neutral workaround hardware PASS until the Snipping Tool reproduction is re-tested during the connecting phase.
