@@ -206,11 +206,11 @@ jobs:
           if ($runtimeText -notmatch '\$dialog\.OverwritePrompt = \$false') {
             throw 'Development runtime still delegates backup overwrite confirmation to the OS language.'
           }
-          if ($runtimeText -notmatch 'Файл резервной копии уже существует') {
-            throw 'Development runtime is missing the Russian overwrite confirmation.'
+          if ($runtimeText -notmatch 'native overwrite prompt follows the Windows shell language') {
+            throw 'Development runtime is missing the app-localized backup overwrite handler.'
           }
           if ($runtimeText -notmatch 'The backup file already exists') {
-            throw 'Development runtime is missing the English overwrite confirmation.'
+            throw 'Development runtime is missing the bilingual overwrite-confirmation block.'
           }
           if ($runtimeText -notmatch 'if \(\$advancedPanel\.Visible\) \{\s*Update-DriverStatus') {
             throw 'Development runtime still performs the slow driver refresh on every language switch.'
