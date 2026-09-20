@@ -76,7 +76,9 @@ function Ensure-MugenVirtualGamepadStatusUi {
     if ($null -eq $script:VirtualGamepadStatusDot -or $script:VirtualGamepadStatusDot.IsDisposed) {
         $script:VirtualGamepadStatusDot = New-Object System.Windows.Forms.Label
         $script:VirtualGamepadStatusDot.Text = '●'
-        $script:VirtualGamepadStatusDot.Font = New-Object System.Drawing.Font('Segoe UI', 11)
+        # Reuse the physical status marker typography so both rows have
+        # the same dot size and baseline.
+        $script:VirtualGamepadStatusDot.Font = $physicalDot.Font
         $script:VirtualGamepadStatusDot.AutoSize = $true
         $script:VirtualGamepadStatusDot.Visible = $false
         $panel.Controls.Add($script:VirtualGamepadStatusDot)
@@ -123,16 +125,13 @@ function Set-MugenVirtualGamepadStatusLayout {
     $physicalLabel = (Get-Variable -Name statusLabel -Scope Script).Value
     $physicalDot = (Get-Variable -Name statusDot -Scope Script).Value
 
-    $targetHeight = if ($Enabled) { 98 } else { 72 }
+    $targetHeight = if ($Enabled) { 68 } else { 60 }
     $layoutChanged = ($panel.Height -ne $targetHeight)
     $modeChanged = (
         $null -eq $script:VirtualGamepadLastStatusLayoutEnabled -or
         [bool]$script:VirtualGamepadLastStatusLayoutEnabled -ne $Enabled
     )
 
-    # Geometry is event-driven. Re-applying Label/Panel layout every 25 ms
-    # physical heartbeat caused expensive WinForms re-layout/ellipsis work
-    # even while XInput was OFF.
     if (-not $layoutChanged -and -not $modeChanged) { return }
 
     $script:VirtualGamepadLastStatusLayoutEnabled = $Enabled
@@ -141,24 +140,24 @@ function Set-MugenVirtualGamepadStatusLayout {
     $physicalLabel.TextAlign = 'MiddleLeft'
 
     if ($Enabled) {
-        # Row 1: compact physical-controller summary + XInput power.
-        # Row 2: virtual-controller lifecycle/status.
-        $physicalDot.Location = [System.Drawing.Point]::new(14, 13)
-        $physicalLabel.Location = [System.Drawing.Point]::new(46, 7)
-        $physicalLabel.Size = [System.Drawing.Size]::new(444, 32)
-        $script:VirtualGamepadToggleButton.Location = [System.Drawing.Point]::new(506, 9)
+        # Two tightly stacked status rows. Both markers use the same font and
+        # X coordinate, so the rows read as one aligned status block.
+        $physicalDot.Location = [System.Drawing.Point]::new(14, 4)
+        $physicalLabel.Location = [System.Drawing.Point]::new(46, 2)
+        $physicalLabel.Size = [System.Drawing.Size]::new(444, 30)
+        $script:VirtualGamepadToggleButton.Location = [System.Drawing.Point]::new(506, 3)
 
-        $script:VirtualGamepadStatusDot.Location = [System.Drawing.Point]::new(16, 58)
-        $script:VirtualGamepadStatusLabel.Location = [System.Drawing.Point]::new(46, 51)
-        $script:VirtualGamepadStatusLabel.Size = [System.Drawing.Size]::new(560, 32)
+        $script:VirtualGamepadStatusDot.Location = [System.Drawing.Point]::new(14, 34)
+        $script:VirtualGamepadStatusLabel.Location = [System.Drawing.Point]::new(46, 32)
+        $script:VirtualGamepadStatusLabel.Size = [System.Drawing.Size]::new(560, 30)
     }
     else {
-        # One compact row when XInput is off. The connected-status text is
-        # intentionally concise so it fits beside the power button.
-        $physicalDot.Location = [System.Drawing.Point]::new(14, 20)
-        $physicalLabel.Location = [System.Drawing.Point]::new(46, 9)
-        $physicalLabel.Size = [System.Drawing.Size]::new(444, 50)
-        $script:VirtualGamepadToggleButton.Location = [System.Drawing.Point]::new(506, 21)
+        # Restore the original single-row card height/vertical rhythm when the
+        # virtual device is off.
+        $physicalDot.Location = [System.Drawing.Point]::new(14, 12)
+        $physicalLabel.Location = [System.Drawing.Point]::new(46, 10)
+        $physicalLabel.Size = [System.Drawing.Size]::new(444, 38)
+        $script:VirtualGamepadToggleButton.Location = [System.Drawing.Point]::new(506, 15)
     }
 
     try {

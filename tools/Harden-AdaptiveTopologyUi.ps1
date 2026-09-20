@@ -104,6 +104,34 @@ $text = Replace-RegexBlockExactlyOnceLiteral `
     -Label 'keep zero-slider Adaptive shape validation strict'
 
 $connectedStatus = @'
+function Format-RussianControllerCount {
+    param(
+        [Parameter(Mandatory = $true)][int]$Count,
+        [Parameter(Mandatory = $true)][string]$One,
+        [Parameter(Mandatory = $true)][string]$Few,
+        [Parameter(Mandatory = $true)][string]$Many
+    )
+
+    $absolute = [Math]::Abs($Count)
+    $mod100 = $absolute % 100
+    $mod10 = $absolute % 10
+
+    $noun = if ($mod100 -ge 11 -and $mod100 -le 14) {
+        $Many
+    }
+    elseif ($mod10 -eq 1) {
+        $One
+    }
+    elseif ($mod10 -ge 2 -and $mod10 -le 4) {
+        $Few
+    }
+    else {
+        $Many
+    }
+
+    return ('{0} {1}' -f $Count, $noun)
+}
+
 function Get-ControllerConnectedStatusText {
     param([Parameter(Mandatory = $true)][string]$PortName)
 
@@ -112,35 +140,54 @@ function Get-ControllerConnectedStatusText {
     $toggleCount = [int]$script:DetectedToggleCount
     $encoderCount = [int]$script:DetectedEncoderCount
 
-    # Legacy/Extended always contain at least one slider. Only use the old
-    # configured expectation before capability discovery, never to fabricate
-    # sliders for an Adaptive controller that intentionally reports zero.
     if ($sliderCount -le 0 -and $script:ControllerProtocol -eq 'unknown') {
         $sliderCount = [int]$script:Config.connection.expectedSliders
     }
 
-    # Main-card text is deliberately compact. The green status dot already
-    # communicates "connected", so repeating the full sentence wastes the
-    # width needed by self-described 5/28/2/1 (and larger) topologies.
+    # Legacy and Extended retain the stable wording they had before Adaptive
+    # added extra control families. Their shorter topology already fits.
+    if ($script:ControllerProtocol -ne 'adaptive') {
+        if ($script:Language -eq 'ru') {
+            if ($buttonCount -gt 0) {
+                return ('Контроллер подключён — {0} · {1} регуляторов · {2} кнопок' -f $PortName, $sliderCount, $buttonCount)
+            }
+            return ('Контроллер подключён — {0} · {1} регуляторов' -f $PortName, $sliderCount)
+        }
+
+        if ($buttonCount -gt 0) {
+            return ('Controller connected — {0} · {1} controls · {2} buttons' -f $PortName, $sliderCount, $buttonCount)
+        }
+        return ('Controller connected — {0} · {1} controls' -f $PortName, $sliderCount)
+    }
+
+    # Adaptive v3 can expose four independent families, so omit only the
+    # redundant "controller connected" prefix. Keep the nouns fully written.
     if ($script:Language -eq 'ru') {
         $parts = New-Object 'System.Collections.Generic.List[string]'
-        if ($sliderCount -gt 0) { $parts.Add(('{0} рег.' -f $sliderCount)) }
-        if ($buttonCount -gt 0) { $parts.Add(('{0} кнопок' -f $buttonCount)) }
-        if ($toggleCount -gt 0) { $parts.Add(('{0} тумбл.' -f $toggleCount)) }
-        if ($encoderCount -gt 0) { $parts.Add(('{0} энкодер.' -f $encoderCount)) }
+        if ($sliderCount -gt 0) {
+            $parts.Add((Format-RussianControllerCount -Count $sliderCount -One 'регулятор' -Few 'регулятора' -Many 'регуляторов'))
+        }
+        if ($buttonCount -gt 0) {
+            $parts.Add((Format-RussianControllerCount -Count $buttonCount -One 'кнопка' -Few 'кнопки' -Many 'кнопок'))
+        }
+        if ($toggleCount -gt 0) {
+            $parts.Add((Format-RussianControllerCount -Count $toggleCount -One 'тумблер' -Few 'тумблера' -Many 'тумблеров'))
+        }
+        if ($encoderCount -gt 0) {
+            $parts.Add((Format-RussianControllerCount -Count $encoderCount -One 'энкодер' -Few 'энкодера' -Many 'энкодеров'))
+        }
         if ($parts.Count -eq 0) { $parts.Add('нет органов управления') }
         return ('{0} · {1}' -f $PortName, ($parts -join ' · '))
     }
 
     $parts = New-Object 'System.Collections.Generic.List[string]'
-    if ($sliderCount -gt 0) { $parts.Add(('{0} controls' -f $sliderCount)) }
-    if ($buttonCount -gt 0) { $parts.Add(('{0} buttons' -f $buttonCount)) }
-    if ($toggleCount -gt 0) { $parts.Add(('{0} toggles' -f $toggleCount)) }
-    if ($encoderCount -gt 0) { $parts.Add(('{0} encoder' -f $encoderCount)) }
+    if ($sliderCount -gt 0) { $parts.Add(('{0} {1}' -f $sliderCount, $(if ($sliderCount -eq 1) { 'control' } else { 'controls' }))) }
+    if ($buttonCount -gt 0) { $parts.Add(('{0} {1}' -f $buttonCount, $(if ($buttonCount -eq 1) { 'button' } else { 'buttons' }))) }
+    if ($toggleCount -gt 0) { $parts.Add(('{0} {1}' -f $toggleCount, $(if ($toggleCount -eq 1) { 'toggle' } else { 'toggles' }))) }
+    if ($encoderCount -gt 0) { $parts.Add(('{0} {1}' -f $encoderCount, $(if ($encoderCount -eq 1) { 'encoder' } else { 'encoders' }))) }
     if ($parts.Count -eq 0) { $parts.Add('no controls') }
     return ('{0} · {1}' -f $PortName, ($parts -join ' · '))
 }
-'@
 
 $text = Replace-RegexBlockExactlyOnceLiteral `
     -Text $text `

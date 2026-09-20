@@ -182,8 +182,11 @@ jobs:
           if ($runtimeText -notmatch "Development build: Windows startup registration sync suppressed") {
             throw 'Development runtime is missing the startup-isolation marker.'
           }
-          if ($runtimeText -notmatch 'Main-card text is deliberately compact') {
-            throw 'Development runtime is missing compact capability-driven connected status text.'
+          if ($runtimeText -notmatch 'Legacy and Extended retain the stable wording') {
+            throw 'Development runtime no longer preserves Legacy/Extended connected-status wording.'
+          }
+          if ($runtimeText -notmatch 'Adaptive v3 can expose four independent families') {
+            throw 'Development runtime is missing full-word Adaptive connected-status text.'
           }
           if ($runtimeText -notmatch 'if \(\$advancedPanel\.Visible\) \{\s*Update-DriverStatus') {
             throw 'Development runtime still performs the slow driver refresh on every language switch.'
@@ -461,13 +464,16 @@ jobs:
           if ($integrationText -notmatch 'Virtual gamepad: connected') {
             throw 'Integration module still changes the user-facing virtual-gamepad name after connection.'
           }
-          if ($integrationText -notmatch '\$targetHeight = if \(\$Enabled\) \{ 98 \} else \{ 72 \}') {
-            throw 'Integration module is missing the expanded two-row status-card layout.'
+          if ($integrationText -notmatch '\$targetHeight = if \(\$Enabled\) \{ 68 \} else \{ 60 \}') {
+            throw 'Integration module is missing the compact two-row status-card layout.'
           }
-          if ($integrationText -notmatch '\$physicalLabel\.Size = \[System\.Drawing\.Size\]::new\(444, 32\)') {
-            throw 'Integration module is missing the compact physical status row.'
+          if ($integrationText -notmatch '\$script:VirtualGamepadStatusDot\.Font = \$physicalDot\.Font') {
+            throw 'Integration module does not match physical and virtual status marker typography.'
           }
-          if ($integrationText -notmatch 'VirtualGamepadToggleButton\.Location = \[System\.Drawing\.Point\]::new\(506, 9\)') {
+          if ($integrationText -notmatch 'VirtualGamepadStatusDot\.Location = \[System\.Drawing\.Point\]::new\(14, 34\)') {
+            throw 'Integration module does not vertically align the virtual status marker.'
+          }
+          if ($integrationText -notmatch 'VirtualGamepadToggleButton\.Location = \[System\.Drawing\.Point\]::new\(506, 3\)') {
             throw 'Integration module does not keep XInput on the compact physical-status row.'
           }
           if ($integrationText -notmatch 'if \(\[string\]\$script:VirtualGamepadUiState -eq \$State\) \{ return \}') {
@@ -516,7 +522,13 @@ jobs:
             throw 'Virtual controller helper is missing combined state command parsing.'
           }
           if ($helperText -notmatch 'leftStickX: \(lx \+ 1\) / 2f') {
-            throw 'Virtual controller helper is missing normalized stick-axis output.'
+            throw 'Virtual controller helper is missing normalized horizontal stick-axis output.'
+          }
+          if ($helperText -notmatch 'leftStickY: \(1 - ly\) / 2f') {
+            throw 'Virtual controller helper is missing corrected vertical stick-axis orientation.'
+          }
+          if ($helperText -notmatch 'rightStickY: \(1 - ry\) / 2f') {
+            throw 'Virtual controller helper is missing corrected right-stick Y orientation.'
           }
           if ($helperText -notmatch 'PRESEED_GIP_NEUTRAL') {
             throw 'Virtual controller helper is missing the pre-PnP neutral XUSB seed.'

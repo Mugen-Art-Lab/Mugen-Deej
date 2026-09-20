@@ -312,9 +312,13 @@ internal static class Program
                         state.Axes = HMGamepadStateHelpers.StandardAxes(
                             profile,
                             leftStickX: (lx + 1) / 2f,
-                            leftStickY: (ly + 1) / 2f,
+                            // HID/joy.cpl Y coordinates grow downward. Mugen's
+                            // semantic +1 means "stick up", so normalize Y in
+                            // the opposite direction. Any camera/look invert-Y
+                            // preference belongs to the game, not the device.
+                            leftStickY: (1 - ly) / 2f,
                             rightStickX: (rx + 1) / 2f,
-                            rightStickY: (ry + 1) / 2f
+                            rightStickY: (1 - ry) / 2f
                         );
                         controller.SubmitState(in state);
                         writer.WriteLine("OK");
