@@ -407,6 +407,12 @@ jobs:
           if ($runtimeText -notmatch '\$profileHint\.Size = \[System\.Drawing\.Size\]::new\(710, 42\)') {
             throw 'Development runtime is missing the two-line application-profile hint layout.'
           }
+          if ($runtimeText -notmatch 'Refresh-MugenVirtualGamepadLocalizedStatus') {
+            throw 'Development runtime is missing combined physical/virtual status localization refresh.'
+          }
+          if ($runtimeText -notmatch 'statusPanelVariable\.Value\.Bottom \+ 12') {
+            throw 'Development runtime still lays main content out from a fixed status-card height.'
+          }
           if ($runtimeText -notmatch 'Button application profiles are protocol-agnostic') {
             throw 'Development runtime still restricts button application profiles to a firmware generation.'
           }
@@ -439,6 +445,18 @@ jobs:
           $integrationText = [System.IO.File]::ReadAllText((Resolve-Path $integrationModule), [System.Text.Encoding]::UTF8)
           if ($integrationText -notmatch 'Virtual gamepad main toggle failed') {
             throw 'Integration module is missing the standalone main-window XInput toggle.'
+          }
+          if ($integrationText -notmatch 'Test-MugenVirtualGamepadPhysicalStateChanged') {
+            throw 'Integration module is missing the unchanged-button heartbeat fast path.'
+          }
+          if ($integrationText -notmatch 'VirtualGamepadProfileTimer\.Interval = 200') {
+            throw 'Integration module is missing low-rate foreground-profile checks.'
+          }
+          if ($integrationText -notmatch 'Виртуальный геймпад: подключён') {
+            throw 'Integration module still changes the user-facing virtual-gamepad name after connection.'
+          }
+          if ($integrationText -notmatch '\$targetHeight = if \(\$Enabled\) \{ 98 \} else \{ 72 \}') {
+            throw 'Integration module is missing the expanded two-row status-card layout.'
           }
           if ($integrationText -notmatch '\$script:VirtualGamepadStarting = \$false') {
             throw 'Integration module is missing the virtual-controller start reentrancy guard.'
