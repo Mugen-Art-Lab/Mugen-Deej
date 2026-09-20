@@ -209,8 +209,11 @@ jobs:
           if ($runtimeText -notmatch 'Desktop control surface') {
             throw 'Development runtime is missing the protocol-agnostic control-surface subtitle.'
           }
-          if ($runtimeText -notmatch "\$statusDot\.Font = New-Object System\.Drawing\.Font\('Segoe UI Symbol', 9\)") {
-            throw 'Development runtime is missing the fixed centered physical status dot.'
+          if ($runtimeText -notmatch '\$statusDot\.AutoSize = \$false') {
+            throw 'Development runtime is missing the fixed-size physical status dot.'
+          }
+          if ($runtimeText -notmatch "\$statusDot\.TextAlign = 'MiddleCenter'") {
+            throw 'Development runtime is missing centered physical status-dot alignment.'
           }
           if ($runtimeText -notmatch 'Spatial Xbox-style control map') {
             throw 'Development runtime is missing the spatial Xbox control picker.'
