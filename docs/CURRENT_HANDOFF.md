@@ -1455,3 +1455,43 @@ Workflow:
 - inner program ZIP SHA-256 `78b0948cd72430eb7a49fc801653c71c164432bd27f9ced25f0cde595582b97a`.
 
 Immediate #129 visual check: compare both status bullets with XInput ON and OFF and judge the new universal subtitle wording in the real window.
+
+
+## #129 Legacy/Extended handoff finding -> Integrated #134 Adaptive-only XInput
+
+A real protocol-switch test exposed a product-policy mismatch. XInput had been enabled while the real Adaptive 5/28/2/1 panel was active. After that controller was unplugged and a Legacy 5-slider controller appeared on COM5, HID cleanup completed but the main window still advertised `XInput: On` / `Virtual gamepad · waiting for controller`. Returning to the Adaptive controller then created the virtual Xbox again automatically.
+
+Product decision for the current 2.0 scope:
+
+- Legacy and Extended keep their established audio/action roles and do **not** expose or run the virtual gamepad by default;
+- Adaptive v3 is the product surface that exposes XInput;
+- this is a product/UI policy, not a claim that Extended could never technically drive a virtual pad;
+- if real users later request Extended virtual-gamepad support, the underlying action/backend work can be re-exposed deliberately.
+
+Integrated #134 implements that policy without destroying the user's saved XInput preference:
+
+- virtual-gamepad runtime startup is gated on `ControllerProtocol == adaptive`;
+- when Legacy/Extended becomes the active detected protocol, any active/starting virtual controller is released and torn down through the existing nonblocking cleanup path;
+- the main XInput toggle, second virtual-gamepad status row and expanded two-row status-card layout disappear on Legacy/Extended;
+- the small button-settings virtual-controller section and new Xbox-control picker choices are hidden when the live protocol is not Adaptive;
+- the large-button editor likewise stops offering new gamepad-control mappings outside Adaptive;
+- `virtual-controller.json` keeps the user's enabled preference, so returning to Adaptive can restore XInput automatically rather than silently changing user configuration;
+- async cleanup cannot restart the virtual HID after cleanup if the newly active protocol is Legacy/Extended.
+
+Workflow:
+
+- run **#134**, run ID `35527037157` — SUCCESS;
+- built code head `f9a89202b4380a1d83cabd58fadbb8609ee4efaf`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-134`, ID `10610021853`;
+- outer Actions digest `sha256:62f8c025fc1ae53f1de6febb4f9cc50baa6719c2007d708c431d2e66c3cf92ca`;
+- inner program ZIP SHA-256 `47627fbf2024ea2a6c393ecebbc339283730b211876ad3831b7b929626606f9d`;
+- staging, Windows PowerShell 5.1 parse/runtime checks, helper/launcher build, package and upload: PASS.
+
+Immediate real-machine #134 sequence:
+
+1. start on Adaptive with saved XInput ON and confirm the virtual Xbox reaches ready;
+2. unplug Adaptive and connect Legacy: after background HID cleanup, the XInput toggle/virtual row must be absent and no Mugen virtual Xbox should remain in `joy.cpl`;
+3. repeat with the Extended controller and confirm the same hidden/disabled policy while ordinary six-button actions still work;
+4. open Extended Button Settings and confirm no virtual-controller enable UI or new Xbox-control picker choice is offered;
+5. return to Adaptive and confirm the saved XInput preference brings the virtual controller back automatically;
+6. explicitly turn XInput OFF on Adaptive, cycle through Legacy/Extended and back to Adaptive, and confirm it stays OFF.
