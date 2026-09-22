@@ -1656,3 +1656,39 @@ Immediate hardware/UI check:
 3. collapse and reopen it;
 4. enable global slider inversion and Save;
 5. confirm all five real pots now move in the preferred direction.
+
+
+## Integrated #152 — fix slider Save crash and separate Advanced layout
+
+Real-machine #149 finally kept the slider Advanced section open, confirming the dialog-scoped panel lookup fix. Two follow-up issues remained:
+
+1. clicking Save after enabling global slider inversion threw `Variable "$sender" cannot be retrieved because it has not been set`;
+2. the expanded Advanced controls sat too tightly against the section toggle/action row and looked visually overlapped/crooked.
+
+Root cause of the Save crash: #149 changed Save to resolve named Advanced controls through `$sender.FindForm()`, but the `$saveButton.Add_Click` scriptblock had no `param($sender, $eventArgs)` declaration. Under StrictMode the deferred WinForms handler therefore had no `$sender`.
+
+Fix:
+- bind `param($sender, $eventArgs)` explicitly in the slider Save Click handler;
+- keep dialog-scoped lookup for `SliderInvertAllCheck` and `SliderResponseCombo`;
+- move the expanded Advanced card to `$advancedY + 46` (12 px below the 34 px toggle);
+- move the action row to `$advancedY + 172`, leaving a clean gap below the 112 px Advanced card;
+- increase the base slider-settings dialog height so the normal five-slider layout fits without the panel/action overlap;
+- update the Adaptive topology staging patcher to the new source anchors;
+- add CI assertions for Save sender binding and the expanded-layout geometry.
+
+Workflow:
+- runs #150/#151 were intermediate branch builds while the source and staging patcher were being aligned;
+- run **#152**, run ID `35756930169` — SUCCESS;
+- built code head `25145a413f17123852dd99d8dbba0315f3d7d8cd`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-152`, ID `10708472819`;
+- outer Actions digest `sha256:e0c20d32e33b7b1803f28351c1a0556f3fb121735e85456b7262387ba10991ea`;
+- inner program ZIP SHA-256 `fee9cc30c4c6496d644d89b61be871c53adc26f2dfba6a90efa18c1f9adef527`;
+- staging, Windows PowerShell 5.1 parse/runtime assertions, launcher/helper build, packaging and upload: PASS.
+
+Immediate real-machine check:
+1. open slider settings;
+2. expand Advanced settings and confirm the card is visually separated from the toggle and Save/Cancel row;
+3. enable global slider inversion;
+4. click Save — no JIT exception;
+5. reopen slider settings and confirm inversion remained checked;
+6. verify all five physical Nano potentiometers now move in the preferred direction.
