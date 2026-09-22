@@ -905,23 +905,13 @@ $text = Replace-LiteralExactlyOnce `
 $text = Replace-LiteralExactlyOnce `
     -Text $text `
     -OldText @'
-    $advancedToggle.Location = New-Object System.Drawing.Point(25, 540)
+    $sliderAdvancedHost.Location = New-Object System.Drawing.Point(25, 540)
 '@ `
     -NewText @'
     $advancedY = 150 + ($count * 76) + 10
-    $advancedToggle.Location = New-Object System.Drawing.Point(25, $advancedY)
+    $sliderAdvancedHost.Location = New-Object System.Drawing.Point(25, $advancedY)
 '@ `
-    -Label 'position slider advanced section after dynamic rows'
-
-$text = Replace-LiteralExactlyOnce `
-    -Text $text `
-    -OldText @'
-    $sliderAdvancedPanel.Location = New-Object System.Drawing.Point(25, 586)
-'@ `
-    -NewText @'
-    $sliderAdvancedPanel.Location = New-Object System.Drawing.Point(25, ($advancedY + 46))
-'@ `
-    -Label 'position dynamic slider advanced panel'
+    -Label 'position slider advanced host after dynamic rows'
 
 $text = Replace-LiteralExactlyOnce `
     -Text $text `
@@ -943,7 +933,7 @@ $text = Replace-LiteralExactlyOnce `
 '@ `
     -NewText @'
     $saveButton.Location = New-Object System.Drawing.Point(982, $actionY)
-    if ($actionY -gt 650) {
+    if ($count -gt 5) {
         $settingsForm.AutoScroll = $true
         $settingsForm.AutoScrollMinSize = [System.Drawing.Size]::new(1090, ($actionY + 70))
     }
