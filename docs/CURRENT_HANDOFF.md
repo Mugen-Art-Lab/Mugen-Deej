@@ -1761,3 +1761,23 @@ Immediate real-machine check:
 3. confirm inversion remains checked from the prior successful save;
 4. verify the five live pot positions still update;
 5. Save once more and reopen to confirm persistence/regression.
+
+
+## #160 real-machine PASS — five live Nano potentiometers + stable analog settings UI
+
+Real-machine validation on 2026-09-22 passed the #160 analog-settings milestone.
+
+Observed on the user's physical cardboard Nano controller:
+
+- Adaptive controller detected as `5 sliders / 28 buttons / 2 toggles / 1 encoder` at 115200;
+- all five real potentiometers report live positions in the slider settings UI;
+- the always-visible Advanced settings card renders correctly below the five slider rows;
+- global slider inversion is persisted and active;
+- Save completes normally with no JIT/StrictMode exception;
+- reopening/saving slider settings remained stable in the recorded session;
+- encoder rotation and push events continued to register during the same session;
+- button events remained clean in the sampled matrix pass, including the formerly problematic B23 path.
+
+This is the first real-machine PASS where the five Adaptive slider channels are backed by physical potentiometers rather than software placeholder values.
+
+Keep #160 as the current hardware-reviewed application build. The Nano firmware with the working C2/C3 physical jumper arrangement remains the active prototype firmware.
