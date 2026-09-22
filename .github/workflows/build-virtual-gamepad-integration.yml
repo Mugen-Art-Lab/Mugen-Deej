@@ -435,6 +435,30 @@ jobs:
           if ($runtimeText -notmatch 'function Get-AdaptiveLayerIndexFromValues') {
             throw 'Development runtime is missing Adaptive T1/T2 layer resolution.'
           }
+          if ($runtimeText -notmatch 'names = \[pscustomobject\]\[ordered\]@\{') {
+            throw 'Adaptive layer configuration is missing persisted custom layer names.'
+          }
+          if ($runtimeText -notmatch 'function ConvertTo-SafeAdaptiveLayerCustomName') {
+            throw 'Adaptive layer custom names are not normalized safely.'
+          }
+          if ($runtimeText -notmatch 'function Get-AdaptiveLayerDisplayNameFromConfig') {
+            throw 'Adaptive UI cannot resolve custom layer display names.'
+          }
+          if ($runtimeText -notmatch 'function Set-AdaptiveLayerComboDisplayItems') {
+            throw 'Adaptive layer selectors do not share the configured display names.'
+          }
+          if ($runtimeText -notmatch "\$namesGroup\.Text = if \(\$script:Language -eq 'ru'\)") {
+            throw 'Adaptive layer editor is missing the editable Layer names section.'
+          }
+          if ($runtimeText -notmatch '\$nameBox\.MaxLength = 24') {
+            throw 'Adaptive layer name editor is missing the bounded custom-name input.'
+          }
+          if ($runtimeText -notmatch 'Set-AdaptiveLayerComboDisplayItems -Combo \$encoderLayerLayerCombo -Config \$encoderLayerWorking') {
+            throw 'Layered encoder selector does not use custom layer names.'
+          }
+          if ($runtimeText -notmatch 'Get-AdaptiveLayerDisplayNameFromConfig -Config \$working -Layer \$currentLayer') {
+            throw 'Control-layer dialog live preview does not use unsaved custom layer names.'
+          }
           if ($runtimeText -notmatch '\[string\]\$script:ControllerProtocol -ne ''adaptive''\) \{ return 0 \}') {
             throw 'Adaptive layer resolution is not hard-gated away from Legacy/Extended.'
           }
