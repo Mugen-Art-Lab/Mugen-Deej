@@ -1537,3 +1537,33 @@ Immediate real-machine #142 check:
 3. Adaptive should reconnect on the next short retry without the previous roughly one-minute stall;
 4. port lists in recovery diagnostics should not contain duplicate COM names;
 5. verify Legacy/Extended still hide and tear down XInput exactly as #134 intended.
+
+
+## Five real potentiometers fitted -> Nano full-analog prototype
+
+The cardboard controller now has five physical potentiometers fitted. The existing Uno wiring remains useful as the digital-regression fixture, but with the proven 4x8 matrix + encoder pinout the Uno has only A3/A4/A5 free, so it cannot read all five real pots without rewiring already-proven controls.
+
+A dedicated classic Nano firmware was added instead:
+
+- `arduino/MugenDeejCardboardNanoPrototype/MugenDeejCardboardNanoPrototype.ino`
+- `arduino/MugenDeejCardboardNanoPrototype/README.md`
+
+The Nano keeps the working digital wiring unchanged and uses:
+
+- P1 -> A3
+- P2 -> A4
+- P3 -> A5
+- P4 -> A6
+- P5 -> A7
+
+The firmware exposes the same Adaptive v3 shape, `5 / 28 / 2 / 1` at 115200, but replaces the five software slider placeholders with raw 10-bit ADC reads from the real potentiometers. It intentionally does not smooth or calibrate them yet; first hardware validation should measure real endpoints and idle jitter. The ADC helper discards one conversion after channel switching to reduce mux carry-over without hiding actual pot behavior.
+
+Next hardware check:
+
+1. migrate the proven panel wiring Uno -> classic Nano;
+2. wire all pot outer legs to shared 5V/GND and wipers to A3..A7;
+3. flash the Nano sketch;
+4. confirm Adaptive 5/28/2/1 detection;
+5. sweep every pot end-to-end and record min/max plus direction;
+6. leave all pots untouched and inspect jitter;
+7. exercise pots simultaneously with buttons/toggles/encoder to confirm the full physical panel.
