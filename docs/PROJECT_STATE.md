@@ -394,3 +394,14 @@ Integrated #160 has now passed real-machine validation for the completed physica
 The same test session also showed normal encoder movement/push events and clean sampled button events, including B23 after the earlier C2/C3 jumper/remap fix.
 
 This closes the original five-slider-placeholder gap: the prototype now has five actual analog controls feeding Mugen end-to-end. Remaining future work is no longer basic analog acquisition; it is higher-level behavior such as calibration/filtering decisions from measured hardware behavior and analog-to-XInput mapping.
+
+
+## Current hardware-review candidate — Integrated #175
+
+Integrated #175 adds Adaptive-only toggle-driven control layers. Two physical toggles can select Base, T1, T2, or T1+T2. Buttons and encoder CW/CCW/push can inherit the base mapping or provide a layer-specific override, including per-application profile contexts.
+
+Compatibility is intentionally gated: Legacy/Extended return layer index 0 and retain the existing flat/profiled mapping path. The new layer configuration is stored separately in `adaptive-layers.json`. Adaptive layer transitions are also fed into the virtual-Xbox context boundary logic so held virtual controls are neutralized/suppressed across a layer change.
+
+Run #175 (ID `35766695670`) succeeded at code head `09a69e734b7014235de653c17f7ba6632d01c2cc`; artifact ID `10712008968`; outer digest `sha256:185870016e0f3d575c0bcee5895d5be4fc1f5843e35cea9a1b1746c15b30d1b2`; inner ZIP SHA-256 `868ac0da396ae63413e411078e1850632a613d1d7586dcb427c7fdb68daed6fa`.
+
+#160 remains the last hardware-passed baseline. #175 is the next real-machine candidate and must pass Adaptive layer tests plus Legacy/Extended regressions before replacing that status.
