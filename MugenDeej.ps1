@@ -4681,17 +4681,38 @@ function Show-SliderSettings {
     & $updateResponseHint
 
     # Guard the collapsible section against duplicate/very fast Click events.
-    # On some real mice/custom-control paths one physical click can be observed
-    # twice closely enough to open and immediately close the panel.
-    $advancedToggleLastClickAt = [DateTime]::MinValue
+    # Store the timestamp on the control itself. A plain PowerShell local variable
+    # assigned inside the event handler lives in the event invocation scope, so
+    # it does not reliably persist into the next Click.
+    $advancedToggle.AccessibleDescription = '0'
     $advancedToggle.Add_Click({
-        $now = Get-Date
-        if (($now - $advancedToggleLastClickAt).TotalMilliseconds -lt 350) {
+        param($sender, $eventArgs)
+
+        $nowTicks = [Environment]::TickCount64
+        $lastTicks = 0L
+        [void][long]::TryParse(
+            [string]$sender.AccessibleDescription,
+            [ref]$lastTicks
+        )
+
+        if (($nowTicks - $lastTicks) -lt 500) {
+            Write-Log 'Ignored duplicate slider advanced-settings Click event' 'DEBUG'
             return
         }
-        $advancedToggleLastClickAt = $now
+
+        $sender.AccessibleDescription = [string]$nowTicks
         $advancedPanel.Visible = -not $advancedPanel.Visible
-        $advancedToggle.Text = if ($advancedPanel.Visible) { (T -Key 'AdvancedOpen') } else { (T -Key 'AdvancedClosed') }
+        $sender.Text = if ($advancedPanel.Visible) {
+            T -Key 'AdvancedOpen'
+        }
+        else {
+            T -Key 'AdvancedClosed'
+        }
+
+        Write-Log (
+            'Slider advanced-settings panel changed: visible={0}' -f
+            $advancedPanel.Visible
+        ) 'DEBUG'
     })
     $advancedConfigButton.Add_Click({ Start-Process notepad.exe -ArgumentList ('"{0}"' -f $script:ConfigPath) })
 
