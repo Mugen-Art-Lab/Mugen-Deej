@@ -916,10 +916,10 @@ $text = Replace-LiteralExactlyOnce `
 $text = Replace-LiteralExactlyOnce `
     -Text $text `
     -OldText @'
-    $advancedPanel.Location = New-Object System.Drawing.Point(25, 578)
+    $sliderAdvancedPanel.Location = New-Object System.Drawing.Point(25, 578)
 '@ `
     -NewText @'
-    $advancedPanel.Location = New-Object System.Drawing.Point(25, ($advancedY + 38))
+    $sliderAdvancedPanel.Location = New-Object System.Drawing.Point(25, ($advancedY + 38))
 '@ `
     -Label 'position dynamic slider advanced panel'
 
