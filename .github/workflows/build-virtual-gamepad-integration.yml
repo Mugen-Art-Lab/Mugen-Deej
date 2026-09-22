@@ -395,6 +395,12 @@ jobs:
           if ($runtimeText -notmatch 'Select-Object -Unique') {
             throw 'Development runtime does not deduplicate transient duplicate COM names.'
           }
+          if ($runtimeText -match '\[Environment\]::TickCount64') {
+            throw 'Development runtime uses Environment.TickCount64, which is unavailable in Windows PowerShell 5.1/.NET Framework.'
+          }
+          if ($runtimeText -notmatch '\[DateTime\]::UtcNow\.Ticks') {
+            throw 'Development runtime is missing the PS5-compatible slider advanced-toggle click timer.'
+          }
           if ($runtimeText -notmatch '\$script:KnownPorts = @\(\$currentPorts \| Where-Object \{ \$_ -ne \$portName \}\)') {
             throw 'Development runtime does not forget the stale resume port before auto-reconnect.'
           }
