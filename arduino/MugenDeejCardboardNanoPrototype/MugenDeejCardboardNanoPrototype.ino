@@ -18,7 +18,7 @@
     Encoder 5V -> 5V
     Encoder GND -> GND
 
-    Matrix C1..C8 -> D4,D5,D6,D7,D8,D9,D10,D11
+    Matrix C1..C8 -> D4,D6,D5,D7,D8,D9,D10,D11
     Matrix R1..R4 -> D12,D13,A0,A1
 
     Potentiometer wipers:
@@ -52,8 +52,13 @@ const uint8_t ENCODER_S1_PIN = 2;
 const uint8_t ENCODER_S2_PIN = 3;
 const uint8_t ENCODER_KEY_PIN = A2;
 
+// Current hardware test wiring deliberately keeps the C2/C3 jumper swap
+// that eliminated the same-column ghost presses:
+//   C1=D4, C2=D6, C3=D5, C4..C8=D7..D11.
+// The logical matrix order remains C1..C8 here, so Mugen still sees the
+// original B1..B28 numbering despite the physical D5/D6 swap.
 const uint8_t MATRIX_COL_PINS[8] = {
-  4, 5, 6, 7, 8, 9, 10, 11
+  4, 6, 5, 7, 8, 9, 10, 11
 };
 
 const uint8_t MATRIX_ROW_PINS[4] = {
