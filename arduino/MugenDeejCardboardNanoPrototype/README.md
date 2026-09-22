@@ -97,3 +97,16 @@ That is intentional: first measure the actual pots in Mugen before deciding whet
 ## Board selection
 
 For a classic ATmega328P Nano in Arduino IDE use the matching Arduino Nano board definition. Many CH340 Nano clones use the classic/old bootloader option; if upload fails with the normal processor selection, try the old bootloader setting.
+
+
+## Matrix hold / same-column ghosting note
+
+The first full Nano hardware run exposed a timing-sensitive matrix artifact with the long cardboard wiring: holding a bottom-row key could briefly make the same column appear pressed in the other rows (for example B23/R4C2 also appearing as B2/B9/B16, and B22/R4C1 as B1/B8/B15).
+
+The Nano firmware now leaves an explicit recovery interval after each row is released HIGH before the next row is sampled. This gives columns time to recharge through the ATmega internal pull-ups and prevents stale LOW state from carrying into the next row.
+
+If same-column ghosting remains after flashing the updated sketch, inspect the affected row's diode orientation and soldering next; the expected per-key path remains:
+
+```text
+COLUMN -> switch -> diode anode -> diode cathode/stripe -> ROW
+```
