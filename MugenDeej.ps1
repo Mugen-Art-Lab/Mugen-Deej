@@ -4621,12 +4621,20 @@ function Show-SliderSettings {
         & $updateRowSummary $i
     }
 
+    # Keep the Advanced toggle and its contents inside one parent so later
+    # form-wide layout shifts cannot separate or overlap them.
+    $sliderAdvancedHost = New-Object System.Windows.Forms.Panel
+    $sliderAdvancedHost.Name = 'SliderAdvancedHost'
+    $sliderAdvancedHost.Location = New-Object System.Drawing.Point(25, 540)
+    $sliderAdvancedHost.Size = New-Object System.Drawing.Size(780, 158)
+    $settingsForm.Controls.Add($sliderAdvancedHost)
+
     $advancedToggle = New-Object MugenDeejWindowing.MugenButton
     $advancedToggle.Tag = 'MugenSection'
     $advancedToggle.Text = (T -Key 'AdvancedClosed')
-    $advancedToggle.Location = New-Object System.Drawing.Point(25, 540)
+    $advancedToggle.Location = New-Object System.Drawing.Point(0, 0)
     $advancedToggle.Size = New-Object System.Drawing.Size(245, 34)
-    $settingsForm.Controls.Add($advancedToggle)
+    $sliderAdvancedHost.Controls.Add($advancedToggle)
 
     # Use a uniquely named slider-settings panel. The main window also owns a
     # control stored in a variable named $advancedPanel; WinForms event handlers
@@ -4634,10 +4642,10 @@ function Show-SliderSettings {
     # click handler to that main-window panel instead of this dialog's panel.
     $sliderAdvancedPanel = New-Object System.Windows.Forms.Panel
     $sliderAdvancedPanel.Name = 'SliderAdvancedPanel'
-    $sliderAdvancedPanel.Location = New-Object System.Drawing.Point(25, 586)
+    $sliderAdvancedPanel.Location = New-Object System.Drawing.Point(0, 46)
     $sliderAdvancedPanel.Size = New-Object System.Drawing.Size(780, 112)
     $sliderAdvancedPanel.Visible = $false
-    $settingsForm.Controls.Add($sliderAdvancedPanel)
+    $sliderAdvancedHost.Controls.Add($sliderAdvancedPanel)
 
     $invertCheck = New-Object System.Windows.Forms.CheckBox
     $invertCheck.Name = 'SliderInvertAllCheck'
