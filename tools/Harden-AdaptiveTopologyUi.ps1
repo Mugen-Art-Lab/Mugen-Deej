@@ -905,23 +905,23 @@ $text = Replace-LiteralExactlyOnce `
 $text = Replace-LiteralExactlyOnce `
     -Text $text `
     -OldText @'
-    $sliderAdvancedHost.Location = New-Object System.Drawing.Point(25, 540)
+    $sliderAdvancedPanel.Location = New-Object System.Drawing.Point(25, 540)
 '@ `
     -NewText @'
     $advancedY = 150 + ($count * 76) + 10
-    $sliderAdvancedHost.Location = New-Object System.Drawing.Point(25, $advancedY)
+    $sliderAdvancedPanel.Location = New-Object System.Drawing.Point(25, $advancedY)
 '@ `
-    -Label 'position slider advanced host after dynamic rows'
+    -Label 'position slider advanced card after dynamic rows'
 
 $text = Replace-LiteralExactlyOnce `
     -Text $text `
     -OldText @'
-    $cancelButton.Location = New-Object System.Drawing.Point(870, 712)
+    $cancelButton.Location = New-Object System.Drawing.Point(870, 674)
 '@ `
     -NewText @'
-    # Toggle height is 34. Put the 112px Advanced card 12px below it, then
-    # leave another 14px before the action row.
-    $actionY = $advancedY + 172
+    # The always-visible Advanced card is 112px tall. Leave a clean gap
+    # before the Save/Cancel action row.
+    $actionY = $advancedY + 134
     $cancelButton.Location = New-Object System.Drawing.Point(870, $actionY)
 '@ `
     -Label 'position dynamic slider cancel button'
@@ -929,7 +929,7 @@ $text = Replace-LiteralExactlyOnce `
 $text = Replace-LiteralExactlyOnce `
     -Text $text `
     -OldText @'
-    $saveButton.Location = New-Object System.Drawing.Point(982, 712)
+    $saveButton.Location = New-Object System.Drawing.Point(982, 674)
 '@ `
     -NewText @'
     $saveButton.Location = New-Object System.Drawing.Point(982, $actionY)
