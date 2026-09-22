@@ -456,7 +456,7 @@ jobs:
           if ($runtimeText -notmatch '@\(\$layerButtonState\.LastButtons\)\.Count') {
             throw 'Adaptive layer editor live timer is not isolated from the parent toggle/encoder timer state.'
           }
-          if ($runtimeText -notmatch "\$layerSettingsButton\.Text = if \(\$script:Language -eq 'ru'\) \{ 'Слои управления…' \}") {
+          if ($runtimeText -notmatch '\$layerSettingsButton\.Text = if \(\$script:Language -eq ''ru''\) \{ ''Слои управления…'' \}') {
             throw 'Adaptive typed-settings dialog is missing the dedicated Control layers row.'
           }
           if ($runtimeText -notmatch '\$layerSettingsButton\.Location = \[System\.Drawing\.Point\]::new\(25, 211\)') {
