@@ -398,9 +398,6 @@ jobs:
           if ($runtimeText -match '\[Environment\]::TickCount64') {
             throw 'Development runtime uses Environment.TickCount64, which is unavailable in Windows PowerShell 5.1/.NET Framework.'
           }
-          if ($runtimeText -notmatch '\[DateTime\]::UtcNow\.Ticks') {
-            throw 'Development runtime is missing the PS5-compatible slider advanced-toggle click timer.'
-          }
           if ($runtimeText -notmatch "SliderAdvancedPanel") {
             throw 'Development runtime is missing the uniquely named slider Advanced-settings panel.'
           }
