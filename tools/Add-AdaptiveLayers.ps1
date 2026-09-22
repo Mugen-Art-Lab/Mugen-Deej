@@ -47,14 +47,29 @@ $text = [System.IO.File]::ReadAllText($resolved, [System.Text.Encoding]::UTF8)
 # Keep layer configuration completely separate from the established flat
 # button-actions.json path. Legacy/Extended therefore retain their exact
 # existing action storage and runtime resolution.
-$statePattern = '(?m)^\s*\$script:AdaptiveProfileConfigPath\s*=[^\r\n]*'
+$profilePathNeedle = "'adaptive-profiles.json'"
+$profilePathIndex = $text.IndexOf($profilePathNeedle, [System.StringComparison]::Ordinal)
+if ($profilePathIndex -lt 0) {
+    throw 'Adaptive layer patch could not find the adaptive-profiles.json assignment.'
+}
+
+$profileLineStart = $text.LastIndexOf("`n", $profilePathIndex)
+if ($profileLineStart -lt 0) { $profileLineStart = 0 } else { $profileLineStart++ }
+$profileLineEnd = $text.IndexOf("`n", $profilePathIndex)
+if ($profileLineEnd -lt 0) { $profileLineEnd = $text.Length }
+
+$profileLine = $text.Substring($profileLineStart, $profileLineEnd - $profileLineStart).TrimEnd("`r")
+if ($profileLine -notmatch '^\s*\$script:AdaptiveProfileConfigPath\s*=') {
+    throw ("Adaptive layer patch found adaptive-profiles.json on an unexpected line: " + $profileLine)
+}
+
 $stateNew = @'
 $script:AdaptiveProfileConfigPath = Join-Path $script:BaseDir 'adaptive-profiles.json'
 $script:AdaptiveLayerConfigPath = Join-Path $script:BaseDir 'adaptive-layers.json'
 $script:AdaptiveLayersLoaded = $false
 $script:AdaptiveLayerConfig = $null
 '@
-$text = Replace-LayerRegexExactlyOnce -Text $text -Pattern $statePattern -Replacement $stateNew -Label 'add Adaptive layer runtime state'
+$text = $text.Substring(0, $profileLineStart) + $stateNew + $text.Substring($profileLineEnd)
 
 $layerFunctions = @'
 function New-DefaultAdaptiveLayerConfig {
