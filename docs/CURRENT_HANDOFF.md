@@ -1585,3 +1585,21 @@ Workflow:
 - staging, Windows PowerShell 5.1 parse/runtime checks, helper/launcher build, packaging and upload: PASS.
 
 The same hardware session exposed a separate matrix issue around B23: pressing/holding B23 (R4C2) can also appear as B2/B9/B16, i.e. every row in the same C2 column. A first firmware-only row-release settle increase did not eliminate the observed behavior. Do not hide this in desktop software because legitimate same-column multi-key presses are allowed. Next physical check should compare B23 against known-good B24 on the same R4 row and verify B23's local switch/diode/row connection, especially that the diode striped side really reaches R4/A1 and the branch is not accidentally tied to GND. If hardware checks clean, use a dedicated matrix diagnostic sketch before changing generic scan semantics again.
+
+
+## Integrated #144 — persistent slider advanced-toggle guard + working Nano column swap
+
+Real-machine follow-up showed two independent details:
+
+- after physically swapping Nano matrix column jumpers C2/C3, the same-column ghost presses disappeared; only logical button ordering became swapped, so the Nano firmware now maps logical C2/C3 to physical D6/D5 and preserves normal B1..B28 numbering without rewiring the working state again;
+- Integrated #143's slider Advanced-settings debounce still flickered because the timestamp was assigned inside a PowerShell event-handler invocation scope and was not reliably persistent across Click events. #144 stores the last-click timestamp on the control itself (`AccessibleDescription`) and ignores duplicate Click events within 500 ms; diagnostic log lines were added for accepted/ignored events.
+
+Workflow:
+- run **#144**, run ID `35752416093` — SUCCESS;
+- built app code head `d069a42b54817a56b95e2645715825d6d4af6a16`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-144`, ID `10707050564`;
+- outer Actions digest `sha256:17fc5312d07b393990f34c67c27630bc028279a76cc3f8254a1f62f5391f2e8d`;
+- inner program ZIP SHA-256 `a14e26af6e73fcde8ee73ce092fc85dc1dc5ede9af9912687eb09c5f7ad112b8`;
+- CI staging, Windows PowerShell 5.1 parse/runtime checks, launcher/helper build, packaging and upload: PASS.
+
+Nano firmware head after the app build also includes the logical C2/C3 remap for the user's currently working jumper arrangement.
