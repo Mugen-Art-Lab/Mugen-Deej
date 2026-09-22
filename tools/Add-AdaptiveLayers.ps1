@@ -626,7 +626,7 @@ function Show-AdaptiveLayerEncoderSettings {
     Initialize-AdaptiveActions
     Initialize-AdaptiveProfiles
 
-    $working = Copy-AdaptiveLayerConfig -Config $Config
+    $encoderLayerWorking = Copy-AdaptiveLayerConfig -Config $Config
     $encoderCount = [int]$script:DetectedEncoderCount
 
     $dialog = New-Object System.Windows.Forms.Form
@@ -727,6 +727,7 @@ function Show-AdaptiveLayerEncoderSettings {
         $labels += $label
 
         $combo = New-Object MugenDeejWindowing.MugenComboBox
+        $combo.Tag = $i
         $combo.DropDownStyle = 'DropDownList'
         $combo.Location = [System.Drawing.Point]::new(175, (215 + ($i * 58)))
         $combo.Size = [System.Drawing.Size]::new(520, 30)
@@ -749,7 +750,7 @@ function Show-AdaptiveLayerEncoderSettings {
         $encoderIndex = [int]$encoderCombo.SelectedIndex
         if ($encoderIndex -lt 0) { $encoderIndex = 0 }
 
-        $context = Get-AdaptiveLayerContextObject -Config $working -Key $contextKey -Create
+        $context = Get-AdaptiveLayerContextObject -Config $encoderLayerWorking -Key $contextKey -Create
         Ensure-AdaptiveLayerEncoderCapacity -Context $context -EncoderCount $encoderCount
 
         $baseCw = Get-AdaptiveLayerBaseEncoderAction -ContextKey $contextKey -EncoderIndex $encoderIndex -Kind 'cw'
@@ -765,7 +766,7 @@ function Show-AdaptiveLayerEncoderSettings {
         $state.Suppress = $true
         try {
             for ($i = 0; $i -lt 3; $i++) {
-                $override = Get-AdaptiveLayerEncoderOverride -Config $working -ContextKey $contextKey -Layer $layer -EncoderIndex $encoderIndex -Kind $kinds[$i]
+                $override = Get-AdaptiveLayerEncoderOverride -Config $encoderLayerWorking -ContextKey $contextKey -Layer $layer -EncoderIndex $encoderIndex -Kind $kinds[$i]
                 Populate-AdaptiveLayerTypedActionCombo -Combo $combos[$i] -Map $maps[$i] -CurrentAction $override
             }
         }
@@ -782,19 +783,22 @@ function Show-AdaptiveLayerEncoderSettings {
     }
 
     for ($comboIndex = 0; $comboIndex -lt 3; $comboIndex++) {
-        $capturedIndex = $comboIndex
         $combos[$comboIndex].Add_SelectedIndexChanged({
+            param($sender, $eventArgs)
+
             if ($state.Suppress) { return }
 
-            $selectedIndex = [int]$combos[$capturedIndex].SelectedIndex
-            if ($selectedIndex -lt 0 -or $selectedIndex -ge $maps[$capturedIndex].Count) { return }
+            $slotIndex = [int]$sender.Tag
+            $selectedIndex = [int]$sender.SelectedIndex
+            if ($slotIndex -lt 0 -or $slotIndex -ge $maps.Count) { return }
+            if ($selectedIndex -lt 0 -or $selectedIndex -ge $maps[$slotIndex].Count) { return }
 
             $contextKey = & $getContextKey
             $layer = [int]$layerCombo.SelectedIndex + 1
             $encoderIndex = [int]$encoderCombo.SelectedIndex
-            $kind = [string]$kinds[$capturedIndex]
-            $chosen = [string]$maps[$capturedIndex][$selectedIndex]
-            $previous = Get-AdaptiveLayerEncoderOverride -Config $working -ContextKey $contextKey -Layer $layer -EncoderIndex $encoderIndex -Kind $kind
+            $kind = [string]$kinds[$slotIndex]
+            $chosen = [string]$maps[$slotIndex][$selectedIndex]
+            $previous = Get-AdaptiveLayerEncoderOverride -Config $encoderLayerWorking -ContextKey $contextKey -Layer $layer -EncoderIndex $encoderIndex -Kind $kind
 
             $configured = if ($chosen -eq 'inherit') {
                 'inherit'
@@ -804,7 +808,7 @@ function Show-AdaptiveLayerEncoderSettings {
             }
 
             if (-not [string]::IsNullOrWhiteSpace([string]$configured)) {
-                Set-AdaptiveLayerEncoderOverride -Config $working -ContextKey $contextKey -Layer $layer -EncoderIndex $encoderIndex -Kind $kind -Action ([string]$configured) -EncoderCount $encoderCount
+                Set-AdaptiveLayerEncoderOverride -Config $encoderLayerWorking -ContextKey $contextKey -Layer $layer -EncoderIndex $encoderIndex -Kind $kind -Action ([string]$configured) -EncoderCount $encoderCount
             }
 
             & $refresh
@@ -830,7 +834,7 @@ function Show-AdaptiveLayerEncoderSettings {
     $dialog.Controls.Add($save)
 
     $save.Add_Click({
-        $normalized = ConvertTo-NormalizedAdaptiveLayerConfig -Data $working
+        $normalized = ConvertTo-NormalizedAdaptiveLayerConfig -Data $encoderLayerWorking
         $Config.contexts = @($normalized.contexts)
         $dialog.DialogResult = [System.Windows.Forms.DialogResult]::OK
         $dialog.Close()
