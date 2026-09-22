@@ -450,6 +450,24 @@ jobs:
           if ($runtimeText -notmatch 'function Show-AdaptiveLayerSettings') {
             throw 'Development runtime is missing the Adaptive button-layer editor.'
           }
+          if ($runtimeText -notmatch '\$layerButtonState = \[pscustomobject\]@\{') {
+            throw 'Adaptive layer editor still uses an ambiguous generic event-state variable.'
+          }
+          if ($runtimeText -notmatch '@\(\$layerButtonState\.LastButtons\)\.Count') {
+            throw 'Adaptive layer editor live timer is not isolated from the parent toggle/encoder timer state.'
+          }
+          if ($runtimeText -notmatch "\$layerSettingsButton\.Text = if \(\$script:Language -eq 'ru'\) \{ 'Слои управления…' \}") {
+            throw 'Adaptive typed-settings dialog is missing the dedicated Control layers row.'
+          }
+          if ($runtimeText -notmatch '\$layerSettingsButton\.Location = \[System\.Drawing\.Point\]::new\(25, 211\)') {
+            throw 'Adaptive Control layers button is still glued to the profile Add button.'
+          }
+          if ($runtimeText -notmatch '\$profileHint\.Size = \[System\.Drawing\.Size\]::new\(770, 30\)') {
+            throw 'Adaptive profile explanation is not using its own full-width row.'
+          }
+          if ($runtimeText -notmatch '\$selectorGroup\.Location = \[System\.Drawing\.Point\]::new\(22, 252\)') {
+            throw 'Adaptive control selector was not shifted below the dedicated layer row.'
+          }
           if ($runtimeText -notmatch 'function Get-AdaptiveLayerEncoderOverride') {
             throw 'Development runtime is missing layered encoder overrides.'
           }
