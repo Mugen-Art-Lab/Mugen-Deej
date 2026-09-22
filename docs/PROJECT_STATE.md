@@ -363,3 +363,14 @@ The expanded slider Advanced card is also moved farther below the section toggle
 Run #152 (ID `35756930169`) succeeded at code head `25145a413f17123852dd99d8dbba0315f3d7d8cd`; artifact ID `10708472819`; outer digest `sha256:e0c20d32e33b7b1803f28351c1a0556f3fb121735e85456b7262387ba10991ea`; inner ZIP SHA-256 `fee9cc30c4c6496d644d89b61be871c53adc26f2dfba6a90efa18c1f9adef527`.
 
 Real-machine acceptance: Advanced settings should remain cleanly laid out, Save with global slider inversion must close normally, inversion must persist on reopen, and all five real Nano pots should move in the preferred direction.
+
+
+## Current hardware-review build — Integrated #155
+
+#152 passed the functional slider-settings test on the real Nano panel: global inversion saved without a JIT exception and the five physical potentiometers subsequently reported live values in the preferred direction. The remaining defect was visual overlap in the expanded Advanced section.
+
+#155 replaces the two independently positioned top-level Advanced controls with one `SliderAdvancedHost`: the toggle is fixed at host-relative `(0,0)`, the content panel at `(0,46)`, and only the host is moved by dynamic topology/layout code. The normal five-slider dialog no longer enables unnecessary Form.AutoScroll.
+
+Run #155 (ID `35757909957`) succeeded at code head `53e469ac6a2daf63df6626e5777b5fe4535161d9`; artifact ID `10708579398`; outer digest `sha256:36584e85d675d9b0bec5267cb9650c9363879de18b1cbac6ea4e600e85033724`; inner ZIP SHA-256 `d39ce76bba887f30827a902741e7f22bf1518cd2aca2234883e5782bd3848d14`.
+
+Real-machine acceptance for #155 is now mostly visual/regression: Advanced controls must render below the section toggle, collapse/reopen normally, and the already-working inversion + five live Nano pots must remain intact.
