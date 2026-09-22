@@ -47,7 +47,7 @@ $text = [System.IO.File]::ReadAllText($resolved, [System.Text.Encoding]::UTF8)
 # Keep layer configuration completely separate from the established flat
 # button-actions.json path. Legacy/Extended therefore retain their exact
 # existing action storage and runtime resolution.
-$statePattern = '(?m)^\$script:AdaptiveProfileConfigPath\s*=\s*Join-Path\s+\$script:BaseDir\s+''adaptive-profiles\.json''\r?$'
+$statePattern = '(?m)^\s*\$script:AdaptiveProfileConfigPath\s*=[^\r\n]*'
 $stateNew = @'
 $script:AdaptiveProfileConfigPath = Join-Path $script:BaseDir 'adaptive-profiles.json'
 $script:AdaptiveLayerConfigPath = Join-Path $script:BaseDir 'adaptive-layers.json'
