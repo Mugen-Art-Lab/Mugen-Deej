@@ -1282,7 +1282,7 @@ function Show-AdaptiveLayerSettings {
     $activePreview.Size = [System.Drawing.Size]::new(472, 28)
     $editorGroup.Controls.Add($activePreview)
 
-    $state = [pscustomobject]@{
+    $layerButtonState = [pscustomobject]@{
         Selected = 0
         Suppress = $false
         ActionMap = New-Object System.Collections.ArrayList
@@ -1300,7 +1300,7 @@ function Show-AdaptiveLayerSettings {
     }
 
     $refreshEditor = {
-        $index = [int]$state.Selected
+        $index = [int]$layerButtonState.Selected
         $contextKey = & $getContextKey
         $layer = & $getLayer
 
@@ -1324,12 +1324,12 @@ function Show-AdaptiveLayerSettings {
             'Base action: ' + (Get-LargeButtonActionDisplay -Action $baseAction)
         }
 
-        $state.Suppress = $true
+        $layerButtonState.Suppress = $true
         try {
-            Populate-AdaptiveLayerButtonActionCombo -Combo $actionCombo -Map $state.ActionMap -CurrentAction $override
+            Populate-AdaptiveLayerButtonActionCombo -Combo $actionCombo -Map $layerButtonState.ActionMap -CurrentAction $override
         }
         finally {
-            $state.Suppress = $false
+            $layerButtonState.Suppress = $false
         }
 
         $currentLayer = Get-AdaptiveLayerIndex
@@ -1345,7 +1345,7 @@ function Show-AdaptiveLayerSettings {
         param([int]$Index)
 
         if ($Index -lt 0 -or $Index -ge $buttonCount) { return }
-        $state.Selected = $Index
+        $layerButtonState.Selected = $Index
         & $refreshEditor
     }
 
@@ -1357,20 +1357,20 @@ function Show-AdaptiveLayerSettings {
     }
 
     $profileCombo.Add_SelectedIndexChanged({
-        if (-not $state.Suppress) { & $refreshEditor }
+        if (-not $layerButtonState.Suppress) { & $refreshEditor }
     })
     $layerCombo.Add_SelectedIndexChanged({
-        if (-not $state.Suppress) { & $refreshEditor }
+        if (-not $layerButtonState.Suppress) { & $refreshEditor }
     })
 
     $actionCombo.Add_SelectedIndexChanged({
-        if ($state.Suppress) { return }
+        if ($layerButtonState.Suppress) { return }
 
         $selectedIndex = [int]$actionCombo.SelectedIndex
-        if ($selectedIndex -lt 0 -or $selectedIndex -ge $state.ActionMap.Count) { return }
+        if ($selectedIndex -lt 0 -or $selectedIndex -ge $layerButtonState.ActionMap.Count) { return }
 
-        $selectedAction = [string]$state.ActionMap[$selectedIndex]
-        $index = [int]$state.Selected
+        $selectedAction = [string]$layerButtonState.ActionMap[$selectedIndex]
+        $index = [int]$layerButtonState.Selected
         $contextKey = & $getContextKey
         $layer = & $getLayer
         $previous = Get-AdaptiveLayerButtonOverride -Config $working -ContextKey $contextKey -Layer $layer -ButtonIndex $index
@@ -1442,14 +1442,14 @@ function Show-AdaptiveLayerSettings {
     $liveTimer.Interval = 40
     $liveTimer.Add_Tick({
         $latest = @($script:LatestButtons)
-        $compareCount = [Math]::Min($latest.Count, @($state.LastButtons).Count)
+        $compareCount = [Math]::Min($latest.Count, @($layerButtonState.LastButtons).Count)
         for ($i = 0; $i -lt $compareCount; $i++) {
-            if ([int]$latest[$i] -eq 0 -and [int]$state.LastButtons[$i] -ne 0) {
+            if ([int]$latest[$i] -eq 0 -and [int]$layerButtonState.LastButtons[$i] -ne 0) {
                 & $selectButton -Index $i
                 break
             }
         }
-        $state.LastButtons = @($latest)
+        $layerButtonState.LastButtons = @($latest)
 
         $currentLayer = Get-AdaptiveLayerIndex
         $preview = if ($script:Language -eq 'ru') {
@@ -1657,21 +1657,69 @@ $profileHintOld = @'
 '@
 $profileHintNew = @'
     $profileHint.ForeColor = [System.Drawing.Color]::DimGray
-    $profileHint.Location = [System.Drawing.Point]::new(25, 173)
-    $profileHint.Size = [System.Drawing.Size]::new(560, 28)
+    $profileHint.Location = [System.Drawing.Point]::new(25, 176)
+    $profileHint.Size = [System.Drawing.Size]::new(770, 30)
     $settingsForm.Controls.Add($profileHint)
 
     $layerSettingsButton = New-Object MugenDeejWindowing.MugenButton
-    $layerSettingsButton.Text = if ($script:Language -eq 'ru') { 'Слои кнопок…' } else { 'Button layers…' }
-    $layerSettingsButton.Location = [System.Drawing.Point]::new(600, 170)
-    $layerSettingsButton.Size = [System.Drawing.Size]::new(198, 30)
+    $layerSettingsButton.Text = if ($script:Language -eq 'ru') { 'Слои управления…' } else { 'Control layers…' }
+    $layerSettingsButton.Location = [System.Drawing.Point]::new(25, 211)
+    $layerSettingsButton.Size = [System.Drawing.Size]::new(220, 32)
     $layerSettingsButton.Enabled = ([string]$script:ControllerProtocol -eq 'adaptive' -and [int]$script:DetectedToggleCount -gt 0 -and [int]$script:DetectedButtonCount -gt 0)
     $layerSettingsButton.Add_Click({ Show-AdaptiveLayerSettings })
     $settingsForm.Controls.Add($layerSettingsButton)
 
+    $layerSettingsHint = New-Object System.Windows.Forms.Label
+    $layerSettingsHint.Text = if ($script:Language -eq 'ru') {
+        'T1/T2 как модификаторы: отдельные назначения кнопок и энкодера.'
+    }
+    else {
+        'Use T1/T2 as modifiers for alternate button and encoder mappings.'
+    }
+    $layerSettingsHint.ForeColor = [System.Drawing.Color]::DimGray
+    $layerSettingsHint.Location = [System.Drawing.Point]::new(260, 215)
+    $layerSettingsHint.Size = [System.Drawing.Size]::new(535, 28)
+    $settingsForm.Controls.Add($layerSettingsHint)
+
     $selectorGroup = New-Object MugenDeejWindowing.MugenGroupBox
 '@
 $text = Replace-LayerLiteralExactlyOnce -Text $text -OldText $profileHintOld -NewText $profileHintNew -Label 'add layer editor entry point to Adaptive settings'
+
+# The new layer row is a first-class section, not a button glued to the profile
+# Add button. Shift the editor body and action row down together.
+$text = Replace-LayerLiteralExactlyOnce -Text $text -OldText @'
+    $settingsForm.ClientSize = [System.Drawing.Size]::new(820, 796)
+    $settingsForm.MinimumSize = [System.Drawing.Size]::new(836, 835)
+    $settingsForm.MaximumSize = [System.Drawing.Size]::new(836, 835)
+'@ -NewText @'
+    $settingsForm.ClientSize = [System.Drawing.Size]::new(820, 846)
+    $settingsForm.MinimumSize = [System.Drawing.Size]::new(836, 885)
+    $settingsForm.MaximumSize = [System.Drawing.Size]::new(836, 885)
+'@ -Label 'make room for Adaptive layer settings row'
+
+$text = Replace-LayerLiteralExactlyOnce -Text $text -OldText @'
+    $selectorGroup.Location = [System.Drawing.Point]::new(22, 202)
+'@ -NewText @'
+    $selectorGroup.Location = [System.Drawing.Point]::new(22, 252)
+'@ -Label 'move Adaptive selector group below layer row'
+
+$text = Replace-LayerLiteralExactlyOnce -Text $text -OldText @'
+    $editorGroup.Location = [System.Drawing.Point]::new(282, 202)
+'@ -NewText @'
+    $editorGroup.Location = [System.Drawing.Point]::new(282, 252)
+'@ -Label 'move Adaptive editor group below layer row'
+
+$text = Replace-LayerLiteralExactlyOnce -Text $text -OldText @'
+    $cancel.Location = [System.Drawing.Point]::new(580, 744)
+'@ -NewText @'
+    $cancel.Location = [System.Drawing.Point]::new(580, 794)
+'@ -Label 'move Adaptive cancel button below shifted editor'
+
+$text = Replace-LayerLiteralExactlyOnce -Text $text -OldText @'
+    $save.Location = [System.Drawing.Point]::new(692, 744)
+'@ -NewText @'
+    $save.Location = [System.Drawing.Point]::new(692, 794)
+'@ -Label 'move Adaptive save button below shifted editor'
 
 [System.IO.File]::WriteAllText($resolved, $text, (New-Object System.Text.UTF8Encoding($false)))
 Write-Host "Applied Adaptive toggle-layer mappings to staged runtime: $resolved"
