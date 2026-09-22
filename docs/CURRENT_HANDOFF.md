@@ -1851,3 +1851,29 @@ CI history:
 - staging, Windows PowerShell 5.1 parse/runtime assertions, launcher/helper build, packaging and upload: PASS.
 
 #180 is a hardware-review candidate; #160 remains the last full hardware-passed baseline until layer behavior is exercised on the real panel.
+
+
+## Integrated #183 — custom names for Adaptive control layers
+
+Adaptive layer names are now user-editable instead of being fixed to Base/T1/T2/T1+T2.
+
+Behavior:
+- Control layers dialog contains a dedicated **Layer names / Имена слоёв** section;
+- Base, T1, T2 and T1+T2 each have an editable name (24 characters max);
+- unchanged defaults remain localization-aware instead of being permanently written as translated strings;
+- custom names persist in the existing version-1 `adaptive-layers.json` as an optional `names` object, so older layer files without names still load unchanged;
+- custom names are used by the button-layer selector, live layer preview, modifier-toggle labels, main live toggle status, transition logs, and the layered encoder selector;
+- encoder layer settings opened before Save receive the current unsaved names from the parent layer dialog;
+- Legacy/Extended remain hard-gated out of Adaptive layer resolution and are unaffected.
+
+Workflow:
+- #181 successfully built the feature implementation;
+- #182 failed only on an over-specific CI localization assertion;
+- run **#183**, run ID `35776040340` — SUCCESS;
+- built code head `6459579e4bc9236debd0ba76f48b996d2d3630d8`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-183`, ID `10716281843`;
+- outer Actions digest `sha256:2c65daa50e159679442c5e04ccde7c97390d0fe184cf957737edff5489e24372`;
+- inner program ZIP SHA-256 `755c88d3763695cbea3b9869269093d590ca70b64dd459ec7c091fbcd3e9d6f9`;
+- staging, Windows PowerShell 5.1 parse/runtime assertions, launcher/helper build, packaging and upload: PASS.
+
+#183 is the next hardware-review candidate. Suggested first naming test: Base=Основной, T1=Стрим, T2=Игра, T1+T2=Система; Save, reopen, then verify the same names appear in button layers, encoder layers and the live active-layer label.
