@@ -1692,3 +1692,39 @@ Immediate real-machine check:
 4. click Save — no JIT exception;
 5. reopen slider settings and confirm inversion remained checked;
 6. verify all five physical Nano potentiometers now move in the preferred direction.
+
+
+## Integrated #155 — slider Advanced layout host
+
+Real-machine #152 confirmed the functional part of the analog-settings path:
+
+- the Advanced section opens;
+- global slider inversion saves successfully;
+- reopening/running the app shows the five physical Nano potentiometers moving in the preferred direction.
+
+The remaining issue was visual: the Advanced controls were rendered underneath/behind the section toggle, even though their calculated top-level coordinates were intended to be below it. The normal five-slider dialog also still enabled Form.AutoScroll through the dynamic topology patcher, which was unnecessary and made this nested layout more fragile.
+
+#155 changes the structure rather than adding another coordinate tweak:
+
+- add a single top-level `SliderAdvancedHost` panel;
+- parent the Advanced toggle at `(0,0)` inside that host;
+- parent `SliderAdvancedPanel` at `(0,46)` inside the same host;
+- move only the host as a unit after the dynamic slider rows;
+- keep the action row at `advancedY + 172`;
+- enable Form.AutoScroll only when more than five analog controls are actually present;
+- update the Adaptive topology staging patcher and CI assertions to enforce this parent/child structure.
+
+Workflow:
+- run **#155**, run ID `35757909957` — SUCCESS;
+- built code head `53e469ac6a2daf63df6626e5777b5fe4535161d9`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-155`, ID `10708579398`;
+- outer Actions digest `sha256:36584e85d675d9b0bec5267cb9650c9363879de18b1cbac6ea4e600e85033724`;
+- inner program ZIP SHA-256 `d39ce76bba887f30827a902741e7f22bf1518cd2aca2234883e5782bd3848d14`;
+- staging, Windows PowerShell 5.1 parse/runtime assertions, launcher/helper build, packaging and upload: PASS.
+
+Immediate real-machine check:
+1. open slider settings;
+2. expand Advanced settings;
+3. verify the checkbox, responsiveness selector/help and config button are visibly below the section toggle rather than underneath it;
+4. collapse/reopen once;
+5. confirm the already-proven slider inversion setting remains saved and the five live pot readings remain correct.
