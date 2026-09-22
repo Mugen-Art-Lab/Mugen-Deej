@@ -1625,3 +1625,34 @@ Workflow:
 - staging, Windows PowerShell 5.1 parse/runtime assertions, launcher/helper build, packaging and upload: PASS.
 
 Hardware note from the same session: after the C2/C3 jumper swap plus logical firmware remap, B22/B23 no longer produced the previous whole-column ghost set during the observed test. Treat that as promising real-machine behavior, not a broad matrix redesign; the original matrix itself had already passed on Uno.
+
+
+## Integrated #149 — bind slider Advanced panel to the correct dialog
+
+Real-machine #146 proved that the duplicate-click timer itself was now executing correctly, but the slider Advanced section still visually disappeared. The diagnostic log was decisive: every accepted click reported `visible=True`, never `False`, even across repeated clicks. That means the handler was not toggling the same visible panel the user was looking at.
+
+Root cause: the main window and the slider-settings dialog both used a PowerShell variable named `$advancedPanel`. Because WinForms Click handlers execute later, deferred PowerShell variable resolution could bind the slider Click handler to the main-window diagnostics panel instead of the slider dialog's panel.
+
+Fix:
+- rename the slider dialog's panel to `$sliderAdvancedPanel`;
+- assign it WinForms name `SliderAdvancedPanel`;
+- in the Click handler, resolve the target through `$sender.FindForm().Controls.Find('SliderAdvancedPanel', $true)` rather than a shared PowerShell variable;
+- similarly give the slider inversion checkbox and responsiveness combo stable control names and resolve those from the dialog when Save is clicked;
+- update the Adaptive topology staging patcher to recognize the renamed slider panel;
+- add CI assertions for the named panel and dialog-scoped lookup.
+
+Workflow:
+- runs #147/#148 were staging-only failures because the Adaptive topology patcher still expected the old `$advancedPanel.Location` literal; no user artifact from those runs;
+- run **#149**, run ID `35755453514` — SUCCESS;
+- built code head `5b57c295fd02df5cb80a8a93574a823d56ee66e8`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-149`, ID `10708695236`;
+- outer Actions digest `sha256:9f85ce880986c82c32e927338b88c9f71781f4c5d450d034702c1d53e31799c9`;
+- inner program ZIP SHA-256 `d4437f6ce1cd1710b0ea190c17e4ff3bdf9f5e3a9ce2959a7965ce0da42f3a7e`;
+- staging, Windows PowerShell 5.1 parse/runtime assertions, launcher/helper build, packaging and upload: PASS.
+
+Immediate hardware/UI check:
+1. open slider settings;
+2. expand Advanced settings once and confirm its controls stay visible;
+3. collapse and reopen it;
+4. enable global slider inversion and Save;
+5. confirm all five real pots now move in the preferred direction.
