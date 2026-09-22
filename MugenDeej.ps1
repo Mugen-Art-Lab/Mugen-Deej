@@ -4688,15 +4688,30 @@ function Show-SliderSettings {
     $advancedToggle.Add_Click({
         param($sender, $eventArgs)
 
-        $nowTicks = [Environment]::TickCount64
+        # Windows PowerShell 5.1 runs on .NET Framework, where
+        # Environment.TickCount64 is not available. UTC DateTime ticks are
+        # monotonic enough for this short duplicate-click guard and are
+        # supported by the real Windows PowerShell 5.1 runtime.
+        $nowTicks = [DateTime]::UtcNow.Ticks
         $lastTicks = 0L
         [void][long]::TryParse(
             [string]$sender.AccessibleDescription,
             [ref]$lastTicks
         )
 
-        if (($nowTicks - $lastTicks) -lt 500) {
-            Write-Log 'Ignored duplicate slider advanced-settings Click event' 'DEBUG'
+        $elapsedMs = if ($lastTicks -gt 0) {
+            [double]($nowTicks - $lastTicks) /
+                [double][TimeSpan]::TicksPerMillisecond
+        }
+        else {
+            [double]::PositiveInfinity
+        }
+
+        if ($elapsedMs -lt 500.0) {
+            Write-Log (
+                'Ignored duplicate slider advanced-settings Click event; elapsedMs={0:N0}' -f
+                $elapsedMs
+            ) 'DEBUG'
             return
         }
 
