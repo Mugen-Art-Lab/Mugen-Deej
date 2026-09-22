@@ -374,3 +374,14 @@ Real-machine acceptance: Advanced settings should remain cleanly laid out, Save 
 Run #155 (ID `35757909957`) succeeded at code head `53e469ac6a2daf63df6626e5777b5fe4535161d9`; artifact ID `10708579398`; outer digest `sha256:36584e85d675d9b0bec5267cb9650c9363879de18b1cbac6ea4e600e85033724`; inner ZIP SHA-256 `d39ce76bba887f30827a902741e7f22bf1518cd2aca2234883e5782bd3848d14`.
 
 Real-machine acceptance for #155 is now mostly visual/regression: Advanced controls must render below the section toggle, collapse/reopen normally, and the already-working inversion + five live Nano pots must remain intact.
+
+
+## Current hardware-review build — Integrated #160
+
+The real Nano analog path is functionally working: all five physical potentiometers are live and the global inversion setting saves successfully. #155 still had a purely UI initialization defect where the collapsible Advanced-settings button could flash briefly and disappear when the slider dialog opened.
+
+#160 removes that collapsible mechanism. Slider Advanced settings are now permanently visible in a dedicated card below the slider rows: inversion, responsiveness/help and Open config are always present. Dynamic topology moves that card as a unit, and normal five-slider layout does not enable unnecessary AutoScroll.
+
+Run #160 (ID `35759260556`) succeeded at code head `081751cda7395c232f45bd6c78471660f1ebc969`; artifact ID `10709081360`; outer digest `sha256:50ff2c5988aa4f59e10d10b7790d9489af715df7ed766381aaf1879df98dcdca`; inner ZIP SHA-256 `866891dd1422284d228e0e5187945e422d2e83c3bab16aa4415505ff3101d645`.
+
+Real-machine acceptance: opening slider settings must immediately show the Advanced card without any transient arrow/show-hide control, inversion must remain persisted, and the five real Nano potentiometers must continue reporting correctly.
