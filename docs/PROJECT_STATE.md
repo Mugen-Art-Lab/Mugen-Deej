@@ -405,3 +405,16 @@ Compatibility is intentionally gated: Legacy/Extended return layer index 0 and r
 Run #175 (ID `35766695670`) succeeded at code head `09a69e734b7014235de653c17f7ba6632d01c2cc`; artifact ID `10712008968`; outer digest `sha256:185870016e0f3d575c0bcee5895d5be4fc1f5843e35cea9a1b1746c15b30d1b2`; inner ZIP SHA-256 `868ac0da396ae63413e411078e1850632a613d1d7586dcb427c7fdb68daed6fa`.
 
 #160 remains the last hardware-passed baseline. #175 is the next real-machine candidate and must pass Adaptive layer tests plus Legacy/Extended regressions before replacing that status.
+
+
+## Current layer hardware-review candidate — Integrated #180
+
+#175 opened the new Adaptive Control-layers dialog but exposed a PowerShell deferred-event scope collision: both the parent toggle/encoder settings window and the nested button-layer editor used `$state`. The parent 50 ms live timer then resolved `$state` to the nested object and failed because that object has `LastButtons` rather than `LastToggles`.
+
+#180 isolates the nested editor as `$layerButtonState`. It also cleans the parent typed-settings layout by placing the profile explanation on a full-width row and moving **Control layers…** into a dedicated row with explanatory text, then shifting the main editor groups and action buttons down.
+
+Legacy/Extended compatibility remains explicitly gated: they do not resolve Adaptive layers and retain the pre-layer flat/profiled action path.
+
+Run #180 (ID `35773465992`) succeeded at code head `8041ee5319027db959b2e99e4c356578d558845a`; artifact ID `10714269507`; outer digest `sha256:aec2a91ff587389d01332dc60910fae965ce9f4e8c47f8627431d3f0e8fc7ad1`; inner ZIP SHA-256 `dc8eebd5e5418a8e165c82fe9f99bcffcb7e817d11c9537126ab8e052dd941e7`.
+
+Hardware acceptance should first confirm the Control-layers dialog opens without JIT errors and the parent layout is clean, then exercise Base/T1/T2/T1+T2 button mappings and layered encoder CW/CCW/push. #160 remains the last fully hardware-passed baseline until that succeeds.
