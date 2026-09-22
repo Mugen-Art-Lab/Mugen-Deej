@@ -1728,3 +1728,36 @@ Immediate real-machine check:
 3. verify the checkbox, responsiveness selector/help and config button are visibly below the section toggle rather than underneath it;
 4. collapse/reopen once;
 5. confirm the already-proven slider inversion setting remains saved and the five live pot readings remain correct.
+
+
+## Integrated #160 — always-visible slider Advanced card
+
+Real-machine #155 exposed that the collapsible Advanced control itself was still unstable: on opening the slider settings dialog, the Advanced arrow/button could appear briefly and then disappear before it was usable. The run log showed no Advanced click event at all, confirming this was a layout/visibility problem during dialog initialization rather than another duplicate-click issue.
+
+The analog editor only has three secondary controls (global inversion, responsiveness, open config), so the collapsible UI was removed entirely instead of adding more timing/layout special cases.
+
+#160:
+- removes the Advanced show/hide toggle and its click debounce path;
+- renders a permanent `MugenCardPanel` named `SliderAdvancedPanel` below the physical-slider rows;
+- shows global inversion, responsiveness, hint text and Open config inside that card at all times;
+- keeps Save using dialog-scoped named lookup for the inversion/responsiveness controls;
+- dynamic topology code moves the card as one unit below however many slider rows are detected;
+- Save/Cancel sit below the card;
+- normal five-slider layout avoids unnecessary AutoScroll;
+- obsolete collapse-related CI assertions were removed and replaced with checks for the permanently visible card.
+
+Workflow:
+- runs #156-#159 were intermediate CI/staging assertion failures while removing the old collapsible contract; no user test artifact should be used from them;
+- run **#160**, run ID `35759260556` — SUCCESS;
+- built code head `081751cda7395c232f45bd6c78471660f1ebc969`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-160`, ID `10709081360`;
+- outer Actions digest `sha256:50ff2c5988aa4f59e10d10b7790d9489af715df7ed766381aaf1879df98dcdca`;
+- inner program ZIP SHA-256 `866891dd1422284d228e0e5187945e422d2e83c3bab16aa4415505ff3101d645`;
+- staging, Windows PowerShell 5.1 parse/runtime assertions, launcher/helper build, packaging and upload: PASS.
+
+Immediate real-machine check:
+1. open slider settings;
+2. the Advanced card must already be visible — no arrow/button and no show/hide animation;
+3. confirm inversion remains checked from the prior successful save;
+4. verify the five live pot positions still update;
+5. Save once more and reopen to confirm persistence/regression.
