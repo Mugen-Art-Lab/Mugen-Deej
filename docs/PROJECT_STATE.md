@@ -330,3 +330,14 @@ Workflow:
 - CI staging, Windows PowerShell 5.1 parse/runtime checks, launcher/helper build, packaging and upload: PASS.
 
 Nano firmware head after the app build also includes the logical C2/C3 remap for the user's currently working jumper arrangement.
+
+
+## Current hardware-review build — Integrated #146
+
+Integrated #144 reached the real slider Advanced-settings Click handler but crashed because it used `[Environment]::TickCount64`, an API absent from Windows PowerShell 5.1's .NET Framework runtime. #146 keeps the persistent duplicate-click guard but uses `[DateTime]::UtcNow.Ticks` plus `[TimeSpan]::TicksPerMillisecond`, and CI now explicitly rejects `Environment.TickCount64` from the staged runtime.
+
+Run #146 (ID `35754260071`) succeeded at code head `d5586e9683017bb92f5c125c973b869f316d67b2`; artifact ID `10706049321`; outer digest `sha256:c8c29131d2a7c552e4f56786c6df56dfd3c170d033364903f3d4a3767721c244`; inner ZIP SHA-256 `4972469509232231df23b2e8746bca0eb2140bd4d1db346f0729c14a4bfbd47b`.
+
+Immediate real-machine check: open slider settings, expand/collapse Advanced settings several times, enable global slider inversion, Save, and confirm all five physical pots now move in the preferred direction. If duplicate Clicks still exist, the log should now contain accepted/ignored advanced-panel diagnostics instead of throwing a JIT exception.
+
+The Nano test wiring currently keeps physical C2/C3 swapped (C2=D6, C3=D5), while the firmware logically remaps them back to normal B1..B28 numbering. The observed B23 whole-column ghost set disappeared in the post-swap test.
