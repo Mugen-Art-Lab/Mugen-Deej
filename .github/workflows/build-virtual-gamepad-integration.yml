@@ -97,11 +97,6 @@ jobs:
           # assignment overview.
           .\tools\Run-OptimizedLargeButtonSettings.ps1 -Path $runtimePath
 
-          # Adaptive-only T1/T2 button layers live in a separate config and are
-          # applied after the existing button/profile editors are fully staged.
-          # Legacy and Extended keep their established flat mapping path.
-          .\tools\Add-AdaptiveLayers.ps1 -Path $runtimePath
-
           Copy-Item .\src\virtual-gamepad-integration\MugenDeej.VirtualGamepad.ps1 $integrationModulePath -Force
 
           # The hardware-proven HIDMaestro teardown takes about ten seconds on
