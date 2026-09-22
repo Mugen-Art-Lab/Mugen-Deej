@@ -4621,50 +4621,42 @@ function Show-SliderSettings {
         & $updateRowSummary $i
     }
 
-    # Keep the Advanced toggle and its contents inside one parent so later
-    # form-wide layout shifts cannot separate or overlap them.
-    $sliderAdvancedHost = New-Object System.Windows.Forms.Panel
-    $sliderAdvancedHost.Name = 'SliderAdvancedHost'
-    $sliderAdvancedHost.Location = New-Object System.Drawing.Point(25, 540)
-    $sliderAdvancedHost.Size = New-Object System.Drawing.Size(780, 158)
-    $settingsForm.Controls.Add($sliderAdvancedHost)
-
-    $advancedToggle = New-Object MugenDeejWindowing.MugenButton
-    $advancedToggle.Tag = 'MugenSection'
-    $advancedToggle.Text = (T -Key 'AdvancedClosed')
-    $advancedToggle.Location = New-Object System.Drawing.Point(0, 0)
-    $advancedToggle.Size = New-Object System.Drawing.Size(245, 34)
-    $sliderAdvancedHost.Controls.Add($advancedToggle)
-
-    # Use a uniquely named slider-settings panel. The main window also owns a
-    # control stored in a variable named $advancedPanel; WinForms event handlers
-    # execute later and PowerShell variable resolution can otherwise bind the
-    # click handler to that main-window panel instead of this dialog's panel.
-    $sliderAdvancedPanel = New-Object System.Windows.Forms.Panel
+    # The analog editor only has a handful of advanced options. Keep them
+    # permanently visible in a dedicated card instead of hiding them behind a
+    # collapsible control. This avoids deferred WinForms layout/scope edge cases
+    # and makes inversion/responsiveness discoverable on the real hardware UI.
+    $sliderAdvancedPanel = New-Object MugenDeejWindowing.MugenCardPanel
     $sliderAdvancedPanel.Name = 'SliderAdvancedPanel'
-    $sliderAdvancedPanel.Location = New-Object System.Drawing.Point(0, 46)
-    $sliderAdvancedPanel.Size = New-Object System.Drawing.Size(780, 112)
-    $sliderAdvancedPanel.Visible = $false
-    $sliderAdvancedHost.Controls.Add($sliderAdvancedPanel)
+    $sliderAdvancedPanel.Location = New-Object System.Drawing.Point(25, 540)
+    $sliderAdvancedPanel.Size = New-Object System.Drawing.Size(1065, 112)
+    $sliderAdvancedPanel.Visible = $true
+    $settingsForm.Controls.Add($sliderAdvancedPanel)
+
+    $advancedHeading = New-Object System.Windows.Forms.Label
+    $advancedHeading.Text = ((T -Key 'AdvancedClosed') -replace '\s*[▼▲]\s*$', '')
+    $advancedHeading.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 10)
+    $advancedHeading.Location = New-Object System.Drawing.Point(14, 8)
+    $advancedHeading.Size = New-Object System.Drawing.Size(240, 24)
+    $sliderAdvancedPanel.Controls.Add($advancedHeading)
 
     $invertCheck = New-Object System.Windows.Forms.CheckBox
     $invertCheck.Name = 'SliderInvertAllCheck'
     $invertCheck.Text = (T -Key 'InvertAll')
     $invertCheck.AutoSize = $true
     $invertCheck.Checked = [bool]$script:Config.behavior.invertSliders
-    $invertCheck.Location = New-Object System.Drawing.Point(0, 8)
+    $invertCheck.Location = New-Object System.Drawing.Point(14, 34)
     $sliderAdvancedPanel.Controls.Add($invertCheck)
 
     $responseLabel = New-Object System.Windows.Forms.Label
     $responseLabel.Text = (T -Key 'Responsiveness')
-    $responseLabel.Location = New-Object System.Drawing.Point(0, 42)
+    $responseLabel.Location = New-Object System.Drawing.Point(14, 72)
     $responseLabel.Size = New-Object System.Drawing.Size(110, 25)
     $sliderAdvancedPanel.Controls.Add($responseLabel)
 
     $responseCombo = New-Object MugenDeejWindowing.MugenComboBox
     $responseCombo.Name = 'SliderResponseCombo'
     $responseCombo.DropDownStyle = 'DropDownList'
-    $responseCombo.Location = New-Object System.Drawing.Point(110, 38)
+    $responseCombo.Location = New-Object System.Drawing.Point(125, 68)
     $responseCombo.Size = New-Object System.Drawing.Size(255, 30)
     [void]$responseCombo.Items.Add((T -Key 'ResponseFast'))
     [void]$responseCombo.Items.Add((T -Key 'ResponseBalanced'))
@@ -4677,13 +4669,13 @@ function Show-SliderSettings {
 
     $responseHint = New-Object System.Windows.Forms.Label
     $responseHint.ForeColor = [System.Drawing.Color]::DimGray
-    $responseHint.Location = New-Object System.Drawing.Point(380, 35)
-    $responseHint.Size = New-Object System.Drawing.Size(355, 48)
+    $responseHint.Location = New-Object System.Drawing.Point(395, 58)
+    $responseHint.Size = New-Object System.Drawing.Size(410, 48)
     $sliderAdvancedPanel.Controls.Add($responseHint)
 
     $advancedConfigButton = New-Object MugenDeejWindowing.MugenButton
     $advancedConfigButton.Text = (T -Key 'OpenConfig')
-    $advancedConfigButton.Location = New-Object System.Drawing.Point(0, 74)
+    $advancedConfigButton.Location = New-Object System.Drawing.Point(850, 64)
     $advancedConfigButton.Size = New-Object System.Drawing.Size(190, 32)
     $sliderAdvancedPanel.Controls.Add($advancedConfigButton)
 
@@ -4697,88 +4689,18 @@ function Show-SliderSettings {
     $responseCombo.Add_SelectedIndexChanged({ & $updateResponseHint })
     & $updateResponseHint
 
-    # Guard the collapsible section against duplicate/very fast Click events.
-    # Store the timestamp on the control itself. A plain PowerShell local variable
-    # assigned inside the event handler lives in the event invocation scope, so
-    # it does not reliably persist into the next Click.
-    $advancedToggle.AccessibleDescription = '0'
-    $advancedToggle.Add_Click({
-        param($sender, $eventArgs)
-
-        # Windows PowerShell 5.1 runs on .NET Framework, where
-        # Environment.TickCount64 is not available. UTC DateTime ticks are
-        # monotonic enough for this short duplicate-click guard and are
-        # supported by the real Windows PowerShell 5.1 runtime.
-        $nowTicks = [DateTime]::UtcNow.Ticks
-        $lastTicks = 0L
-        [void][long]::TryParse(
-            [string]$sender.AccessibleDescription,
-            [ref]$lastTicks
-        )
-
-        $elapsedMs = if ($lastTicks -gt 0) {
-            [double]($nowTicks - $lastTicks) /
-                [double][TimeSpan]::TicksPerMillisecond
-        }
-        else {
-            [double]::PositiveInfinity
-        }
-
-        if ($elapsedMs -lt 500.0) {
-            Write-Log (
-                'Ignored duplicate slider advanced-settings Click event; elapsedMs={0:N0}' -f
-                $elapsedMs
-            ) 'DEBUG'
-            return
-        }
-
-        $sender.AccessibleDescription = [string]$nowTicks
-
-        # Resolve the target from the clicked dialog itself instead of closing
-        # over a PowerShell variable name shared with the main window.
-        $ownerForm = $sender.FindForm()
-        $panelMatches = @(
-            $ownerForm.Controls.Find(
-                'SliderAdvancedPanel',
-                $true
-            )
-        )
-        if ($panelMatches.Count -ne 1) {
-            Write-Log (
-                'Slider advanced-settings panel lookup failed; matches={0}' -f
-                $panelMatches.Count
-            ) 'ERROR'
-            return
-        }
-
-        $clickedPanel = $panelMatches[0]
-        $clickedPanel.Visible = -not $clickedPanel.Visible
-        $sender.Text = if ($clickedPanel.Visible) {
-            T -Key 'AdvancedOpen'
-        }
-        else {
-            T -Key 'AdvancedClosed'
-        }
-
-        Write-Log (
-            'Slider advanced-settings panel changed: visible={0}; form={1}; panel={2}' -f
-            $clickedPanel.Visible,
-            $ownerForm.Text,
-            $clickedPanel.Name
-        ) 'DEBUG'
-    })
     $advancedConfigButton.Add_Click({ Start-Process notepad.exe -ArgumentList ('"{0}"' -f $script:ConfigPath) })
 
     $cancelButton = New-Object MugenDeejWindowing.MugenButton
     $cancelButton.Text = (T -Key 'Cancel')
     $cancelButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-    $cancelButton.Location = New-Object System.Drawing.Point(870, 712)
+    $cancelButton.Location = New-Object System.Drawing.Point(870, 674)
     $cancelButton.Size = New-Object System.Drawing.Size(100, 36)
     $settingsForm.Controls.Add($cancelButton)
 
     $saveButton = New-Object MugenDeejWindowing.MugenButton
     $saveButton.Text = (T -Key 'Save')
-    $saveButton.Location = New-Object System.Drawing.Point(982, 712)
+    $saveButton.Location = New-Object System.Drawing.Point(982, 674)
     $saveButton.Size = New-Object System.Drawing.Size(105, 36)
     $saveButton.Tag = 'MugenPrimary'
     $settingsForm.Controls.Add($saveButton)
