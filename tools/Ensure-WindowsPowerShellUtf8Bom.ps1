@@ -21,12 +21,18 @@ if (-not (Test-Path -LiteralPath $adaptiveMappings -PathType Leaf)) {
     throw "Missing Adaptive controls mapping patch: $adaptiveMappings"
 }
 
+$adaptiveLayers = Join-Path $PSScriptRoot 'Add-AdaptiveLayers.ps1'
+if (-not (Test-Path -LiteralPath $adaptiveLayers -PathType Leaf)) {
+    throw "Missing Adaptive button-layer patch: $adaptiveLayers"
+}
+
 foreach ($candidate in @($Path)) {
     $resolved = (Resolve-Path -LiteralPath $candidate).Path
 
     if ([System.IO.Path]::GetFileName($resolved) -ieq 'MugenDeej.ps1') {
         & $topologyHardener -Path $resolved
         & $adaptiveMappings -Path $resolved
+        & $adaptiveLayers -Path $resolved
     }
 
     $bytes = [System.IO.File]::ReadAllBytes($resolved)
