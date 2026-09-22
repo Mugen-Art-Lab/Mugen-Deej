@@ -450,6 +450,24 @@ jobs:
           if ($runtimeText -notmatch 'function Show-AdaptiveLayerSettings') {
             throw 'Development runtime is missing the Adaptive button-layer editor.'
           }
+          if ($runtimeText -notmatch 'function Get-AdaptiveLayerEncoderOverride') {
+            throw 'Development runtime is missing layered encoder overrides.'
+          }
+          if ($runtimeText -notmatch 'function Show-AdaptiveLayerEncoderSettings') {
+            throw 'Development runtime is missing the layered encoder editor.'
+          }
+          if ($runtimeText -notmatch 't1Encoders') {
+            throw 'Adaptive layer configuration does not persist encoder overrides.'
+          }
+          if ($runtimeText -notmatch 'function Get-BaseAdaptiveEncoderMappedAction') {
+            throw 'Development runtime did not preserve the base profile-aware encoder resolver.'
+          }
+          if ($runtimeText -notmatch 'function Get-AdaptiveEncoderMappedAction') {
+            throw 'Development runtime is missing the layer-aware encoder resolver.'
+          }
+          if ($runtimeText -notmatch 'From this point onward encoder edges in this same Adaptive packet use') {
+            throw 'Adaptive encoder edges can still observe stale toggle-layer state.'
+          }
           if ($runtimeText -notmatch 'Adaptive layer changed:') {
             throw 'Development runtime is missing active-layer transition logging.'
           }
