@@ -1567,3 +1567,21 @@ Next hardware check:
 5. sweep every pot end-to-end and record min/max plus direction;
 6. leave all pots untouched and inspect jitter;
 7. exercise pots simultaneously with buttons/toggles/encoder to confirm the full physical panel.
+
+
+## Nano full-analog first run follow-up -> Integrated #143 slider advanced-toggle guard
+
+The first real Nano + five-potentiometer run reached Adaptive `5 / 28 / 2 / 1` at 115200 successfully. The real analog controls, toggles and encoder were visible to Mugen. Two follow-up findings were separated:
+
+1. all five potentiometers were physically wired in the opposite direction from the user's preferred UI direction; Mugen already has a global `behavior.invertSliders` setting, so no resoldering is required when all channels share the same orientation;
+2. the slider-settings `Advanced settings / Дополнительные настройки` section could appear for only a fraction of a second and immediately collapse again on a real machine. The section toggle now rejects duplicate Click events within 350 ms so one physical click cannot open and immediately close the panel.
+
+Workflow:
+- run **#143**, run ID `35750634372` — SUCCESS;
+- code head `9fdbe72dc5e510359d11ad6f603079d7148ffaa7`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-143`, ID `10705031107`;
+- outer Actions digest `sha256:35054aeb7fcdf6fed02256a0df08b962ab7e0d7a20fa0e6bc348ba841b894964`;
+- inner program ZIP SHA-256 `3abac4d469c1ebc681f4a4b179eafe530adf3f8389f0729f648bb6740a3400f9`;
+- staging, Windows PowerShell 5.1 parse/runtime checks, helper/launcher build, packaging and upload: PASS.
+
+The same hardware session exposed a separate matrix issue around B23: pressing/holding B23 (R4C2) can also appear as B2/B9/B16, i.e. every row in the same C2 column. A first firmware-only row-release settle increase did not eliminate the observed behavior. Do not hide this in desktop software because legitimate same-column multi-key presses are allowed. Next physical check should compare B23 against known-good B24 on the same R4 row and verify B23's local switch/diode/row connection, especially that the diode striped side really reaches R4/A1 and the branch is not accidentally tied to GND. If hardware checks clean, use a dedicated matrix diagnostic sketch before changing generic scan semantics again.
