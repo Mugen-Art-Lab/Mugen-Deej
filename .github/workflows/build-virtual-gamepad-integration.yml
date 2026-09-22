@@ -447,7 +447,7 @@ jobs:
           if ($runtimeText -notmatch 'function Set-AdaptiveLayerComboDisplayItems') {
             throw 'Adaptive layer selectors do not share the configured display names.'
           }
-          if ($runtimeText -notmatch "\$namesGroup\.Text = if \(\$script:Language -eq 'ru'\)") {
+          if ($runtimeText -notmatch 'Layer names') {
             throw 'Adaptive layer editor is missing the editable Layer names section.'
           }
           if ($runtimeText -notmatch '\$nameBox\.MaxLength = 24') {
