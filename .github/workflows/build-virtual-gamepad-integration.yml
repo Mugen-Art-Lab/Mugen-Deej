@@ -413,11 +413,29 @@ jobs:
           if ($runtimeText -notmatch '(?ms)\$saveButton\.Add_Click\(\{\s*param\(\$sender,\s*\$eventArgs\)') {
             throw 'Slider Save click handler does not bind sender/eventArgs before dialog-scoped control lookup.'
           }
-          if ($runtimeText -notmatch '\$sliderAdvancedPanel\.Location = New-Object System\.Drawing\.Point\(25, \(\$advancedY \+ 46\)\)') {
-            throw 'Slider Advanced card is not positioned below the toggle with the required gap.'
+          if ($runtimeText -notmatch "SliderAdvancedHost") {
+            throw 'Development runtime is missing the shared slider Advanced layout host.'
+          }
+          if ($runtimeText -notmatch '\$sliderAdvancedHost\.Location = New-Object System\.Drawing\.Point\(25, \$advancedY\)') {
+            throw 'Slider Advanced host is not positioned after the dynamic slider rows.'
+          }
+          if ($runtimeText -notmatch '\$advancedToggle\.Location = New-Object System\.Drawing\.Point\(0, 0\)') {
+            throw 'Slider Advanced toggle is not anchored at the top of its shared host.'
+          }
+          if ($runtimeText -notmatch '\$sliderAdvancedPanel\.Location = New-Object System\.Drawing\.Point\(0, 46\)') {
+            throw 'Slider Advanced card is not anchored below the toggle inside the shared host.'
+          }
+          if ($runtimeText -notmatch '\$sliderAdvancedHost\.Controls\.Add\(\$advancedToggle\)') {
+            throw 'Slider Advanced toggle is not parented to the shared host.'
+          }
+          if ($runtimeText -notmatch '\$sliderAdvancedHost\.Controls\.Add\(\$sliderAdvancedPanel\)') {
+            throw 'Slider Advanced card is not parented to the shared host.'
           }
           if ($runtimeText -notmatch '\$actionY = \$advancedY \+ 172') {
-            throw 'Slider action row can overlap the expanded Advanced card.'
+            throw 'Slider action row can overlap the expanded Advanced host.'
+          }
+          if ($runtimeText -notmatch 'if \(\$count -gt 5\) \{\s*\$settingsForm\.AutoScroll = \$true') {
+            throw 'Normal five-slider settings still enable unnecessary form autoscroll.'
           }
           if ($runtimeText -notmatch '\$script:KnownPorts = @\(\$currentPorts \| Where-Object \{ \$_ -ne \$portName \}\)') {
             throw 'Development runtime does not forget the stale resume port before auto-reconnect.'
