@@ -429,13 +429,13 @@ jobs:
           if ($runtimeText -notmatch 'if \(\$count -gt 5\) \{\s*\$settingsForm\.AutoScroll = \$true') {
             throw 'Normal five-slider settings still enable unnecessary form autoscroll.'
           }
-          if ($runtimeText -notmatch "AdaptiveLayerConfigPath = Join-Path \$script:BaseDir 'adaptive-layers\.json'") {
+          if ($runtimeText -notmatch 'AdaptiveLayerConfigPath = Join-Path \$script:BaseDir ''adaptive-layers\.json''') {
             throw 'Development runtime is missing the separate Adaptive layer configuration path.'
           }
           if ($runtimeText -notmatch 'function Get-AdaptiveLayerIndexFromValues') {
             throw 'Development runtime is missing Adaptive T1/T2 layer resolution.'
           }
-          if ($runtimeText -notmatch "\[string\]\$script:ControllerProtocol -ne 'adaptive'\) \{ return 0 \}") {
+          if ($runtimeText -notmatch '\[string\]\$script:ControllerProtocol -ne ''adaptive''\) \{ return 0 \}') {
             throw 'Adaptive layer resolution is not hard-gated away from Legacy/Extended.'
           }
           if ($runtimeText -notmatch 'function Get-BaseProfiledButtonActionContext') {
@@ -453,7 +453,7 @@ jobs:
           if ($runtimeText -notmatch 'Adaptive layer changed:') {
             throw 'Development runtime is missing active-layer transition logging.'
           }
-          if ($runtimeText -notmatch "(?ms)if \(\[string\]\$parsed\.Protocol -eq 'adaptive'\) \{\s*Update-AdaptiveControlStates -Packet \$parsed\s*Update-ButtonStates -Values @\(\$parsed\.Buttons\)\s*\}\s*else \{\s*Update-ButtonStates -Values @\(\$parsed\.Buttons\)\s*Update-AdaptiveControlStates -Packet \$parsed") {
+          if ($runtimeText -notmatch '(?ms)if \(\[string\]\$parsed\.Protocol -eq ''adaptive''\) \{\s*Update-AdaptiveControlStates -Packet \$parsed\s*Update-ButtonStates -Values @\(\$parsed\.Buttons\)\s*\}\s*else \{\s*Update-ButtonStates -Values @\(\$parsed\.Buttons\)\s*Update-AdaptiveControlStates -Packet \$parsed') {
             throw 'Development runtime does not update Adaptive toggles before button edges while preserving the Legacy/Extended order.'
           }
           if ($runtimeText -notmatch 'ordinary .* action suppressed') {
