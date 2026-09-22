@@ -4680,7 +4680,16 @@ function Show-SliderSettings {
     $responseCombo.Add_SelectedIndexChanged({ & $updateResponseHint })
     & $updateResponseHint
 
+    # Guard the collapsible section against duplicate/very fast Click events.
+    # On some real mice/custom-control paths one physical click can be observed
+    # twice closely enough to open and immediately close the panel.
+    $advancedToggleLastClickAt = [DateTime]::MinValue
     $advancedToggle.Add_Click({
+        $now = Get-Date
+        if (($now - $advancedToggleLastClickAt).TotalMilliseconds -lt 350) {
+            return
+        }
+        $advancedToggleLastClickAt = $now
         $advancedPanel.Visible = -not $advancedPanel.Visible
         $advancedToggle.Text = if ($advancedPanel.Visible) { (T -Key 'AdvancedOpen') } else { (T -Key 'AdvancedClosed') }
     })
