@@ -1815,3 +1815,39 @@ Build history:
 - staging, Windows PowerShell 5.1 parse/runtime assertions, launcher/helper build, packaging and upload: PASS.
 
 This is a CI candidate, not a hardware PASS yet. Real-machine testing should explicitly include Adaptive layer behavior plus Legacy and Extended regression checks.
+
+
+## Integrated #180 — fix nested layer-dialog state collision + typed-settings layout
+
+Real-machine #175 exposed a WinForms timer exception when opening **Control layers** from the toggle/encoder settings dialog:
+
+- `PropertyNotFoundException: LastToggles`;
+- the parent toggle/encoder settings timer expected its own state object with `LastToggles`;
+- the nested layer editor also used a generic PowerShell variable named `$state`;
+- deferred WinForms event execution resolved the parent's timer against the nested button-layer state object, which only had `LastButtons`.
+
+Fix:
+- rename the nested layer editor state to `$layerButtonState` throughout the layer dialog so it cannot shadow the parent typed-control editor state;
+- keep the already-isolated layered-encoder dialog event state;
+- rework the toggle/encoder settings header layout:
+  - profile explanation gets its own full-width row;
+  - **Control layers…** becomes a separate feature row below the profile controls rather than being glued beneath **Add…**;
+  - add a short layer-purpose hint beside the button;
+  - shift the physical-control selector/editor groups and Save/Cancel down together;
+  - enlarge the fixed dialog height accordingly.
+
+Compatibility remains unchanged:
+- toggle layers are still hard-gated to Adaptive v3;
+- Legacy/Extended retain the established flat/profiled mapping path and do not enter layer resolution.
+
+CI history:
+- #176 built the runtime fix successfully;
+- #177-#179 were CI-assertion-only failures while hardening checks for the new layout (runtime staging itself was successful);
+- run **#180**, run ID `35773465992` — SUCCESS;
+- built code head `8041ee5319027db959b2e99e4c356578d558845a`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-180`, ID `10714269507`;
+- outer Actions digest `sha256:aec2a91ff587389d01332dc60910fae965ce9f4e8c47f8627431d3f0e8fc7ad1`;
+- inner program ZIP SHA-256 `dc8eebd5e5418a8e165c82fe9f99bcffcb7e817d11c9537126ab8e052dd941e7`;
+- staging, Windows PowerShell 5.1 parse/runtime assertions, launcher/helper build, packaging and upload: PASS.
+
+#180 is a hardware-review candidate; #160 remains the last full hardware-passed baseline until layer behavior is exercised on the real panel.
