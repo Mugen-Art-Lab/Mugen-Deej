@@ -73,6 +73,14 @@ const unsigned long PACKET_INTERVAL_MS = 25;
 const unsigned long MATRIX_DEBOUNCE_MS = 18;
 const unsigned long KEY_DEBOUNCE_MS = 20;
 
+// With the cardboard wiring and only the ATmega's internal pull-ups, a column
+// that was just pulled LOW by a held key can need more than a few microseconds
+// to recover HIGH before the next row is sampled. Give the line explicit
+// recovery time between rows so a held key cannot appear in every row of the
+// same column (for example B23 -> B2/B9/B16/B23).
+const unsigned int MATRIX_ACTIVE_SETTLE_US = 6;
+const unsigned int MATRIX_RELEASE_SETTLE_US = 60;
+
 // Keep the raw ADC path intentionally simple for the first real-potentiometer
 // test. Mugen's desktop noise threshold can be observed/tuned from real data
 // before any firmware-side smoothing is added.
@@ -201,14 +209,17 @@ void loop() {
 void scanMatrix(uint8_t *states) {
   for (uint8_t row = 0; row < NUM_ROWS; ++row) {
     digitalWrite(MATRIX_ROW_PINS[row], LOW);
-    delayMicroseconds(4);
+    delayMicroseconds(MATRIX_ACTIVE_SETTLE_US);
 
     for (uint8_t col = 0; col < NUM_COLS; ++col) {
       const uint8_t index = row * NUM_COLS + col;
       states[index] = digitalRead(MATRIX_COL_PINS[col]);
     }
 
+    // Release the row and let every column recharge through INPUT_PULLUP
+    // before another row is driven LOW.
     digitalWrite(MATRIX_ROW_PINS[row], HIGH);
+    delayMicroseconds(MATRIX_RELEASE_SETTLE_US);
   }
 }
 
