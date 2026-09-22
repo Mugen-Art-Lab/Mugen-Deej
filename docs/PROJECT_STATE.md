@@ -352,3 +352,14 @@ The Nano test wiring currently keeps physical C2/C3 swapped (C2=D6, C3=D5), whil
 Run #149 (ID `35755453514`) succeeded at code head `5b57c295fd02df5cb80a8a93574a823d56ee66e8`; artifact ID `10708695236`; outer digest `sha256:9f85ce880986c82c32e927338b88c9f71781f4c5d450d034702c1d53e31799c9`; inner ZIP SHA-256 `d4437f6ce1cd1710b0ea190c17e4ff3bdf9f5e3a9ce2959a7965ce0da42f3a7e`.
 
 Real-machine acceptance for this build: Advanced settings must remain visible after expansion, collapse/reopen normally, and Save must persist global slider inversion for the five physical Nano potentiometers.
+
+
+## Current hardware-review build — Integrated #152
+
+#149 fixed the wrong-panel binding and the slider Advanced section now expands/collapses against the correct dialog. Real-machine Save then exposed a separate StrictMode error: the Save handler used `$sender.FindForm()` without declaring `param($sender, $eventArgs)`. #152 binds the WinForms event parameters explicitly and retains dialog-scoped lookup for the inversion/responsiveness controls.
+
+The expanded slider Advanced card is also moved farther below the section toggle and the Save/Cancel row is moved below the card, with a slightly taller base dialog so the normal five-slider layout no longer overlaps.
+
+Run #152 (ID `35756930169`) succeeded at code head `25145a413f17123852dd99d8dbba0315f3d7d8cd`; artifact ID `10708472819`; outer digest `sha256:e0c20d32e33b7b1803f28351c1a0556f3fb121735e85456b7262387ba10991ea`; inner ZIP SHA-256 `fee9cc30c4c6496d644d89b61be871c53adc26f2dfba6a90efa18c1f9adef527`.
+
+Real-machine acceptance: Advanced settings should remain cleanly laid out, Save with global slider inversion must close normally, inversion must persist on reopen, and all five real Nano pots should move in the preferred direction.
