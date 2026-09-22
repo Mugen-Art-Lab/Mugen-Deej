@@ -90,6 +90,16 @@ function ConvertTo-SafeAdaptiveLayerButtonOverride {
     return ConvertTo-SafeProfileButtonAction -Action $Action
 }
 
+function ConvertTo-SafeAdaptiveLayerTypedOverride {
+    param([string]$Action)
+
+    if ([string]::IsNullOrWhiteSpace($Action) -or $Action -eq 'inherit') {
+        return 'inherit'
+    }
+
+    return ConvertTo-SafeAdaptiveAction -Action $Action
+}
+
 function Normalize-AdaptiveLayerContextKey {
     param([string]$Key)
 
@@ -134,6 +144,9 @@ function ConvertTo-NormalizedAdaptiveLayerConfig {
                 t1 = @()
                 t2 = @()
                 both = @()
+                t1Encoders = @()
+                t2Encoders = @()
+                bothEncoders = @()
             }
 
             foreach ($layerName in @('t1','t2','both')) {
@@ -145,6 +158,21 @@ function ConvertTo-NormalizedAdaptiveLayerConfig {
                     }
                 }
                 $context.$layerName = @($safe)
+
+                $encoderField = $layerName + 'Encoders'
+                $safeEncoders = @()
+                $encoderProperty = $raw.PSObject.Properties[$encoderField]
+                if ($null -ne $encoderProperty) {
+                    foreach ($encoder in @($encoderProperty.Value)) {
+                        if ($null -eq $encoder) { continue }
+                        $safeEncoders += [pscustomobject][ordered]@{
+                            cw = ConvertTo-SafeAdaptiveLayerTypedOverride -Action ([string]$encoder.cw)
+                            ccw = ConvertTo-SafeAdaptiveLayerTypedOverride -Action ([string]$encoder.ccw)
+                            push = ConvertTo-SafeAdaptiveLayerTypedOverride -Action ([string]$encoder.push)
+                        }
+                    }
+                }
+                $context.$encoderField = @($safeEncoders)
             }
 
             $contexts += $context
@@ -276,6 +304,9 @@ function Get-AdaptiveLayerContextObject {
         t1 = @()
         t2 = @()
         both = @()
+        t1Encoders = @()
+        t2Encoders = @()
+        bothEncoders = @()
     }
 
     $contexts = @($Config.contexts)
@@ -298,6 +329,27 @@ function Ensure-AdaptiveLayerContextCapacity {
             $actions += 'inherit'
         }
         $Context.$layerName = @($actions)
+    }
+}
+
+function Ensure-AdaptiveLayerEncoderCapacity {
+    param(
+        [Parameter(Mandatory = $true)]$Context,
+        [int]$EncoderCount
+    )
+
+    if ($EncoderCount -lt 0) { $EncoderCount = 0 }
+
+    foreach ($field in @('t1Encoders','t2Encoders','bothEncoders')) {
+        $items = @($Context.$field)
+        while ($items.Count -lt $EncoderCount) {
+            $items += [pscustomobject][ordered]@{
+                cw = 'inherit'
+                ccw = 'inherit'
+                push = 'inherit'
+            }
+        }
+        $Context.$field = @($items)
     }
 }
 
@@ -438,6 +490,358 @@ function Set-AdaptiveLayerButtonOverride {
     $actions = @($context.$layerName)
     $actions[$ButtonIndex] = ConvertTo-SafeAdaptiveLayerButtonOverride -Action $Action
     $context.$layerName = @($actions)
+}
+
+function Get-AdaptiveLayerEncoderFieldName {
+    param([int]$Layer)
+
+    switch ($Layer) {
+        1 { return 't1Encoders' }
+        2 { return 't2Encoders' }
+        3 { return 'bothEncoders' }
+        default { return '' }
+    }
+}
+
+function Get-AdaptiveLayerEncoderOverride {
+    param(
+        [Parameter(Mandatory = $true)]$Config,
+        [string]$ContextKey,
+        [int]$Layer,
+        [int]$EncoderIndex,
+        [ValidateSet('cw','ccw','push')][string]$Kind
+    )
+
+    if ($Layer -le 0 -or $EncoderIndex -lt 0) { return 'inherit' }
+
+    $context = Get-AdaptiveLayerContextObject -Config $Config -Key $ContextKey
+    if ($null -eq $context) { return 'inherit' }
+
+    $field = Get-AdaptiveLayerEncoderFieldName -Layer $Layer
+    if ([string]::IsNullOrWhiteSpace($field)) { return 'inherit' }
+
+    $items = @($context.$field)
+    if ($EncoderIndex -ge $items.Count) { return 'inherit' }
+
+    return ConvertTo-SafeAdaptiveLayerTypedOverride -Action ([string]$items[$EncoderIndex].$Kind)
+}
+
+function Set-AdaptiveLayerEncoderOverride {
+    param(
+        [Parameter(Mandatory = $true)]$Config,
+        [string]$ContextKey,
+        [int]$Layer,
+        [int]$EncoderIndex,
+        [ValidateSet('cw','ccw','push')][string]$Kind,
+        [string]$Action,
+        [int]$EncoderCount
+    )
+
+    if ($Layer -le 0 -or $EncoderIndex -lt 0) { return }
+
+    $context = Get-AdaptiveLayerContextObject -Config $Config -Key $ContextKey -Create
+    Ensure-AdaptiveLayerEncoderCapacity -Context $context -EncoderCount $EncoderCount
+
+    $field = Get-AdaptiveLayerEncoderFieldName -Layer $Layer
+    if ([string]::IsNullOrWhiteSpace($field)) { return }
+
+    $items = @($context.$field)
+    $items[$EncoderIndex].$Kind = ConvertTo-SafeAdaptiveLayerTypedOverride -Action $Action
+    $context.$field = @($items)
+}
+
+function Get-AdaptiveLayerBaseEncoderAction {
+    param(
+        [string]$ContextKey,
+        [int]$EncoderIndex,
+        [ValidateSet('cw','ccw','push')][string]$Kind
+    )
+
+    Initialize-AdaptiveActions
+    Initialize-AdaptiveProfiles
+
+    if ($EncoderIndex -lt 0) { return 'none' }
+
+    $key = Normalize-AdaptiveLayerContextKey -Key $ContextKey
+    $source = @($script:AdaptiveEncoderActions)
+
+    if ($key -ne '__global__') {
+        foreach ($profile in @($script:AdaptiveProfiles)) {
+            $processName = Normalize-TargetName -Value ([string]$profile.process)
+            if ([string]::IsNullOrWhiteSpace($processName)) { continue }
+            if ($processName.ToLowerInvariant() -ne $key) { continue }
+
+            $profileEncoders = @(Copy-AdaptiveProfileEncoders -Items @($profile.encoders))
+            if ($profileEncoders.Count -gt 0) {
+                $source = @($profileEncoders)
+            }
+            break
+        }
+    }
+
+    if ($EncoderIndex -ge $source.Count) { return 'none' }
+    return ConvertTo-SafeAdaptiveAction -Action ([string]$source[$EncoderIndex].$Kind)
+}
+
+function Populate-AdaptiveLayerTypedActionCombo {
+    param(
+        [Parameter(Mandatory = $true)]$Combo,
+        [Parameter(Mandatory = $true)]$Map,
+        [string]$CurrentAction = 'inherit'
+    )
+
+    $safe = ConvertTo-SafeAdaptiveLayerTypedOverride -Action $CurrentAction
+    Populate-AdaptiveActionCombo -Combo $Combo -Map $Map -CurrentAction $(if ($safe -eq 'inherit') { 'none' } else { $safe })
+
+    $inheritText = if ($script:Language -eq 'ru') { 'Наследовать основное действие' } else { 'Inherit base action' }
+    $Combo.Items.Insert(0, $inheritText)
+    $Map.Insert(0, 'inherit')
+
+    if ($safe -eq 'inherit') {
+        $Combo.SelectedIndex = 0
+        return
+    }
+
+    for ($i = 0; $i -lt $Map.Count; $i++) {
+        if ([string]$Map[$i] -eq $safe) {
+            $Combo.SelectedIndex = $i
+            break
+        }
+    }
+}
+
+function Show-AdaptiveLayerEncoderSettings {
+    param(
+        [Parameter(Mandatory = $true)]$Config,
+        [System.Windows.Forms.IWin32Window]$Owner
+    )
+
+    if (
+        [string]$script:ControllerProtocol -ne 'adaptive' -or
+        [int]$script:DetectedEncoderCount -le 0
+    ) {
+        return
+    }
+
+    Initialize-AdaptiveActions
+    Initialize-AdaptiveProfiles
+
+    $working = Copy-AdaptiveLayerConfig -Config $Config
+    $encoderCount = [int]$script:DetectedEncoderCount
+
+    $dialog = New-Object System.Windows.Forms.Form
+    $dialog.Text = if ($script:Language -eq 'ru') { 'Энкодеры в слоях — Mugen Deej' } else { 'Layered encoders — Mugen Deej' }
+    $dialog.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterParent
+    $dialog.ClientSize = [System.Drawing.Size]::new(720, 462)
+    $dialog.MinimumSize = [System.Drawing.Size]::new(736, 501)
+    $dialog.MaximumSize = [System.Drawing.Size]::new(736, 501)
+    $dialog.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+    $dialog.MaximizeBox = $false
+    $dialog.MinimizeBox = $false
+    $dialog.Font = $form.Font
+    Set-FormAppIcon -Form $dialog
+
+    $heading = New-Object System.Windows.Forms.Label
+    $heading.Text = if ($script:Language -eq 'ru') { 'Энкодер в слоях' } else { 'Encoder layer mappings' }
+    $heading.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 16)
+    $heading.AutoSize = $true
+    $heading.Location = [System.Drawing.Point]::new(22, 18)
+    $dialog.Controls.Add($heading)
+
+    $hint = New-Object System.Windows.Forms.Label
+    $hint.Text = if ($script:Language -eq 'ru') {
+        'Для каждого слоя можно отдельно задать вращение и нажатие. «Наследовать» оставляет обычное назначение энкодера из выбранного профиля.'
+    }
+    else {
+        'Each layer can override rotation and push separately. Inherit keeps the normal encoder mapping from the selected profile.'
+    }
+    $hint.ForeColor = [System.Drawing.Color]::DimGray
+    $hint.Location = [System.Drawing.Point]::new(25, 56)
+    $hint.Size = [System.Drawing.Size]::new(670, 44)
+    $dialog.Controls.Add($hint)
+
+    $profileLabel = New-Object System.Windows.Forms.Label
+    $profileLabel.Text = if ($script:Language -eq 'ru') { 'Профиль:' } else { 'Profile:' }
+    $profileLabel.Location = [System.Drawing.Point]::new(25, 111)
+    $profileLabel.Size = [System.Drawing.Size]::new(80, 28)
+    $profileLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+    $dialog.Controls.Add($profileLabel)
+
+    $profileCombo = New-Object MugenDeejWindowing.MugenComboBox
+    $profileCombo.DropDownStyle = 'DropDownList'
+    $profileCombo.Location = [System.Drawing.Point]::new(105, 109)
+    $profileCombo.Size = [System.Drawing.Size]::new(300, 30)
+    $dialog.Controls.Add($profileCombo)
+
+    $profileMap = New-Object System.Collections.ArrayList
+    [void]$profileCombo.Items.Add($(if ($script:Language -eq 'ru') { 'Общий' } else { 'Global' }))
+    [void]$profileMap.Add('__global__')
+    foreach ($profile in @($script:AdaptiveProfiles | Sort-Object name)) {
+        $processName = Normalize-TargetName -Value ([string]$profile.process)
+        if ([string]::IsNullOrWhiteSpace($processName)) { continue }
+        [void]$profileCombo.Items.Add(('{0} ({1}.exe)' -f [string]$profile.name, $processName))
+        [void]$profileMap.Add($processName.ToLowerInvariant())
+    }
+    $profileCombo.SelectedIndex = 0
+
+    $layerCombo = New-Object MugenDeejWindowing.MugenComboBox
+    $layerCombo.DropDownStyle = 'DropDownList'
+    $layerCombo.Location = [System.Drawing.Point]::new(420, 109)
+    $layerCombo.Size = [System.Drawing.Size]::new(130, 30)
+    [void]$layerCombo.Items.Add('T1')
+    [void]$layerCombo.Items.Add('T2')
+    [void]$layerCombo.Items.Add('T1 + T2')
+    $layerCombo.SelectedIndex = 0
+    $dialog.Controls.Add($layerCombo)
+
+    $encoderCombo = New-Object MugenDeejWindowing.MugenComboBox
+    $encoderCombo.DropDownStyle = 'DropDownList'
+    $encoderCombo.Location = [System.Drawing.Point]::new(565, 109)
+    $encoderCombo.Size = [System.Drawing.Size]::new(130, 30)
+    for ($i = 0; $i -lt $encoderCount; $i++) {
+        [void]$encoderCombo.Items.Add($(if ($script:Language -eq 'ru') { 'Энкодер ' + ($i + 1) } else { 'Encoder ' + ($i + 1) }))
+    }
+    $encoderCombo.SelectedIndex = 0
+    $dialog.Controls.Add($encoderCombo)
+
+    $baseLabel = New-Object System.Windows.Forms.Label
+    $baseLabel.ForeColor = [System.Drawing.Color]::DimGray
+    $baseLabel.Location = [System.Drawing.Point]::new(25, 154)
+    $baseLabel.Size = [System.Drawing.Size]::new(670, 52)
+    $dialog.Controls.Add($baseLabel)
+
+    $labels = @()
+    $combos = @()
+    $maps = @()
+    $kinds = @('cw','ccw','push')
+    $kindTitlesRu = @('По часовой', 'Против часовой', 'Нажатие')
+    $kindTitlesEn = @('Clockwise', 'Counter-clockwise', 'Push')
+
+    for ($i = 0; $i -lt 3; $i++) {
+        $label = New-Object System.Windows.Forms.Label
+        $label.Text = $(if ($script:Language -eq 'ru') { $kindTitlesRu[$i] } else { $kindTitlesEn[$i] })
+        $label.Location = [System.Drawing.Point]::new(25, (217 + ($i * 58)))
+        $label.Size = [System.Drawing.Size]::new(145, 26)
+        $label.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+        $dialog.Controls.Add($label)
+        $labels += $label
+
+        $combo = New-Object MugenDeejWindowing.MugenComboBox
+        $combo.DropDownStyle = 'DropDownList'
+        $combo.Location = [System.Drawing.Point]::new(175, (215 + ($i * 58)))
+        $combo.Size = [System.Drawing.Size]::new(520, 30)
+        $dialog.Controls.Add($combo)
+        $combos += $combo
+        $maps += ,(New-Object System.Collections.ArrayList)
+    }
+
+    $state = [pscustomobject]@{ Suppress = $false }
+
+    $getContextKey = {
+        $index = [int]$profileCombo.SelectedIndex
+        if ($index -lt 0 -or $index -ge $profileMap.Count) { return '__global__' }
+        return [string]$profileMap[$index]
+    }
+
+    $refresh = {
+        $contextKey = & $getContextKey
+        $layer = [int]$layerCombo.SelectedIndex + 1
+        $encoderIndex = [int]$encoderCombo.SelectedIndex
+        if ($encoderIndex -lt 0) { $encoderIndex = 0 }
+
+        $context = Get-AdaptiveLayerContextObject -Config $working -Key $contextKey -Create
+        Ensure-AdaptiveLayerEncoderCapacity -Context $context -EncoderCount $encoderCount
+
+        $baseCw = Get-AdaptiveLayerBaseEncoderAction -ContextKey $contextKey -EncoderIndex $encoderIndex -Kind 'cw'
+        $baseCcw = Get-AdaptiveLayerBaseEncoderAction -ContextKey $contextKey -EncoderIndex $encoderIndex -Kind 'ccw'
+        $basePush = Get-AdaptiveLayerBaseEncoderAction -ContextKey $contextKey -EncoderIndex $encoderIndex -Kind 'push'
+        $baseLabel.Text = if ($script:Language -eq 'ru') {
+            'Основное: ↻ {0} · ↺ {1} · нажатие {2}' -f (Get-AdaptiveActionDisplay -Action $baseCw), (Get-AdaptiveActionDisplay -Action $baseCcw), (Get-AdaptiveActionDisplay -Action $basePush)
+        }
+        else {
+            'Base: ↻ {0} · ↺ {1} · push {2}' -f (Get-AdaptiveActionDisplay -Action $baseCw), (Get-AdaptiveActionDisplay -Action $baseCcw), (Get-AdaptiveActionDisplay -Action $basePush)
+        }
+
+        $state.Suppress = $true
+        try {
+            for ($i = 0; $i -lt 3; $i++) {
+                $override = Get-AdaptiveLayerEncoderOverride -Config $working -ContextKey $contextKey -Layer $layer -EncoderIndex $encoderIndex -Kind $kinds[$i]
+                Populate-AdaptiveLayerTypedActionCombo -Combo $combos[$i] -Map $maps[$i] -CurrentAction $override
+            }
+        }
+        finally {
+            $state.Suppress = $false
+        }
+
+        $hasPush = $false
+        if (@($script:LatestEncoders).Count -gt $encoderIndex) {
+            $hasPush = [bool]$script:LatestEncoders[$encoderIndex].HasPush
+        }
+        $labels[2].Visible = $hasPush
+        $combos[2].Visible = $hasPush
+    }
+
+    for ($comboIndex = 0; $comboIndex -lt 3; $comboIndex++) {
+        $capturedIndex = $comboIndex
+        $combos[$comboIndex].Add_SelectedIndexChanged({
+            if ($state.Suppress) { return }
+
+            $selectedIndex = [int]$combos[$capturedIndex].SelectedIndex
+            if ($selectedIndex -lt 0 -or $selectedIndex -ge $maps[$capturedIndex].Count) { return }
+
+            $contextKey = & $getContextKey
+            $layer = [int]$layerCombo.SelectedIndex + 1
+            $encoderIndex = [int]$encoderCombo.SelectedIndex
+            $kind = [string]$kinds[$capturedIndex]
+            $chosen = [string]$maps[$capturedIndex][$selectedIndex]
+            $previous = Get-AdaptiveLayerEncoderOverride -Config $working -ContextKey $contextKey -Layer $layer -EncoderIndex $encoderIndex -Kind $kind
+
+            $configured = if ($chosen -eq 'inherit') {
+                'inherit'
+            }
+            else {
+                Resolve-AdaptiveConfiguredAction -SelectedAction $chosen -PreviousAction $(if ($previous -eq 'inherit') { 'none' } else { $previous })
+            }
+
+            if (-not [string]::IsNullOrWhiteSpace([string]$configured)) {
+                Set-AdaptiveLayerEncoderOverride -Config $working -ContextKey $contextKey -Layer $layer -EncoderIndex $encoderIndex -Kind $kind -Action ([string]$configured) -EncoderCount $encoderCount
+            }
+
+            & $refresh
+        })
+    }
+
+    $profileCombo.Add_SelectedIndexChanged({ if (-not $state.Suppress) { & $refresh } })
+    $layerCombo.Add_SelectedIndexChanged({ if (-not $state.Suppress) { & $refresh } })
+    $encoderCombo.Add_SelectedIndexChanged({ if (-not $state.Suppress) { & $refresh } })
+
+    $cancel = New-Object MugenDeejWindowing.MugenButton
+    $cancel.Text = Get-ButtonFeatureText -Key 'Cancel'
+    $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+    $cancel.Location = [System.Drawing.Point]::new(486, 408)
+    $cancel.Size = [System.Drawing.Size]::new(98, 36)
+    $dialog.Controls.Add($cancel)
+
+    $save = New-Object MugenDeejWindowing.MugenButton
+    $save.Text = Get-ButtonFeatureText -Key 'Save'
+    $save.Tag = 'MugenPrimary'
+    $save.Location = [System.Drawing.Point]::new(596, 408)
+    $save.Size = [System.Drawing.Size]::new(99, 36)
+    $dialog.Controls.Add($save)
+
+    $save.Add_Click({
+        $normalized = ConvertTo-NormalizedAdaptiveLayerConfig -Data $working
+        $Config.contexts = @($normalized.contexts)
+        $dialog.DialogResult = [System.Windows.Forms.DialogResult]::OK
+        $dialog.Close()
+    })
+
+    Apply-ThemeToForm -Form $dialog
+    & $refresh
+    $dialog.AcceptButton = $save
+    $dialog.CancelButton = $cancel
+    [void]$dialog.ShowDialog($Owner)
+    if (-not $dialog.IsDisposed) { $dialog.Dispose() }
 }
 
 function Get-AdaptiveLayerProfileKey {
@@ -675,6 +1079,7 @@ function Show-AdaptiveLayerSettings {
     }
 
     Initialize-AdaptiveLayers
+    Initialize-AdaptiveActions
     Initialize-AdaptiveProfiles
     Initialize-ButtonActions
 
@@ -694,7 +1099,7 @@ function Show-AdaptiveLayerSettings {
     Set-FormAppIcon -Form $dialog
 
     $heading = New-Object System.Windows.Forms.Label
-    $heading.Text = if ($script:Language -eq 'ru') { 'Слои кнопок' } else { 'Button layers' }
+    $heading.Text = if ($script:Language -eq 'ru') { 'Слои управления' } else { 'Control layers' }
     $heading.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 16)
     $heading.AutoSize = $true
     $heading.Location = [System.Drawing.Point]::new(22, 18)
@@ -702,10 +1107,10 @@ function Show-AdaptiveLayerSettings {
 
     $hint = New-Object System.Windows.Forms.Label
     $hint.Text = if ($script:Language -eq 'ru') {
-        'Тумблеры T1 и T2 могут работать как модификаторы. Основные назначения остаются в обычной настройке кнопок; здесь задаются только отличия для T1, T2 и T1 + T2.'
+        'Тумблеры T1 и T2 могут работать как модификаторы. Здесь задаются отличия кнопок и энкодера для T1, T2 и T1 + T2; пустые назначения наследуют основной профиль.'
     }
     else {
-        'Toggles T1 and T2 can act as modifiers. Base mappings stay in normal button settings; this dialog only defines overrides for T1, T2, and T1 + T2.'
+        'Toggles T1 and T2 can act as modifiers. Define button and encoder overrides for T1, T2, and T1 + T2 here; empty overrides inherit the base profile.'
     }
     $hint.ForeColor = [System.Drawing.Color]::DimGray
     $hint.Location = [System.Drawing.Point]::new(25, 56)
@@ -742,8 +1147,18 @@ function Show-AdaptiveLayerSettings {
     }
     $modifierHint.ForeColor = [System.Drawing.Color]::DimGray
     $modifierHint.Location = [System.Drawing.Point]::new(18, 58)
-    $modifierHint.Size = [System.Drawing.Size]::new(775, 25)
+    $modifierHint.Size = [System.Drawing.Size]::new(570, 25)
     $modifierGroup.Controls.Add($modifierHint)
+
+    $encoderLayerButton = New-Object MugenDeejWindowing.MugenButton
+    $encoderLayerButton.Text = if ($script:Language -eq 'ru') { 'Энкодер в слоях…' } else { 'Layered encoder…' }
+    $encoderLayerButton.Location = [System.Drawing.Point]::new(604, 52)
+    $encoderLayerButton.Size = [System.Drawing.Size]::new(185, 30)
+    $encoderLayerButton.Enabled = ([int]$script:DetectedEncoderCount -gt 0)
+    $encoderLayerButton.Add_Click({
+        Show-AdaptiveLayerEncoderSettings -Config $working -Owner $dialog
+    })
+    $modifierGroup.Controls.Add($encoderLayerButton)
 
     $profileLabel = New-Object System.Windows.Forms.Label
     $profileLabel.Text = if ($script:Language -eq 'ru') { 'Профиль:' } else { 'Profile:' }
