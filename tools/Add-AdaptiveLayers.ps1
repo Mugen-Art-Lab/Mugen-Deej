@@ -1486,6 +1486,40 @@ function Get-ProfiledButtonActionContext {
 '@
 $text = Replace-LayerLiteralExactlyOnce -Text $text -OldText 'function Get-ProfiledButtonAction {' -NewText ($profileWrapper + 'function Get-ProfiledButtonAction {') -Label 'add layer-aware profiled button context'
 
+# Encoder mappings use the same active T1/T2 layer as buttons. Keep the
+# existing profile-aware encoder resolver intact behind an Adaptive-only
+# wrapper so Legacy/Extended behavior and base Adaptive mappings stay stable.
+$text = Replace-LayerLiteralExactlyOnce -Text $text -OldText 'function Get-AdaptiveEncoderMappedAction {' -NewText 'function Get-BaseAdaptiveEncoderMappedAction {' -Label 'rename base Adaptive encoder action resolver'
+
+$encoderLayerWrapper = @'
+function Get-AdaptiveEncoderMappedAction {
+    param([int]$Index, [ValidateSet('cw','ccw','push')][string]$Kind)
+
+    $baseAction = Get-BaseAdaptiveEncoderMappedAction -Index $Index -Kind $Kind
+
+    if ([string]$script:ControllerProtocol -ne 'adaptive') {
+        return $baseAction
+    }
+
+    $layer = Get-AdaptiveLayerIndex
+    if ($layer -le 0 -or -not (Test-AdaptiveLayersEnabled)) {
+        return $baseAction
+    }
+
+    Initialize-AdaptiveLayers
+    $contextKey = Get-AdaptiveLayerProfileKey
+    $override = Get-AdaptiveLayerEncoderOverride -Config $script:AdaptiveLayerConfig -ContextKey $contextKey -Layer $layer -EncoderIndex $Index -Kind $Kind
+
+    if ($override -eq 'inherit') {
+        return $baseAction
+    }
+
+    return ConvertTo-SafeAdaptiveAction -Action $override
+}
+
+'@
+$text = Replace-LayerLiteralExactlyOnce -Text $text -OldText 'function Invoke-AdaptiveMappedAction {' -NewText ($encoderLayerWrapper + 'function Invoke-AdaptiveMappedAction {') -Label 'add layer-aware Adaptive encoder resolver'
+
 # Modifier toggles select a layer and no longer fire their ordinary ON/OFF
 # command at the same time. Non-modifier toggles retain the exact existing path.
 $toggleActionOld = @'
@@ -1516,13 +1550,23 @@ $oldTogglesNew = @'
 '@
 $text = Replace-LayerLiteralExactlyOnce -Text $text -OldText $oldTogglesOld -NewText $oldTogglesNew -Label 'capture Adaptive layer transition'
 
+$encoderLayerOrderOld = @'
+    $oldEncoders = @($script:LatestEncoders)
+'@
+$encoderLayerOrderNew = @'
+    # From this point onward encoder edges in this same Adaptive packet use
+    # the newly selected T1/T2 layer.
+    $script:LatestToggles = @($newToggles)
+
+    $oldEncoders = @($script:LatestEncoders)
+'@
+$text = Replace-LayerLiteralExactlyOnce -Text $text -OldText $encoderLayerOrderOld -NewText $encoderLayerOrderNew -Label 'apply new Adaptive layer before encoder edges'
+
 $latestTogglesOld = @'
     $script:LatestToggles = @($newToggles)
     $script:LatestEncoders = @($newEncoders)
 '@
 $latestTogglesNew = @'
-    $script:LatestToggles = @($newToggles)
-
     if ($oldLayer -ne $newLayer) {
         Write-Log (
             'Adaptive layer changed: {0} -> {1}' -f
