@@ -629,24 +629,24 @@ function Show-AdaptiveLayerEncoderSettings {
     $encoderLayerWorking = Copy-AdaptiveLayerConfig -Config $Config
     $encoderCount = [int]$script:DetectedEncoderCount
 
-    $dialog = New-Object System.Windows.Forms.Form
-    $dialog.Text = if ($script:Language -eq 'ru') { 'Энкодеры в слоях — Mugen Deej' } else { 'Layered encoders — Mugen Deej' }
-    $dialog.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterParent
-    $dialog.ClientSize = [System.Drawing.Size]::new(720, 462)
-    $dialog.MinimumSize = [System.Drawing.Size]::new(736, 501)
-    $dialog.MaximumSize = [System.Drawing.Size]::new(736, 501)
-    $dialog.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
-    $dialog.MaximizeBox = $false
-    $dialog.MinimizeBox = $false
-    $dialog.Font = $form.Font
-    Set-FormAppIcon -Form $dialog
+    $encoderLayerDialog = New-Object System.Windows.Forms.Form
+    $encoderLayerDialog.Text = if ($script:Language -eq 'ru') { 'Энкодеры в слоях — Mugen Deej' } else { 'Layered encoders — Mugen Deej' }
+    $encoderLayerDialog.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterParent
+    $encoderLayerDialog.ClientSize = [System.Drawing.Size]::new(720, 462)
+    $encoderLayerDialog.MinimumSize = [System.Drawing.Size]::new(736, 501)
+    $encoderLayerDialog.MaximumSize = [System.Drawing.Size]::new(736, 501)
+    $encoderLayerDialog.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+    $encoderLayerDialog.MaximizeBox = $false
+    $encoderLayerDialog.MinimizeBox = $false
+    $encoderLayerDialog.Font = $form.Font
+    Set-FormAppIcon -Form $encoderLayerDialog
 
     $heading = New-Object System.Windows.Forms.Label
     $heading.Text = if ($script:Language -eq 'ru') { 'Энкодер в слоях' } else { 'Encoder layer mappings' }
     $heading.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 16)
     $heading.AutoSize = $true
     $heading.Location = [System.Drawing.Point]::new(22, 18)
-    $dialog.Controls.Add($heading)
+    $encoderLayerDialog.Controls.Add($heading)
 
     $hint = New-Object System.Windows.Forms.Label
     $hint.Text = if ($script:Language -eq 'ru') {
@@ -658,62 +658,62 @@ function Show-AdaptiveLayerEncoderSettings {
     $hint.ForeColor = [System.Drawing.Color]::DimGray
     $hint.Location = [System.Drawing.Point]::new(25, 56)
     $hint.Size = [System.Drawing.Size]::new(670, 44)
-    $dialog.Controls.Add($hint)
+    $encoderLayerDialog.Controls.Add($hint)
 
     $profileLabel = New-Object System.Windows.Forms.Label
     $profileLabel.Text = if ($script:Language -eq 'ru') { 'Профиль:' } else { 'Profile:' }
     $profileLabel.Location = [System.Drawing.Point]::new(25, 111)
     $profileLabel.Size = [System.Drawing.Size]::new(80, 28)
     $profileLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
-    $dialog.Controls.Add($profileLabel)
+    $encoderLayerDialog.Controls.Add($profileLabel)
 
-    $profileCombo = New-Object MugenDeejWindowing.MugenComboBox
-    $profileCombo.DropDownStyle = 'DropDownList'
-    $profileCombo.Location = [System.Drawing.Point]::new(105, 109)
-    $profileCombo.Size = [System.Drawing.Size]::new(300, 30)
-    $dialog.Controls.Add($profileCombo)
+    $encoderLayerProfileCombo = New-Object MugenDeejWindowing.MugenComboBox
+    $encoderLayerProfileCombo.DropDownStyle = 'DropDownList'
+    $encoderLayerProfileCombo.Location = [System.Drawing.Point]::new(105, 109)
+    $encoderLayerProfileCombo.Size = [System.Drawing.Size]::new(300, 30)
+    $encoderLayerDialog.Controls.Add($encoderLayerProfileCombo)
 
-    $profileMap = New-Object System.Collections.ArrayList
-    [void]$profileCombo.Items.Add($(if ($script:Language -eq 'ru') { 'Общий' } else { 'Global' }))
-    [void]$profileMap.Add('__global__')
+    $encoderLayerProfileMap = New-Object System.Collections.ArrayList
+    [void]$encoderLayerProfileCombo.Items.Add($(if ($script:Language -eq 'ru') { 'Общий' } else { 'Global' }))
+    [void]$encoderLayerProfileMap.Add('__global__')
     foreach ($profile in @($script:AdaptiveProfiles | Sort-Object name)) {
         $processName = Normalize-TargetName -Value ([string]$profile.process)
         if ([string]::IsNullOrWhiteSpace($processName)) { continue }
-        [void]$profileCombo.Items.Add(('{0} ({1}.exe)' -f [string]$profile.name, $processName))
-        [void]$profileMap.Add($processName.ToLowerInvariant())
+        [void]$encoderLayerProfileCombo.Items.Add(('{0} ({1}.exe)' -f [string]$profile.name, $processName))
+        [void]$encoderLayerProfileMap.Add($processName.ToLowerInvariant())
     }
-    $profileCombo.SelectedIndex = 0
+    $encoderLayerProfileCombo.SelectedIndex = 0
 
-    $layerCombo = New-Object MugenDeejWindowing.MugenComboBox
-    $layerCombo.DropDownStyle = 'DropDownList'
-    $layerCombo.Location = [System.Drawing.Point]::new(420, 109)
-    $layerCombo.Size = [System.Drawing.Size]::new(130, 30)
-    [void]$layerCombo.Items.Add('T1')
-    [void]$layerCombo.Items.Add('T2')
-    [void]$layerCombo.Items.Add('T1 + T2')
-    $layerCombo.SelectedIndex = 0
-    $dialog.Controls.Add($layerCombo)
+    $encoderLayerLayerCombo = New-Object MugenDeejWindowing.MugenComboBox
+    $encoderLayerLayerCombo.DropDownStyle = 'DropDownList'
+    $encoderLayerLayerCombo.Location = [System.Drawing.Point]::new(420, 109)
+    $encoderLayerLayerCombo.Size = [System.Drawing.Size]::new(130, 30)
+    [void]$encoderLayerLayerCombo.Items.Add('T1')
+    [void]$encoderLayerLayerCombo.Items.Add('T2')
+    [void]$encoderLayerLayerCombo.Items.Add('T1 + T2')
+    $encoderLayerLayerCombo.SelectedIndex = 0
+    $encoderLayerDialog.Controls.Add($encoderLayerLayerCombo)
 
-    $encoderCombo = New-Object MugenDeejWindowing.MugenComboBox
-    $encoderCombo.DropDownStyle = 'DropDownList'
-    $encoderCombo.Location = [System.Drawing.Point]::new(565, 109)
-    $encoderCombo.Size = [System.Drawing.Size]::new(130, 30)
+    $encoderLayerEncoderCombo = New-Object MugenDeejWindowing.MugenComboBox
+    $encoderLayerEncoderCombo.DropDownStyle = 'DropDownList'
+    $encoderLayerEncoderCombo.Location = [System.Drawing.Point]::new(565, 109)
+    $encoderLayerEncoderCombo.Size = [System.Drawing.Size]::new(130, 30)
     for ($i = 0; $i -lt $encoderCount; $i++) {
-        [void]$encoderCombo.Items.Add($(if ($script:Language -eq 'ru') { 'Энкодер ' + ($i + 1) } else { 'Encoder ' + ($i + 1) }))
+        [void]$encoderLayerEncoderCombo.Items.Add($(if ($script:Language -eq 'ru') { 'Энкодер ' + ($i + 1) } else { 'Encoder ' + ($i + 1) }))
     }
-    $encoderCombo.SelectedIndex = 0
-    $dialog.Controls.Add($encoderCombo)
+    $encoderLayerEncoderCombo.SelectedIndex = 0
+    $encoderLayerDialog.Controls.Add($encoderLayerEncoderCombo)
 
-    $baseLabel = New-Object System.Windows.Forms.Label
-    $baseLabel.ForeColor = [System.Drawing.Color]::DimGray
-    $baseLabel.Location = [System.Drawing.Point]::new(25, 154)
-    $baseLabel.Size = [System.Drawing.Size]::new(670, 52)
-    $dialog.Controls.Add($baseLabel)
+    $encoderLayerBaseLabel = New-Object System.Windows.Forms.Label
+    $encoderLayerBaseLabel.ForeColor = [System.Drawing.Color]::DimGray
+    $encoderLayerBaseLabel.Location = [System.Drawing.Point]::new(25, 154)
+    $encoderLayerBaseLabel.Size = [System.Drawing.Size]::new(670, 52)
+    $encoderLayerDialog.Controls.Add($encoderLayerBaseLabel)
 
-    $labels = @()
-    $combos = @()
-    $maps = @()
-    $kinds = @('cw','ccw','push')
+    $encoderLayerLabels = @()
+    $encoderLayerCombos = @()
+    $encoderLayerMaps = @()
+    $encoderLayerKinds = @('cw','ccw','push')
     $kindTitlesRu = @('По часовой', 'Против часовой', 'Нажатие')
     $kindTitlesEn = @('Clockwise', 'Counter-clockwise', 'Push')
 
@@ -723,31 +723,35 @@ function Show-AdaptiveLayerEncoderSettings {
         $label.Location = [System.Drawing.Point]::new(25, (217 + ($i * 58)))
         $label.Size = [System.Drawing.Size]::new(145, 26)
         $label.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
-        $dialog.Controls.Add($label)
-        $labels += $label
+        $encoderLayerDialog.Controls.Add($label)
+        $encoderLayerLabels += $label
 
         $combo = New-Object MugenDeejWindowing.MugenComboBox
         $combo.Tag = $i
         $combo.DropDownStyle = 'DropDownList'
         $combo.Location = [System.Drawing.Point]::new(175, (215 + ($i * 58)))
         $combo.Size = [System.Drawing.Size]::new(520, 30)
-        $dialog.Controls.Add($combo)
-        $combos += $combo
-        $maps += ,(New-Object System.Collections.ArrayList)
+        $encoderLayerDialog.Controls.Add($combo)
+        $encoderLayerCombos += $combo
+        $encoderLayerMaps += ,(New-Object System.Collections.ArrayList)
     }
 
-    $state = [pscustomobject]@{ Suppress = $false }
-
-    $getContextKey = {
-        $index = [int]$profileCombo.SelectedIndex
-        if ($index -lt 0 -or $index -ge $profileMap.Count) { return '__global__' }
-        return [string]$profileMap[$index]
+    $encoderLayerState = [pscustomobject]@{ Suppress = $false }
+    $encoderLayerDialog.Tag = [pscustomobject]@{
+        TargetConfig = $Config
+        WorkingConfig = $encoderLayerWorking
     }
 
-    $refresh = {
-        $contextKey = & $getContextKey
-        $layer = [int]$layerCombo.SelectedIndex + 1
-        $encoderIndex = [int]$encoderCombo.SelectedIndex
+    $encoderLayerGetContextKey = {
+        $index = [int]$encoderLayerProfileCombo.SelectedIndex
+        if ($index -lt 0 -or $index -ge $encoderLayerProfileMap.Count) { return '__global__' }
+        return [string]$encoderLayerProfileMap[$index]
+    }
+
+    $encoderLayerRefresh = {
+        $contextKey = & $encoderLayerGetContextKey
+        $layer = [int]$encoderLayerLayerCombo.SelectedIndex + 1
+        $encoderIndex = [int]$encoderLayerEncoderCombo.SelectedIndex
         if ($encoderIndex -lt 0) { $encoderIndex = 0 }
 
         $context = Get-AdaptiveLayerContextObject -Config $encoderLayerWorking -Key $contextKey -Create
@@ -756,48 +760,48 @@ function Show-AdaptiveLayerEncoderSettings {
         $baseCw = Get-AdaptiveLayerBaseEncoderAction -ContextKey $contextKey -EncoderIndex $encoderIndex -Kind 'cw'
         $baseCcw = Get-AdaptiveLayerBaseEncoderAction -ContextKey $contextKey -EncoderIndex $encoderIndex -Kind 'ccw'
         $basePush = Get-AdaptiveLayerBaseEncoderAction -ContextKey $contextKey -EncoderIndex $encoderIndex -Kind 'push'
-        $baseLabel.Text = if ($script:Language -eq 'ru') {
+        $encoderLayerBaseLabel.Text = if ($script:Language -eq 'ru') {
             'Основное: ↻ {0} · ↺ {1} · нажатие {2}' -f (Get-AdaptiveActionDisplay -Action $baseCw), (Get-AdaptiveActionDisplay -Action $baseCcw), (Get-AdaptiveActionDisplay -Action $basePush)
         }
         else {
             'Base: ↻ {0} · ↺ {1} · push {2}' -f (Get-AdaptiveActionDisplay -Action $baseCw), (Get-AdaptiveActionDisplay -Action $baseCcw), (Get-AdaptiveActionDisplay -Action $basePush)
         }
 
-        $state.Suppress = $true
+        $encoderLayerState.Suppress = $true
         try {
             for ($i = 0; $i -lt 3; $i++) {
-                $override = Get-AdaptiveLayerEncoderOverride -Config $encoderLayerWorking -ContextKey $contextKey -Layer $layer -EncoderIndex $encoderIndex -Kind $kinds[$i]
-                Populate-AdaptiveLayerTypedActionCombo -Combo $combos[$i] -Map $maps[$i] -CurrentAction $override
+                $override = Get-AdaptiveLayerEncoderOverride -Config $encoderLayerWorking -ContextKey $contextKey -Layer $layer -EncoderIndex $encoderIndex -Kind $encoderLayerKinds[$i]
+                Populate-AdaptiveLayerTypedActionCombo -Combo $encoderLayerCombos[$i] -Map $encoderLayerMaps[$i] -CurrentAction $override
             }
         }
         finally {
-            $state.Suppress = $false
+            $encoderLayerState.Suppress = $false
         }
 
         $hasPush = $false
         if (@($script:LatestEncoders).Count -gt $encoderIndex) {
             $hasPush = [bool]$script:LatestEncoders[$encoderIndex].HasPush
         }
-        $labels[2].Visible = $hasPush
-        $combos[2].Visible = $hasPush
+        $encoderLayerLabels[2].Visible = $hasPush
+        $encoderLayerCombos[2].Visible = $hasPush
     }
 
     for ($comboIndex = 0; $comboIndex -lt 3; $comboIndex++) {
-        $combos[$comboIndex].Add_SelectedIndexChanged({
+        $encoderLayerCombos[$comboIndex].Add_SelectedIndexChanged({
             param($sender, $eventArgs)
 
-            if ($state.Suppress) { return }
+            if ($encoderLayerState.Suppress) { return }
 
             $slotIndex = [int]$sender.Tag
             $selectedIndex = [int]$sender.SelectedIndex
-            if ($slotIndex -lt 0 -or $slotIndex -ge $maps.Count) { return }
-            if ($selectedIndex -lt 0 -or $selectedIndex -ge $maps[$slotIndex].Count) { return }
+            if ($slotIndex -lt 0 -or $slotIndex -ge $encoderLayerMaps.Count) { return }
+            if ($selectedIndex -lt 0 -or $selectedIndex -ge $encoderLayerMaps[$slotIndex].Count) { return }
 
-            $contextKey = & $getContextKey
-            $layer = [int]$layerCombo.SelectedIndex + 1
-            $encoderIndex = [int]$encoderCombo.SelectedIndex
-            $kind = [string]$kinds[$slotIndex]
-            $chosen = [string]$maps[$slotIndex][$selectedIndex]
+            $contextKey = & $encoderLayerGetContextKey
+            $layer = [int]$encoderLayerLayerCombo.SelectedIndex + 1
+            $encoderIndex = [int]$encoderLayerEncoderCombo.SelectedIndex
+            $kind = [string]$encoderLayerKinds[$slotIndex]
+            $chosen = [string]$encoderLayerMaps[$slotIndex][$selectedIndex]
             $previous = Get-AdaptiveLayerEncoderOverride -Config $encoderLayerWorking -ContextKey $contextKey -Layer $layer -EncoderIndex $encoderIndex -Kind $kind
 
             $configured = if ($chosen -eq 'inherit') {
@@ -811,41 +815,45 @@ function Show-AdaptiveLayerEncoderSettings {
                 Set-AdaptiveLayerEncoderOverride -Config $encoderLayerWorking -ContextKey $contextKey -Layer $layer -EncoderIndex $encoderIndex -Kind $kind -Action ([string]$configured) -EncoderCount $encoderCount
             }
 
-            & $refresh
+            & $encoderLayerRefresh
         })
     }
 
-    $profileCombo.Add_SelectedIndexChanged({ if (-not $state.Suppress) { & $refresh } })
-    $layerCombo.Add_SelectedIndexChanged({ if (-not $state.Suppress) { & $refresh } })
-    $encoderCombo.Add_SelectedIndexChanged({ if (-not $state.Suppress) { & $refresh } })
+    $encoderLayerProfileCombo.Add_SelectedIndexChanged({ if (-not $encoderLayerState.Suppress) { & $encoderLayerRefresh } })
+    $encoderLayerLayerCombo.Add_SelectedIndexChanged({ if (-not $encoderLayerState.Suppress) { & $encoderLayerRefresh } })
+    $encoderLayerEncoderCombo.Add_SelectedIndexChanged({ if (-not $encoderLayerState.Suppress) { & $encoderLayerRefresh } })
 
-    $cancel = New-Object MugenDeejWindowing.MugenButton
-    $cancel.Text = Get-ButtonFeatureText -Key 'Cancel'
-    $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-    $cancel.Location = [System.Drawing.Point]::new(486, 408)
-    $cancel.Size = [System.Drawing.Size]::new(98, 36)
-    $dialog.Controls.Add($cancel)
+    $encoderLayerCancel = New-Object MugenDeejWindowing.MugenButton
+    $encoderLayerCancel.Text = Get-ButtonFeatureText -Key 'Cancel'
+    $encoderLayerCancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+    $encoderLayerCancel.Location = [System.Drawing.Point]::new(486, 408)
+    $encoderLayerCancel.Size = [System.Drawing.Size]::new(98, 36)
+    $encoderLayerDialog.Controls.Add($encoderLayerCancel)
 
-    $save = New-Object MugenDeejWindowing.MugenButton
-    $save.Text = Get-ButtonFeatureText -Key 'Save'
-    $save.Tag = 'MugenPrimary'
-    $save.Location = [System.Drawing.Point]::new(596, 408)
-    $save.Size = [System.Drawing.Size]::new(99, 36)
-    $dialog.Controls.Add($save)
+    $encoderLayerSave = New-Object MugenDeejWindowing.MugenButton
+    $encoderLayerSave.Text = Get-ButtonFeatureText -Key 'Save'
+    $encoderLayerSave.Tag = 'MugenPrimary'
+    $encoderLayerSave.Location = [System.Drawing.Point]::new(596, 408)
+    $encoderLayerSave.Size = [System.Drawing.Size]::new(99, 36)
+    $encoderLayerDialog.Controls.Add($encoderLayerSave)
 
-    $save.Add_Click({
-        $normalized = ConvertTo-NormalizedAdaptiveLayerConfig -Data $encoderLayerWorking
-        $Config.contexts = @($normalized.contexts)
-        $dialog.DialogResult = [System.Windows.Forms.DialogResult]::OK
-        $dialog.Close()
+    $encoderLayerSave.Add_Click({
+        param($sender, $eventArgs)
+
+        $ownerForm = $sender.FindForm()
+        $editorState = $ownerForm.Tag
+        $normalized = ConvertTo-NormalizedAdaptiveLayerConfig -Data $editorState.WorkingConfig
+        $editorState.TargetConfig.contexts = @($normalized.contexts)
+        $ownerForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
+        $ownerForm.Close()
     })
 
-    Apply-ThemeToForm -Form $dialog
-    & $refresh
-    $dialog.AcceptButton = $save
-    $dialog.CancelButton = $cancel
-    [void]$dialog.ShowDialog($Owner)
-    if (-not $dialog.IsDisposed) { $dialog.Dispose() }
+    Apply-ThemeToForm -Form $encoderLayerDialog
+    & $encoderLayerRefresh
+    $encoderLayerDialog.AcceptButton = $encoderLayerSave
+    $encoderLayerDialog.CancelButton = $encoderLayerCancel
+    [void]$encoderLayerDialog.ShowDialog($Owner)
+    if (-not $encoderLayerDialog.IsDisposed) { $encoderLayerDialog.Dispose() }
 }
 
 function Get-AdaptiveLayerProfileKey {
