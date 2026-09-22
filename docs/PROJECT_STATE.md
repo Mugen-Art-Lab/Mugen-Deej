@@ -385,3 +385,12 @@ The real Nano analog path is functionally working: all five physical potentiomet
 Run #160 (ID `35759260556`) succeeded at code head `081751cda7395c232f45bd6c78471660f1ebc969`; artifact ID `10709081360`; outer digest `sha256:50ff2c5988aa4f59e10d10b7790d9489af715df7ed766381aaf1879df98dcdca`; inner ZIP SHA-256 `866891dd1422284d228e0e5187945e422d2e83c3bab16aa4415505ff3101d645`.
 
 Real-machine acceptance: opening slider settings must immediately show the Advanced card without any transient arrow/show-hide control, inversion must remain persisted, and the five real Nano potentiometers must continue reporting correctly.
+
+
+## Hardware PASS — Integrated #160 + Nano five-pot prototype
+
+Integrated #160 has now passed real-machine validation for the completed physical analog path. The user's Nano controller is detected as Adaptive `5 / 28 / 2 / 1` at 115200, all five real potentiometers produce live UI values, global inversion persists, the always-visible analog Advanced card renders correctly, and Save is stable with no JIT exception.
+
+The same test session also showed normal encoder movement/push events and clean sampled button events, including B23 after the earlier C2/C3 jumper/remap fix.
+
+This closes the original five-slider-placeholder gap: the prototype now has five actual analog controls feeding Mugen end-to-end. Remaining future work is no longer basic analog acquisition; it is higher-level behavior such as calibration/filtering decisions from measured hardware behavior and analog-to-XInput mapping.
