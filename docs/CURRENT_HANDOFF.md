@@ -1781,3 +1781,37 @@ Observed on the user's physical cardboard Nano controller:
 This is the first real-machine PASS where the five Adaptive slider channels are backed by physical potentiometers rather than software placeholder values.
 
 Keep #160 as the current hardware-reviewed application build. The Nano firmware with the working C2/C3 physical jumper arrangement remains the active prototype firmware.
+
+
+## Integrated #175 — Adaptive T1/T2 control layers candidate
+
+The first implementation of toggle-driven layers is now packaged for real-machine testing.
+
+Feature scope:
+- Adaptive v3 only;
+- T1/T2 can independently be enabled as layer modifiers;
+- layer states: Base, T1, T2, T1 + T2;
+- button mappings can override the base action per layer, with explicit Inherit and Do nothing choices;
+- encoder CW / CCW / push can also be overridden per layer;
+- application-profile context remains part of layer resolution, so overrides can be Global or profile-specific;
+- active layer is shown in the live Adaptive toggle status when modifier mode is enabled;
+- modifier toggles suppress their ordinary ON/OFF action while acting as modifiers.
+
+Compatibility contract:
+- Legacy/Extended do not enter layer resolution; their existing flat/profiled button path is preserved;
+- Adaptive packet processing updates toggle state before same-packet button/encoder edges so a newly selected layer is used immediately;
+- virtual Xbox output treats a layer switch as a profile/context boundary so held virtual mappings are neutralized and suppressed until release rather than morphing into the new layer;
+- layer data is stored separately in `adaptive-layers.json`, leaving the established button action/profile files intact.
+
+Build history:
+- #161-#169 were staging/anchor failures while fitting the new layer patch into the current patch chain;
+- #170 reached green CI for button layers;
+- #171-#175 extended the same layer model to encoder CW/CCW/push and hardened the editor event state;
+- run **#175**, run ID `35766695670` — SUCCESS;
+- built code head `09a69e734b7014235de653c17f7ba6632d01c2cc`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-175`, ID `10712008968`;
+- outer Actions digest `sha256:185870016e0f3d575c0bcee5895d5be4fc1f5843e35cea9a1b1746c15b30d1b2`;
+- inner program ZIP SHA-256 `868ac0da396ae63413e411078e1850632a613d1d7586dcb427c7fdb68daed6fa`;
+- staging, Windows PowerShell 5.1 parse/runtime assertions, launcher/helper build, packaging and upload: PASS.
+
+This is a CI candidate, not a hardware PASS yet. Real-machine testing should explicitly include Adaptive layer behavior plus Legacy and Extended regression checks.
