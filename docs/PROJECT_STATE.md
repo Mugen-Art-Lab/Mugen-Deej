@@ -418,3 +418,14 @@ Legacy/Extended compatibility remains explicitly gated: they do not resolve Adap
 Run #180 (ID `35773465992`) succeeded at code head `8041ee5319027db959b2e99e4c356578d558845a`; artifact ID `10714269507`; outer digest `sha256:aec2a91ff587389d01332dc60910fae965ce9f4e8c47f8627431d3f0e8fc7ad1`; inner ZIP SHA-256 `dc8eebd5e5418a8e165c82fe9f99bcffcb7e817d11c9537126ab8e052dd941e7`.
 
 Hardware acceptance should first confirm the Control-layers dialog opens without JIT errors and the parent layout is clean, then exercise Base/T1/T2/T1+T2 button mappings and layered encoder CW/CCW/push. #160 remains the last fully hardware-passed baseline until that succeeds.
+
+
+## Current layer hardware-review candidate — Integrated #183
+
+#183 extends the Adaptive T1/T2 layer system with persistent user-visible names for all four states: Base, T1, T2 and T1+T2. Defaults remain localized when unchanged; user-defined names are stored as optional fields in the existing version-1 `adaptive-layers.json`, preserving compatibility with files created by #170-#180.
+
+The configured names are propagated through the button-layer editor, layered encoder editor, live active-layer status and layer-transition diagnostics. Legacy/Extended still do not enter Adaptive layer resolution.
+
+Run #183 (ID `35776040340`) succeeded at code head `6459579e4bc9236debd0ba76f48b996d2d3630d8`; artifact ID `10716281843`; outer digest `sha256:2c65daa50e159679442c5e04ccde7c97390d0fe184cf957737edff5489e24372`; inner ZIP SHA-256 `755c88d3763695cbea3b9869269093d590ca70b64dd459ec7c091fbcd3e9d6f9`.
+
+Hardware acceptance should verify name persistence and propagation together with the still-pending #180 layer behavior tests. #160 remains the last fully hardware-passed baseline until those checks pass.
