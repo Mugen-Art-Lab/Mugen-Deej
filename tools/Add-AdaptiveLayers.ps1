@@ -76,8 +76,28 @@ function New-DefaultAdaptiveLayerConfig {
     return [pscustomobject][ordered]@{
         version = 1
         modifierToggles = @($false, $false)
+        names = [pscustomobject][ordered]@{
+            base = ''
+            t1 = ''
+            t2 = ''
+            both = ''
+        }
         contexts = @()
     }
+}
+
+function ConvertTo-SafeAdaptiveLayerCustomName {
+    param([string]$Value)
+
+    if ($null -eq $Value) { return '' }
+
+    $safe = ([string]$Value) -replace '[\r\n\t]+', ' '
+    $safe = $safe.Trim()
+    if ($safe.Length -gt 24) {
+        $safe = $safe.Substring(0, 24).TrimEnd()
+    }
+
+    return $safe
 }
 
 function ConvertTo-SafeAdaptiveLayerButtonOverride {
@@ -127,6 +147,15 @@ function ConvertTo-NormalizedAdaptiveLayerConfig {
             $(if ($mods.Count -gt 0) { [bool]$mods[0] } else { $false }),
             $(if ($mods.Count -gt 1) { [bool]$mods[1] } else { $false })
         )
+    }
+
+    if ($null -ne $Data.PSObject.Properties['names'] -and $null -ne $Data.names) {
+        foreach ($nameKey in @('base','t1','t2','both')) {
+            $nameProperty = $Data.names.PSObject.Properties[$nameKey]
+            if ($null -ne $nameProperty) {
+                $result.names.$nameKey = ConvertTo-SafeAdaptiveLayerCustomName -Value ([string]$nameProperty.Value)
+            }
+        }
     }
 
     $seen = @{}
@@ -364,7 +393,7 @@ function Get-AdaptiveLayerNameForIndex {
     }
 }
 
-function Get-AdaptiveLayerDisplayName {
+function Get-AdaptiveLayerDefaultDisplayName {
     param([int]$Layer)
 
     if ($script:Language -eq 'ru') {
@@ -381,6 +410,67 @@ function Get-AdaptiveLayerDisplayName {
         2 { return 'T2' }
         3 { return 'T1 + T2' }
         default { return 'Base' }
+    }
+}
+
+function Get-AdaptiveLayerCustomNameKey {
+    param([int]$Layer)
+
+    switch ($Layer) {
+        1 { return 't1' }
+        2 { return 't2' }
+        3 { return 'both' }
+        default { return 'base' }
+    }
+}
+
+function Get-AdaptiveLayerDisplayNameFromConfig {
+    param(
+        $Config,
+        [int]$Layer
+    )
+
+    $fallback = Get-AdaptiveLayerDefaultDisplayName -Layer $Layer
+    if ($null -eq $Config -or $null -eq $Config.PSObject.Properties['names'] -or $null -eq $Config.names) {
+        return $fallback
+    }
+
+    $key = Get-AdaptiveLayerCustomNameKey -Layer $Layer
+    $property = $Config.names.PSObject.Properties[$key]
+    if ($null -eq $property) { return $fallback }
+
+    $custom = ConvertTo-SafeAdaptiveLayerCustomName -Value ([string]$property.Value)
+    if ([string]::IsNullOrWhiteSpace($custom)) { return $fallback }
+
+    return $custom
+}
+
+function Get-AdaptiveLayerDisplayName {
+    param([int]$Layer)
+
+    Initialize-AdaptiveLayers
+    return Get-AdaptiveLayerDisplayNameFromConfig -Config $script:AdaptiveLayerConfig -Layer $Layer
+}
+
+function Set-AdaptiveLayerComboDisplayItems {
+    param(
+        [Parameter(Mandatory = $true)]$Combo,
+        [Parameter(Mandatory = $true)]$Config
+    )
+
+    $selected = [int]$Combo.SelectedIndex
+    if ($selected -lt 0 -or $selected -gt 2) { $selected = 0 }
+
+    $Combo.BeginUpdate()
+    try {
+        $Combo.Items.Clear()
+        for ($layer = 1; $layer -le 3; $layer++) {
+            [void]$Combo.Items.Add((Get-AdaptiveLayerDisplayNameFromConfig -Config $Config -Layer $layer))
+        }
+        $Combo.SelectedIndex = $selected
+    }
+    finally {
+        $Combo.EndUpdate()
     }
 }
 
@@ -688,10 +778,7 @@ function Show-AdaptiveLayerEncoderSettings {
     $encoderLayerLayerCombo.DropDownStyle = 'DropDownList'
     $encoderLayerLayerCombo.Location = [System.Drawing.Point]::new(420, 109)
     $encoderLayerLayerCombo.Size = [System.Drawing.Size]::new(130, 30)
-    [void]$encoderLayerLayerCombo.Items.Add('T1')
-    [void]$encoderLayerLayerCombo.Items.Add('T2')
-    [void]$encoderLayerLayerCombo.Items.Add('T1 + T2')
-    $encoderLayerLayerCombo.SelectedIndex = 0
+    Set-AdaptiveLayerComboDisplayItems -Combo $encoderLayerLayerCombo -Config $encoderLayerWorking
     $encoderLayerDialog.Controls.Add($encoderLayerLayerCombo)
 
     $encoderLayerEncoderCombo = New-Object MugenDeejWindowing.MugenComboBox
@@ -1101,9 +1188,9 @@ function Show-AdaptiveLayerSettings {
     $dialog = New-Object System.Windows.Forms.Form
     $dialog.Text = if ($script:Language -eq 'ru') { 'Слои управления — Mugen Deej' } else { 'Control layers — Mugen Deej' }
     $dialog.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterParent
-    $dialog.ClientSize = [System.Drawing.Size]::new(860, 704)
-    $dialog.MinimumSize = [System.Drawing.Size]::new(876, 743)
-    $dialog.MaximumSize = [System.Drawing.Size]::new(876, 743)
+    $dialog.ClientSize = [System.Drawing.Size]::new(860, 814)
+    $dialog.MinimumSize = [System.Drawing.Size]::new(876, 853)
+    $dialog.MaximumSize = [System.Drawing.Size]::new(876, 853)
     $dialog.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
     $dialog.MaximizeBox = $false
     $dialog.MinimizeBox = $false
@@ -1168,20 +1255,66 @@ function Show-AdaptiveLayerSettings {
     $encoderLayerButton.Size = [System.Drawing.Size]::new(185, 30)
     $encoderLayerButton.Enabled = ([int]$script:DetectedEncoderCount -gt 0)
     $encoderLayerButton.Add_Click({
+        & $syncLayerNamesToWorking
         Show-AdaptiveLayerEncoderSettings -Config $working -Owner $dialog
     })
     $modifierGroup.Controls.Add($encoderLayerButton)
 
+    $namesGroup = New-Object MugenDeejWindowing.MugenGroupBox
+    $namesGroup.Text = if ($script:Language -eq 'ru') { 'Имена слоёв' } else { 'Layer names' }
+    $namesGroup.Location = [System.Drawing.Point]::new(22, 210)
+    $namesGroup.Size = [System.Drawing.Size]::new(816, 94)
+    $dialog.Controls.Add($namesGroup)
+
+    $nameLabelsRu = @('Основной', 'T1', 'T2', 'T1 + T2')
+    $nameLabelsEn = @('Base', 'T1', 'T2', 'T1 + T2')
+    $layerNameBoxes = @()
+
+    for ($layerNameIndex = 0; $layerNameIndex -lt 4; $layerNameIndex++) {
+        $columnX = 16 + ($layerNameIndex * 198)
+
+        $nameLabel = New-Object System.Windows.Forms.Label
+        $nameLabel.Text = if ($script:Language -eq 'ru') { $nameLabelsRu[$layerNameIndex] } else { $nameLabelsEn[$layerNameIndex] }
+        $nameLabel.Location = [System.Drawing.Point]::new($columnX, 24)
+        $nameLabel.Size = [System.Drawing.Size]::new(178, 20)
+        $namesGroup.Controls.Add($nameLabel)
+
+        $nameBox = New-Object System.Windows.Forms.TextBox
+        $nameBox.Tag = $layerNameIndex
+        $nameBox.MaxLength = 24
+        $nameBox.Location = [System.Drawing.Point]::new($columnX, 48)
+        $nameBox.Size = [System.Drawing.Size]::new(178, 25)
+        $nameBox.Text = Get-AdaptiveLayerDisplayNameFromConfig -Config $working -Layer $layerNameIndex
+        $namesGroup.Controls.Add($nameBox)
+        $layerNameBoxes += $nameBox
+    }
+
+    $syncLayerNamesToWorking = {
+        foreach ($nameBox in $layerNameBoxes) {
+            $layerIndex = [int]$nameBox.Tag
+            $key = Get-AdaptiveLayerCustomNameKey -Layer $layerIndex
+            $value = ConvertTo-SafeAdaptiveLayerCustomName -Value ([string]$nameBox.Text)
+            $defaultValue = Get-AdaptiveLayerDefaultDisplayName -Layer $layerIndex
+
+            if ($value -eq $defaultValue) {
+                $working.names.$key = ''
+            }
+            else {
+                $working.names.$key = $value
+            }
+        }
+    }
+
     $profileLabel = New-Object System.Windows.Forms.Label
     $profileLabel.Text = if ($script:Language -eq 'ru') { 'Профиль:' } else { 'Profile:' }
-    $profileLabel.Location = [System.Drawing.Point]::new(25, 218)
+    $profileLabel.Location = [System.Drawing.Point]::new(25, 328)
     $profileLabel.Size = [System.Drawing.Size]::new(100, 28)
     $profileLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
     $dialog.Controls.Add($profileLabel)
 
     $profileCombo = New-Object MugenDeejWindowing.MugenComboBox
     $profileCombo.DropDownStyle = 'DropDownList'
-    $profileCombo.Location = [System.Drawing.Point]::new(125, 216)
+    $profileCombo.Location = [System.Drawing.Point]::new(125, 326)
     $profileCombo.Size = [System.Drawing.Size]::new(410, 30)
     $dialog.Controls.Add($profileCombo)
 
@@ -1198,24 +1331,21 @@ function Show-AdaptiveLayerSettings {
 
     $layerLabel = New-Object System.Windows.Forms.Label
     $layerLabel.Text = if ($script:Language -eq 'ru') { 'Слой:' } else { 'Layer:' }
-    $layerLabel.Location = [System.Drawing.Point]::new(558, 218)
+    $layerLabel.Location = [System.Drawing.Point]::new(558, 328)
     $layerLabel.Size = [System.Drawing.Size]::new(70, 28)
     $layerLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
     $dialog.Controls.Add($layerLabel)
 
     $layerCombo = New-Object MugenDeejWindowing.MugenComboBox
     $layerCombo.DropDownStyle = 'DropDownList'
-    $layerCombo.Location = [System.Drawing.Point]::new(625, 216)
+    $layerCombo.Location = [System.Drawing.Point]::new(625, 326)
     $layerCombo.Size = [System.Drawing.Size]::new(210, 30)
-    [void]$layerCombo.Items.Add('T1')
-    [void]$layerCombo.Items.Add('T2')
-    [void]$layerCombo.Items.Add('T1 + T2')
-    $layerCombo.SelectedIndex = 0
+    Set-AdaptiveLayerComboDisplayItems -Combo $layerCombo -Config $working
     $dialog.Controls.Add($layerCombo)
 
     $editorGroup = New-Object MugenDeejWindowing.MugenGroupBox
     $editorGroup.Text = if ($script:Language -eq 'ru') { 'Переопределения кнопок' } else { 'Button overrides' }
-    $editorGroup.Location = [System.Drawing.Point]::new(22, 260)
+    $editorGroup.Location = [System.Drawing.Point]::new(22, 370)
     $editorGroup.Size = [System.Drawing.Size]::new(816, 360)
     $dialog.Controls.Add($editorGroup)
 
@@ -1311,10 +1441,10 @@ function Show-AdaptiveLayerSettings {
         $override = Get-AdaptiveLayerButtonOverride -Config $working -ContextKey $contextKey -Layer $layer -ButtonIndex $index
 
         $selectedHeading.Text = if ($script:Language -eq 'ru') {
-            'Кнопка {0} · слой {1}' -f ($index + 1), (Get-AdaptiveLayerDisplayName -Layer $layer)
+            'Кнопка {0} · слой {1}' -f ($index + 1), (Get-AdaptiveLayerDisplayNameFromConfig -Config $working -Layer $layer)
         }
         else {
-            'Button {0} · layer {1}' -f ($index + 1), (Get-AdaptiveLayerDisplayName -Layer $layer)
+            'Button {0} · layer {1}' -f ($index + 1), (Get-AdaptiveLayerDisplayNameFromConfig -Config $working -Layer $layer)
         }
 
         $baseLabel.Text = if ($script:Language -eq 'ru') {
@@ -1334,10 +1464,10 @@ function Show-AdaptiveLayerSettings {
 
         $currentLayer = Get-AdaptiveLayerIndex
         $activePreview.Text = if ($script:Language -eq 'ru') {
-            'Сейчас на контроллере: слой ' + (Get-AdaptiveLayerDisplayName -Layer $currentLayer)
+            'Сейчас на контроллере: слой ' + (Get-AdaptiveLayerDisplayNameFromConfig -Config $working -Layer $currentLayer)
         }
         else {
-            'Controller now: layer ' + (Get-AdaptiveLayerDisplayName -Layer $currentLayer)
+            'Controller now: layer ' + (Get-AdaptiveLayerDisplayNameFromConfig -Config $working -Layer $currentLayer)
         }
     }
 
@@ -1353,6 +1483,36 @@ function Show-AdaptiveLayerSettings {
         $selector.Add_Click({
             param($sender, $eventArgs)
             & $selectButton -Index ([int]$sender.Tag)
+        })
+    }
+
+    $refreshLayerNames = {
+        & $syncLayerNamesToWorking
+
+        Set-AdaptiveLayerComboDisplayItems -Combo $layerCombo -Config $working
+
+        $t1Check.Text = if ($script:Language -eq 'ru') {
+            'Тумблер 1 = слой ' + (Get-AdaptiveLayerDisplayNameFromConfig -Config $working -Layer 1)
+        }
+        else {
+            'Toggle 1 = layer ' + (Get-AdaptiveLayerDisplayNameFromConfig -Config $working -Layer 1)
+        }
+
+        $t2Check.Text = if ($script:Language -eq 'ru') {
+            'Тумблер 2 = слой ' + (Get-AdaptiveLayerDisplayNameFromConfig -Config $working -Layer 2)
+        }
+        else {
+            'Toggle 2 = layer ' + (Get-AdaptiveLayerDisplayNameFromConfig -Config $working -Layer 2)
+        }
+
+        & $refreshEditor
+    }
+
+    foreach ($nameBox in $layerNameBoxes) {
+        $nameBox.Add_TextChanged({
+            if (-not $layerButtonState.Suppress) {
+                & $refreshLayerNames
+            }
         })
     }
 
@@ -1401,18 +1561,20 @@ function Show-AdaptiveLayerSettings {
     $cancel = New-Object MugenDeejWindowing.MugenButton
     $cancel.Text = Get-ButtonFeatureText -Key 'Cancel'
     $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-    $cancel.Location = [System.Drawing.Point]::new(610, 650)
+    $cancel.Location = [System.Drawing.Point]::new(610, 760)
     $cancel.Size = [System.Drawing.Size]::new(105, 36)
     $dialog.Controls.Add($cancel)
 
     $save = New-Object MugenDeejWindowing.MugenButton
     $save.Text = Get-ButtonFeatureText -Key 'Save'
     $save.Tag = 'MugenPrimary'
-    $save.Location = [System.Drawing.Point]::new(727, 650)
+    $save.Location = [System.Drawing.Point]::new(727, 760)
     $save.Size = [System.Drawing.Size]::new(108, 36)
     $dialog.Controls.Add($save)
 
     $save.Add_Click({
+        & $syncLayerNamesToWorking
+
         $working.modifierToggles = @(
             [bool]$t1Check.Checked,
             $(if ([int]$script:DetectedToggleCount -gt 1) { [bool]$t2Check.Checked } else { $false })
@@ -1453,10 +1615,10 @@ function Show-AdaptiveLayerSettings {
 
         $currentLayer = Get-AdaptiveLayerIndex
         $preview = if ($script:Language -eq 'ru') {
-            'Сейчас на контроллере: слой ' + (Get-AdaptiveLayerDisplayName -Layer $currentLayer)
+            'Сейчас на контроллере: слой ' + (Get-AdaptiveLayerDisplayNameFromConfig -Config $working -Layer $currentLayer)
         }
         else {
-            'Controller now: layer ' + (Get-AdaptiveLayerDisplayName -Layer $currentLayer)
+            'Controller now: layer ' + (Get-AdaptiveLayerDisplayNameFromConfig -Config $working -Layer $currentLayer)
         }
         if ($activePreview.Text -ne $preview) {
             $activePreview.Text = $preview
@@ -1464,7 +1626,7 @@ function Show-AdaptiveLayerSettings {
     })
 
     Apply-ThemeToForm -Form $dialog
-    & $refreshEditor
+    & $refreshLayerNames
 
     $dialog.Add_Shown({
         Ensure-FormVisible -Form $dialog -CenterIfOffscreen
