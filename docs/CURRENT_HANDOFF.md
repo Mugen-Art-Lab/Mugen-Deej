@@ -1603,3 +1603,25 @@ Workflow:
 - CI staging, Windows PowerShell 5.1 parse/runtime checks, launcher/helper build, packaging and upload: PASS.
 
 Nano firmware head after the app build also includes the logical C2/C3 remap for the user's currently working jumper arrangement.
+
+
+## Integrated #146 — PS5-compatible slider Advanced-settings click guard
+
+Real-machine #144 exposed an unhandled WinForms click exception when opening slider Advanced settings. The crash dialog identified the exact cause: `[Environment]::TickCount64` is not available in the Windows PowerShell 5.1 / .NET Framework runtime used by Mugen. The CI parse step could not catch this because the syntax is valid and the missing API is reached only when the Click handler executes.
+
+Fix:
+- keep the duplicate-click guard state on the control itself;
+- replace `Environment.TickCount64` with `[DateTime]::UtcNow.Ticks`;
+- convert elapsed ticks through `[TimeSpan]::TicksPerMillisecond`;
+- keep the 500 ms duplicate-click rejection and diagnostics;
+- add a CI regression assertion that rejects `Environment.TickCount64` in the staged Windows PowerShell runtime and requires the PS5-compatible DateTime tick path.
+
+Workflow:
+- run **#146**, run ID `35754260071` — SUCCESS;
+- built code head `d5586e9683017bb92f5c125c973b869f316d67b2`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-146`, ID `10706049321`;
+- outer Actions digest `sha256:c8c29131d2a7c552e4f56786c6df56dfd3c170d033364903f3d4a3767721c244`;
+- inner program ZIP SHA-256 `4972469509232231df23b2e8746bca0eb2140bd4d1db346f0729c14a4bfbd47b`;
+- staging, Windows PowerShell 5.1 parse/runtime assertions, launcher/helper build, packaging and upload: PASS.
+
+Hardware note from the same session: after the C2/C3 jumper swap plus logical firmware remap, B22/B23 no longer produced the previous whole-column ghost set during the observed test. Treat that as promising real-machine behavior, not a broad matrix redesign; the original matrix itself had already passed on Uno.
