@@ -4387,8 +4387,10 @@ function Show-SliderSettings {
     $settingsForm = New-Object System.Windows.Forms.Form
     $settingsForm.Text = (T -Key 'SettingsTitle')
     $settingsForm.StartPosition = 'CenterParent'
-    $settingsForm.ClientSize = New-Object System.Drawing.Size(1110, 735)
-    $settingsForm.MinimumSize = New-Object System.Drawing.Size(1126, 774)
+    # Leave enough vertical room for the five-row physical-slider editor plus
+    # the expanded Advanced card and the action buttons without overlap.
+    $settingsForm.ClientSize = New-Object System.Drawing.Size(1110, 775)
+    $settingsForm.MinimumSize = New-Object System.Drawing.Size(1126, 814)
     $settingsForm.Font = New-Object System.Drawing.Font('Segoe UI', 10)
     $settingsForm.BackColor = [System.Drawing.Color]::FromArgb(247, 247, 249)
     $settingsForm.FormBorderStyle = 'FixedDialog'
@@ -4632,7 +4634,7 @@ function Show-SliderSettings {
     # click handler to that main-window panel instead of this dialog's panel.
     $sliderAdvancedPanel = New-Object System.Windows.Forms.Panel
     $sliderAdvancedPanel.Name = 'SliderAdvancedPanel'
-    $sliderAdvancedPanel.Location = New-Object System.Drawing.Point(25, 578)
+    $sliderAdvancedPanel.Location = New-Object System.Drawing.Point(25, 586)
     $sliderAdvancedPanel.Size = New-Object System.Drawing.Size(780, 112)
     $sliderAdvancedPanel.Visible = $false
     $settingsForm.Controls.Add($sliderAdvancedPanel)
@@ -4762,13 +4764,13 @@ function Show-SliderSettings {
     $cancelButton = New-Object MugenDeejWindowing.MugenButton
     $cancelButton.Text = (T -Key 'Cancel')
     $cancelButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-    $cancelButton.Location = New-Object System.Drawing.Point(870, 677)
+    $cancelButton.Location = New-Object System.Drawing.Point(870, 712)
     $cancelButton.Size = New-Object System.Drawing.Size(100, 36)
     $settingsForm.Controls.Add($cancelButton)
 
     $saveButton = New-Object MugenDeejWindowing.MugenButton
     $saveButton.Text = (T -Key 'Save')
-    $saveButton.Location = New-Object System.Drawing.Point(982, 677)
+    $saveButton.Location = New-Object System.Drawing.Point(982, 712)
     $saveButton.Size = New-Object System.Drawing.Size(105, 36)
     $saveButton.Tag = 'MugenPrimary'
     $settingsForm.Controls.Add($saveButton)
@@ -4790,6 +4792,8 @@ function Show-SliderSettings {
     })
 
     $saveButton.Add_Click({
+        param($sender, $eventArgs)
+
         $newSliders = @()
         for ($i = 0; $i -lt $count; $i++) {
             $name = ([string]$nameBoxes[$i].Text).Trim()
