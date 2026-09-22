@@ -312,3 +312,21 @@ Manual profile switching comes first. Automatic switching by game/process is def
 Run #142 (ID `35530843054`) succeeded at head `7a2045c2b6769756b3717781af5ea4e47f286481`; artifact ID `10611700235`; outer digest `sha256:1f3fb32de042297ab442512c6f213c454e3211ff3a8b0b5b41e9be8f631e3859`; inner ZIP SHA-256 `fd87ce0a51ab5521ba9772b50f40cfc8c5ba7f8d7ba8bfbc9b83e27b624137a1`.
 
 #142 is CI PASS. Real-machine acceptance is the same stress sequence that exposed the bug: Adaptive/XInput ON -> Legacy -> Adaptive. If Windows publishes the returning COM name before it is ready, the expected log is `transient hotplug state ... retry in 2 s`, followed by prompt reconnection rather than the previous ~60-second stall. The #134 Legacy/Extended XInput hiding policy must remain unchanged.
+
+
+## Integrated #144 — persistent slider advanced-toggle guard + working Nano column swap
+
+Real-machine follow-up showed two independent details:
+
+- after physically swapping Nano matrix column jumpers C2/C3, the same-column ghost presses disappeared; only logical button ordering became swapped, so the Nano firmware now maps logical C2/C3 to physical D6/D5 and preserves normal B1..B28 numbering without rewiring the working state again;
+- Integrated #143's slider Advanced-settings debounce still flickered because the timestamp was assigned inside a PowerShell event-handler invocation scope and was not reliably persistent across Click events. #144 stores the last-click timestamp on the control itself (`AccessibleDescription`) and ignores duplicate Click events within 500 ms; diagnostic log lines were added for accepted/ignored events.
+
+Workflow:
+- run **#144**, run ID `35752416093` — SUCCESS;
+- built app code head `d069a42b54817a56b95e2645715825d6d4af6a16`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-144`, ID `10707050564`;
+- outer Actions digest `sha256:17fc5312d07b393990f34c67c27630bc028279a76cc3f8254a1f62f5391f2e8d`;
+- inner program ZIP SHA-256 `a14e26af6e73fcde8ee73ce092fc85dc1dc5ede9af9912687eb09c5f7ad112b8`;
+- CI staging, Windows PowerShell 5.1 parse/runtime checks, launcher/helper build, packaging and upload: PASS.
+
+Nano firmware head after the app build also includes the logical C2/C3 remap for the user's currently working jumper arrangement.
