@@ -4626,26 +4626,33 @@ function Show-SliderSettings {
     $advancedToggle.Size = New-Object System.Drawing.Size(245, 34)
     $settingsForm.Controls.Add($advancedToggle)
 
-    $advancedPanel = New-Object System.Windows.Forms.Panel
-    $advancedPanel.Location = New-Object System.Drawing.Point(25, 578)
-    $advancedPanel.Size = New-Object System.Drawing.Size(780, 112)
-    $advancedPanel.Visible = $false
-    $settingsForm.Controls.Add($advancedPanel)
+    # Use a uniquely named slider-settings panel. The main window also owns a
+    # control stored in a variable named $advancedPanel; WinForms event handlers
+    # execute later and PowerShell variable resolution can otherwise bind the
+    # click handler to that main-window panel instead of this dialog's panel.
+    $sliderAdvancedPanel = New-Object System.Windows.Forms.Panel
+    $sliderAdvancedPanel.Name = 'SliderAdvancedPanel'
+    $sliderAdvancedPanel.Location = New-Object System.Drawing.Point(25, 578)
+    $sliderAdvancedPanel.Size = New-Object System.Drawing.Size(780, 112)
+    $sliderAdvancedPanel.Visible = $false
+    $settingsForm.Controls.Add($sliderAdvancedPanel)
 
     $invertCheck = New-Object System.Windows.Forms.CheckBox
+    $invertCheck.Name = 'SliderInvertAllCheck'
     $invertCheck.Text = (T -Key 'InvertAll')
     $invertCheck.AutoSize = $true
     $invertCheck.Checked = [bool]$script:Config.behavior.invertSliders
     $invertCheck.Location = New-Object System.Drawing.Point(0, 8)
-    $advancedPanel.Controls.Add($invertCheck)
+    $sliderAdvancedPanel.Controls.Add($invertCheck)
 
     $responseLabel = New-Object System.Windows.Forms.Label
     $responseLabel.Text = (T -Key 'Responsiveness')
     $responseLabel.Location = New-Object System.Drawing.Point(0, 42)
     $responseLabel.Size = New-Object System.Drawing.Size(110, 25)
-    $advancedPanel.Controls.Add($responseLabel)
+    $sliderAdvancedPanel.Controls.Add($responseLabel)
 
     $responseCombo = New-Object MugenDeejWindowing.MugenComboBox
+    $responseCombo.Name = 'SliderResponseCombo'
     $responseCombo.DropDownStyle = 'DropDownList'
     $responseCombo.Location = New-Object System.Drawing.Point(110, 38)
     $responseCombo.Size = New-Object System.Drawing.Size(255, 30)
@@ -4656,19 +4663,19 @@ function Show-SliderSettings {
     if ($currentThreshold -le 0.004) { $responseCombo.SelectedIndex = 0 }
     elseif ($currentThreshold -le 0.009) { $responseCombo.SelectedIndex = 1 }
     else { $responseCombo.SelectedIndex = 2 }
-    $advancedPanel.Controls.Add($responseCombo)
+    $sliderAdvancedPanel.Controls.Add($responseCombo)
 
     $responseHint = New-Object System.Windows.Forms.Label
     $responseHint.ForeColor = [System.Drawing.Color]::DimGray
     $responseHint.Location = New-Object System.Drawing.Point(380, 35)
     $responseHint.Size = New-Object System.Drawing.Size(355, 48)
-    $advancedPanel.Controls.Add($responseHint)
+    $sliderAdvancedPanel.Controls.Add($responseHint)
 
     $advancedConfigButton = New-Object MugenDeejWindowing.MugenButton
     $advancedConfigButton.Text = (T -Key 'OpenConfig')
     $advancedConfigButton.Location = New-Object System.Drawing.Point(0, 74)
     $advancedConfigButton.Size = New-Object System.Drawing.Size(190, 32)
-    $advancedPanel.Controls.Add($advancedConfigButton)
+    $sliderAdvancedPanel.Controls.Add($advancedConfigButton)
 
     $updateResponseHint = {
         switch ($responseCombo.SelectedIndex) {
@@ -4716,8 +4723,27 @@ function Show-SliderSettings {
         }
 
         $sender.AccessibleDescription = [string]$nowTicks
-        $advancedPanel.Visible = -not $advancedPanel.Visible
-        $sender.Text = if ($advancedPanel.Visible) {
+
+        # Resolve the target from the clicked dialog itself instead of closing
+        # over a PowerShell variable name shared with the main window.
+        $ownerForm = $sender.FindForm()
+        $panelMatches = @(
+            $ownerForm.Controls.Find(
+                'SliderAdvancedPanel',
+                $true
+            )
+        )
+        if ($panelMatches.Count -ne 1) {
+            Write-Log (
+                'Slider advanced-settings panel lookup failed; matches={0}' -f
+                $panelMatches.Count
+            ) 'ERROR'
+            return
+        }
+
+        $clickedPanel = $panelMatches[0]
+        $clickedPanel.Visible = -not $clickedPanel.Visible
+        $sender.Text = if ($clickedPanel.Visible) {
             T -Key 'AdvancedOpen'
         }
         else {
@@ -4725,8 +4751,10 @@ function Show-SliderSettings {
         }
 
         Write-Log (
-            'Slider advanced-settings panel changed: visible={0}' -f
-            $advancedPanel.Visible
+            'Slider advanced-settings panel changed: visible={0}; form={1}; panel={2}' -f
+            $clickedPanel.Visible,
+            $ownerForm.Text,
+            $clickedPanel.Name
         ) 'DEBUG'
     })
     $advancedConfigButton.Add_Click({ Start-Process notepad.exe -ArgumentList ('"{0}"' -f $script:ConfigPath) })
@@ -4800,8 +4828,23 @@ function Show-SliderSettings {
 
         $script:Config.sliders = @($newSliders)
         $script:Config.app.firstRunCompleted = $true
-        $script:Config.behavior.invertSliders = [bool]$invertCheck.Checked
-        switch ($responseCombo.SelectedIndex) {
+
+        # Resolve Advanced-settings values from the dialog's own controls for
+        # the same reason as the collapsible panel: avoid ambiguous deferred
+        # event-scope variable binding.
+        $saveOwnerForm = $sender.FindForm()
+        $invertMatches = @($saveOwnerForm.Controls.Find('SliderInvertAllCheck', $true))
+        $responseMatches = @($saveOwnerForm.Controls.Find('SliderResponseCombo', $true))
+        if ($invertMatches.Count -ne 1 -or $responseMatches.Count -ne 1) {
+            throw (
+                'Slider Advanced-settings controls could not be resolved: invert={0}; response={1}' -f
+                $invertMatches.Count,
+                $responseMatches.Count
+            )
+        }
+
+        $script:Config.behavior.invertSliders = [bool]$invertMatches[0].Checked
+        switch ($responseMatches[0].SelectedIndex) {
             0 { $script:Config.behavior.noiseThreshold = 0.003 }
             1 { $script:Config.behavior.noiseThreshold = 0.007 }
             default { $script:Config.behavior.noiseThreshold = 0.015 }
