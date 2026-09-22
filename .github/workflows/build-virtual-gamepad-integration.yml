@@ -401,6 +401,15 @@ jobs:
           if ($runtimeText -notmatch '\[DateTime\]::UtcNow\.Ticks') {
             throw 'Development runtime is missing the PS5-compatible slider advanced-toggle click timer.'
           }
+          if ($runtimeText -notmatch "SliderAdvancedPanel") {
+            throw 'Development runtime is missing the uniquely named slider Advanced-settings panel.'
+          }
+          if ($runtimeText -notmatch "Controls\.Find\(\s*'SliderAdvancedPanel'") {
+            throw 'Development runtime still relies on ambiguous deferred-scope binding for the slider Advanced-settings panel.'
+          }
+          if ($runtimeText -notmatch "SliderInvertAllCheck") {
+            throw 'Development runtime is missing stable slider inversion control lookup.'
+          }
           if ($runtimeText -notmatch '\$script:KnownPorts = @\(\$currentPorts \| Where-Object \{ \$_ -ne \$portName \}\)') {
             throw 'Development runtime does not forget the stale resume port before auto-reconnect.'
           }
