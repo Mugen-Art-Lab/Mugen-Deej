@@ -341,3 +341,14 @@ Run #146 (ID `35754260071`) succeeded at code head `d5586e9683017bb92f5c125c973b
 Immediate real-machine check: open slider settings, expand/collapse Advanced settings several times, enable global slider inversion, Save, and confirm all five physical pots now move in the preferred direction. If duplicate Clicks still exist, the log should now contain accepted/ignored advanced-panel diagnostics instead of throwing a JIT exception.
 
 The Nano test wiring currently keeps physical C2/C3 swapped (C2=D6, C3=D5), while the firmware logically remaps them back to normal B1..B28 numbering. The observed B23 whole-column ghost set disappeared in the post-swap test.
+
+
+## Current hardware-review build — Integrated #149
+
+#146 still showed the slider Advanced section disappearing even though the click-timing guard no longer crashed. The real-machine log showed every accepted click as `visible=True` and never `False`, revealing that the deferred Click handler was binding to the wrong `$advancedPanel` variable. Both the main window and the slider dialog used that name.
+
+#149 gives the slider dialog its own named `SliderAdvancedPanel` and resolves it from `$sender.FindForm().Controls.Find(...)` inside the Click handler. The inversion checkbox and responsiveness combo are likewise resolved from the dialog on Save. The staging patcher and CI checks were updated accordingly.
+
+Run #149 (ID `35755453514`) succeeded at code head `5b57c295fd02df5cb80a8a93574a823d56ee66e8`; artifact ID `10708695236`; outer digest `sha256:9f85ce880986c82c32e927338b88c9f71781f4c5d450d034702c1d53e31799c9`; inner ZIP SHA-256 `d4437f6ce1cd1710b0ea190c17e4ff3bdf9f5e3a9ce2959a7965ce0da42f3a7e`.
+
+Real-machine acceptance for this build: Advanced settings must remain visible after expansion, collapse/reopen normally, and Save must persist global slider inversion for the five physical Nano potentiometers.
