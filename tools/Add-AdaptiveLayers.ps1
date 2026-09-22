@@ -47,14 +47,14 @@ $text = [System.IO.File]::ReadAllText($resolved, [System.Text.Encoding]::UTF8)
 # Keep layer configuration completely separate from the established flat
 # button-actions.json path. Legacy/Extended therefore retain their exact
 # existing action storage and runtime resolution.
-$stateOld = "`$script:AdaptiveProfileConfigPath = Join-Path `$script:BaseDir 'adaptive-profiles.json'"
+$statePattern = '(?m)^\$script:AdaptiveProfileConfigPath\s*=\s*Join-Path\s+\$script:BaseDir\s+''adaptive-profiles\.json''\r?$'
 $stateNew = @'
 $script:AdaptiveProfileConfigPath = Join-Path $script:BaseDir 'adaptive-profiles.json'
 $script:AdaptiveLayerConfigPath = Join-Path $script:BaseDir 'adaptive-layers.json'
 $script:AdaptiveLayersLoaded = $false
 $script:AdaptiveLayerConfig = $null
 '@
-$text = Replace-LayerLiteralExactlyOnce -Text $text -OldText $stateOld -NewText $stateNew -Label 'add Adaptive layer runtime state'
+$text = Replace-LayerRegexExactlyOnce -Text $text -Pattern $statePattern -Replacement $stateNew -Label 'add Adaptive layer runtime state'
 
 $layerFunctions = @'
 function New-DefaultAdaptiveLayerConfig {
