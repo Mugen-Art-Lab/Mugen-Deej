@@ -23,6 +23,7 @@ on:
       - 'tools/Revise-AdaptiveMainUi.ps1'
       - 'tools/Harden-AdaptiveTopologyUi.ps1'
       - 'tools/Add-AdaptiveControlMappings.ps1'
+      - 'tools/Add-AdaptiveLayers.ps1'
       - 'tools/Optimize-LargeButtonSettings.ps1'
       - 'tools/Run-OptimizedLargeButtonSettings.ps1'
       - 'tools/Ensure-WindowsPowerShellUtf8Bom.ps1'
@@ -95,6 +96,11 @@ jobs:
           # shared action editor plus lightweight selector tiles and a fixed
           # assignment overview.
           .\tools\Run-OptimizedLargeButtonSettings.ps1 -Path $runtimePath
+
+          # Adaptive-only T1/T2 button layers live in a separate config and are
+          # applied after the existing button/profile editors are fully staged.
+          # Legacy and Extended keep their established flat mapping path.
+          .\tools\Add-AdaptiveLayers.ps1 -Path $runtimePath
 
           Copy-Item .\src\virtual-gamepad-integration\MugenDeej.VirtualGamepad.ps1 $integrationModulePath -Force
 
@@ -427,6 +433,36 @@ jobs:
           }
           if ($runtimeText -notmatch 'if \(\$count -gt 5\) \{\s*\$settingsForm\.AutoScroll = \$true') {
             throw 'Normal five-slider settings still enable unnecessary form autoscroll.'
+          }
+          if ($runtimeText -notmatch "AdaptiveLayerConfigPath = Join-Path \$script:BaseDir 'adaptive-layers\.json'") {
+            throw 'Development runtime is missing the separate Adaptive layer configuration path.'
+          }
+          if ($runtimeText -notmatch 'function Get-AdaptiveLayerIndexFromValues') {
+            throw 'Development runtime is missing Adaptive T1/T2 layer resolution.'
+          }
+          if ($runtimeText -notmatch "\[string\]\$script:ControllerProtocol -ne 'adaptive'\) \{ return 0 \}") {
+            throw 'Adaptive layer resolution is not hard-gated away from Legacy/Extended.'
+          }
+          if ($runtimeText -notmatch 'function Get-BaseProfiledButtonActionContext') {
+            throw 'Development runtime did not preserve the established flat/profiled button context behind a layer wrapper.'
+          }
+          if ($runtimeText -notmatch 'function Resolve-AdaptiveLayerButtonContext') {
+            throw 'Development runtime is missing layer-aware button context resolution.'
+          }
+          if ($runtimeText -notmatch 'function Test-AdaptiveToggleIsLayerModifier') {
+            throw 'Development runtime is missing toggle-modifier action suppression.'
+          }
+          if ($runtimeText -notmatch 'function Show-AdaptiveLayerSettings') {
+            throw 'Development runtime is missing the Adaptive button-layer editor.'
+          }
+          if ($runtimeText -notmatch 'Adaptive layer changed:') {
+            throw 'Development runtime is missing active-layer transition logging.'
+          }
+          if ($runtimeText -notmatch "(?ms)if \(\[string\]\$parsed\.Protocol -eq 'adaptive'\) \{\s*Update-AdaptiveControlStates -Packet \$parsed\s*Update-ButtonStates -Values @\(\$parsed\.Buttons\)\s*\}\s*else \{\s*Update-ButtonStates -Values @\(\$parsed\.Buttons\)\s*Update-AdaptiveControlStates -Packet \$parsed") {
+            throw 'Development runtime does not update Adaptive toggles before button edges while preserving the Legacy/Extended order.'
+          }
+          if ($runtimeText -notmatch 'ordinary .* action suppressed') {
+            throw 'Development runtime does not suppress ordinary ON/OFF actions for modifier toggles.'
           }
           if ($runtimeText -notmatch '\$script:KnownPorts = @\(\$currentPorts \| Where-Object \{ \$_ -ne \$portName \}\)') {
             throw 'Development runtime does not forget the stale resume port before auto-reconnect.'
