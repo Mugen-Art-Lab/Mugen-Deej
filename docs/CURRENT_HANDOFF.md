@@ -1941,3 +1941,31 @@ Workflow:
 - staging, Windows PowerShell 5.1 parse/runtime assertions, launcher/helper build, packaging and upload: PASS.
 
 #188 is the next hardware/UI review candidate. Check main active-layer row, modifier-toggle explanation/disabled ON/OFF mappings, visible Notifications entry point, and popup positioning/focus behavior.
+
+
+## Integrated #190 — fix startup StrictMode regression from active-layer status UI
+
+Real-machine #188 failed immediately at startup under StrictMode with:
+`Variable "$script:LayerStateLabel" cannot be retrieved because it has not been set.`
+
+Root cause:
+- #188 added a new script-scoped active-layer status label and checked it during initial UI layout;
+- under StrictMode, reading an undeclared variable is an immediate fatal error even when the code only intends to compare it with `$null`;
+- the same latent problem also existed for the new layer-popup form/timer variables, which would have failed on the first notification close/show path.
+
+#190 fixes the runtime-state contract by initializing all new script-scoped layer UI state up front:
+- `$script:LayerStateLabel = $null`;
+- `$script:AdaptiveLayerPopupForm = $null`;
+- `$script:AdaptiveLayerPopupTimer = $null`.
+
+CI now explicitly asserts those declarations exist in the staged runtime so future optional UI state does not regress under StrictMode.
+
+Workflow:
+- run **#190**, run ID `35859809283` — SUCCESS;
+- built code head `495a1c2965f46a57cb4247c18187dc2d854f091b`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-190`, ID `10749991039`;
+- outer Actions digest `sha256:ce28b06ca8b26536ecb35f4e18fd11ad892ea9333f5dec6107bc210b330995b8`;
+- inner program ZIP SHA-256 `10f2beb33467d76ec816ab8c6c9aa5e6217de256e0798d2f897b617a2d831419`;
+- staging, Windows PowerShell 5.1 parse/runtime assertions, launcher/helper build, packaging and upload: PASS.
+
+#190 is a hardware/UI review candidate. First acceptance is simply that the app starts normally; then resume #188 checks for active-layer row, modifier-toggle explanation, Notifications entry point, and popup behavior.
