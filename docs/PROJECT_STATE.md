@@ -680,3 +680,14 @@ The improved encoder feel is consistent with the active-XInput 5 ms desktop seri
 ## #219 per-app encoder profile switching — hardware PASS
 
 Real-machine test verified foreground-app routing for Encoder 1: Global volume mappings switch to Firefox mouse-wheel mappings when Firefox gains focus, then return to Global after focus leaves. Fast rotation remains responsive in both profiles.
+
+
+## Current combined candidate — Integrated #220
+
+#220 keeps the accepted #219/#218 behavior and hardens the optimized Physical button actions dialog against controller USB hot-unplug while the modal editor is open.
+
+The live 25 ms physical-button auto-selection timer now uses isolated `$buttonEditorState` instead of generic `$state` and pauses topology inspection while disconnected. This targets the real-machine JIT exception `LastButtons property not found` seen with the 6-button Extended controller.
+
+Run #220 (`35906698320`) succeeded at code head `167fa38b5dc60eb651fe859d9ef679ef2e9634ea`; artifact ID `10771134280`; inner ZIP SHA-256 `6fdf609888e1166206a7f4bd0760d158a71d4c0b876d21ff6bd78a516c42306d`.
+
+Hardware retest pending: unplug/replug Extended while Physical button actions remains open.
