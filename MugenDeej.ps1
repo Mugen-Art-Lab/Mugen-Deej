@@ -1607,17 +1607,10 @@ namespace MugenDeejWindowing
                     using (SolidBrush backBrush = new SolidBrush(back))
                         g.FillRectangle(backBrush, whole);
 
-                    // Draw the border one pixel inside the native ComboBox
-                    // client area. A stroke on x=0/y=0 is half-clipped by the
-                    // Win32 control window and can make the left/top edge look
-                    // missing, especially on wide owner-drawn combos.
-                    Rectangle borderRect = new Rectangle(
-                        1,
-                        1,
-                        Math.Max(1, Width - 3),
-                        Math.Max(1, Height - 3)
-                    );
-
+                    // Paint four exact one-pixel strips fully inside the
+                    // client area. DrawRectangle centers its stroke on the
+                    // rectangle edge, which can make opposite sides look
+                    // uneven when the native ComboBox clips the outer half.
                     int buttonWidth = Math.Min(24, Math.Max(19, Height - 2));
                     Rectangle textRect = new Rectangle(7, 1, Math.Max(1, Width - buttonWidth - 10), Height - 2);
                     string selectedText = SelectedIndex >= 0 ? GetItemText(SelectedItem) : Text;
@@ -1645,8 +1638,13 @@ namespace MugenDeejWindowing
                     using (SolidBrush arrowBrush = new SolidBrush(fore))
                         g.FillPolygon(arrowBrush, arrow);
 
-                    using (Pen pen = new Pen(border))
-                        g.DrawRectangle(pen, borderRect);
+                    using (SolidBrush borderBrush = new SolidBrush(border))
+                    {
+                        g.FillRectangle(borderBrush, 0, 0, Width, 1);
+                        g.FillRectangle(borderBrush, 0, Height - 1, Width, 1);
+                        g.FillRectangle(borderBrush, 0, 0, 1, Height);
+                        g.FillRectangle(borderBrush, Width - 1, 0, 1, Height);
+                    }
                 }
             }
             catch

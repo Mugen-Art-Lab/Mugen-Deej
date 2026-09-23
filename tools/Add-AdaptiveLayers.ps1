@@ -659,12 +659,28 @@ function Show-AdaptiveLayerNotification {
 
     Close-AdaptiveLayerNotification
 
+    $displayName = Get-AdaptiveLayerDisplayNameFromConfig -Config $Config -Layer $Layer
+    $nameFont = New-Object System.Drawing.Font('Segoe UI Semibold', 18)
+    $measuredName = [System.Windows.Forms.TextRenderer]::MeasureText(
+        $displayName,
+        $nameFont,
+        [System.Drawing.Size]::new(2000, 80),
+        [System.Windows.Forms.TextFormatFlags]::SingleLine -bor [System.Windows.Forms.TextFormatFlags]::NoPrefix
+    )
+    $availablePopupWidth = [Math]::Max(260, ([int]$screen.WorkingArea.Width - 48))
+    $maximumPopupWidth = [Math]::Min(620, $availablePopupWidth)
+    $minimumPopupWidth = [Math]::Min(340, $maximumPopupWidth)
+    $popupWidth = [Math]::Max(
+        $minimumPopupWidth,
+        [Math]::Min($maximumPopupWidth, ([int]$measuredName.Width + 48))
+    )
+
     $popup = New-Object MugenDeejWindowing.MugenLayerPopupForm
     $popup.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::None
     $popup.ShowInTaskbar = $false
     $popup.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
     $popup.TopMost = [bool]$Config.notification.topMost
-    $popup.ClientSize = [System.Drawing.Size]::new(340, 104)
+    $popup.ClientSize = [System.Drawing.Size]::new($popupWidth, 104)
     $popup.MinimumSize = $popup.Size
     $popup.MaximumSize = $popup.Size
     $popup.Padding = New-Object System.Windows.Forms.Padding(0)
@@ -683,10 +699,10 @@ function Show-AdaptiveLayerNotification {
     $card.Controls.Add($caption)
 
     $name = New-Object System.Windows.Forms.Label
-    $name.Text = Get-AdaptiveLayerDisplayNameFromConfig -Config $Config -Layer $Layer
-    $name.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 18)
+    $name.Text = $displayName
+    $name.Font = $nameFont
     $name.Location = [System.Drawing.Point]::new(17, 38)
-    $name.Size = [System.Drawing.Size]::new(306, 43)
+    $name.Size = [System.Drawing.Size]::new(($popupWidth - 34), 43)
     $name.AutoEllipsis = $true
     $name.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
     $card.Controls.Add($name)
@@ -1912,9 +1928,11 @@ function Show-AdaptiveLayerSettings {
         ActionMap = New-Object System.Collections.ArrayList
         LastButtons = @($script:LatestButtons)
     }
+    $selectorVisualStates = @('') * $selectors.Count
 
     $refreshSelectorTiles = {
-        $palette = $script:ThemePalettes[(Get-EffectiveTheme)]
+        $themeKey = [string](Get-EffectiveTheme)
+        $palette = $script:ThemePalettes[$themeKey]
         $latest = @($script:LatestButtons)
 
         for ($tileIndex = 0; $tileIndex -lt $selectors.Count; $tileIndex++) {
@@ -1926,6 +1944,9 @@ function Show-AdaptiveLayerSettings {
                 [int]$latest[$tileIndex] -eq 0
             )
             $isSelected = ($tileIndex -eq [int]$layerButtonState.Selected)
+            $visualState = if ($isPressed) { 'pressed' } elseif ($isSelected) { 'selected' } else { 'normal' }
+            $visualKey = $themeKey + '|' + $visualState
+            if ([string]$selectorVisualStates[$tileIndex] -eq $visualKey) { continue }
 
             if ($isPressed) {
                 $tile.ApplyTheme(
@@ -1948,6 +1969,8 @@ function Show-AdaptiveLayerSettings {
                     $palette.Border
                 )
             }
+
+            $selectorVisualStates[$tileIndex] = $visualKey
         }
     }
 

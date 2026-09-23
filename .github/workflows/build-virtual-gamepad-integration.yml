@@ -480,11 +480,26 @@ jobs:
           if ($runtimeText -notmatch '\$card\.CornerRadius = 14') {
             throw 'Layer popup card and window region do not share the intended rounded geometry.'
           }
-          if ($runtimeText -notmatch 'Rectangle borderRect = new Rectangle') {
-            throw 'Owner-drawn combo boxes still risk a clipped left/top border.'
+          if ($runtimeText -notmatch '\[System\.Windows\.Forms\.TextRenderer\]::MeasureText') {
+            throw 'Layer popup width is not measured from the accepted layer name.'
+          }
+          if ($runtimeText -notmatch '\$popup\.ClientSize = \[System\.Drawing\.Size\]::new\(\$popupWidth, 104\)') {
+            throw 'Layer popup does not use the measured dynamic width.'
+          }
+          if ($runtimeText -notmatch 'g\.FillRectangle\(borderBrush, 0, 0, Width, 1\)') {
+            throw 'Owner-drawn combo boxes are missing the exact top-edge border strip.'
+          }
+          if ($runtimeText -notmatch 'g\.FillRectangle\(borderBrush, Width - 1, 0, 1, Height\)') {
+            throw 'Owner-drawn combo boxes are missing the exact right-edge border strip.'
           }
           if ($runtimeText -notmatch '\$refreshSelectorTiles = \{') {
             throw 'Control-layer button editor is missing live physical-button highlighting.'
+          }
+          if ($runtimeText -notmatch '\$selectorVisualStates = @\(''\) \* \$selectors\.Count') {
+            throw 'Control-layer button tiles are missing repaint-state caching and may flicker on the live timer.'
+          }
+          if ($runtimeText -notmatch '\$visualKey = \$themeKey \+ ''\|'' \+ \$visualState') {
+            throw 'Control-layer button repaint cache does not distinguish theme and live visual state.'
           }
           if ($runtimeText -notmatch '\$palette\.AccentText') {
             throw 'Pressed layer-editor button tiles do not use the active accent treatment.'
