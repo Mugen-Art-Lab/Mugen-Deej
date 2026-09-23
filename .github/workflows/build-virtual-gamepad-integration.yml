@@ -591,8 +591,8 @@ jobs:
           if ([regex]::Matches($runtimeText, '\$notificationSettingsButton =').Count -ne 1) {
             throw 'Notifications button must exist exactly once in the Control layers dialog, not recursively inside notification settings.'
           }
-          if ($runtimeText -notmatch '\$notificationSettingsButton\.Location = \[System\.Drawing\.Point\]::new\(650, 18\)') {
-            throw 'Control layers dialog is missing the visible Notifications button.'
+          if ($runtimeText -notmatch '\$notificationSettingsButton\.Location = \[System\.Drawing\.Point\]::new\(950, 18\)') {
+            throw 'Control layers dialog is missing the visible Notifications button in the widened layout.'
           }
           if ($runtimeText -notmatch 'AdaptiveLayerStateLabel') {
             throw 'Main physical-input card is missing the dedicated active-layer status label.'
