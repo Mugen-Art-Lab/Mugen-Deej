@@ -511,3 +511,14 @@ CI progression:
 Artifact ID `10754665659`; outer digest `sha256:9a4bf995fa7eb243f318e43d3ebd175ebae20dc1035db2b6208474d7ebe7d0ba`; inner ZIP SHA-256 `3d0688e7830de4c94c5d350095d8f7aa494a0e3e69672fc08bd2c42f0f9de7e1`.
 
 All integration stages passed. #160 remains the last broad hardware-passed baseline; #200 is the current focused layer/UI candidate.
+
+
+## Current layer hardware-review candidate — Integrated #202
+
+A clarification after #200 established that the short flash was not the mapping's one-shot action semantics. The same physical button stayed visibly held in the normal button editor but only flashed in Control layers. Therefore the defect was isolated to the layer editor's live button visualization.
+
+#202 removes the #196 derived visual-state cache and instead recalculates desired tile colors from the raw held state on every 40 ms tick. To avoid restoring the old flicker, each color property is assigned only when its actual value differs. Selection remains an independent accent border; held state remains an accent fill for the full physical hold.
+
+Run #201 (`35872122953`) failed only because old CI still asserted the removed cache. Run #202 (`35872128306`) succeeded at head `c4969766a82e352d9d65dc5b1d46c87d06e73e97`; artifact ID `10755203600`; outer digest `sha256:a08846faa88115b3a67a3948a5e19c234269601f987960fe575206b67209d54b`; inner ZIP SHA-256 `4fb97c45235f38f46386ad6cd49d11d853d0f303e224985630268c5353ebc138`.
+
+#160 remains the last broad hardware-passed baseline; #202 is the current focused layer/UI candidate.
