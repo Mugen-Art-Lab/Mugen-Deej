@@ -290,7 +290,7 @@ function Show-LargeButtonSettings {
         $selectors += $selector
     }
 
-    $state = [pscustomobject]@{
+    $buttonEditorState = [pscustomobject]@{
         Selected = 0
         LastButtons = @($script:LatestButtons)
         ActionMap = New-Object System.Collections.ArrayList
@@ -377,7 +377,7 @@ function Show-LargeButtonSettings {
         }
 
         $profileState.Process = $normalized
-        if ([int]$state.Selected -ge $pendingActions.Count) { $state.Selected = 0 }
+        if ([int]$buttonEditorState.Selected -ge $pendingActions.Count) { $buttonEditorState.Selected = 0 }
     }
 
     $populateProfileCombo = {
@@ -551,18 +551,18 @@ function Show-LargeButtonSettings {
     }
 
     $populateActionCombo = {
-        $index = [int]$state.Selected
+        $index = [int]$buttonEditorState.Selected
         if ($index -lt 0 -or $index -ge $pendingActions.Count) { return }
 
-        $state.SuppressCombo = $true
+        $buttonEditorState.SuppressCombo = $true
         try {
             $actionCombo.BeginUpdate()
             try {
                 $actionCombo.Items.Clear()
-                $state.ActionMap.Clear()
+                $buttonEditorState.ActionMap.Clear()
 
                 [void]$actionCombo.Items.Add((Get-ButtonFeatureText -Key 'None'))
-                [void]$state.ActionMap.Add('none')
+                [void]$buttonEditorState.ActionMap.Add('none')
 
                 for ($sliderIndex = 0; $sliderIndex -lt $sliderCount; $sliderIndex++) {
                     $name = [string]$script:Config.sliders[$sliderIndex].name
@@ -571,7 +571,7 @@ function Show-LargeButtonSettings {
                         (Get-ButtonFeatureText -Key 'MuteControl') + ' ' +
                         ($sliderIndex + 1) + ' — ' + $name
                     )
-                    [void]$state.ActionMap.Add(('mute:' + $sliderIndex))
+                    [void]$buttonEditorState.ActionMap.Add(('mute:' + $sliderIndex))
                 }
 
                 foreach ($fixedAction in @(
@@ -584,7 +584,7 @@ function Show-LargeButtonSettings {
                     @('VolumeMute', 'system:volumemute')
                 )) {
                     [void]$actionCombo.Items.Add((Get-ButtonFeatureText -Key $fixedAction[0]))
-                    [void]$state.ActionMap.Add([string]$fixedAction[1])
+                    [void]$buttonEditorState.ActionMap.Add([string]$fixedAction[1])
                 }
 
                 $currentAction = [string]$pendingActions[$index]
@@ -595,10 +595,10 @@ function Show-LargeButtonSettings {
                 ) {
                     if (Test-MugenVirtualGamepadAction -Action $currentAction) {
                         [void]$actionCombo.Items.Add((Get-MugenVirtualGamepadActionDisplay -Action $currentAction))
-                        [void]$state.ActionMap.Add($currentAction)
+                        [void]$buttonEditorState.ActionMap.Add($currentAction)
                     }
                     [void]$actionCombo.Items.Add($(if ($script:Language -eq 'ru') { 'Выбрать управление геймпада…' } else { 'Choose gamepad control…' }))
-                    [void]$state.ActionMap.Add('virtual:xbox:configure')
+                    [void]$buttonEditorState.ActionMap.Add('virtual:xbox:configure')
                 }
 
                 if (
@@ -609,11 +609,11 @@ function Show-LargeButtonSettings {
                     $currentAction -match '^url64:'
                 ) {
                     [void]$actionCombo.Items.Add((Get-LargeButtonActionDisplay -Action $currentAction))
-                    [void]$state.ActionMap.Add($currentAction)
+                    [void]$buttonEditorState.ActionMap.Add($currentAction)
                 }
 
                 [void]$actionCombo.Items.Add((Get-ButtonFeatureText -Key 'HotkeyConfigure'))
-                [void]$state.ActionMap.Add('hotkey:configure')
+                [void]$buttonEditorState.ActionMap.Add('hotkey:configure')
                 if ($script:Language -eq 'ru') {
                     [void]$actionCombo.Items.Add('Запустить программу / файл…')
                     [void]$actionCombo.Items.Add('Открыть папку…')
@@ -626,14 +626,14 @@ function Show-LargeButtonSettings {
                     [void]$actionCombo.Items.Add('Run command…')
                     [void]$actionCombo.Items.Add('Open URL…')
                 }
-                [void]$state.ActionMap.Add('launch:configure')
-                [void]$state.ActionMap.Add('folder:configure')
-                [void]$state.ActionMap.Add('command:configure')
-                [void]$state.ActionMap.Add('url:configure')
+                [void]$buttonEditorState.ActionMap.Add('launch:configure')
+                [void]$buttonEditorState.ActionMap.Add('folder:configure')
+                [void]$buttonEditorState.ActionMap.Add('command:configure')
+                [void]$buttonEditorState.ActionMap.Add('url:configure')
 
                 $selectedIndex = 0
-                for ($mapIndex = 0; $mapIndex -lt $state.ActionMap.Count; $mapIndex++) {
-                    if ([string]$state.ActionMap[$mapIndex] -eq $currentAction) {
+                for ($mapIndex = 0; $mapIndex -lt $buttonEditorState.ActionMap.Count; $mapIndex++) {
+                    if ([string]$buttonEditorState.ActionMap[$mapIndex] -eq $currentAction) {
                         $selectedIndex = $mapIndex
                         break
                     }
@@ -645,7 +645,7 @@ function Show-LargeButtonSettings {
             }
         }
         finally {
-            $state.SuppressCombo = $false
+            $buttonEditorState.SuppressCombo = $false
         }
     }
 
@@ -665,7 +665,7 @@ function Show-LargeButtonSettings {
             if ($assigned -and -not $pressed) {
                 $selectors[$i].ForeColor = $palette.Accent
             }
-            if ($i -eq [int]$state.Selected) {
+            if ($i -eq [int]$buttonEditorState.Selected) {
                 $selectors[$i].BorderColor = $palette.Accent
             }
         }
@@ -674,7 +674,7 @@ function Show-LargeButtonSettings {
     $selectButton = {
         param([int]$Index)
         if ($Index -lt 0 -or $Index -ge $pendingActions.Count) { return }
-        $state.Selected = $Index
+        $buttonEditorState.Selected = $Index
         $selectedHeading.Text = if ($script:Language -eq 'ru') {
             'Выбрана кнопка ' + ($Index + 1)
         }
@@ -709,7 +709,7 @@ function Show-LargeButtonSettings {
             & $captureCurrentProfileDraft
             & $loadProfileDraft ([string]$profileState.Map[$index])
             & $refreshAssignmentList
-            & $selectButton -Index ([int]$state.Selected)
+            & $selectButton -Index ([int]$buttonEditorState.Selected)
         })
 
         $addProfileButton.Add_Click({
@@ -744,7 +744,7 @@ function Show-LargeButtonSettings {
             & $populateProfileCombo $processName
             & $loadProfileDraft $processName
             & $refreshAssignmentList
-            & $selectButton -Index ([int]$state.Selected)
+            & $selectButton -Index ([int]$buttonEditorState.Selected)
         })
     }
 
@@ -755,12 +755,12 @@ function Show-LargeButtonSettings {
     })
 
     $actionCombo.Add_SelectedIndexChanged({
-        if ($state.SuppressCombo) { return }
+        if ($buttonEditorState.SuppressCombo) { return }
         $selectedIndex = [int]$actionCombo.SelectedIndex
-        if ($selectedIndex -lt 0 -or $selectedIndex -ge $state.ActionMap.Count) { return }
+        if ($selectedIndex -lt 0 -or $selectedIndex -ge $buttonEditorState.ActionMap.Count) { return }
 
-        $selectedAction = [string]$state.ActionMap[$selectedIndex]
-        $index = [int]$state.Selected
+        $selectedAction = [string]$buttonEditorState.ActionMap[$selectedIndex]
+        $index = [int]$buttonEditorState.Selected
         $configureActions = @(
             'virtual:xbox:configure',
             'hotkey:configure',
@@ -844,16 +844,27 @@ function Show-LargeButtonSettings {
     $liveButtonTimer = New-Object System.Windows.Forms.Timer
     $liveButtonTimer.Interval = 25
     $liveButtonTimer.Add_Tick({
+        # The settings dialog is modal, but the controller connection keeps
+        # running underneath it. A USB hot-unplug can therefore happen while
+        # this timer is alive. Do not inspect stale button topology while the
+        # controller is disconnected; keep the editor open and resume live
+        # physical-button selection automatically after reconnect.
+        if (-not $script:IsConnected) {
+            $buttonEditorState.LastButtons = @()
+            & $refreshSelectorStyles
+            return
+        }
+
         $latest = @($script:LatestButtons)
         $compareCount = [Math]::Min($latest.Count, $pendingActions.Count)
         for ($i = 0; $i -lt $compareCount; $i++) {
-            $oldValue = if (@($state.LastButtons).Count -gt $i) { [int]$state.LastButtons[$i] } else { 1 }
+            $oldValue = if (@($buttonEditorState.LastButtons).Count -gt $i) { [int]$buttonEditorState.LastButtons[$i] } else { 1 }
             if ([int]$latest[$i] -eq 0 -and $oldValue -ne 0) {
                 & $selectButton -Index $i
                 break
             }
         }
-        $state.LastButtons = @($latest)
+        $buttonEditorState.LastButtons = @($latest)
         & $refreshSelectorStyles
     })
 

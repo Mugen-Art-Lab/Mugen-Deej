@@ -95,7 +95,7 @@ $selectOld = @'
         }
 '@
 $selectNew = @'
-        $state.SuppressListSelection = $true
+        $buttonEditorState.SuppressListSelection = $true
         try {
             foreach ($item in $assignmentList.Items) {
                 if ([int]$item.Tag -eq $Index) {
@@ -108,7 +108,7 @@ $selectNew = @'
             }
         }
         finally {
-            $state.SuppressListSelection = $false
+            $buttonEditorState.SuppressListSelection = $false
         }
 '@
 $text = Replace-OptimizerLiteralExactlyOnce `
@@ -125,11 +125,11 @@ $listHandlerOld = @'
 '@
 $listHandlerNew = @'
     $assignmentList.Add_SelectedIndexChanged({
-        if ($state.SuppressListSelection) { return }
+        if ($buttonEditorState.SuppressListSelection) { return }
         if ($assignmentList.SelectedItems.Count -eq 0) { return }
 
         $targetIndex = [int]$assignmentList.SelectedItems[0].Tag
-        if ($targetIndex -eq [int]$state.Selected) { return }
+        if ($targetIndex -eq [int]$buttonEditorState.Selected) { return }
         & $selectButton -Index $targetIndex
     })
 '@

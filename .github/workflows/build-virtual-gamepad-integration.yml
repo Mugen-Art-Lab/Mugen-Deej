@@ -300,6 +300,15 @@ jobs:
           if ($runtimeText -notmatch 'Press a physical button and Mugen will select it in the grid') {
             throw 'Development runtime is missing physical-button auto-selection guidance.'
           }
+          if ($runtimeText -notmatch '\$buttonEditorState\.LastButtons') {
+            throw 'Development runtime is missing isolated live button-editor state.'
+          }
+          if ($runtimeText -notmatch 'A USB hot-unplug can therefore happen while') {
+            throw 'Development runtime is missing the physical-button settings hot-unplug guard.'
+          }
+          if ($runtimeText -match '\$state\.LastButtons') {
+            throw 'Development runtime still contains the vulnerable generic button-editor state reference.'
+          }
           if ($runtimeText -notmatch '\$script:AdaptiveActionConfigPath') {
             throw 'Development runtime is missing first-class Adaptive action persistence.'
           }
@@ -1056,6 +1065,7 @@ jobs:
           Rapid-repeat hardening: active XInput no longer writes every physical press/release synchronously to the log file, and virtual Xbox mappings exit the legacy press-only action dispatcher before its 80 ms debounce/logging path. This keeps rapid gameplay edges from doing avoidable filesystem work on the 5 ms serial/UI loop.
           Firmware latency experiment: the bundled Cardboard Nano sketch lowers matrix debounce from 18 ms to 6 ms and emits cumulative debounce diagnostics. "filtered" counts raw reversals suppressed before acceptance; "rapid" counts accepted transitions that reversed again within 35 ms. The app logs diagnostic changes with the affected B1..B28/T1/T2 contact mask.
           Layer/XInput UX: configuring an Xbox gamepad action inside Control layers now turns XInput on automatically when the layer settings are saved. The auto-enable only happens when a virtual mapping was actually configured in that editing session, so an explicit manual XInput Off is not undone by unrelated layer edits.
+          Physical-button settings hot-unplug hardening: the live button-selection timer now uses isolated editor state and explicitly pauses topology inspection while the controller is disconnected, so unplugging an Extended/Adaptive controller while the modal button editor is open no longer throws a LastButtons property exception.
           '@
           [System.IO.File]::WriteAllText(
             (Join-Path $stage 'VIRTUAL-GAMEPAD-DEV.txt'),
