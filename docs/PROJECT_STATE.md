@@ -487,3 +487,27 @@ All integration stages passed, including Windows PowerShell 5.1 parsing/runtime 
 #160 remains the last broad hardware-passed baseline. #196 is the current layer-feature review build.
 
 Development workflow rule: do not hand a new test package to the user until its integration workflow is green and the artifact has been fetched/verified. Keep real-machine findings plus intermediate failed runs and green replacements documented here and in `docs/CURRENT_HANDOFF.md`.
+
+
+## Current layer hardware-review candidate — Integrated #200
+
+#196 real-machine testing confirmed the rounded popup fix but found four follow-ups: Toggle/Encoder help text clipped, owner-drawn ComboBox borders remained asymmetric, layer override hold behavior was unclear, and mapped side effects could still execute while a physical control was being used inside a settings dialog.
+
+The supplied #196 test log shows the Nano itself preserving physical holds correctly, so the reported apparent release is not a raw serial/button-state failure. Mugen Deej's normal actions are press-edge/one-shot mappings; Virtual Xbox mappings are stateful and should follow the physical hold.
+
+#200:
+- shortens the typed-control guidance to fit;
+- explicitly explains one-shot regular actions vs held Virtual Xbox layer mappings;
+- adds a modal Mugen-dialog action-safety gate for buttons plus Adaptive toggles/encoders while keeping raw input/editor selection live;
+- neutralizes XInput during modal settings and suppresses controls that remain physically held until they are released after the dialog closes;
+- repaints the MugenComboBox through the full native window DC rather than client-only `CreateGraphics()`, targeting the remaining uneven native-rim artifacts.
+
+CI progression:
+- #197 (`35868866613`) failed only because a Cyrillic CI string became invalid mojibake under Windows PowerShell 5.1;
+- #198 (`35869316188`) failed a misplaced module/static assertion;
+- #199 (`35869532155`) failed because the integration-module marker was checked before `$integrationText` was loaded;
+- #200 (`35869727173`) succeeded at head `297de89bfaf38c41d0f2df895f2edae2c8bcba20`.
+
+Artifact ID `10754665659`; outer digest `sha256:9a4bf995fa7eb243f318e43d3ebd175ebae20dc1035db2b6208474d7ebe7d0ba`; inner ZIP SHA-256 `3d0688e7830de4c94c5d350095d8f7aa494a0e3e69672fc08bd2c42f0f9de7e1`.
+
+All integration stages passed. #160 remains the last broad hardware-passed baseline; #200 is the current focused layer/UI candidate.
