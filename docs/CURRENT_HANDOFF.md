@@ -1969,3 +1969,41 @@ Workflow:
 - staging, Windows PowerShell 5.1 parse/runtime assertions, launcher/helper build, packaging and upload: PASS.
 
 #190 is a hardware/UI review candidate. First acceptance is simply that the app starts normally; then resume #188 checks for active-layer row, modifier-toggle explanation, Notifications entry point, and popup behavior.
+
+
+## Integrated #194 — layer UI polish after #190 real-machine review
+
+Real-machine #190 confirmed that the layer feature is now broadly alive on the physical Nano panel:
+
+- Adaptive controller remained detected as 5 sliders / 28 buttons / 2 toggles / 1 encoder;
+- T1/T2 modifier roles persisted;
+- custom layer names appeared in the editor;
+- physical toggle transitions selected the expected layers (including combined T1+T2);
+- the multi-monitor notification settings dialog opened and Test notification rendered on the selected display;
+- the typed toggle editor correctly disabled ordinary ON/OFF actions for modifier toggles;
+- physical button presses in the Control layers dialog auto-selected the corresponding button editor.
+
+The same review exposed cosmetic/usability issues:
+- black rectangular corners remained behind the rounded layer popup;
+- several owner-drawn combo boxes visually lost the left/top border;
+- physical button presses changed the selected editor button but the tile itself did not light up while held;
+- toggle/encoder guidance text remained wordy/awkward.
+
+#194 fixes:
+- clip the notification Form itself to the same 14 px rounded geometry as the popup card;
+- draw MugenComboBox borders one pixel inside the native client area so left/top strokes are not half-clipped by Win32;
+- add live physical-button tile feedback in Control layers: held button = accent fill; current editor selection = accent border/subtle hover fill;
+- shorten/clarify modifier-toggle and encoder help text;
+- clarify the top Toggle/Encoder settings hint with distinct normal-toggle, modifier-toggle and encoder roles.
+
+The MugenComboBox change is visual-only and shared by all protocols; no mapping/protocol logic changed. Adaptive layer behavior remains hard-gated away from Legacy/Extended.
+
+Workflow:
+- run **#194**, run ID `35862946664` — SUCCESS;
+- built code head `0e284a1dc4f43c87802bec8b3de7ede571388d77`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-194`, ID `10750703940`;
+- outer Actions digest `sha256:88239ee2abba4fa1ab62e2bd8df541c7027ce2bd059b4a8ef64cfbcbec7e3f85`;
+- inner program ZIP SHA-256 `406514d6ad5b02055f6877e96a5d7c0a033dfc3b424b04e11fd1d18f27a5a594`;
+- staging, Windows PowerShell 5.1 parse/runtime assertions, windowing Add-Type compilation, launcher/helper build, packaging and upload: PASS.
+
+#194 is the current layer hardware/UI review candidate. Recheck popup corners, combo borders, held-button highlighting and the revised typed-control text.
