@@ -429,3 +429,12 @@ The configured names are propagated through the button-layer editor, layered enc
 Run #183 (ID `35776040340`) succeeded at code head `6459579e4bc9236debd0ba76f48b996d2d3630d8`; artifact ID `10716281843`; outer digest `sha256:2c65daa50e159679442c5e04ccde7c97390d0fe184cf957737edff5489e24372`; inner ZIP SHA-256 `755c88d3763695cbea3b9869269093d590ca70b64dd459ec7c091fbcd3e9d6f9`.
 
 Hardware acceptance should verify name persistence and propagation together with the still-pending #180 layer behavior tests. #160 remains the last fully hardware-passed baseline until those checks pass.
+
+
+## Current layer hardware-review candidate — Integrated #185
+
+#185 adds an Adaptive-only layer-change OSD with multi-monitor placement. The popup is non-activating, can be topmost, is positioned against the selected monitor's working area, supports nine anchors and configurable duration, and displays the user's custom layer name. A Test notification action is available in the layer notification settings.
+
+Run #185 (ID `35855451141`) succeeded at code head `45c6bf29b18bc317fa3a4393889164fd1fe08199`; artifact ID `10747820174`; outer digest `sha256:399c6be1de6ec50dcab428c653642f91ff0e044e0c98e5fb11d6b88c4a3df93d`; inner ZIP SHA-256 `977cd9f3e936d9881f29c640c4a1bb842ce60dc56ef7b75ca8dd7c1a936ba60a`.
+
+Hardware acceptance should validate monitor selection, each relevant anchor, timing, custom-name display and no-focus-steal behavior. Legacy/Extended remain outside the layer and layer-notification path.
