@@ -584,3 +584,14 @@ Run #210 (`35881369823`) succeeded at head `99364f9384f84a841f9174976ee4172d7356
 ## #210 adaptive OSD layout — real-machine PASS
 
 Real-machine screenshots confirmed both ends of the adaptive layout: short names collapse to a compact centered OSD, while long names expand horizontally with centered text and smooth layered-window corners. #210 adaptive sizing/centering is accepted.
+
+
+## Current layer-editor candidate — Integrated #213
+
+#213 adds a persistent right-side assignment summary to Control layers. It lists only explicit overrides for the currently selected profile/layer, updates live when mappings change, and lets a row navigate directly to its physical button. This addresses the real-machine UX issue where existing layer assignments were otherwise visible only one button at a time.
+
+The Control layers dialog is widened to 1160 px to keep the existing button grid/editor intact while adding the sidebar. Xbox wording is also normalized to “virtual Xbox gamepad / виртуальный геймпад Xbox” across the layer action selector and virtual-gamepad picker.
+
+CI #211 and #212 were intermediate assertion-only failures after successful staging; #213 (`35886574832`) succeeded at code head `b667aaac87552ab8a1cc6044b4f47fb41bd61dba`. Artifact ID `10762888728`; outer digest `sha256:857fbe0326dd5c6716cb935a35b685c7bbbadb5ca9796597cb7e8e255a6e4cad`; inner ZIP SHA-256 `9f1c943c5023d78e9d94baf38323ef4f11e8b8948de242653bb5b313fa94ee93`.
+
+#160 remains the last broad hardware-passed baseline; #213 is the current focused layer/UI candidate.
