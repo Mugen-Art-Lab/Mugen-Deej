@@ -2331,3 +2331,45 @@ User review of #210 confirmed the adaptive OSD composition works as intended on 
 - rounded per-pixel-alpha geometry remains smooth while resizing.
 
 This closes the #210 adaptive-size/centering UX check as PASS.
+
+
+## Integrated #213 — persistent layer-assignment sidebar + Xbox gamepad wording
+
+Real-machine feedback after #210/#211 highlighted an editing UX problem in **Control layers**: while configuring a layer such as “Game”, the editor showed a button's override only after that button was selected/pressed. There was no persistent overview of what had already been assigned across the layer.
+
+#213 adds a dedicated right-hand **Layer assignments / Назначения слоя** sidebar:
+
+- Control layers dialog is widened to 1160 px client width; the existing button grid and per-button editor remain unchanged on the left/middle;
+- a persistent right sidebar lists every button whose current layer override differs from `inherit`;
+- each row shows physical button number and the normal human-readable action text (including `none` / “Do nothing” as an intentional override);
+- the sidebar title shows the currently selected layer name and the count of layer assignments;
+- changing profile, layer, selected button or action refreshes the list immediately;
+- clicking a sidebar row selects the corresponding physical button in the editor, so the summary doubles as navigation;
+- an empty layer shows a “No overrides / Нет переопределений” placeholder rather than a blank panel;
+- the sidebar intentionally lists **layer overrides**, not inherited base-profile mappings, to avoid turning the list into 28 rows of noise.
+
+The same integrated source also carries the wording cleanup from the previous local test package:
+- `Виртуальный Xbox…` → `Виртуальный геймпад Xbox…`;
+- English equivalent → `Virtual Xbox gamepad…`;
+- picker heading/hint now consistently refer to an Xbox **gamepad**, not a bare Xbox console;
+- one-shot-vs-held explanatory copy uses the same terminology.
+
+CI progression:
+- run **#211**, run ID `35886112291`, head `ef5ae4a4704e03d47f48f92ffcdc05a40110e63a` — staging succeeded, but Parse-check failed on a new static assertion containing a Unicode ellipsis; runtime feature code was staged.
+- run **#212**, run ID `35886364893`, head `bfba94c16d717241d179342d42abf110cce9932e` — staging succeeded; the next static assertion still expected the Notifications button at its old x=650 location after the dialog was widened.
+- run **#213**, run ID `35886574832` — **SUCCESS**;
+- built code head `b667aaac87552ab8a1cc6044b4f47fb41bd61dba`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-213`, ID `10762888728`;
+- outer Actions digest `sha256:857fbe0326dd5c6716cb935a35b685c7bbbadb5ca9796597cb7e8e255a6e4cad`;
+- inner program ZIP SHA-256 `9f1c943c5023d78e9d94baf38323ef4f11e8b8948de242653bb5b313fa94ee93`;
+- downloaded inner ZIP matches the packaged `.sha256`;
+- staging, Windows PowerShell 5.1 parse/runtime assertions, launcher/helper build, packaging and upload: PASS.
+
+#213 is the current focused layer-editor UI candidate.
+
+Real-machine acceptance:
+- open a layer with several overrides and confirm the right sidebar shows all of them at once without pressing the physical buttons;
+- change one assignment and confirm the sidebar updates immediately;
+- switch T1/T2/T1+T2 and profiles and confirm the sidebar follows the selected editor context;
+- click a sidebar row and confirm the corresponding numbered button becomes selected;
+- verify long human-readable gamepad/hotkey/program actions remain usable in the list (scroll/truncation is acceptable; content must not map to the wrong button).
