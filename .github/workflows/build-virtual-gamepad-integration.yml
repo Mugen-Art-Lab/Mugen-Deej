@@ -486,7 +486,7 @@ jobs:
           if ($runtimeText -notmatch '\$popup\.ClientSize = \[System\.Drawing\.Size\]::new\(\$popupWidth, 104\)') {
             throw 'Layer popup does not use the measured dynamic width.'
           }
-          if ($runtimeText -notmatch 'opacityPercent = 100') {
+          if ($runtimeText -notmatch 'opacityPercent = 50') {
             throw 'Layer notification config is missing the default opacity.'
           }
           if ($runtimeText -notmatch '\$popup\.Opacity = \[double\]\$opacityPercent / 100\.0') {
