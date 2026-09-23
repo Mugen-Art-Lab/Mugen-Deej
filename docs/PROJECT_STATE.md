@@ -449,3 +449,12 @@ Hardware acceptance should validate monitor selection, each relevant anchor, tim
 Run #188 (ID `35858096113`) succeeded at code head `c479c70fc6074ebfb23e4c2ab2f0797c224ce1f7`; artifact ID `10747704178`; outer digest `sha256:5cc358b5c8655f78735c3ac5c9ab889729f05a94180a776b66822134db7485e5`; inner ZIP SHA-256 `c16c815acffd86f858287a2d5cf9693c22335ea4d83fe40ec96c6bf513c4f393`.
 
 Hardware acceptance should now verify the repaired UI plus the notification OSD. #160 remains the last broad hardware-passed baseline until the complete layer feature set passes.
+
+
+## Current layer hardware-review candidate — Integrated #190
+
+#188 introduced a startup regression under PowerShell StrictMode because the new `$script:LayerStateLabel` was read before it had ever been declared. #190 initializes that label plus the layer-popup form/timer state to `$null` at startup and adds CI guards for the declarations.
+
+Run #190 (ID `35859809283`) succeeded at code head `495a1c2965f46a57cb4247c18187dc2d854f091b`; artifact ID `10749991039`; outer digest `sha256:ce28b06ca8b26536ecb35f4e18fd11ad892ea9333f5dec6107bc210b330995b8`; inner ZIP SHA-256 `10f2beb33467d76ec816ab8c6c9aa5e6217de256e0798d2f897b617a2d831419`.
+
+Hardware acceptance: startup must succeed, then re-run the #188 layer UI and notification checks. #160 remains the last broad hardware-passed baseline until the layer feature set completes real-machine acceptance.
