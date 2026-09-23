@@ -650,3 +650,12 @@ Keep #218 diagnostics enabled until a gameplay log is reviewed; `rapid` counter 
 #219 keeps the #218 firmware/latency behavior and fixes the Control layers UX trap where Xbox mappings could be saved while XInput stayed Off. Saving a newly configured virtual gamepad layer action now auto-enables XInput, but unrelated edits respect an explicit manual Off.
 
 Run #219 (`35897242734`) succeeded at code head `9015586d6900a1e1f01951576e05edf0386d5f5b`; artifact ID `10766763919`; inner ZIP SHA-256 `c4cbb599765206e7bcbfcb765292ec971c4cd0092a05d08603b073b9899f7e9a`.
+
+
+## #218 6 ms matrix debounce — hardware diagnostics PASS
+
+Real-machine gameplay plus the returned #218 log now support keeping the 6 ms matrix debounce on the tested Cardboard Nano panel. Diagnostics started at `filtered=0; rapid=0` and never logged a counter change during the captured session, while rapid left/right gameplay felt gamepad-fast.
+
+A single early post-connect packet-shape mismatch was safely rejected and did not recur; track it separately from debounce tuning.
+
+#219 remains the current combined desktop candidate, with the same accepted 6 ms firmware plus Auto XInput-on-mapping UX.
