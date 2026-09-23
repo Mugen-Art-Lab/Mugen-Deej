@@ -546,3 +546,14 @@ The remaining issue was parent UI freshness: after saving T1/T2 modifier roles i
 Run #204 (`35876423203`) succeeded at head `b586958580b862d49f45510ba6bceeaff7eefb68`; artifact ID `10756289241`; outer digest `sha256:d14c328aaef1f43c67580a3fda6a8c24892ab85cadeb56d19f7800b87b1841c9`; inner ZIP SHA-256 `d5c3951089f0dd3dae10fd1a80a0710a439a4267a089c13c9141f0abc33f9ba1`.
 
 #160 remains the last broad hardware-passed baseline; #204 is the current focused layer/UI candidate.
+
+
+## Layer OSD opacity follow-up — Integrated #207/#208
+
+Layer-change OSD now has persisted opacity control. Missing/old configs default to 50%; range is 20..100%, and Test notification previews the unsaved setting. Popup uses native WinForms `Form.Opacity`.
+
+#207 is the explicitly completed green integration run for the 50% default: run `35877598863`, head `482e4c8d8cfbd0e6b8873b521b17e5cbd2540d6a`, artifact `10759821067`, inner ZIP SHA-256 `17d072f22fc62c5b6af69e7ec69e9a40d93150d2f045e906ed8b34021df4c226`.
+
+#208 (`35878075515`, head `d9292a028ae4aeee5923096b3fef0968d434dad5`) only changes the Russian label from the ambiguous «Прозрачность» to «Непрозрачность». Its build job completed successfully and artifact `10759491804` was downloaded/verified (inner SHA-256 `7a1447112b49996e4ce678380aeb9da3ccdfaf098654d1a93a50167895f2e104`), although the connector's top-level run object still lagged as `in_progress` when recorded.
+
+#160 remains the last broad hardware-passed baseline; the layer feature continues focused hardware/UI review.
