@@ -533,3 +533,16 @@ Run #201 (`35872122953`) failed only because old CI still asserted the removed c
 Run #203 (`35873511506`) succeeded at head `d027a7ef974e387677dccc2d315512e61353d7ef`; artifact ID `10756505480`; outer digest `sha256:ff88663a62c1989a647b2ca398c3cf53cc427536f86439ef76794607214d1e63`; inner ZIP SHA-256 `a892a715c26187402ffb47381c39753ee89bfc84780acbc5d4cbcc72c43ae93e`.
 
 #160 remains the last broad hardware-passed baseline; #203 is the current focused layer/UI candidate.
+
+
+## Current layer hardware-review candidate — Integrated #204
+
+#203 real-machine testing passed the selected/held Control-layers visual behavior. The same session also validated actual Button 1 routing through Base, T1, T2 and T1+T2 mappings.
+
+The remaining issue was parent UI freshness: after saving T1/T2 modifier roles in Control layers, the already-open Toggle/Encoder settings dialog could temporarily keep stale enabled ON/OFF ComboBoxes until another interaction caused `$refreshEditor` to run.
+
+#204 refreshes the parent editor and assignment list immediately after the Control layers child dialog closes. Modifier-role UI should therefore be correct the instant control returns to the parent.
+
+Run #204 (`35876423203`) succeeded at head `b586958580b862d49f45510ba6bceeaff7eefb68`; artifact ID `10756289241`; outer digest `sha256:d14c328aaef1f43c67580a3fda6a8c24892ab85cadeb56d19f7800b87b1841c9`; inner ZIP SHA-256 `d5c3951089f0dd3dae10fd1a80a0710a439a4267a089c13c9141f0abc33f9ba1`.
+
+#160 remains the last broad hardware-passed baseline; #204 is the current focused layer/UI candidate.
