@@ -2226,6 +2226,7 @@ function Show-AdaptiveLayerSettings {
         Selected = 0
         Suppress = $false
         SummarySuppress = $false
+        VirtualMappingConfigured = $false
         ActionMap = New-Object System.Collections.ArrayList
         LastButtons = @($script:LatestButtons)
     }
@@ -2464,6 +2465,13 @@ function Show-AdaptiveLayerSettings {
 
         if (-not [string]::IsNullOrWhiteSpace([string]$configured)) {
             Set-AdaptiveLayerButtonOverride -Config $working -ContextKey $contextKey -Layer $layer -ButtonIndex $index -Action ([string]$configured) -ButtonCount $buttonCount
+
+            if (
+                $script:VirtualGamepadFeatureAvailable -and
+                (Test-MugenVirtualGamepadAction -Action ([string]$configured))
+            ) {
+                $layerButtonState.VirtualMappingConfigured = $true
+            }
         }
 
         & $refreshEditor
@@ -2496,12 +2504,29 @@ function Show-AdaptiveLayerSettings {
         Save-AdaptiveLayers
 
         if (
+            $layerButtonState.VirtualMappingConfigured -and
+            $script:VirtualGamepadFeatureAvailable -and
+            [string]$script:ControllerProtocol -eq 'adaptive'
+        ) {
+            try {
+                if (-not (Get-MugenVirtualGamepadEnabled)) {
+                    Set-MugenVirtualGamepadEnabled -Enabled $true
+                    Write-Log 'Virtual controller auto-enabled because an Xbox gamepad mapping was configured in Control layers.' 'INFO'
+                }
+            }
+            catch {
+                Write-Log ('Could not auto-enable virtual controller after layer mapping save: {0}' -f $_.Exception.Message) 'WARN'
+            }
+        }
+
+        if (
             $script:VirtualGamepadFeatureAvailable -and
             $script:IsConnected -and
             [string]$script:ControllerProtocol -eq 'adaptive' -and
             @($script:LatestButtons).Count -gt 0
         ) {
             try {
+                [void](Sync-MugenVirtualGamepadState -Values @($script:LatestButtons))
                 Update-MugenVirtualGamepadButtonStates -Values @($script:LatestButtons) -ForceProfileCheck
             }
             catch {}

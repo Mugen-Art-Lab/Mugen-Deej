@@ -600,6 +600,12 @@ jobs:
           if ($runtimeText -notmatch '\$layerAssignmentsList\.Add_SelectedIndexChanged') {
             throw 'Layer assignment sidebar rows do not navigate to their physical buttons.'
           }
+          if ($runtimeText -notmatch 'Virtual controller auto-enabled because an Xbox gamepad mapping was configured in Control layers') {
+            throw 'Control layers does not auto-enable XInput after the user configures a virtual gamepad mapping.'
+          }
+          if ($runtimeText -notmatch '\$layerButtonState\.VirtualMappingConfigured = \$true') {
+            throw 'Control layers is missing the per-session virtual-mapping intent flag.'
+          }
           if ($runtimeText -notmatch '\$dialog\.ClientSize = \[System\.Drawing\.Size\]::new\(1160, 814\)') {
             throw 'Control layers dialog is not wide enough for the assignment sidebar.'
           }
@@ -1049,6 +1055,7 @@ jobs:
           Low-latency XInput pass: while the virtual gamepad is active, the desktop serial drain uses a 5 ms target cadence, gameplay mappings are cached outside the button hot path, and state updates are one-way to the elevated helper instead of waiting for a per-input pipe acknowledgement.
           Rapid-repeat hardening: active XInput no longer writes every physical press/release synchronously to the log file, and virtual Xbox mappings exit the legacy press-only action dispatcher before its 80 ms debounce/logging path. This keeps rapid gameplay edges from doing avoidable filesystem work on the 5 ms serial/UI loop.
           Firmware latency experiment: the bundled Cardboard Nano sketch lowers matrix debounce from 18 ms to 6 ms and emits cumulative debounce diagnostics. "filtered" counts raw reversals suppressed before acceptance; "rapid" counts accepted transitions that reversed again within 35 ms. The app logs diagnostic changes with the affected B1..B28/T1/T2 contact mask.
+          Layer/XInput UX: configuring an Xbox gamepad action inside Control layers now turns XInput on automatically when the layer settings are saved. The auto-enable only happens when a virtual mapping was actually configured in that editing session, so an explicit manual XInput Off is not undone by unrelated layer edits.
           '@
           [System.IO.File]::WriteAllText(
             (Join-Path $stage 'VIRTUAL-GAMEPAD-DEV.txt'),
