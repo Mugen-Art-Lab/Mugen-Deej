@@ -2407,3 +2407,21 @@ CI:
 - staged runtime explicitly contains schemaVersion 3, adaptiveLayers, virtualController, v3 restore logic, and v2 compatibility-preserve logic.
 
 Important: backups created by #210/#213/#214 are still schema v2 and therefore do **not** contain layer configuration. They are still valid for the older setting families. Current on-disk `adaptive-layers.json` remains the source of the user's existing layer setup until a new #215+ backup is created.
+
+
+## Integrated #216 — rapid-repeat XInput hot-path hardening
+
+Real-machine Cult of the Lamb testing of #214 showed a major latency improvement, but very fast repeated actions could still occasionally feel like an empty press. The captured #214 log showed no virtual-controller bridge failures; it did show a rapid Button 10 sequence where a new press arrived only ~20 ms after release and the legacy press-only dispatcher emitted `Button 10 action suppressed by debounce (60 ms)`.
+
+The stateful XInput frame is submitted before the one-shot dispatcher, so that legacy debounce was not the authoritative virtual-gamepad state gate. However, the active 5 ms gameplay loop was still synchronously writing every physical press/release to `mugen-deej.log`, and virtual mappings still entered the legacy one-shot dispatcher far enough to hit its 80 ms debounce/log path. Both are avoidable filesystem/UI-thread work during rapid input.
+
+#216 therefore:
+- keeps per-edge `Add-Content` logging out of the active XInput gameplay path;
+- returns virtual Xbox mappings from the press-only dispatcher immediately after effective profile/layer action resolution, before the legacy 80 ms debounce and its logging;
+- leaves non-XInput button behavior and logging unchanged;
+- keeps the #214 5 ms serial drain, cached profile/layer resolution and one-way helper state transport;
+- includes the #215 backup schema v3 work.
+
+CI run **#216** (run ID `35891904212`) succeeded at code head `1d362e9f68b82328b98e095e16a2d03b342a2645`. Artifact `Mugen-Deej-VirtualGamepad-Integrated-216`, ID `10765317130`; outer artifact digest `sha256:2c1095abcedfe726bb7020b08b904755cb5a2459d4664994cd039a385e507232`; inner program ZIP SHA-256 `4904646210c93ff10d0e201ae11f9a9295d062e3cedb5df77c59d1716174ae44`.
+
+#216 is a conservative rapid-repeat candidate. It deliberately does not yet stretch or queue XInput button pulses, because the first step is to remove avoidable hot-path stalls without changing gameplay button timing semantics.
