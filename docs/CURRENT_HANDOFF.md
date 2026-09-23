@@ -1877,3 +1877,35 @@ Workflow:
 - staging, Windows PowerShell 5.1 parse/runtime assertions, launcher/helper build, packaging and upload: PASS.
 
 #183 is the next hardware-review candidate. Suggested first naming test: Base=Основной, T1=Стрим, T2=Игра, T1+T2=Система; Save, reopen, then verify the same names appear in button layers, encoder layers and the live active-layer label.
+
+
+## Integrated #185 — multi-monitor popup on Adaptive layer changes
+
+Adaptive control layers can now show a non-activating popup when T1/T2 changes the active layer.
+
+Notification settings are stored in the existing optional Adaptive layer config and include:
+- enabled/disabled;
+- show above other windows;
+- target monitor by stable WinForms device name;
+- nine working-area anchors (top/middle/bottom × left/center/right);
+- duration from 0.5 to 10 seconds;
+- a Test notification action.
+
+Implementation details:
+- a dedicated `MugenLayerPopupForm` uses `ShowWithoutActivation` plus `WS_EX_NOACTIVATE` / `WS_EX_TOOLWINDOW`, so the layer OSD should not steal focus from the active application;
+- positioning uses `Screen.AllScreens` and the selected display's `WorkingArea`, avoiding taskbars;
+- if the saved display disappears, the popup falls back to the primary display;
+- switching layers replaces any existing popup instead of stacking multiple OSDs;
+- the popup shows the configured custom layer name (or the localized default when no custom name exists);
+- the notification settings dialog is opened from the Control layers window and uses that dialog's working config, so Cancel/Save semantics stay consistent with the rest of layer editing;
+- actual notifications are still Adaptive-only because the layer-transition path is hard-gated away from Legacy/Extended.
+
+Workflow:
+- run **#185**, run ID `35855451141` — SUCCESS;
+- built code head `45c6bf29b18bc317fa3a4393889164fd1fe08199`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-185`, ID `10747820174`;
+- outer Actions digest `sha256:399c6be1de6ec50dcab428c653642f91ff0e044e0c98e5fb11d6b88c4a3df93d`;
+- inner program ZIP SHA-256 `977cd9f3e936d9881f29c640c4a1bb842ce60dc56ef7b75ca8dd7c1a936ba60a`;
+- staging, Windows PowerShell 5.1 parse/runtime assertions, windowing Add-Type compilation, launcher/helper build, packaging and upload: PASS.
+
+#185 is a hardware/UI review candidate. Real-machine acceptance should test the popup on each connected display, at several anchors, with a custom layer name, and verify that it does not take focus from a foreground application.
