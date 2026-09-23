@@ -120,6 +120,7 @@ function New-DefaultAdaptiveLayerConfig {
             screen = ''
             position = 'topRight'
             durationMs = 2000
+            opacityPercent = 100
         }
         contexts = @()
     }
@@ -227,6 +228,13 @@ function ConvertTo-NormalizedAdaptiveLayerConfig {
             if ($duration -lt 500) { $duration = 500 }
             if ($duration -gt 10000) { $duration = 10000 }
             $result.notification.durationMs = $duration
+        }
+
+        if ($null -ne $notification.PSObject.Properties['opacityPercent']) {
+            $opacityPercent = [int]$notification.opacityPercent
+            if ($opacityPercent -lt 20) { $opacityPercent = 20 }
+            if ($opacityPercent -gt 100) { $opacityPercent = 100 }
+            $result.notification.opacityPercent = $opacityPercent
         }
     }
 
@@ -680,6 +688,10 @@ function Show-AdaptiveLayerNotification {
     $popup.ShowInTaskbar = $false
     $popup.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
     $popup.TopMost = [bool]$Config.notification.topMost
+    $opacityPercent = [int]$Config.notification.opacityPercent
+    if ($opacityPercent -lt 20) { $opacityPercent = 20 }
+    if ($opacityPercent -gt 100) { $opacityPercent = 100 }
+    $popup.Opacity = [double]$opacityPercent / 100.0
     $popup.ClientSize = [System.Drawing.Size]::new($popupWidth, 104)
     $popup.MinimumSize = $popup.Size
     $popup.MaximumSize = $popup.Size
@@ -904,6 +916,23 @@ function Show-AdaptiveLayerNotificationSettings {
     $durationBox.Value = [decimal]([double]$workingNotification.durationMs / 1000.0)
     $card.Controls.Add($durationBox)
 
+    $opacityLabel = New-Object System.Windows.Forms.Label
+    $opacityLabel.Text = if ($script:Language -eq 'ru') { 'Прозрачность, %' } else { 'Opacity, %' }
+    $opacityLabel.Location = [System.Drawing.Point]::new(16, 162)
+    $opacityLabel.Size = [System.Drawing.Size]::new(120, 25)
+    $opacityLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+    $card.Controls.Add($opacityLabel)
+
+    $opacityBox = New-Object System.Windows.Forms.NumericUpDown
+    $opacityBox.DecimalPlaces = 0
+    $opacityBox.Increment = [decimal]5
+    $opacityBox.Minimum = [decimal]20
+    $opacityBox.Maximum = [decimal]100
+    $opacityBox.Location = [System.Drawing.Point]::new(138, 161)
+    $opacityBox.Size = [System.Drawing.Size]::new(90, 26)
+    $opacityBox.Value = [decimal][int]$workingNotification.opacityPercent
+    $card.Controls.Add($opacityBox)
+
     $testButton = New-Object MugenDeejWindowing.MugenButton
     $testButton.Text = if ($script:Language -eq 'ru') { 'Тест уведомления' } else { 'Test notification' }
     $testButton.Location = [System.Drawing.Point]::new(440, 160)
@@ -925,6 +954,7 @@ function Show-AdaptiveLayerNotificationSettings {
         }
 
         $workingNotification.durationMs = [int]([decimal]$durationBox.Value * 1000)
+        $workingNotification.opacityPercent = [int]$opacityBox.Value
     }
 
     $testButton.Add_Click({

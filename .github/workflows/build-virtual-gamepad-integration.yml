@@ -486,6 +486,18 @@ jobs:
           if ($runtimeText -notmatch '\$popup\.ClientSize = \[System\.Drawing\.Size\]::new\(\$popupWidth, 104\)') {
             throw 'Layer popup does not use the measured dynamic width.'
           }
+          if ($runtimeText -notmatch 'opacityPercent = 100') {
+            throw 'Layer notification config is missing the default opacity.'
+          }
+          if ($runtimeText -notmatch '\$popup\.Opacity = \[double\]\$opacityPercent / 100\.0') {
+            throw 'Layer popup does not apply configured opacity.'
+          }
+          if ($runtimeText -notmatch '\$opacityBox\.Minimum = \[decimal\]20') {
+            throw 'Layer notification settings are missing the bounded opacity control.'
+          }
+          if ($runtimeText -notmatch '\$workingNotification\.opacityPercent = \[int\]\$opacityBox\.Value') {
+            throw 'Layer notification opacity is not read from the settings UI.'
+          }
           if ($runtimeText -notmatch 'GetWindowDC\(Handle\)') {
             throw 'Owner-drawn combo boxes still paint only the client DC and can expose uneven native borders.'
           }
