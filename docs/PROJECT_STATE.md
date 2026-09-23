@@ -595,3 +595,14 @@ The Control layers dialog is widened to 1160 px to keep the existing button grid
 CI #211 and #212 were intermediate assertion-only failures after successful staging; #213 (`35886574832`) succeeded at code head `b667aaac87552ab8a1cc6044b4f47fb41bd61dba`. Artifact ID `10762888728`; outer digest `sha256:857fbe0326dd5c6716cb935a35b685c7bbbadb5ca9796597cb7e8e255a6e4cad`; inner ZIP SHA-256 `9f1c943c5023d78e9d94baf38323ef4f11e8b8948de242653bb5b313fa94ee93`.
 
 #160 remains the last broad hardware-passed baseline; #213 is the current focused layer/UI candidate.
+
+
+## Low-latency virtual gamepad candidate — Integrated #214
+
+#214 is the first dedicated gameplay-latency pass for the Adaptive/XInput path. While the virtual Xbox gamepad is active, the desktop serial-drain timer targets 5 ms instead of 20 ms; foreground application/layer button mappings are cached outside the physical button hot path; and gameplay `state` messages to the elevated HID helper are one-way instead of waiting for an acknowledgement after every input transition. Lifecycle/control commands keep their synchronous acknowledgements.
+
+This is intentionally a conservative architecture step rather than a serial-thread rewrite: normal non-XInput Mugen behavior retains the 20 ms loop, profile identity is still refreshed every 200 ms, and the existing modal/profile neutralization safety rules remain intact.
+
+Integrated #214 (run `35888990574`) succeeded at code head `0ff5ed1e9cf88c92d912e439eefd9ad08b0cc875`. Artifact ID `10763283919`; outer artifact ZIP SHA-256 `73bf6eb49d09c175aba2eb155d55ec45971054f539ee563ed2b51509092a35ad`; inner development ZIP SHA-256 `38a584eecf2fcff3693a8def5470256aac7278aceda276c114ed83765f39e563`.
+
+#160 remains the last broad hardware-passed baseline; #213 remains the accepted layer-editor/UI candidate; #214 is the current focused virtual-gamepad latency candidate pending real-machine gameplay testing.
