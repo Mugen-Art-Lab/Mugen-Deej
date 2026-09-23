@@ -474,11 +474,20 @@ jobs:
           if ($runtimeText -notmatch 'Test notification') {
             throw 'Adaptive layer popup settings are missing the preview/test action.'
           }
-          if ($runtimeText -notmatch 'Set-RoundedControlRegion -Control \$popup -Radius 14') {
-            throw 'Layer popup window itself is not clipped to the rounded notification card.'
+          if ($runtimeText -notmatch 'WS_EX_LAYERED') {
+            throw 'Layer popup is not using a true layered window for per-pixel alpha.'
           }
-          if ($runtimeText -notmatch '\$card\.CornerRadius = 14') {
-            throw 'Layer popup card and window region do not share the intended rounded geometry.'
+          if ($runtimeText -notmatch 'UpdateLayeredWindow') {
+            throw 'Layer popup is missing per-pixel-alpha UpdateLayeredWindow rendering.'
+          }
+          if ($runtimeText -notmatch 'Format32bppPArgb') {
+            throw 'Layer popup renderer is not using a premultiplied-alpha bitmap.'
+          }
+          if ($runtimeText -match 'Set-RoundedControlRegion -Control \$popup') {
+            throw 'Layer popup still uses aliased Region clipping instead of layered per-pixel corners.'
+          }
+          if ($runtimeText -notmatch '\$popup\.ConfigureSurface\(') {
+            throw 'Layer popup theme/text/opacity are not fed into the layered renderer.'
           }
           if ($runtimeText -notmatch '\[System\.Windows\.Forms\.TextRenderer\]::MeasureText') {
             throw 'Layer popup width is not measured from the accepted layer name.'
@@ -489,8 +498,8 @@ jobs:
           if ($runtimeText -notmatch 'opacityPercent = 50') {
             throw 'Layer notification config is missing the default opacity.'
           }
-          if ($runtimeText -notmatch '\$popup\.Opacity = \[double\]\$opacityPercent / 100\.0') {
-            throw 'Layer popup does not apply configured opacity.'
+          if ($runtimeText -notmatch 'SourceConstantAlpha = \(byte\)Math\.Round\(opacityPercent \* 255\.0 / 100\.0\)') {
+            throw 'Layer popup does not apply configured opacity through layered-window alpha.'
           }
           if ($runtimeText -notmatch '\$opacityBox\.Minimum = \[decimal\]20') {
             throw 'Layer notification settings are missing the bounded opacity control.'

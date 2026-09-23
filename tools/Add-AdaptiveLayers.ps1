@@ -77,6 +77,81 @@ $text = $text.Substring(0, $profileLineStart) + $stateNew + $text.Substring($pro
 $layerPopupClass = @'
     public sealed class MugenLayerPopupForm : Form
     {
+        [StructLayout(LayoutKind.Sequential)]
+        private struct NativePoint
+        {
+            public int X;
+            public int Y;
+
+            public NativePoint(int x, int y)
+            {
+                X = x;
+                Y = y;
+            }
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct NativeSize
+        {
+            public int Width;
+            public int Height;
+
+            public NativeSize(int width, int height)
+            {
+                Width = width;
+                Height = height;
+            }
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        private struct BlendFunction
+        {
+            public byte BlendOp;
+            public byte BlendFlags;
+            public byte SourceConstantAlpha;
+            public byte AlphaFormat;
+        }
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool UpdateLayeredWindow(
+            IntPtr hwnd,
+            IntPtr hdcDst,
+            ref NativePoint pptDst,
+            ref NativeSize psize,
+            IntPtr hdcSrc,
+            ref NativePoint pptSrc,
+            int crKey,
+            ref BlendFunction pblend,
+            int dwFlags
+        );
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetDC(IntPtr hwnd);
+
+        [DllImport("user32.dll")]
+        private static extern int ReleaseDC(IntPtr hwnd, IntPtr hdc);
+
+        [DllImport("gdi32.dll")]
+        private static extern IntPtr CreateCompatibleDC(IntPtr hdc);
+
+        [DllImport("gdi32.dll")]
+        private static extern bool DeleteDC(IntPtr hdc);
+
+        [DllImport("gdi32.dll")]
+        private static extern IntPtr SelectObject(IntPtr hdc, IntPtr hgdiobj);
+
+        [DllImport("gdi32.dll")]
+        private static extern bool DeleteObject(IntPtr hObject);
+
+        private string captionText = String.Empty;
+        private string layerText = String.Empty;
+        private Color surfaceColor = Color.FromArgb(245, 247, 251);
+        private Color borderColor = Color.FromArgb(190, 198, 210);
+        private Color captionColor = Color.DimGray;
+        private Color nameColor = Color.Black;
+        private int cornerRadius = 14;
+        private int opacityPercent = 50;
+
         protected override bool ShowWithoutActivation
         {
             get { return true; }
@@ -87,10 +162,168 @@ $layerPopupClass = @'
             get
             {
                 CreateParams cp = base.CreateParams;
+                const int WS_EX_LAYERED = 0x00080000;
                 const int WS_EX_NOACTIVATE = 0x08000000;
                 const int WS_EX_TOOLWINDOW = 0x00000080;
-                cp.ExStyle |= WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW;
+                cp.ExStyle |= WS_EX_LAYERED | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW;
                 return cp;
+            }
+        }
+
+        public void ConfigureSurface(
+            string caption,
+            string layer,
+            Color surface,
+            Color border,
+            Color captionTextColor,
+            Color layerTextColor,
+            int radius,
+            int opacity)
+        {
+            captionText = caption ?? String.Empty;
+            layerText = layer ?? String.Empty;
+            surfaceColor = surface;
+            borderColor = border;
+            captionColor = captionTextColor;
+            nameColor = layerTextColor;
+            cornerRadius = Math.Max(1, radius);
+            opacityPercent = Math.Max(20, Math.Min(100, opacity));
+
+            if (IsHandleCreated && Visible)
+                UpdateLayeredSurface();
+        }
+
+        protected override void OnShown(EventArgs e)
+        {
+            base.OnShown(e);
+            UpdateLayeredSurface();
+        }
+
+        protected override void OnSizeChanged(EventArgs e)
+        {
+            base.OnSizeChanged(e);
+            if (IsHandleCreated && Visible)
+                UpdateLayeredSurface();
+        }
+
+        private void UpdateLayeredSurface()
+        {
+            if (!IsHandleCreated || Width <= 2 || Height <= 2)
+                return;
+
+            using (Bitmap bitmap = new Bitmap(
+                Width,
+                Height,
+                System.Drawing.Imaging.PixelFormat.Format32bppPArgb))
+            {
+                using (Graphics g = Graphics.FromImage(bitmap))
+                {
+                    g.Clear(Color.Transparent);
+                    g.SmoothingMode = SmoothingMode.AntiAlias;
+                    g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                    g.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
+                    g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+
+                    Rectangle rect = new Rectangle(
+                        1,
+                        1,
+                        Math.Max(1, Width - 3),
+                        Math.Max(1, Height - 3)
+                    );
+
+                    using (GraphicsPath path = MugenDrawing.RoundedRect(rect, cornerRadius))
+                    using (SolidBrush surfaceBrush = new SolidBrush(surfaceColor))
+                    using (Pen borderPen = new Pen(borderColor, 1f))
+                    {
+                        g.FillPath(surfaceBrush, path);
+                        g.DrawPath(borderPen, path);
+                    }
+
+                    using (Font captionFont = new Font("Segoe UI", 9f, FontStyle.Regular, GraphicsUnit.Point))
+                    using (Font nameFont = new Font("Segoe UI Semibold", 18f, FontStyle.Regular, GraphicsUnit.Point))
+                    using (SolidBrush captionBrush = new SolidBrush(captionColor))
+                    using (SolidBrush nameBrush = new SolidBrush(nameColor))
+                    using (StringFormat captionFormat = new StringFormat())
+                    using (StringFormat nameFormat = new StringFormat())
+                    {
+                        captionFormat.Alignment = StringAlignment.Near;
+                        captionFormat.LineAlignment = StringAlignment.Center;
+                        captionFormat.Trimming = StringTrimming.EllipsisCharacter;
+                        captionFormat.FormatFlags = StringFormatFlags.NoWrap;
+
+                        nameFormat.Alignment = StringAlignment.Near;
+                        nameFormat.LineAlignment = StringAlignment.Center;
+                        nameFormat.Trimming = StringTrimming.EllipsisCharacter;
+                        nameFormat.FormatFlags = StringFormatFlags.NoWrap;
+
+                        g.DrawString(
+                            captionText,
+                            captionFont,
+                            captionBrush,
+                            new RectangleF(18f, 11f, Math.Max(1, Width - 36), 24f),
+                            captionFormat
+                        );
+
+                        g.DrawString(
+                            layerText,
+                            nameFont,
+                            nameBrush,
+                            new RectangleF(17f, 36f, Math.Max(1, Width - 34), 49f),
+                            nameFormat
+                        );
+                    }
+                }
+
+                IntPtr screenDc = IntPtr.Zero;
+                IntPtr memoryDc = IntPtr.Zero;
+                IntPtr bitmapHandle = IntPtr.Zero;
+                IntPtr oldBitmap = IntPtr.Zero;
+
+                try
+                {
+                    screenDc = GetDC(IntPtr.Zero);
+                    memoryDc = CreateCompatibleDC(screenDc);
+                    bitmapHandle = bitmap.GetHbitmap(Color.FromArgb(0));
+                    oldBitmap = SelectObject(memoryDc, bitmapHandle);
+
+                    NativePoint destination = new NativePoint(Left, Top);
+                    NativeSize size = new NativeSize(Width, Height);
+                    NativePoint source = new NativePoint(0, 0);
+
+                    BlendFunction blend = new BlendFunction();
+                    blend.BlendOp = 0; // AC_SRC_OVER
+                    blend.BlendFlags = 0;
+                    blend.SourceConstantAlpha = (byte)Math.Round(opacityPercent * 255.0 / 100.0);
+                    blend.AlphaFormat = 1; // AC_SRC_ALPHA
+
+                    if (!UpdateLayeredWindow(
+                        Handle,
+                        screenDc,
+                        ref destination,
+                        ref size,
+                        memoryDc,
+                        ref source,
+                        0,
+                        ref blend,
+                        0x00000002)) // ULW_ALPHA
+                    {
+                        throw new System.ComponentModel.Win32Exception(
+                            Marshal.GetLastWin32Error(),
+                            "UpdateLayeredWindow failed for the layer OSD."
+                        );
+                    }
+                }
+                finally
+                {
+                    if (oldBitmap != IntPtr.Zero && memoryDc != IntPtr.Zero)
+                        SelectObject(memoryDc, oldBitmap);
+                    if (bitmapHandle != IntPtr.Zero)
+                        DeleteObject(bitmapHandle);
+                    if (memoryDc != IntPtr.Zero)
+                        DeleteDC(memoryDc);
+                    if (screenDc != IntPtr.Zero)
+                        ReleaseDC(IntPtr.Zero, screenDc);
+                }
             }
         }
     }
@@ -691,36 +924,25 @@ function Show-AdaptiveLayerNotification {
     $opacityPercent = [int]$Config.notification.opacityPercent
     if ($opacityPercent -lt 20) { $opacityPercent = 20 }
     if ($opacityPercent -gt 100) { $opacityPercent = 100 }
-    $popup.Opacity = [double]$opacityPercent / 100.0
     $popup.ClientSize = [System.Drawing.Size]::new($popupWidth, 104)
     $popup.MinimumSize = $popup.Size
     $popup.MaximumSize = $popup.Size
     $popup.Padding = New-Object System.Windows.Forms.Padding(0)
 
-    $card = New-Object MugenDeejWindowing.MugenCardPanel
-    $card.Dock = [System.Windows.Forms.DockStyle]::Fill
-    $card.CornerRadius = 14
-    $popup.Controls.Add($card)
+    $palette = $script:ThemePalettes[(Get-EffectiveTheme)]
+    $captionText = if ($script:Language -eq 'ru') { 'Активный слой' } else { 'Active layer' }
+    $popup.ConfigureSurface(
+        $captionText,
+        $displayName,
+        $palette.Surface,
+        $palette.Border,
+        $palette.Muted,
+        $palette.Text,
+        14,
+        $opacityPercent
+    )
 
-    $caption = New-Object System.Windows.Forms.Label
-    $caption.Text = if ($script:Language -eq 'ru') { 'Активный слой' } else { 'Active layer' }
-    $caption.Font = New-Object System.Drawing.Font('Segoe UI', 9)
-    $caption.Location = [System.Drawing.Point]::new(18, 14)
-    $caption.Size = [System.Drawing.Size]::new(300, 20)
-    $caption.ForeColor = [System.Drawing.Color]::DimGray
-    $card.Controls.Add($caption)
-
-    $name = New-Object System.Windows.Forms.Label
-    $name.Text = $displayName
-    $name.Font = $nameFont
-    $name.Location = [System.Drawing.Point]::new(17, 38)
-    $name.Size = [System.Drawing.Size]::new(($popupWidth - 34), 43)
-    $name.AutoEllipsis = $true
-    $name.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
-    $card.Controls.Add($name)
-
-    Apply-ThemeToForm -Form $popup
-    Set-RoundedControlRegion -Control $popup -Radius 14
+    $nameFont.Dispose()
 
     $position = [string]$Config.notification.position
     $popup.Location = Get-AdaptiveLayerPopupLocation -Screen $screen -Position $position -Width $popup.Width -Height $popup.Height
