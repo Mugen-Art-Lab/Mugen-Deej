@@ -1944,27 +1944,19 @@ function Show-AdaptiveLayerSettings {
             )
             $isSelected = ($tileIndex -eq [int]$layerButtonState.Selected)
 
-            # Use the same visual contract as the main physical-button editor:
-            # accent fill follows the raw held state for the entire press, while
-            # selection is an independent accent border. Do not cache a derived
-            # visual key: that cache can stay "pressed" after another WinForms
-            # repaint has already restored the tile's normal colors.
-            $targetBack = if ($isPressed) { $palette.Accent } else { $palette.Control }
-            $targetFore = if ($isPressed) { $palette.AccentText } else { $palette.Text }
-            $targetBorder = if ($isSelected -or $isPressed) { $palette.Accent } else { $palette.Border }
-
-            # The 40 ms timer may call this continuously while a button is held.
-            # Only touch a property when its actual color changed, so held-state
-            # correction is reliable without bringing back the old repaint flicker.
-            if ($tile.BackColor.ToArgb() -ne $targetBack.ToArgb()) {
-                $tile.BackColor = $targetBack
-            }
-            if ($tile.ForeColor.ToArgb() -ne $targetFore.ToArgb()) {
-                $tile.ForeColor = $targetFore
-            }
-            if ($tile.BorderColor.ToArgb() -ne $targetBorder.ToArgb()) {
-                $tile.BorderColor = $targetBorder
-            }
+            # MugenButtonTile owns the semantic selected/pressed state and paints
+            # it internally. External invalidations can no longer temporarily
+            # restore normal BackColor/BorderColor between 40 ms timer ticks.
+            $tile.ApplySemanticStateTheme(
+                $palette.Control,
+                $palette.Text,
+                $palette.Border,
+                $palette.Accent,
+                $palette.AccentText,
+                $palette.Accent,
+                $isSelected,
+                $isPressed
+            )
         }
     }
 

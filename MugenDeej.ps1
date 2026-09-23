@@ -658,6 +658,16 @@ namespace MugenDeejWindowing
     {
         private Color borderColor;
 
+        private bool semanticStateEnabled;
+        private bool semanticSelected;
+        private bool semanticPressed;
+        private Color semanticNormalBackground;
+        private Color semanticNormalText;
+        private Color semanticNormalBorder;
+        private Color semanticPressedBackground;
+        private Color semanticPressedText;
+        private Color semanticAccentBorder;
+
         public Color BorderColor
         {
             get { return borderColor; }
@@ -695,6 +705,41 @@ namespace MugenDeejWindowing
             Invalidate();
         }
 
+        public void ApplySemanticStateTheme(
+            Color normalBackground,
+            Color normalText,
+            Color normalBorder,
+            Color pressedBackground,
+            Color pressedText,
+            Color accentBorder,
+            bool selected,
+            bool pressed)
+        {
+            bool changed =
+                !semanticStateEnabled ||
+                semanticSelected != selected ||
+                semanticPressed != pressed ||
+                semanticNormalBackground.ToArgb() != normalBackground.ToArgb() ||
+                semanticNormalText.ToArgb() != normalText.ToArgb() ||
+                semanticNormalBorder.ToArgb() != normalBorder.ToArgb() ||
+                semanticPressedBackground.ToArgb() != pressedBackground.ToArgb() ||
+                semanticPressedText.ToArgb() != pressedText.ToArgb() ||
+                semanticAccentBorder.ToArgb() != accentBorder.ToArgb();
+
+            semanticStateEnabled = true;
+            semanticSelected = selected;
+            semanticPressed = pressed;
+            semanticNormalBackground = normalBackground;
+            semanticNormalText = normalText;
+            semanticNormalBorder = normalBorder;
+            semanticPressedBackground = pressedBackground;
+            semanticPressedText = pressedText;
+            semanticAccentBorder = accentBorder;
+
+            if (changed)
+                Invalidate();
+        }
+
         protected override void OnPaintBackground(PaintEventArgs e)
         {
             Color outside = Parent != null ? Parent.BackColor : SystemColors.Control;
@@ -714,9 +759,20 @@ namespace MugenDeejWindowing
                 Math.Max(1, Height - 1)
             );
 
+            Color fill = BackColor;
+            Color text = ForeColor;
+            Color border = BorderColor;
+
+            if (semanticStateEnabled)
+            {
+                fill = semanticPressed ? semanticPressedBackground : semanticNormalBackground;
+                text = semanticPressed ? semanticPressedText : semanticNormalText;
+                border = (semanticSelected || semanticPressed) ? semanticAccentBorder : semanticNormalBorder;
+            }
+
             using (GraphicsPath path = MugenDrawing.RoundedRect(rect, CornerRadius))
-            using (SolidBrush fillBrush = new SolidBrush(BackColor))
-            using (Pen borderPen = new Pen(BorderColor))
+            using (SolidBrush fillBrush = new SolidBrush(fill))
+            using (Pen borderPen = new Pen(border))
             {
                 e.Graphics.FillPath(fillBrush, path);
                 e.Graphics.DrawPath(borderPen, path);
@@ -727,7 +783,7 @@ namespace MugenDeejWindowing
                 Text,
                 Font,
                 rect,
-                ForeColor,
+                text,
                 TextFormatFlags.HorizontalCenter |
                 TextFormatFlags.VerticalCenter |
                 TextFormatFlags.SingleLine |

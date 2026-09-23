@@ -519,14 +519,17 @@ jobs:
           if ($runtimeText -match '\$selectorVisualStates\s*=') {
             throw 'Control-layer button tiles still use the stale derived visual-state cache.'
           }
-          if ($runtimeText -notmatch '\$targetBack = if \(\$isPressed\) \{ \$palette\.Accent \}') {
-            throw 'Control-layer button tiles do not keep the accent fill tied to the raw held state.'
+          if ($runtimeText -notmatch 'ApplySemanticStateTheme') {
+            throw 'Control-layer button tiles do not use semantic selected/pressed rendering.'
           }
-          if ($runtimeText -notmatch '\$tile\.BackColor\.ToArgb\(\) -ne \$targetBack\.ToArgb\(\)') {
-            throw 'Control-layer button refresh is missing idempotent property-level repaint suppression.'
+          if ($runtimeText -notmatch 'semanticPressed \? semanticPressedBackground : semanticNormalBackground') {
+            throw 'MugenButtonTile does not paint held state from its internal semantic state.'
           }
-          if ($runtimeText -notmatch '\$targetBorder = if \(\$isSelected -or \$isPressed\)') {
-            throw 'Control-layer button selection/press border semantics are missing.'
+          if ($runtimeText -notmatch '\$tile\.ApplySemanticStateTheme\(') {
+            throw 'Control-layer button refresh does not feed raw held state into semantic tile rendering.'
+          }
+          if ($runtimeText -match '\$tile\.BackColor\s*=\s*\$targetBack') {
+            throw 'Control-layer button refresh still mutates live colors directly and may flicker.'
           }
           if ([regex]::Matches($runtimeText, '\$notificationSettingsButton =').Count -ne 1) {
             throw 'Notifications button must exist exactly once in the Control layers dialog, not recursively inside notification settings.'
