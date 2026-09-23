@@ -671,6 +671,7 @@ function Show-AdaptiveLayerNotification {
 
     $card = New-Object MugenDeejWindowing.MugenCardPanel
     $card.Dock = [System.Windows.Forms.DockStyle]::Fill
+    $card.CornerRadius = 14
     $popup.Controls.Add($card)
 
     $caption = New-Object System.Windows.Forms.Label
@@ -691,6 +692,7 @@ function Show-AdaptiveLayerNotification {
     $card.Controls.Add($name)
 
     Apply-ThemeToForm -Form $popup
+    Set-RoundedControlRegion -Control $popup -Radius 14
 
     $position = [string]$Config.notification.position
     $popup.Location = Get-AdaptiveLayerPopupLocation -Screen $screen -Position $position -Width $popup.Width -Height $popup.Height
@@ -1911,6 +1913,44 @@ function Show-AdaptiveLayerSettings {
         LastButtons = @($script:LatestButtons)
     }
 
+    $refreshSelectorTiles = {
+        $palette = $script:ThemePalettes[(Get-EffectiveTheme)]
+        $latest = @($script:LatestButtons)
+
+        for ($tileIndex = 0; $tileIndex -lt $selectors.Count; $tileIndex++) {
+            $tile = $selectors[$tileIndex]
+            if ($null -eq $tile -or $tile.IsDisposed) { continue }
+
+            $isPressed = (
+                $tileIndex -lt $latest.Count -and
+                [int]$latest[$tileIndex] -eq 0
+            )
+            $isSelected = ($tileIndex -eq [int]$layerButtonState.Selected)
+
+            if ($isPressed) {
+                $tile.ApplyTheme(
+                    $palette.Accent,
+                    $palette.AccentText,
+                    $palette.Accent
+                )
+            }
+            elseif ($isSelected) {
+                $tile.ApplyTheme(
+                    $palette.ControlHover,
+                    $palette.Text,
+                    $palette.Accent
+                )
+            }
+            else {
+                $tile.ApplyTheme(
+                    $palette.Control,
+                    $palette.Text,
+                    $palette.Border
+                )
+            }
+        }
+    }
+
     $getContextKey = {
         $index = [int]$profileCombo.SelectedIndex
         if ($index -lt 0 -or $index -ge $profileMap.Count) { return '__global__' }
@@ -1969,6 +2009,7 @@ function Show-AdaptiveLayerSettings {
         if ($Index -lt 0 -or $Index -ge $buttonCount) { return }
         $layerButtonState.Selected = $Index
         & $refreshEditor
+        & $refreshSelectorTiles
     }
 
     foreach ($selector in $selectors) {
@@ -2104,6 +2145,7 @@ function Show-AdaptiveLayerSettings {
             }
         }
         $layerButtonState.LastButtons = @($latest)
+        & $refreshSelectorTiles
 
         $currentLayer = Get-AdaptiveLayerIndex
         $preview = if ($script:Language -eq 'ru') {
@@ -2119,6 +2161,7 @@ function Show-AdaptiveLayerSettings {
 
     Apply-ThemeToForm -Form $dialog
     & $refreshLayerNames
+    & $refreshSelectorTiles
 
     $dialog.Add_Shown({
         Ensure-FormVisible -Form $dialog -CenterIfOffscreen
@@ -2444,7 +2487,7 @@ $toggleEditorNew = @'
                 else { '' }
 
                 $selectedHeading.Text = if ($script:Language -eq 'ru') {
-                    'Тумблер ' + ($index + 1) + $(if ($isLayerModifier) { ' · модификатор слоя ' + $modifierLayerName } else { '' })
+                    'Тумблер ' + ($index + 1) + $(if ($isLayerModifier) { ' · модификатор «' + $modifierLayerName + '»' } else { '' })
                 }
                 else {
                     'Toggle ' + ($index + 1) + $(if ($isLayerModifier) { ' · layer modifier ' + $modifierLayerName } else { '' })
@@ -2463,7 +2506,7 @@ $toggleEditorNew = @'
 
                 $editorHint.Text = if ($isLayerModifier) {
                     if ($script:Language -eq 'ru') {
-                        'Этот тумблер переключает слой «' + $modifierLayerName + '». Обычные действия ВКЛ/ВЫКЛ не выполняются. Изменить роль можно в «Слои управления…».'
+                        'Переключает слой «' + $modifierLayerName + '». Обычные действия ВКЛ/ВЫКЛ отключены. Роль меняется в «Слои управления…».'
                     }
                     else {
                         'This toggle selects the “' + $modifierLayerName + '” layer. Its normal ON/OFF actions are suppressed. Change its role in Control layers…'
@@ -2494,7 +2537,7 @@ $encoderHintNew = @'
                 $row3Combo.Visible = $hasPush
                 $row3Combo.Enabled = $true
                 $editorHint.Text = if ($script:Language -eq 'ru') {
-                    'Каждый шаг поворота энкодера выполняет назначенное действие один раз. Точка • означает, что энкодер можно ещё и нажать.'
+                    'Поворот выполняет назначенное действие на каждом шаге. Точка • означает отдельное действие по нажатию.'
                 }
                 else {
                     'Each encoder step runs the assigned action once. A • means the encoder can also be pressed.'
@@ -2516,7 +2559,7 @@ $liveToggleNew = @'
             $isLayerModifier = Test-AdaptiveToggleIsLayerModifier -Index $toggleIndex
 
             $liveState.Text = if ($script:Language -eq 'ru') {
-                'Сейчас: ' + $(if ($isOn) { 'ВКЛ' } else { 'ВЫКЛ' }) + $(if ($isLayerModifier) { ' · модификатор слоя' } else { '' })
+                'Состояние: ' + $(if ($isOn) { 'ВКЛ' } else { 'ВЫКЛ' }) + $(if ($isLayerModifier) { ' · роль: модификатор слоя' } else { '' })
             }
             else {
                 'Now: ' + $(if ($isOn) { 'ON' } else { 'OFF' }) + $(if ($isLayerModifier) { ' · layer modifier' } else { '' })
