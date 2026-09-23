@@ -557,3 +557,14 @@ Layer-change OSD now has persisted opacity control. Missing/old configs default 
 #208 (`35878075515`, head `d9292a028ae4aeee5923096b3fef0968d434dad5`) only changes the Russian label from the ambiguous «Прозрачность» to «Непрозрачность». Its build job completed successfully and artifact `10759491804` was downloaded/verified (inner SHA-256 `7a1447112b49996e4ce678380aeb9da3ccdfaf098654d1a93a50167895f2e104`), although the connector's top-level run object still lagged as `in_progress` when recorded.
 
 #160 remains the last broad hardware-passed baseline; the layer feature continues focused hardware/UI review.
+
+
+## Current layer OSD geometry candidate — Integrated #209
+
+50% opacity revealed that the previous Form + child card + WinForms Region design produced binary/jagged rounded clipping. #209 replaces the OSD with a true per-pixel-alpha layered window rendered through `UpdateLayeredWindow` from a premultiplied-alpha bitmap.
+
+The OSD no longer relies on `Set-RoundedControlRegion` or child controls. Rounded surface, border and text are rendered in one anti-aliased bitmap; 20..100% user opacity is applied with `SourceConstantAlpha`, retaining smooth edge alpha.
+
+Run #209 (`35880032475`) succeeded at head `1b162367504b07b0fb4c3fea4eb62c2a2fa9e661`; artifact ID `10759249744`; outer digest `sha256:acafbd660d3a7fcfde5068de6fda8809c03765a5b5df60fef6f0c64949e12369`; inner ZIP SHA-256 `d1301f857322f29275a69f174db61d3f05852a5d82a48c4d926b3b2cde2d40ce`.
+
+#160 remains the last broad hardware-passed baseline; #209 is the current focused OSD/UI candidate.
