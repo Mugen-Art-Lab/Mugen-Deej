@@ -469,3 +469,21 @@ Hardware acceptance: startup must succeed, then re-run the #188 layer UI and not
 Run #194 (ID `35862946664`) succeeded at code head `0e284a1dc4f43c87802bec8b3de7ede571388d77`; artifact ID `10750703940`; outer digest `sha256:88239ee2abba4fa1ab62e2bd8df541c7027ce2bd059b4a8ef64cfbcbec7e3f85`; inner ZIP SHA-256 `406514d6ad5b02055f6877e96a5d7c0a033dfc3b424b04e11fd1d18f27a5a594`.
 
 #160 remains the last broad hardware-passed baseline; #194 is the current layer-feature review build.
+
+
+## Current layer hardware-review candidate — Integrated #196
+
+Real-machine review of #194 exposed three remaining UI defects: the live selected/pressed button tile in Control layers flickered, MugenComboBox borders were still visually asymmetric, and a valid maximum-length custom layer name could be truncated by the fixed-width layer popup.
+
+#196 addresses those without changing protocol/mapping behavior:
+- cache each layer button tile's visual state so the 40 ms live timer does not repaint unchanged controls;
+- replace ComboBox `DrawRectangle` border painting with four exact 1 px client-edge strips;
+- preserve the 24-character custom layer-name limit but size the layer popup from measured text, bounded by the selected monitor's working area.
+
+Run #195 (ID `35865272887`) failed only on an over-specific CI regex for the new repaint-cache marker after staging succeeded. Commit `fffb929ed4a1064438b21bba5475a79558d18817` corrected the assertion. Run #196 (ID `35866181491`) then succeeded at that head; artifact ID `10752389211`; outer digest `sha256:4de8f0fa73e62f8a5a496311a714aa4b47e1815e268bcf16988ae87cb1ded669`; inner ZIP SHA-256 `f384a3fc9f4f1aa75b78178a5f249aebbedfee25abaaf6fca426dc0aacc2a335`.
+
+All integration stages passed, including Windows PowerShell 5.1 parsing/runtime assertions, launcher/helper build, package and artifact upload.
+
+#160 remains the last broad hardware-passed baseline. #196 is the current layer-feature review build.
+
+Development workflow rule: do not hand a new test package to the user until its integration workflow is green and the artifact has been fetched/verified. Keep real-machine findings plus intermediate failed runs and green replacements documented here and in `docs/CURRENT_HANDOFF.md`.
