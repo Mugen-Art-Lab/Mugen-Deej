@@ -2007,3 +2007,41 @@ Workflow:
 - staging, Windows PowerShell 5.1 parse/runtime assertions, windowing Add-Type compilation, launcher/helper build, packaging and upload: PASS.
 
 #194 is the current layer hardware/UI review candidate. Recheck popup corners, combo borders, held-button highlighting and the revised typed-control text.
+
+
+## Integrated #196 — stabilize layer button feedback, combo borders and popup sizing
+
+Real-machine review of #194 on 2026-09-23 found three follow-up UI defects while the underlying Adaptive controller path remained healthy:
+
+- the currently selected / physically pressed button tile in **Control layers** visibly flickered;
+- owner-drawn MugenComboBox borders still appeared uneven from different sides, including the layer notification settings dialog;
+- the 24-character layer-name limit was acceptable, but a legal long name could still be ellipsized by the fixed-width layer popup.
+
+The supplied runtime log for that review showed the Nano prototype detected cleanly as Adaptive `5 sliders / 28 buttons / 2 toggles / 1 encoder` on COM5 at 115200, with normal press/release pairs and no application exception in the captured session.
+
+#196 changes:
+
+1. **Layer button tiles no longer repaint on every 40 ms timer tick.** A per-tile visual-state cache now reapplies theme only when the tile actually changes between normal / selected / pressed, or when the effective application theme changes. This targets the #194 flicker directly.
+2. **MugenComboBox borders now use four exact 1 px filled edge strips** instead of `DrawRectangle`. This avoids half-stroke clipping/asymmetry from the native Win32 ComboBox client boundary.
+3. **Layer popup width is measured from the accepted display name.** The existing 24-character input/storage limit is intentionally preserved, but the popup now grows to fit legal long names within a bounded width and the selected monitor's working area.
+
+CI history:
+
+- run **#195**, run ID `35865272887` — FAILED only in the new static repaint-cache assertion; staging itself succeeded. The runtime change was present, but the regex incorrectly represented the two literal quote characters in `@('')`.
+- commit `fffb929ed4a1064438b21bba5475a79558d18817` fixes that CI assertion quoting without changing the intended runtime behavior.
+- run **#196**, run ID `35866181491` — **SUCCESS**;
+- built code head `fffb929ed4a1064438b21bba5475a79558d18817`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-196`, ID `10752389211`;
+- outer Actions digest `sha256:4de8f0fa73e62f8a5a496311a714aa4b47e1815e268bcf16988ae87cb1ded669`;
+- inner program ZIP SHA-256 `f384a3fc9f4f1aa75b78178a5f249aebbedfee25abaaf6fca426dc0aacc2a335`;
+- staging, Windows PowerShell 5.1 parse/runtime assertions, launcher/helper build, packaging and upload: PASS.
+
+#196 is the current layer UI hardware-review candidate. Recheck:
+- selected and held button tiles for flicker;
+- combo-box edge consistency in both Control layers and Notifications;
+- a maximum-length custom layer name in the popup;
+- popup rounded corners and no-focus-steal behavior from the prior review.
+
+### Development handoff convention
+
+For this branch, user-facing test builds should only be handed over after the corresponding GitHub Actions integration run finishes green and the built artifact is downloaded/verified. Continue recording each meaningful real-machine finding, failed/intermediate CI run, green replacement build, artifact ID and hashes in `docs/CURRENT_HANDOFF.md` and `docs/PROJECT_STATE.md` so a fresh chat can resume from the repository alone.
