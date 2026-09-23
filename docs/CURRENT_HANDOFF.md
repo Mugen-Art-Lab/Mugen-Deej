@@ -2516,3 +2516,16 @@ Both runs confirmed schema v3 behavior on the real machine:
 Important nuance: in this restore case XInput does not need the #219 “mapping-save auto-enable” fallback. Schema v3 restores the persisted `enabled=True` setting, so the helper starts during normal post-restore startup. #219’s auto-enable path remains useful for a different case: the user manually has XInput Off and then configures a new virtual Xbox mapping in Control layers.
 
 The same log also showed firmware debounce counters at `filtered=11; rapid=3` on connection. Those values remained unchanged across the subsequent restart/restore cycles. Because the counters are cumulative from firmware boot, these events happened earlier in the MCU session; no new debounce diagnostic events were observed during the two restore checks. Gameplay had already been reported as clean and gamepad-fast, so this does not currently indicate an observed input fault.
+
+
+## #219 real-machine control responsiveness — encoder/toggles observation
+
+User stress-tested the restored #219 configuration by rapidly rotating and pressing the encoder and toggling controls.
+
+Observed log behavior:
+- encoder detents were reported in dense sequences, commonly about 11–30 ms apart during fast rotation, with direction reversals preserved cleanly;
+- encoder push press/release events were also reported consistently during repeated taps;
+- no new firmware debounce diagnostic counter-change records occurred during this test; the cumulative `filtered=11; rapid=3` values seen at connection remained unchanged;
+- layer modifier toggles continued to switch Base/Game cleanly and XInput profile neutralization followed those changes.
+
+This matches the user's subjective report that the encoder now feels much more immediate. The likely reason is the #214+ active-XInput 5 ms desktop serial-drain cadence: although the firmware matrix debounce change applies only to matrix buttons/toggles, the faster desktop drain consumes all Adaptive packets, including encoder position/push updates.
