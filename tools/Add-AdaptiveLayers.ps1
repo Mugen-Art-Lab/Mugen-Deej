@@ -917,7 +917,7 @@ function Show-AdaptiveLayerNotificationSettings {
     $card.Controls.Add($durationBox)
 
     $opacityLabel = New-Object System.Windows.Forms.Label
-    $opacityLabel.Text = if ($script:Language -eq 'ru') { 'Прозрачность, %' } else { 'Opacity, %' }
+    $opacityLabel.Text = if ($script:Language -eq 'ru') { 'Непрозрачность, %' } else { 'Opacity, %' }
     $opacityLabel.Location = [System.Drawing.Point]::new(16, 162)
     $opacityLabel.Size = [System.Drawing.Size]::new(120, 25)
     $opacityLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
