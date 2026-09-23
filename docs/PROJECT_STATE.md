@@ -579,3 +579,8 @@ Run #209 (`35880032475`) succeeded at head `1b162367504b07b0fb4c3fea4eb62c2a2fa9
 Run #210 (`35881369823`) succeeded at head `99364f9384f84a841f9174976ee4172d7356e127`; artifact ID `10760957127`; outer digest `sha256:539409753bf18a1fc45485fc9bb5aafc17c3262ad4e8f410379caa98fbf202b5`; inner ZIP SHA-256 `bd68f313d3b111ff7e2d0f5b5f4fbcbf3e0441e7f66049cfaef0bb0389ef1922`.
 
 #160 remains the last broad hardware-passed baseline; #210 is the current focused OSD/UI candidate.
+
+
+## #210 adaptive OSD layout — real-machine PASS
+
+Real-machine screenshots confirmed both ends of the adaptive layout: short names collapse to a compact centered OSD, while long names expand horizontally with centered text and smooth layered-window corners. #210 adaptive sizing/centering is accepted.
