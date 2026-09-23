@@ -675,3 +675,8 @@ Latest firmware diagnostics connected at cumulative `filtered=11; rapid=3` and d
 Rapid encoder rotation produced dense, orderly detent updates (often roughly 11–30 ms apart) and repeated push press/release events without visible loss. No new firmware debounce diagnostics were logged during the test.
 
 The improved encoder feel is consistent with the active-XInput 5 ms desktop serial-drain cadence introduced in the low-latency path; encoder firmware itself was not changed by the 6 ms matrix debounce experiment.
+
+
+## #219 per-app encoder profile switching — hardware PASS
+
+Real-machine test verified foreground-app routing for Encoder 1: Global volume mappings switch to Firefox mouse-wheel mappings when Firefox gains focus, then return to Global after focus leaves. Fast rotation remains responsive in both profiles.
