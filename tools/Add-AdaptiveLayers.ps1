@@ -768,16 +768,6 @@ function Show-AdaptiveLayerNotificationSettings {
     $heading.Location = [System.Drawing.Point]::new(22, 18)
     $dialog.Controls.Add($heading)
 
-    $notificationSettingsButton = New-Object MugenDeejWindowing.MugenButton
-    $notificationSettingsButton.Text = if ($script:Language -eq 'ru') { 'Уведомления…' } else { 'Notifications…' }
-    $notificationSettingsButton.Location = [System.Drawing.Point]::new(650, 18)
-    $notificationSettingsButton.Size = [System.Drawing.Size]::new(185, 32)
-    $notificationSettingsButton.Add_Click({
-        & $syncLayerNamesToWorking
-        Show-AdaptiveLayerNotificationSettings -Config $working -Owner $dialog
-    })
-    $dialog.Controls.Add($notificationSettingsButton)
-
     $hint = New-Object System.Windows.Forms.Label
     $hint.Text = if ($script:Language -eq 'ru') {
         'Показывает имя активного слоя при переключении T1/T2. Экран и позиция выбираются отдельно для многомониторной системы.'
@@ -1693,6 +1683,16 @@ function Show-AdaptiveLayerSettings {
     $heading.Location = [System.Drawing.Point]::new(22, 18)
     $dialog.Controls.Add($heading)
 
+    $notificationSettingsButton = New-Object MugenDeejWindowing.MugenButton
+    $notificationSettingsButton.Text = if ($script:Language -eq 'ru') { 'Уведомления…' } else { 'Notifications…' }
+    $notificationSettingsButton.Location = [System.Drawing.Point]::new(650, 18)
+    $notificationSettingsButton.Size = [System.Drawing.Size]::new(185, 32)
+    $notificationSettingsButton.Add_Click({
+        & $syncLayerNamesToWorking
+        Show-AdaptiveLayerNotificationSettings -Config $working -Owner $dialog
+    })
+    $dialog.Controls.Add($notificationSettingsButton)
+
     $hint = New-Object System.Windows.Forms.Label
     $hint.Text = if ($script:Language -eq 'ru') {
         'Тумблеры T1 и T2 могут работать как модификаторы. Здесь задаются отличия кнопок и энкодера для T1, T2 и T1 + T2; пустые назначения наследуют основной профиль.'
@@ -2287,16 +2287,61 @@ $toggleHeadingOld = @'
 '@
 $toggleHeadingNew = @'
     if ($null -ne $script:ToggleStateLabel -and -not $script:ToggleStateLabel.IsDisposed) {
-        $toggleHeading = Get-AdaptiveInputUiText -Key 'Toggles'
-        if (Test-AdaptiveLayersEnabled) {
-            $toggleHeading += $(if ($script:Language -eq 'ru') { ' · слой: ' } else { ' · layer: ' })
-            $toggleHeading += Get-AdaptiveLayerDisplayName -Layer (Get-AdaptiveLayerIndex)
-        }
-        $script:ToggleStateLabel.Text = $toggleHeading
+        $script:ToggleStateLabel.Text = Get-AdaptiveInputUiText -Key 'Toggles'
         $script:ToggleStateLabel.Visible = ($metrics.ToggleCount -gt 0)
+    }
+
+    if (
+        ($null -eq $script:LayerStateLabel -or $script:LayerStateLabel.IsDisposed) -and
+        $null -ne $script:ButtonStateGroup -and
+        -not $script:ButtonStateGroup.IsDisposed
+    ) {
+        $script:LayerStateLabel = New-Object System.Windows.Forms.Label
+        $script:LayerStateLabel.Name = 'AdaptiveLayerStateLabel'
+        $script:LayerStateLabel.AutoSize = $false
+        $script:LayerStateLabel.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 9)
+        $script:LayerStateLabel.Size = [System.Drawing.Size]::new(606, 22)
+        $script:ButtonStateGroup.Controls.Add($script:LayerStateLabel)
+    }
+
+    if ($null -ne $script:LayerStateLabel -and -not $script:LayerStateLabel.IsDisposed) {
+        $layersEnabled = Test-AdaptiveLayersEnabled
+        $script:LayerStateLabel.Visible = $layersEnabled
+        if ($layersEnabled) {
+            $layerName = Get-AdaptiveLayerDisplayName -Layer (Get-AdaptiveLayerIndex)
+            $script:LayerStateLabel.Text = if ($script:Language -eq 'ru') {
+                'Активный слой: ' + $layerName
+            }
+            else {
+                'Active layer: ' + $layerName
+            }
+            $palette = $script:ThemePalettes[(Get-EffectiveTheme)]
+            $script:LayerStateLabel.ForeColor = $palette.Accent
+            $script:LayerStateLabel.BackColor = $script:ButtonStateGroup.BackColor
+        }
     }
 '@
 $text = Replace-LayerLiteralExactlyOnce -Text $text -OldText $toggleHeadingOld -NewText $toggleHeadingNew -Label 'show active Adaptive layer in live status'
+
+$layerStatusLayoutOld = @'
+    if ($adaptiveMetrics.HasControls) {
+        $shareTypedRow = (
+'@
+$layerStatusLayoutNew = @'
+    if (
+        $null -ne $script:LayerStateLabel -and
+        -not $script:LayerStateLabel.IsDisposed -and
+        (Test-AdaptiveLayersEnabled)
+    ) {
+        $script:LayerStateLabel.Location = [System.Drawing.Point]::new(13, ($cursorY + 1))
+        $script:LayerStateLabel.Size = [System.Drawing.Size]::new(606, 22)
+        $cursorY += 24
+    }
+
+    if ($adaptiveMetrics.HasControls) {
+        $shareTypedRow = (
+'@
+$text = Replace-LayerLiteralExactlyOnce -Text $text -OldText $layerStatusLayoutOld -NewText $layerStatusLayoutNew -Label 'reserve main status row for active Adaptive layer'
 
 # Put the layer editor in the existing Adaptive settings dialog without
 # changing the Legacy/Extended button editor.
