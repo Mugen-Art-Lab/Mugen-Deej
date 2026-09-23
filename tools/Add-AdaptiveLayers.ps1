@@ -1866,7 +1866,7 @@ function Populate-AdaptiveLayerButtonActionCombo {
             $script:VirtualGamepadFeatureAvailable -and
             [string]$script:ControllerProtocol -eq 'adaptive'
         ) {
-            [void]$Combo.Items.Add($(if ($script:Language -eq 'ru') { 'Виртуальный Xbox…' } else { 'Virtual Xbox…' }))
+            [void]$Combo.Items.Add($(if ($script:Language -eq 'ru') { 'Виртуальный геймпад Xbox…' } else { 'Virtual Xbox gamepad…' }))
             [void]$Map.Add('virtual:xbox:configure')
         }
 
@@ -1951,9 +1951,9 @@ function Show-AdaptiveLayerSettings {
     $dialog = New-Object System.Windows.Forms.Form
     $dialog.Text = if ($script:Language -eq 'ru') { 'Слои управления — Mugen Deej' } else { 'Control layers — Mugen Deej' }
     $dialog.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterParent
-    $dialog.ClientSize = [System.Drawing.Size]::new(860, 814)
-    $dialog.MinimumSize = [System.Drawing.Size]::new(876, 853)
-    $dialog.MaximumSize = [System.Drawing.Size]::new(876, 853)
+    $dialog.ClientSize = [System.Drawing.Size]::new(1160, 814)
+    $dialog.MinimumSize = [System.Drawing.Size]::new(1176, 853)
+    $dialog.MaximumSize = [System.Drawing.Size]::new(1176, 853)
     $dialog.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
     $dialog.MaximizeBox = $false
     $dialog.MinimizeBox = $false
@@ -1969,7 +1969,7 @@ function Show-AdaptiveLayerSettings {
 
     $notificationSettingsButton = New-Object MugenDeejWindowing.MugenButton
     $notificationSettingsButton.Text = if ($script:Language -eq 'ru') { 'Уведомления…' } else { 'Notifications…' }
-    $notificationSettingsButton.Location = [System.Drawing.Point]::new(650, 18)
+    $notificationSettingsButton.Location = [System.Drawing.Point]::new(950, 18)
     $notificationSettingsButton.Size = [System.Drawing.Size]::new(185, 32)
     $notificationSettingsButton.Add_Click({
         & $syncLayerNamesToWorking
@@ -1986,7 +1986,7 @@ function Show-AdaptiveLayerSettings {
     }
     $hint.ForeColor = [System.Drawing.Color]::DimGray
     $hint.Location = [System.Drawing.Point]::new(25, 56)
-    $hint.Size = [System.Drawing.Size]::new(810, 45)
+    $hint.Size = [System.Drawing.Size]::new(1110, 45)
     $dialog.Controls.Add($hint)
 
     $modifierGroup = New-Object MugenDeejWindowing.MugenGroupBox
@@ -2122,6 +2122,41 @@ function Show-AdaptiveLayerSettings {
     $editorGroup.Size = [System.Drawing.Size]::new(816, 360)
     $dialog.Controls.Add($editorGroup)
 
+    $layerAssignmentsGroup = New-Object MugenDeejWindowing.MugenGroupBox
+    $layerAssignmentsGroup.Text = if ($script:Language -eq 'ru') { 'Назначения слоя' } else { 'Layer assignments' }
+    $layerAssignmentsGroup.Location = [System.Drawing.Point]::new(850, 108)
+    $layerAssignmentsGroup.Size = [System.Drawing.Size]::new(286, 622)
+    $dialog.Controls.Add($layerAssignmentsGroup)
+
+    $layerAssignmentsTitle = New-Object System.Windows.Forms.Label
+    $layerAssignmentsTitle.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 11)
+    $layerAssignmentsTitle.Location = [System.Drawing.Point]::new(14, 30)
+    $layerAssignmentsTitle.Size = [System.Drawing.Size]::new(258, 26)
+    $layerAssignmentsGroup.Controls.Add($layerAssignmentsTitle)
+
+    $layerAssignmentsHint = New-Object System.Windows.Forms.Label
+    $layerAssignmentsHint.Text = if ($script:Language -eq 'ru') {
+        'Показываются отличия от основного профиля. Нажмите строку, чтобы перейти к кнопке.'
+    }
+    else {
+        'Shows differences from the base profile. Select a row to jump to that button.'
+    }
+    $layerAssignmentsHint.ForeColor = [System.Drawing.Color]::DimGray
+    $layerAssignmentsHint.Location = [System.Drawing.Point]::new(14, 57)
+    $layerAssignmentsHint.Size = [System.Drawing.Size]::new(258, 48)
+    $layerAssignmentsGroup.Controls.Add($layerAssignmentsHint)
+
+    $layerAssignmentsList = New-Object System.Windows.Forms.ListView
+    $layerAssignmentsList.Location = [System.Drawing.Point]::new(14, 108)
+    $layerAssignmentsList.Size = [System.Drawing.Size]::new(258, 492)
+    $layerAssignmentsList.View = [System.Windows.Forms.View]::Details
+    $layerAssignmentsList.FullRowSelect = $true
+    $layerAssignmentsList.HideSelection = $false
+    $layerAssignmentsList.MultiSelect = $false
+    [void]$layerAssignmentsList.Columns.Add($(if ($script:Language -eq 'ru') { 'Кнопка' } else { 'Button' }), 62)
+    [void]$layerAssignmentsList.Columns.Add($(if ($script:Language -eq 'ru') { 'Назначение' } else { 'Assignment' }), 172)
+    $layerAssignmentsGroup.Controls.Add($layerAssignmentsList)
+
     $selectorFlow = New-Object System.Windows.Forms.FlowLayoutPanel
     $selectorFlow.Location = [System.Drawing.Point]::new(14, 30)
     $selectorFlow.Size = [System.Drawing.Size]::new(286, 312)
@@ -2170,11 +2205,11 @@ function Show-AdaptiveLayerSettings {
     $editorHint = New-Object System.Windows.Forms.Label
     $editorHint.Text = if ($script:Language -eq 'ru') {
         '«Наследовать» = основное назначение; «Не использовать» = отключить в этом слое.' + "`r`n" +
-        'Обычные действия — один раз при нажатии; Xbox — удерживается вместе с кнопкой.'
+        'Обычные действия — один раз при нажатии; геймпад Xbox — пока удерживается кнопка.'
     }
     else {
         'Inherit = base mapping; Do nothing = disable only in this layer.' + "`r`n" +
-        'Regular actions fire once per press; Xbox stays held with the physical button.'
+        'Regular actions fire once per press; the Xbox gamepad stays held with the physical button.'
     }
     $editorHint.ForeColor = [System.Drawing.Color]::DimGray
     $editorHint.Location = [System.Drawing.Point]::new(320, 211)
@@ -2190,6 +2225,7 @@ function Show-AdaptiveLayerSettings {
     $layerButtonState = [pscustomobject]@{
         Selected = 0
         Suppress = $false
+        SummarySuppress = $false
         ActionMap = New-Object System.Collections.ArrayList
         LastButtons = @($script:LatestButtons)
     }
@@ -2233,6 +2269,64 @@ function Show-AdaptiveLayerSettings {
         return ([int]$layerCombo.SelectedIndex + 1)
     }
 
+    $refreshLayerAssignments = {
+        $contextKey = & $getContextKey
+        $layer = & $getLayer
+        $layerName = Get-AdaptiveLayerDisplayNameFromConfig -Config $working -Layer $layer
+        $rows = @()
+
+        $context = Get-AdaptiveLayerContextObject -Config $working -Key $contextKey -Create
+        Ensure-AdaptiveLayerContextCapacity -Context $context -ButtonCount $buttonCount
+
+        for ($buttonIndex = 0; $buttonIndex -lt $buttonCount; $buttonIndex++) {
+            $override = Get-AdaptiveLayerButtonOverride -Config $working -ContextKey $contextKey -Layer $layer -ButtonIndex $buttonIndex
+            if ([string]$override -eq 'inherit') { continue }
+
+            $rows += [pscustomobject]@{
+                ButtonIndex = $buttonIndex
+                Button = [string]($buttonIndex + 1)
+                Action = Get-AdaptiveLayerOverrideDisplay -Action ([string]$override)
+            }
+        }
+
+        $layerAssignmentsTitle.Text = if ($script:Language -eq 'ru') {
+            '{0} · назначений: {1}' -f $layerName, $rows.Count
+        }
+        else {
+            '{0} · assignments: {1}' -f $layerName, $rows.Count
+        }
+
+        $layerButtonState.SummarySuppress = $true
+        $layerAssignmentsList.BeginUpdate()
+        try {
+            $layerAssignmentsList.Items.Clear()
+
+            if ($rows.Count -eq 0) {
+                $emptyItem = New-Object System.Windows.Forms.ListViewItem('—')
+                [void]$emptyItem.SubItems.Add($(if ($script:Language -eq 'ru') { 'Нет переопределений' } else { 'No overrides' }))
+                $emptyItem.Tag = -1
+                [void]$layerAssignmentsList.Items.Add($emptyItem)
+            }
+            else {
+                foreach ($row in $rows) {
+                    $item = New-Object System.Windows.Forms.ListViewItem([string]$row.Button)
+                    [void]$item.SubItems.Add([string]$row.Action)
+                    $item.Tag = [int]$row.ButtonIndex
+                    [void]$layerAssignmentsList.Items.Add($item)
+
+                    if ([int]$row.ButtonIndex -eq [int]$layerButtonState.Selected) {
+                        $item.Selected = $true
+                        $item.Focused = $true
+                    }
+                }
+            }
+        }
+        finally {
+            $layerAssignmentsList.EndUpdate()
+            $layerButtonState.SummarySuppress = $false
+        }
+    }
+
     $refreshEditor = {
         $index = [int]$layerButtonState.Selected
         $contextKey = & $getContextKey
@@ -2273,6 +2367,8 @@ function Show-AdaptiveLayerSettings {
         else {
             'Controller now: layer ' + (Get-AdaptiveLayerDisplayNameFromConfig -Config $working -Layer $currentLayer)
         }
+
+        & $refreshLayerAssignments
     }
 
     $selectButton = {
@@ -2290,6 +2386,16 @@ function Show-AdaptiveLayerSettings {
             & $selectButton -Index ([int]$sender.Tag)
         })
     }
+
+    $layerAssignmentsList.Add_SelectedIndexChanged({
+        if ($layerButtonState.SummarySuppress) { return }
+        if ($layerAssignmentsList.SelectedItems.Count -le 0) { return }
+
+        $targetIndex = [int]$layerAssignmentsList.SelectedItems[0].Tag
+        if ($targetIndex -ge 0 -and $targetIndex -lt $buttonCount) {
+            & $selectButton -Index $targetIndex
+        }
+    })
 
     $refreshLayerNames = {
         & $syncLayerNamesToWorking
@@ -2366,14 +2472,14 @@ function Show-AdaptiveLayerSettings {
     $cancel = New-Object MugenDeejWindowing.MugenButton
     $cancel.Text = Get-ButtonFeatureText -Key 'Cancel'
     $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-    $cancel.Location = [System.Drawing.Point]::new(610, 760)
+    $cancel.Location = [System.Drawing.Point]::new(910, 760)
     $cancel.Size = [System.Drawing.Size]::new(105, 36)
     $dialog.Controls.Add($cancel)
 
     $save = New-Object MugenDeejWindowing.MugenButton
     $save.Text = Get-ButtonFeatureText -Key 'Save'
     $save.Tag = 'MugenPrimary'
-    $save.Location = [System.Drawing.Point]::new(727, 760)
+    $save.Location = [System.Drawing.Point]::new(1027, 760)
     $save.Size = [System.Drawing.Size]::new(108, 36)
     $dialog.Controls.Add($save)
 

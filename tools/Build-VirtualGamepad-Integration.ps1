@@ -220,14 +220,14 @@ function Show-MugenVirtualGamepadButtonPicker {
     Set-FormAppIcon -Form $picker
 
     $heading = New-Object System.Windows.Forms.Label
-    $heading.Text = $(if ($script:Language -eq 'ru') { 'Выберите управление Xbox' } else { 'Choose an Xbox control' })
+    $heading.Text = $(if ($script:Language -eq 'ru') { 'Выберите элемент геймпада Xbox' } else { 'Choose an Xbox gamepad control' })
     $heading.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 15)
     $heading.AutoSize = $true
     $heading.Location = [System.Drawing.Point]::new(24, 18)
     $picker.Controls.Add($heading)
 
     $hint = New-Object System.Windows.Forms.Label
-    $hint.Text = $(if ($script:Language -eq 'ru') { 'Выберите, что будет делать выбранная кнопка на виртуальном Xbox-контроллере. LT/RT нажимаются полностью.' } else { 'Choose what the selected button should do on the virtual Xbox controller. LT/RT are full-press.' })
+    $hint.Text = $(if ($script:Language -eq 'ru') { 'Выберите, что будет делать выбранная кнопка на виртуальном геймпаде Xbox. LT/RT нажимаются полностью.' } else { 'Choose what the selected button should do on the virtual Xbox gamepad. LT/RT are full-press.' })
     $hint.ForeColor = [System.Drawing.Color]::DimGray
     $hint.Location = [System.Drawing.Point]::new(27, 53)
     $hint.Size = [System.Drawing.Size]::new(706, 42)
