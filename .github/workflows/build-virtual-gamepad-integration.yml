@@ -510,7 +510,7 @@ jobs:
           if ($runtimeText -notmatch 'Virtual controller input suspended while a modal Mugen dialog is open') {
             throw 'Stateful virtual-controller output is not neutralized while modal dialogs are open.'
           }
-          if ($runtimeText -notmatch 'Тумблер — ВКЛ/ВЫКЛ; модификатор — слой; энкодер — влево/вправо и нажатие') {
+          if ($runtimeText -notmatch 'Toggle — ON/OFF; modifier — layer; encoder — left/right and push') {
             throw 'Toggle/encoder settings still use the cramped guidance copy.'
           }
           if ($runtimeText -notmatch 'Regular actions fire once per press; Xbox stays held with the physical button') {
