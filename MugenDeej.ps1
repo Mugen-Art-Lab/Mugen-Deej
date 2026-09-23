@@ -1603,9 +1603,20 @@ namespace MugenDeejWindowing
                     Color fore = Enabled ? ForeColor : disabledTextColor;
                     Color border = (Focused || hovered) && Enabled ? accentColor : borderColor;
 
-                    Rectangle whole = new Rectangle(0, 0, Width - 1, Height - 1);
+                    Rectangle whole = new Rectangle(0, 0, Width, Height);
                     using (SolidBrush backBrush = new SolidBrush(back))
                         g.FillRectangle(backBrush, whole);
+
+                    // Draw the border one pixel inside the native ComboBox
+                    // client area. A stroke on x=0/y=0 is half-clipped by the
+                    // Win32 control window and can make the left/top edge look
+                    // missing, especially on wide owner-drawn combos.
+                    Rectangle borderRect = new Rectangle(
+                        1,
+                        1,
+                        Math.Max(1, Width - 3),
+                        Math.Max(1, Height - 3)
+                    );
 
                     int buttonWidth = Math.Min(24, Math.Max(19, Height - 2));
                     Rectangle textRect = new Rectangle(7, 1, Math.Max(1, Width - buttonWidth - 10), Height - 2);
@@ -1635,7 +1646,7 @@ namespace MugenDeejWindowing
                         g.FillPolygon(arrowBrush, arrow);
 
                     using (Pen pen = new Pen(border))
-                        g.DrawRectangle(pen, whole);
+                        g.DrawRectangle(pen, borderRect);
                 }
             }
             catch
