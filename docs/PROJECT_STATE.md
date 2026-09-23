@@ -458,3 +458,14 @@ Hardware acceptance should now verify the repaired UI plus the notification OSD.
 Run #190 (ID `35859809283`) succeeded at code head `495a1c2965f46a57cb4247c18187dc2d854f091b`; artifact ID `10749991039`; outer digest `sha256:ce28b06ca8b26536ecb35f4e18fd11ad892ea9333f5dec6107bc210b330995b8`; inner ZIP SHA-256 `10f2beb33467d76ec816ab8c6c9aa5e6217de256e0798d2f897b617a2d831419`.
 
 Hardware acceptance: startup must succeed, then re-run the #188 layer UI and notification checks. #160 remains the last broad hardware-passed baseline until the layer feature set completes real-machine acceptance.
+
+
+## Current layer hardware-review candidate — Integrated #194
+
+#190 real-machine testing confirmed working T1/T2 layer transitions with custom names, visible multi-monitor notification settings/Test popup, modifier-toggle suppression UI, and physical-button auto-selection in the Control layers editor. Remaining findings were cosmetic: popup corner artifacts, clipped owner-drawn combo borders, no held-button visual feedback, and awkward typed-control guidance.
+
+#194 clips the popup Form to rounded geometry, moves the MugenComboBox stroke inside the native client bounds, adds live held/selected button-tile states in the layer editor, and tightens toggle/encoder wording.
+
+Run #194 (ID `35862946664`) succeeded at code head `0e284a1dc4f43c87802bec8b3de7ede571388d77`; artifact ID `10750703940`; outer digest `sha256:88239ee2abba4fa1ab62e2bd8df541c7027ce2bd059b4a8ef64cfbcbec7e3f85`; inner ZIP SHA-256 `406514d6ad5b02055f6877e96a5d7c0a033dfc3b424b04e11fd1d18f27a5a594`.
+
+#160 remains the last broad hardware-passed baseline; #194 is the current layer-feature review build.
