@@ -2319,3 +2319,15 @@ Real-machine acceptance:
 - confirm short names produce a compact centered card rather than the previous wide left-heavy card;
 - confirm long names expand the card rather than clipping prematurely;
 - confirm smooth rounded corners at 50% opacity remain unchanged.
+
+
+## Real-machine acceptance — Integrated #210 adaptive OSD layout
+
+User review of #210 confirmed the adaptive OSD composition works as intended on the real machine:
+
+- short custom layer name (“Стрим”) produces a compact centered popup;
+- long layer name (“Основной длинный текст!!”) expands the popup horizontally;
+- caption and layer name remain centered in both cases;
+- rounded per-pixel-alpha geometry remains smooth while resizing.
+
+This closes the #210 adaptive-size/centering UX check as PASS.
