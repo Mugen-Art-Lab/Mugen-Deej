@@ -2175,3 +2175,45 @@ Immediate acceptance check:
 - open Control layers and leave a button selected without touching hardware: its accent border must remain perfectly steady;
 - press and hold that or another hardware button for several seconds: the accent-filled pressed state must remain perfectly steady for the entire hold;
 - release: the fill returns to normal and the selected button's accent border remains steady.
+
+
+## Integrated #204 — refresh parent Toggle/Encoder editor immediately after layer-role save
+
+Real-machine review of #203 confirmed the semantic tile-painting fix: **Control layers button selection and physical hold indication now behave correctly without the previous border/fill flicker.**
+
+The same test also validated the actual four-layer button-routing path with one physical button:
+- Base mapping executed the Slider 1 action;
+- T1 / custom layer “Стрим” executed the Slider 2 action;
+- T2 / custom layer “Игры” executed the Slider 3 action;
+- T1+T2 / custom layer “Разработка” executed the Slider 4 action;
+- returning modifiers to OFF restored the Base mapping.
+The runtime log also shows modifier toggles suppressing their ordinary ON/OFF actions while changing the active layer.
+
+A small parent-dialog synchronization bug remained:
+1. Open **Toggle and encoder settings**.
+2. Open **Control layers…**.
+3. Enable T1/T2 as layer modifiers and click Save.
+4. Return to the parent Toggle/Encoder editor.
+5. For a short time the selected toggle could still show enabled ON/OFF action ComboBoxes and its old non-modifier description; another interaction later refreshed it and disabled those controls.
+
+The layer config itself was already applied immediately by `Show-AdaptiveLayerSettings`; only the parent editor was stale. The injected Control-layers button handler previously called only `Show-AdaptiveLayerSettings`, while the modifier-aware state of the parent is recalculated by its `$refreshEditor` closure.
+
+#204 fix:
+- after the Control layers child dialog closes, the parent handler now immediately runs `$refreshEditor` and `$refreshAssignmentList`;
+- therefore a newly enabled modifier should instantly show its modifier heading/role text and disabled ordinary ON/OFF ComboBoxes on return to the parent window;
+- disabling a modifier should likewise restore the ordinary action controls immediately;
+- no save/persistence semantics were changed: Control layers continues to save its own layer config when its Save button is pressed.
+
+CI:
+- run **#204**, run ID `35876423203` — **SUCCESS**;
+- built code head `b586958580b862d49f45510ba6bceeaff7eefb68`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-204`, ID `10756289241`;
+- outer Actions digest `sha256:d14c328aaef1f43c67580a3fda6a8c24892ab85cadeb56d19f7800b87b1841c9`;
+- inner program ZIP SHA-256 `d5c3951089f0dd3dae10fd1a80a0710a439a4267a089c13c9141f0abc33f9ba1`;
+- downloaded artifact digest and packaged inner `.sha256` agree;
+- integration staging, Windows PowerShell 5.1 parse/runtime assertions, launcher/helper build, packaging and upload: PASS.
+
+#204 is the current focused UI candidate. Immediate acceptance:
+- from Toggle/Encoder settings open Control layers;
+- change T1/T2 modifier checkboxes and Save;
+- on returning to the parent window, the currently selected toggle must immediately switch between ordinary ON/OFF editing and modifier-role disabled controls without requiring any extra click, physical toggle movement, profile change, or timer-triggered selection.
