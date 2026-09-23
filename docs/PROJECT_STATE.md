@@ -522,3 +522,14 @@ A clarification after #200 established that the short flash was not the mapping'
 Run #201 (`35872122953`) failed only because old CI still asserted the removed cache. Run #202 (`35872128306`) succeeded at head `c4969766a82e352d9d65dc5b1d46c87d06e73e97`; artifact ID `10755203600`; outer digest `sha256:a08846faa88115b3a67a3948a5e19c234269601f987960fe575206b67209d54b`; inner ZIP SHA-256 `4fb97c45235f38f46386ad6cd49d11d853d0f303e224985630268c5353ebc138`.
 
 #160 remains the last broad hardware-passed baseline; #202 is the current focused layer/UI candidate.
+
+
+## Current layer hardware-review candidate — Integrated #203
+
+#202 still flickered in Control layers: both the selected button border and the full pressed fill visibly alternated on the real machine. Therefore timer-side BackColor/ForeColor/BorderColor synchronization was not sufficient.
+
+#203 moves selected/pressed presentation into `MugenButtonTile` itself. The layer editor now supplies semantic selected/pressed state to `ApplySemanticStateTheme`, and the tile's own `OnPaint` renders the correct fill/text/border. The method invalidates only when semantic state or palette changes, so the 40 ms polling timer no longer mutates/repaints the control continuously. External WinForms repaints should now preserve the semantic state rather than fighting it.
+
+Run #203 (`35873511506`) succeeded at head `d027a7ef974e387677dccc2d315512e61353d7ef`; artifact ID `10756505480`; outer digest `sha256:ff88663a62c1989a647b2ca398c3cf53cc427536f86439ef76794607214d1e63`; inner ZIP SHA-256 `a892a715c26187402ffb47381c39753ee89bfc84780acbc5d4cbcc72c43ae93e`.
+
+#160 remains the last broad hardware-passed baseline; #203 is the current focused layer/UI candidate.
