@@ -315,7 +315,10 @@ internal static class Program
                             rt < 0 || rt > 1
                         )
                         {
-                            writer.WriteLine("ERR|invalid controller state");
+                            // "state" is intentionally one-way so gameplay input
+                            // never waits for a pipe round-trip. Do not enqueue an
+                            // error response that could poison a later control ACK.
+                            Log("STATE_INVALID " + line);
                             continue;
                         }
 
@@ -346,7 +349,8 @@ internal static class Program
                             rightTrigger: rt
                         );
                         controller.SubmitState(in state);
-                        writer.WriteLine("OK");
+                        // Hot-path state updates are one-way. Lifecycle/control
+                        // commands still receive explicit responses.
                         continue;
                     }
 

@@ -834,6 +834,15 @@ jobs:
           if ($integrationText -notmatch 'VirtualGamepadProfileTimer\.Interval = 200') {
             throw 'Integration module is missing low-rate foreground-profile checks.'
           }
+          if ($integrationText -notmatch 'function Send-MugenVirtualGamepadStateCommand') {
+            throw 'Integration module is missing the one-way low-latency state sender.'
+          }
+          if ($integrationText -notmatch 'Get-MugenVirtualGamepadCachedButtonProfileContext') {
+            throw 'Integration module is missing cached gameplay mapping resolution.'
+          }
+          if ($runtimeText -notmatch '\$desiredInputInterval = if') {
+            throw 'Development runtime is missing the active-XInput fast serial polling cadence.'
+          }
           if ($integrationText -notmatch 'Virtual gamepad.*connected') {
             throw 'Integration module is missing the stable virtual-gamepad status name/format.'
           }
@@ -911,6 +920,9 @@ jobs:
           $helperText = [System.IO.File]::ReadAllText((Resolve-Path $helperSource), [System.Text.Encoding]::UTF8)
           if ($helperText -notmatch 'line\.StartsWith\("state "') {
             throw 'Virtual controller helper is missing combined state command parsing.'
+          }
+          if ($helperText -notmatch 'Hot-path state updates are one-way') {
+            throw 'Virtual controller helper still lacks the one-way gameplay state transport.'
           }
           if ($helperText -notmatch 'leftStickX: \(lx \+ 1\) / 2f') {
             throw 'Virtual controller helper is missing normalized horizontal stick-axis output.'
@@ -992,6 +1004,7 @@ jobs:
           Adaptive toggles and encoders now have first-class action mapping: separate toggle ON/OFF actions plus encoder CW/CCW/push actions. These typed controls can use standard Mugen actions; virtual-gamepad output remains mapped from momentary buttons in this milestone.
           Momentary-button application profiles are PC-side and work with both Extended and Adaptive controllers. Legacy controllers remain unchanged because they expose no buttons. Existing button-actions.json remains the Global fallback, and older backups/profiles without per-application button payloads continue to load through that Global path.
           Physical buttons can also hold the virtual Xbox left/right stick in any cardinal direction. Releasing the button returns that axis to center; opposite directions cancel to center. Effective profile changes neutralize all virtual state and suppress already-held physical inputs until release.
+          Low-latency XInput pass: while the virtual gamepad is active, the desktop serial drain uses a 5 ms target cadence, gameplay mappings are cached outside the button hot path, and state updates are one-way to the elevated helper instead of waiting for a per-input pipe acknowledgement.
           '@
           [System.IO.File]::WriteAllText(
             (Join-Path $stage 'VIRTUAL-GAMEPAD-DEV.txt'),

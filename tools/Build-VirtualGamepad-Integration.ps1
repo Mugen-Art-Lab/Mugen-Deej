@@ -150,6 +150,34 @@ $1
     -Label 'route stateful button frames'
 
 
+# The stable app only needs a 20 ms UI loop for audio/control-surface work. While
+# XInput is active, shorten the same safe UI-thread serial drain cadence so a
+# freshly arrived button packet spends less time waiting for the next WM_TIMER.
+$text = Replace-LiteralExactlyOnce `
+    -Text $text `
+    -OldText @'
+$timer = New-Object System.Windows.Forms.Timer
+$timer.Interval = 20
+$timer.Add_Tick({
+    if ($script:IsSuspended -or $script:Closing -or $script:ExitRequested) { return }
+'@ `
+    -NewText @'
+$timer = New-Object System.Windows.Forms.Timer
+$timer.Interval = 20
+$timer.Add_Tick({
+    $desiredInputInterval = if (
+        $script:VirtualGamepadFeatureAvailable -and
+        $script:VirtualGamepadActive
+    ) { 5 } else { 20 }
+    if ($timer.Interval -ne $desiredInputInterval) {
+        $timer.Interval = $desiredInputInterval
+    }
+
+    if ($script:IsSuspended -or $script:Closing -or $script:ExitRequested) { return }
+'@ `
+    -Label 'lower active XInput serial polling latency'
+
+
 # Keep the physical and virtual status rows in the same language immediately.
 # The old handler refreshed driver/PnP state synchronously BEFORE the status
 # text. On machines where Win32_PnPEntity is slow, the entire form could look

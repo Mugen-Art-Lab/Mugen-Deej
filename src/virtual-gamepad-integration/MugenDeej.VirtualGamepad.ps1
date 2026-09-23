@@ -23,6 +23,7 @@ $script:VirtualGamepadToggleButton = $null
 $script:VirtualGamepadLastMask = [uint32]::MaxValue
 $script:VirtualGamepadLastOutputSignature = ''
 $script:VirtualGamepadLastButtonProfileKey = ''
+$script:VirtualGamepadCachedButtonProfileContext = $null
 $script:VirtualGamepadSuppressedPhysicalButtons = @{}
 $script:VirtualGamepadLastPhysicalButtons = @()
 $script:VirtualGamepadInputSuspended = $false
@@ -488,6 +489,19 @@ function Send-MugenVirtualGamepadCommand {
     return $response
 }
 
+function Send-MugenVirtualGamepadStateCommand {
+    param([Parameter(Mandatory = $true)][string]$Command)
+
+    if (-not $script:VirtualGamepadActive -or $null -eq $script:VirtualGamepadWriter) {
+        throw 'Virtual controller bridge is not active.'
+    }
+
+    # Gameplay state is a one-way hot path. Waiting for an acknowledgement made
+    # the WinForms input loop serialize every press/release behind HID submission.
+    # Lifecycle/control commands still use Send-MugenVirtualGamepadCommand.
+    $script:VirtualGamepadWriter.WriteLine($Command)
+}
+
 function Stop-MugenVirtualGamepadStartTimer {
     if ($null -ne $script:VirtualGamepadStartTimer) {
         try { $script:VirtualGamepadStartTimer.Stop() } catch { }
@@ -521,6 +535,7 @@ function Reset-MugenVirtualGamepadBridgeObjects {
     $script:VirtualGamepadLastMask = [uint32]::MaxValue
     $script:VirtualGamepadLastOutputSignature = ''
     $script:VirtualGamepadLastButtonProfileKey = ''
+    $script:VirtualGamepadCachedButtonProfileContext = $null
     $script:VirtualGamepadSuppressedPhysicalButtons = @{}
     $script:VirtualGamepadLastPhysicalButtons = @()
 }
@@ -590,6 +605,7 @@ function Complete-MugenVirtualGamepadStart {
         $script:VirtualGamepadProfileTimer.Start()
         Set-MugenVirtualGamepadUiState -State 'ready'
         Write-Log 'Virtual controller ready: Mugen Deej Virtual Gamepad (Xbox 360 / XInput).' 'INFO'
+        [void](Get-MugenVirtualGamepadCachedButtonProfileContext -Refresh)
 
         # Push the freshest full button state immediately after the bridge comes
         # online. If no frame is available yet, the next serial frame will do it.
@@ -753,6 +769,16 @@ function Get-MugenVirtualGamepadButtonProfileContext {
     }
 }
 
+function Get-MugenVirtualGamepadCachedButtonProfileContext {
+    param([switch]$Refresh)
+
+    if ($Refresh -or $null -eq $script:VirtualGamepadCachedButtonProfileContext) {
+        $script:VirtualGamepadCachedButtonProfileContext = Get-MugenVirtualGamepadButtonProfileContext
+    }
+
+    return $script:VirtualGamepadCachedButtonProfileContext
+}
+
 function Get-MugenVirtualGamepadOutputState {
     param(
         [int[]]$Values,
@@ -912,7 +938,7 @@ function Update-MugenVirtualGamepadButtonStates {
             $script:VirtualGamepadInputSuspended = $true
             if ($script:VirtualGamepadActive) {
                 try {
-                    [void](Send-MugenVirtualGamepadCommand -Command 'state 0 0 0 0 0 0 0 0 0')
+                    Send-MugenVirtualGamepadStateCommand -Command 'state 0 0 0 0 0 0 0 0 0'
                     $script:VirtualGamepadLastMask = [uint32]0
                     $script:VirtualGamepadLastOutputSignature = '0|0|0|0|0|0|0|0|0'
                 }
@@ -942,7 +968,10 @@ function Update-MugenVirtualGamepadButtonStates {
         return
     }
 
-    $context = Get-MugenVirtualGamepadButtonProfileContext
+    # Foreground-process/profile discovery is deliberately kept off the physical
+    # button hot path. The 200 ms profile timer refreshes this snapshot; a button
+    # transition only resolves its already-cached mappings.
+    $context = Get-MugenVirtualGamepadCachedButtonProfileContext -Refresh:$ForceProfileCheck
     $profileKey = [string]$context.Key
     $previousProfileKey = [string]$script:VirtualGamepadLastButtonProfileKey
     $previousValues = @($script:VirtualGamepadLastPhysicalButtons)
@@ -953,7 +982,7 @@ function Update-MugenVirtualGamepadButtonStates {
     elseif ($previousProfileKey -ne $profileKey) {
         try {
             # Profile identity, not the focus-change mechanism, is the boundary.
-            [void](Send-MugenVirtualGamepadCommand -Command 'state 0 0 0 0 0 0 0 0 0')
+            Send-MugenVirtualGamepadStateCommand -Command 'state 0 0 0 0 0 0 0 0 0'
 
             $script:VirtualGamepadLastMask = [uint32]0
             $script:VirtualGamepadLastOutputSignature = '0|0|0|0|0|0|0|0|0'
@@ -983,7 +1012,7 @@ function Update-MugenVirtualGamepadButtonStates {
 
     try {
         $command = 'state {0} {1} {2} {3} {4} {5} {6} {7} {8}' -f [uint32]$output.Mask, [int]$output.LX, [int]$output.LY, [int]$output.RX, [int]$output.RY, [int]$output.DPadX, [int]$output.DPadY, [int]$output.LT, [int]$output.RT
-        [void](Send-MugenVirtualGamepadCommand -Command $command)
+        Send-MugenVirtualGamepadStateCommand -Command $command
         $script:VirtualGamepadLastMask = [uint32]$output.Mask
         $script:VirtualGamepadLastOutputSignature = [string]$output.Signature
     }
