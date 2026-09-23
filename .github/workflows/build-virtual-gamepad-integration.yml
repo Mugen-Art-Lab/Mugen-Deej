@@ -552,7 +552,7 @@ jobs:
           if ($runtimeText -notmatch 'Regular actions fire once per press; the Xbox gamepad stays held with the physical button') {
             throw 'Layer button editor does not explain one-shot versus held mappings.'
           }
-          if ($runtimeText -notmatch 'Virtual Xbox gamepad…') {
+          if ($runtimeText -notmatch 'Virtual Xbox gamepad') {
             throw 'Layer action picker still labels the virtual device as a bare Xbox console.'
           }
           if ($runtimeText -notmatch '\$layerAssignmentsGroup = New-Object MugenDeejWindowing\.MugenGroupBox') {
