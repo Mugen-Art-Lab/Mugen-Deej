@@ -495,7 +495,7 @@ jobs:
           if ($runtimeText -notmatch '\$refreshSelectorTiles = \{') {
             throw 'Control-layer button editor is missing live physical-button highlighting.'
           }
-          if ($runtimeText -notmatch '\$selectorVisualStates = @\(''\) \* \$selectors\.Count') {
+          if ($runtimeText -notmatch '\$selectorVisualStates\s*=\s*@\(''''\)\s*\*\s*\$selectors\.Count') {
             throw 'Control-layer button tiles are missing repaint-state caching and may flicker on the live timer.'
           }
           if ($runtimeText -notmatch '\$visualKey = \$themeKey \+ ''\|'' \+ \$visualState') {
