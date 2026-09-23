@@ -474,6 +474,21 @@ jobs:
           if ($runtimeText -notmatch 'Test notification') {
             throw 'Adaptive layer popup settings are missing the preview/test action.'
           }
+          if ($runtimeText -notmatch 'Set-RoundedControlRegion -Control \$popup -Radius 14') {
+            throw 'Layer popup window itself is not clipped to the rounded notification card.'
+          }
+          if ($runtimeText -notmatch '\$card\.CornerRadius = 14') {
+            throw 'Layer popup card and window region do not share the intended rounded geometry.'
+          }
+          if ($runtimeText -notmatch 'Rectangle borderRect = new Rectangle') {
+            throw 'Owner-drawn combo boxes still risk a clipped left/top border.'
+          }
+          if ($runtimeText -notmatch '\$refreshSelectorTiles = \{') {
+            throw 'Control-layer button editor is missing live physical-button highlighting.'
+          }
+          if ($runtimeText -notmatch '\$palette\.AccentText') {
+            throw 'Pressed layer-editor button tiles do not use the active accent treatment.'
+          }
           if ([regex]::Matches($runtimeText, '\$notificationSettingsButton =').Count -ne 1) {
             throw 'Notifications button must exist exactly once in the Control layers dialog, not recursively inside notification settings.'
           }
