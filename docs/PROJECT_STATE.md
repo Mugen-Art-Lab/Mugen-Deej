@@ -668,3 +668,10 @@ A full delete/restore test was repeated twice. Schema v3 restored Adaptive layer
 This is distinct from #219's new mapping-save auto-enable behavior: restore starts XInput because the backup itself persisted it as enabled.
 
 Latest firmware diagnostics connected at cumulative `filtered=11; rapid=3` and did not increase during the restore cycles. Keep 6 ms as the current hardware-tested debounce; the non-zero cumulative counters are observations, not currently correlated with any visible gameplay fault.
+
+
+## #219 encoder responsiveness — real-machine observation
+
+Rapid encoder rotation produced dense, orderly detent updates (often roughly 11–30 ms apart) and repeated push press/release events without visible loss. No new firmware debounce diagnostics were logged during the test.
+
+The improved encoder feel is consistent with the active-XInput 5 ms desktop serial-drain cadence introduced in the low-latency path; encoder firmware itself was not changed by the 6 ms matrix debounce experiment.
