@@ -2217,3 +2217,31 @@ CI:
 - from Toggle/Encoder settings open Control layers;
 - change T1/T2 modifier checkboxes and Save;
 - on returning to the parent window, the currently selected toggle must immediately switch between ordinary ON/OFF editing and modifier-role disabled controls without requiring any extra click, physical toggle movement, profile change, or timer-triggered selection.
+
+
+## Integrated #208 — configurable layer-popup opacity
+
+User requested a transparency control for the layer-change OSD and then chose **50% as the default**.
+
+Implementation:
+- notification config now persists `opacityPercent`;
+- default for configs that do not yet contain the field is **50**;
+- accepted range is **20..100%**, step 5 in the NumericUpDown UI;
+- WinForms popup applies it through `Form.Opacity = opacityPercent / 100.0`;
+- the notification settings dialog exposes the value on the same row as the Test notification button;
+- Test notification reads the current unsaved opacity value, so opacity can be previewed before Save;
+- existing notification configs remain compatible: missing `opacityPercent` normalizes to the new 50% default;
+- Russian UI label was clarified to **«Непрозрачность, %»** so 100% unambiguously means fully opaque / 50% means half-transparent.
+
+Build progression:
+- #205, run ID `35877362618`, head `e288bc23cece65562cd72315d1cd8fd9df413195`: initial opacity implementation, initially used 100% default; SUCCESS.
+- #206, run ID `35877591036`, head `d80dc80b1e989c14e647c4b20e6c1bd0297edf5c`: changed runtime default to 50%; SUCCESS.
+- #207, run ID `35877598863`, head `482e4c8d8cfbd0e6b8873b521b17e5cbd2540d6a`: CI expectation updated to 50%; **SUCCESS**. Artifact ID `10759821067`, outer digest `sha256:fc7124106536870b4eab5a1410b361d9cb72cd334b2ad3dcbc9b8882207865c5`, inner ZIP SHA-256 `17d072f22fc62c5b6af69e7ec69e9a40d93150d2f045e906ed8b34021df4c226`.
+- #208, run ID `35878075515`, head `d9292a028ae4aeee5923096b3fef0968d434dad5`: cosmetic RU label clarification only. The workflow job reported `completed/success`, packaged/uploaded artifact ID `10759491804`, outer digest `sha256:795ef56682845abb633b923851e1d8c3aa97687d169433890b2aba35b253314d`; downloaded inner ZIP hash `7a1447112b49996e4ce678380aeb9da3ccdfaf098654d1a93a50167895f2e104` matches the package's own SHA-256 file. The connector's top-level run object was still lagging at `in_progress` while the job and artifact were already complete, so preserve that distinction in future handoffs rather than claiming a top-level conclusion that was not observed.
+
+Current source head includes the opacity feature plus the clarified label. For real-machine review verify:
+- a pre-existing layer config with no opacity field opens at 50%;
+- 20%, 50% and 100% visibly correspond to strongly transparent, half-transparent and opaque OSD;
+- Test notification reflects the value before Save;
+- Save/reopen persists the selected opacity;
+- rounded popup geometry remains intact at partial opacity.
