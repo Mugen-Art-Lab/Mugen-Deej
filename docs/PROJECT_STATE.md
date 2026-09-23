@@ -606,3 +606,14 @@ This is intentionally a conservative architecture step rather than a serial-thre
 Integrated #214 (run `35888990574`) succeeded at code head `0ff5ed1e9cf88c92d912e439eefd9ad08b0cc875`. Artifact ID `10763283919`; outer artifact ZIP SHA-256 `73bf6eb49d09c175aba2eb155d55ec45971054f539ee563ed2b51509092a35ad`; inner development ZIP SHA-256 `38a584eecf2fcff3693a8def5470256aac7278aceda276c114ed83765f39e563`.
 
 #160 remains the last broad hardware-passed baseline; #213 remains the accepted layer-editor/UI candidate; #214 is the current focused virtual-gamepad latency candidate pending real-machine gameplay testing.
+
+
+## Current backup candidate — Integrated #215
+
+Backup audit found that schema v2 predated Control layers. #215 introduces schema v3 and now covers all active prototype configuration families, including `adaptive-layers.json` and `virtual-controller.json`.
+
+Schema v3 preserves layer modifier roles, layer names, button/encoder overrides and OSD preferences, plus the virtual Xbox enabled/type setting. v1/v2 remain readable; restoring an old backup preserves newer settings that did not exist in that schema.
+
+Run #215 (`35890261732`) succeeded at code head `b54f8fa40daa91971622968966a5366ada86741d`; artifact ID `10764074848`; inner ZIP SHA-256 `efd321fa0a57a67668f409a22506af124164951bb6c073580d9d69a091fec860`.
+
+#214 low-latency gameplay changes are included in #215; #215 is the current combined latency + backup-fix candidate pending real-machine review.
