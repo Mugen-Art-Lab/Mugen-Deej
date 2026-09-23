@@ -71,6 +71,35 @@ $script:AdaptiveLayerConfig = $null
 '@
 $text = $text.Substring(0, $profileLineStart) + $stateNew + $text.Substring($profileLineEnd)
 
+$layerPopupClass = @'
+    public sealed class MugenLayerPopupForm : Form
+    {
+        protected override bool ShowWithoutActivation
+        {
+            get { return true; }
+        }
+
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams cp = base.CreateParams;
+                const int WS_EX_NOACTIVATE = 0x08000000;
+                const int WS_EX_TOOLWINDOW = 0x00000080;
+                cp.ExStyle |= WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW;
+                return cp;
+            }
+        }
+    }
+
+'@
+
+$text = Replace-LayerLiteralExactlyOnce `
+    -Text $text `
+    -OldText '    public sealed class ThemePreferenceBridge : IDisposable' `
+    -NewText ($layerPopupClass + '    public sealed class ThemePreferenceBridge : IDisposable') `
+    -Label 'add non-activating Adaptive layer popup form'
+
 $layerFunctions = @'
 function New-DefaultAdaptiveLayerConfig {
     return [pscustomobject][ordered]@{
@@ -81,6 +110,13 @@ function New-DefaultAdaptiveLayerConfig {
             t1 = ''
             t2 = ''
             both = ''
+        }
+        notification = [pscustomobject][ordered]@{
+            enabled = $false
+            topMost = $true
+            screen = ''
+            position = 'topRight'
+            durationMs = 2000
         }
         contexts = @()
     }
@@ -155,6 +191,39 @@ function ConvertTo-NormalizedAdaptiveLayerConfig {
             if ($null -ne $nameProperty) {
                 $result.names.$nameKey = ConvertTo-SafeAdaptiveLayerCustomName -Value ([string]$nameProperty.Value)
             }
+        }
+    }
+
+    if ($null -ne $Data.PSObject.Properties['notification'] -and $null -ne $Data.notification) {
+        $notification = $Data.notification
+
+        if ($null -ne $notification.PSObject.Properties['enabled']) {
+            $result.notification.enabled = [bool]$notification.enabled
+        }
+        if ($null -ne $notification.PSObject.Properties['topMost']) {
+            $result.notification.topMost = [bool]$notification.topMost
+        }
+        if ($null -ne $notification.PSObject.Properties['screen']) {
+            $result.notification.screen = ([string]$notification.screen).Trim()
+        }
+
+        $validPositions = @(
+            'topLeft','topCenter','topRight',
+            'middleLeft','center','middleRight',
+            'bottomLeft','bottomCenter','bottomRight'
+        )
+        if ($null -ne $notification.PSObject.Properties['position']) {
+            $candidatePosition = [string]$notification.position
+            if ($candidatePosition -in $validPositions) {
+                $result.notification.position = $candidatePosition
+            }
+        }
+
+        if ($null -ne $notification.PSObject.Properties['durationMs']) {
+            $duration = [int]$notification.durationMs
+            if ($duration -lt 500) { $duration = 500 }
+            if ($duration -gt 10000) { $duration = 10000 }
+            $result.notification.durationMs = $duration
         }
     }
 
@@ -472,6 +541,426 @@ function Set-AdaptiveLayerComboDisplayItems {
     finally {
         $Combo.EndUpdate()
     }
+}
+
+function Get-AdaptiveLayerNotificationScreen {
+    param($Config)
+
+    $screens = @([System.Windows.Forms.Screen]::AllScreens)
+    if ($screens.Count -le 0) { return $null }
+
+    $deviceName = ''
+    if (
+        $null -ne $Config -and
+        $null -ne $Config.PSObject.Properties['notification'] -and
+        $null -ne $Config.notification
+    ) {
+        $deviceName = ([string]$Config.notification.screen).Trim()
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($deviceName)) {
+        foreach ($screen in $screens) {
+            if ([string]$screen.DeviceName -eq $deviceName) {
+                return $screen
+            }
+        }
+    }
+
+    foreach ($screen in $screens) {
+        if ($screen.Primary) { return $screen }
+    }
+
+    return $screens[0]
+}
+
+function Get-AdaptiveLayerPopupLocation {
+    param(
+        [Parameter(Mandatory = $true)]$Screen,
+        [string]$Position,
+        [int]$Width,
+        [int]$Height
+    )
+
+    $area = $Screen.WorkingArea
+    $margin = 24
+
+    $leftX = $area.Left + $margin
+    $centerX = $area.Left + [int](($area.Width - $Width) / 2)
+    $rightX = $area.Right - $Width - $margin
+
+    $topY = $area.Top + $margin
+    $centerY = $area.Top + [int](($area.Height - $Height) / 2)
+    $bottomY = $area.Bottom - $Height - $margin
+
+    switch ($Position) {
+        'topLeft'      { return [System.Drawing.Point]::new($leftX, $topY) }
+        'topCenter'    { return [System.Drawing.Point]::new($centerX, $topY) }
+        'middleLeft'   { return [System.Drawing.Point]::new($leftX, $centerY) }
+        'center'       { return [System.Drawing.Point]::new($centerX, $centerY) }
+        'middleRight'  { return [System.Drawing.Point]::new($rightX, $centerY) }
+        'bottomLeft'   { return [System.Drawing.Point]::new($leftX, $bottomY) }
+        'bottomCenter' { return [System.Drawing.Point]::new($centerX, $bottomY) }
+        'bottomRight'  { return [System.Drawing.Point]::new($rightX, $bottomY) }
+        default        { return [System.Drawing.Point]::new($rightX, $topY) }
+    }
+}
+
+function Close-AdaptiveLayerNotification {
+    if ($null -ne $script:AdaptiveLayerPopupTimer) {
+        try {
+            $script:AdaptiveLayerPopupTimer.Stop()
+            $script:AdaptiveLayerPopupTimer.Dispose()
+        }
+        catch {}
+        $script:AdaptiveLayerPopupTimer = $null
+    }
+
+    if ($null -ne $script:AdaptiveLayerPopupForm) {
+        try {
+            if (-not $script:AdaptiveLayerPopupForm.IsDisposed) {
+                $script:AdaptiveLayerPopupForm.Close()
+                $script:AdaptiveLayerPopupForm.Dispose()
+            }
+        }
+        catch {}
+        $script:AdaptiveLayerPopupForm = $null
+    }
+}
+
+function Show-AdaptiveLayerNotification {
+    param(
+        [int]$Layer,
+        $Config = $null,
+        [switch]$Force
+    )
+
+    if ($null -eq $Config) {
+        Initialize-AdaptiveLayers
+        $Config = $script:AdaptiveLayerConfig
+    }
+
+    if (
+        $null -eq $Config -or
+        $null -eq $Config.PSObject.Properties['notification'] -or
+        $null -eq $Config.notification
+    ) {
+        return
+    }
+
+    if (-not $Force -and -not [bool]$Config.notification.enabled) {
+        return
+    }
+
+    $screen = Get-AdaptiveLayerNotificationScreen -Config $Config
+    if ($null -eq $screen) { return }
+
+    Close-AdaptiveLayerNotification
+
+    $popup = New-Object MugenDeejWindowing.MugenLayerPopupForm
+    $popup.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::None
+    $popup.ShowInTaskbar = $false
+    $popup.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
+    $popup.TopMost = [bool]$Config.notification.topMost
+    $popup.ClientSize = [System.Drawing.Size]::new(340, 104)
+    $popup.MinimumSize = $popup.Size
+    $popup.MaximumSize = $popup.Size
+    $popup.Padding = New-Object System.Windows.Forms.Padding(0)
+
+    $card = New-Object MugenDeejWindowing.MugenCardPanel
+    $card.Dock = [System.Windows.Forms.DockStyle]::Fill
+    $popup.Controls.Add($card)
+
+    $caption = New-Object System.Windows.Forms.Label
+    $caption.Text = if ($script:Language -eq 'ru') { 'Активный слой' } else { 'Active layer' }
+    $caption.Font = New-Object System.Drawing.Font('Segoe UI', 9)
+    $caption.Location = [System.Drawing.Point]::new(18, 14)
+    $caption.Size = [System.Drawing.Size]::new(300, 20)
+    $caption.ForeColor = [System.Drawing.Color]::DimGray
+    $card.Controls.Add($caption)
+
+    $name = New-Object System.Windows.Forms.Label
+    $name.Text = Get-AdaptiveLayerDisplayNameFromConfig -Config $Config -Layer $Layer
+    $name.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 18)
+    $name.Location = [System.Drawing.Point]::new(17, 38)
+    $name.Size = [System.Drawing.Size]::new(306, 43)
+    $name.AutoEllipsis = $true
+    $name.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+    $card.Controls.Add($name)
+
+    Apply-ThemeToForm -Form $popup
+
+    $position = [string]$Config.notification.position
+    $popup.Location = Get-AdaptiveLayerPopupLocation -Screen $screen -Position $position -Width $popup.Width -Height $popup.Height
+
+    $duration = [int]$Config.notification.durationMs
+    if ($duration -lt 500) { $duration = 500 }
+    if ($duration -gt 10000) { $duration = 10000 }
+
+    $timer = New-Object System.Windows.Forms.Timer
+    $timer.Interval = $duration
+    $timer.Add_Tick({
+        Close-AdaptiveLayerNotification
+    })
+
+    $script:AdaptiveLayerPopupForm = $popup
+    $script:AdaptiveLayerPopupTimer = $timer
+
+    $popup.Show()
+    $timer.Start()
+}
+
+function Get-AdaptiveLayerNotificationPositionDisplay {
+    param([string]$Position)
+
+    if ($script:Language -eq 'ru') {
+        switch ($Position) {
+            'topLeft'      { return 'Слева сверху' }
+            'topCenter'    { return 'По центру сверху' }
+            'topRight'     { return 'Справа сверху' }
+            'middleLeft'   { return 'Слева по центру' }
+            'center'       { return 'По центру' }
+            'middleRight'  { return 'Справа по центру' }
+            'bottomLeft'   { return 'Слева снизу' }
+            'bottomCenter' { return 'По центру снизу' }
+            'bottomRight'  { return 'Справа снизу' }
+        }
+    }
+
+    switch ($Position) {
+        'topLeft'      { return 'Top left' }
+        'topCenter'    { return 'Top center' }
+        'topRight'     { return 'Top right' }
+        'middleLeft'   { return 'Middle left' }
+        'center'       { return 'Center' }
+        'middleRight'  { return 'Middle right' }
+        'bottomLeft'   { return 'Bottom left' }
+        'bottomCenter' { return 'Bottom center' }
+        'bottomRight'  { return 'Bottom right' }
+        default        { return $Position }
+    }
+}
+
+function Show-AdaptiveLayerNotificationSettings {
+    param(
+        [Parameter(Mandatory = $true)]$Config,
+        [System.Windows.Forms.IWin32Window]$Owner
+    )
+
+    $workingNotification = ConvertTo-NormalizedAdaptiveLayerConfig -Data $Config
+    $workingNotification = $workingNotification.notification
+
+    $dialog = New-Object System.Windows.Forms.Form
+    $dialog.Text = if ($script:Language -eq 'ru') { 'Уведомление о смене слоя — Mugen Deej' } else { 'Layer-change notification — Mugen Deej' }
+    $dialog.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterParent
+    $dialog.ClientSize = [System.Drawing.Size]::new(700, 392)
+    $dialog.MinimumSize = [System.Drawing.Size]::new(716, 431)
+    $dialog.MaximumSize = [System.Drawing.Size]::new(716, 431)
+    $dialog.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+    $dialog.MaximizeBox = $false
+    $dialog.MinimizeBox = $false
+    $dialog.Font = $form.Font
+    Set-FormAppIcon -Form $dialog
+
+    $heading = New-Object System.Windows.Forms.Label
+    $heading.Text = if ($script:Language -eq 'ru') { 'Всплывающее уведомление' } else { 'Popup notification' }
+    $heading.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 16)
+    $heading.AutoSize = $true
+    $heading.Location = [System.Drawing.Point]::new(22, 18)
+    $dialog.Controls.Add($heading)
+
+    $notificationSettingsButton = New-Object MugenDeejWindowing.MugenButton
+    $notificationSettingsButton.Text = if ($script:Language -eq 'ru') { 'Уведомления…' } else { 'Notifications…' }
+    $notificationSettingsButton.Location = [System.Drawing.Point]::new(650, 18)
+    $notificationSettingsButton.Size = [System.Drawing.Size]::new(185, 32)
+    $notificationSettingsButton.Add_Click({
+        & $syncLayerNamesToWorking
+        Show-AdaptiveLayerNotificationSettings -Config $working -Owner $dialog
+    })
+    $dialog.Controls.Add($notificationSettingsButton)
+
+    $hint = New-Object System.Windows.Forms.Label
+    $hint.Text = if ($script:Language -eq 'ru') {
+        'Показывает имя активного слоя при переключении T1/T2. Экран и позиция выбираются отдельно для многомониторной системы.'
+    }
+    else {
+        'Shows the active layer name when T1/T2 changes. Choose a specific display and anchor for multi-monitor setups.'
+    }
+    $hint.ForeColor = [System.Drawing.Color]::DimGray
+    $hint.Location = [System.Drawing.Point]::new(25, 57)
+    $hint.Size = [System.Drawing.Size]::new(650, 42)
+    $dialog.Controls.Add($hint)
+
+    $card = New-Object MugenDeejWindowing.MugenGroupBox
+    $card.Text = if ($script:Language -eq 'ru') { 'Параметры' } else { 'Options' }
+    $card.Location = [System.Drawing.Point]::new(22, 110)
+    $card.Size = [System.Drawing.Size]::new(656, 210)
+    $dialog.Controls.Add($card)
+
+    $enabledCheck = New-Object System.Windows.Forms.CheckBox
+    $enabledCheck.Text = if ($script:Language -eq 'ru') { 'Показывать уведомление при смене слоя' } else { 'Show a notification when the layer changes' }
+    $enabledCheck.AutoSize = $true
+    $enabledCheck.Location = [System.Drawing.Point]::new(16, 30)
+    $enabledCheck.Checked = [bool]$workingNotification.enabled
+    $card.Controls.Add($enabledCheck)
+
+    $topMostCheck = New-Object System.Windows.Forms.CheckBox
+    $topMostCheck.Text = if ($script:Language -eq 'ru') { 'Показывать поверх окон' } else { 'Show above other windows' }
+    $topMostCheck.AutoSize = $true
+    $topMostCheck.Location = [System.Drawing.Point]::new(350, 30)
+    $topMostCheck.Checked = [bool]$workingNotification.topMost
+    $card.Controls.Add($topMostCheck)
+
+    $screenLabel = New-Object System.Windows.Forms.Label
+    $screenLabel.Text = if ($script:Language -eq 'ru') { 'Экран' } else { 'Display' }
+    $screenLabel.Location = [System.Drawing.Point]::new(16, 72)
+    $screenLabel.Size = [System.Drawing.Size]::new(90, 25)
+    $screenLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+    $card.Controls.Add($screenLabel)
+
+    $screenCombo = New-Object MugenDeejWindowing.MugenComboBox
+    $screenCombo.DropDownStyle = 'DropDownList'
+    $screenCombo.Location = [System.Drawing.Point]::new(105, 70)
+    $screenCombo.Size = [System.Drawing.Size]::new(525, 30)
+    $card.Controls.Add($screenCombo)
+
+    $screenMap = New-Object System.Collections.ArrayList
+    $screens = @([System.Windows.Forms.Screen]::AllScreens)
+    $screenSelected = 0
+    for ($i = 0; $i -lt $screens.Count; $i++) {
+        $screen = $screens[$i]
+        $bounds = $screen.Bounds
+        $primarySuffix = if ($screen.Primary) {
+            $(if ($script:Language -eq 'ru') { ' · основной' } else { ' · primary' })
+        }
+        else { '' }
+
+        $label = '{0}. {1} · {2}x{3}{4}' -f ($i + 1), $screen.DeviceName, $bounds.Width, $bounds.Height, $primarySuffix
+        [void]$screenCombo.Items.Add($label)
+        [void]$screenMap.Add([string]$screen.DeviceName)
+
+        if (
+            -not [string]::IsNullOrWhiteSpace([string]$workingNotification.screen) -and
+            [string]$workingNotification.screen -eq [string]$screen.DeviceName
+        ) {
+            $screenSelected = $i
+        }
+        elseif ([string]::IsNullOrWhiteSpace([string]$workingNotification.screen) -and $screen.Primary) {
+            $screenSelected = $i
+        }
+    }
+    if ($screenCombo.Items.Count -gt 0) { $screenCombo.SelectedIndex = $screenSelected }
+
+    $positionLabel = New-Object System.Windows.Forms.Label
+    $positionLabel.Text = if ($script:Language -eq 'ru') { 'Положение' } else { 'Position' }
+    $positionLabel.Location = [System.Drawing.Point]::new(16, 116)
+    $positionLabel.Size = [System.Drawing.Size]::new(90, 25)
+    $positionLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+    $card.Controls.Add($positionLabel)
+
+    $positionCombo = New-Object MugenDeejWindowing.MugenComboBox
+    $positionCombo.DropDownStyle = 'DropDownList'
+    $positionCombo.Location = [System.Drawing.Point]::new(105, 114)
+    $positionCombo.Size = [System.Drawing.Size]::new(220, 30)
+    $card.Controls.Add($positionCombo)
+
+    $positionMap = New-Object System.Collections.ArrayList
+    foreach ($position in @(
+        'topLeft','topCenter','topRight',
+        'middleLeft','center','middleRight',
+        'bottomLeft','bottomCenter','bottomRight'
+    )) {
+        [void]$positionCombo.Items.Add((Get-AdaptiveLayerNotificationPositionDisplay -Position $position))
+        [void]$positionMap.Add($position)
+    }
+    $positionSelected = $positionMap.IndexOf([string]$workingNotification.position)
+    if ($positionSelected -lt 0) { $positionSelected = 2 }
+    $positionCombo.SelectedIndex = $positionSelected
+
+    $durationLabel = New-Object System.Windows.Forms.Label
+    $durationLabel.Text = if ($script:Language -eq 'ru') { 'Показывать, сек' } else { 'Duration, sec' }
+    $durationLabel.Location = [System.Drawing.Point]::new(350, 116)
+    $durationLabel.Size = [System.Drawing.Size]::new(120, 25)
+    $durationLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+    $card.Controls.Add($durationLabel)
+
+    $durationBox = New-Object System.Windows.Forms.NumericUpDown
+    $durationBox.DecimalPlaces = 1
+    $durationBox.Increment = [decimal]0.5
+    $durationBox.Minimum = [decimal]0.5
+    $durationBox.Maximum = [decimal]10.0
+    $durationBox.Location = [System.Drawing.Point]::new(480, 115)
+    $durationBox.Size = [System.Drawing.Size]::new(100, 26)
+    $durationBox.Value = [decimal]([double]$workingNotification.durationMs / 1000.0)
+    $card.Controls.Add($durationBox)
+
+    $testButton = New-Object MugenDeejWindowing.MugenButton
+    $testButton.Text = if ($script:Language -eq 'ru') { 'Тест уведомления' } else { 'Test notification' }
+    $testButton.Location = [System.Drawing.Point]::new(440, 160)
+    $testButton.Size = [System.Drawing.Size]::new(190, 34)
+    $card.Controls.Add($testButton)
+
+    $readControls = {
+        $workingNotification.enabled = [bool]$enabledCheck.Checked
+        $workingNotification.topMost = [bool]$topMostCheck.Checked
+
+        $screenIndex = [int]$screenCombo.SelectedIndex
+        if ($screenIndex -ge 0 -and $screenIndex -lt $screenMap.Count) {
+            $workingNotification.screen = [string]$screenMap[$screenIndex]
+        }
+
+        $positionIndex = [int]$positionCombo.SelectedIndex
+        if ($positionIndex -ge 0 -and $positionIndex -lt $positionMap.Count) {
+            $workingNotification.position = [string]$positionMap[$positionIndex]
+        }
+
+        $workingNotification.durationMs = [int]([decimal]$durationBox.Value * 1000)
+    }
+
+    $testButton.Add_Click({
+        & $readControls
+        $previewConfig = ConvertTo-NormalizedAdaptiveLayerConfig -Data $Config
+        $previewConfig.notification = $workingNotification
+        $previewLayer = Get-AdaptiveLayerIndex
+        Show-AdaptiveLayerNotification -Layer $previewLayer -Config $previewConfig -Force
+    })
+
+    $cancel = New-Object MugenDeejWindowing.MugenButton
+    $cancel.Text = Get-ButtonFeatureText -Key 'Cancel'
+    $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+    $cancel.Location = [System.Drawing.Point]::new(450, 340)
+    $cancel.Size = [System.Drawing.Size]::new(105, 36)
+    $dialog.Controls.Add($cancel)
+
+    $save = New-Object MugenDeejWindowing.MugenButton
+    $save.Text = Get-ButtonFeatureText -Key 'Save'
+    $save.Tag = 'MugenPrimary'
+    $save.Location = [System.Drawing.Point]::new(568, 340)
+    $save.Size = [System.Drawing.Size]::new(108, 36)
+    $dialog.Controls.Add($save)
+
+    $save.Add_Click({
+        & $readControls
+        $Config.notification = $workingNotification
+        $dialog.DialogResult = [System.Windows.Forms.DialogResult]::OK
+        $dialog.Close()
+    })
+
+    Apply-ThemeToForm -Form $dialog
+    $dialog.AcceptButton = $save
+    $dialog.CancelButton = $cancel
+
+    $dialog.Add_Shown({
+        Ensure-FormVisible -Form $dialog -CenterIfOffscreen
+    })
+
+    if ($null -eq $Owner) {
+        [void]$dialog.ShowDialog($form)
+    }
+    else {
+        [void]$dialog.ShowDialog($Owner)
+    }
+
+    if (-not $dialog.IsDisposed) { $dialog.Dispose() }
 }
 
 function Get-AdaptiveLayerIndexFromValues {
@@ -1747,6 +2236,8 @@ $latestTogglesNew = @'
             (Get-AdaptiveLayerDisplayName -Layer $oldLayer),
             (Get-AdaptiveLayerDisplayName -Layer $newLayer)
         ) 'INFO'
+
+        Show-AdaptiveLayerNotification -Layer $newLayer
 
         # The virtual-controller profile context includes the active layer.
         # Force a boundary check so a held XInput mapping is neutralized and
