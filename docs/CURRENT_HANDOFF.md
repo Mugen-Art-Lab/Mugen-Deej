@@ -2500,3 +2500,19 @@ Acceptance:
 One isolated startup warning reported a mismatched Adaptive packet shape (`expected=adaptive:5:28:2:1; got=adaptive:5:45:4:2`). It occurred shortly after connection/probe, was rejected by the existing shape guard, did not disconnect the controller, and did not recur during the gameplay interval. Treat as a separate protocol-startup robustness observation rather than a debounce failure.
 
 The 6 ms Cardboard Nano matrix debounce is now the current hardware-tested value for this panel.
+
+
+## #219 backup schema v3 + restored XInput — real-machine PASS
+
+User performed a destructive restore test on #219 twice: first restoring into a fresh/default configuration, then deleting settings and restoring the same backup again.
+
+Both runs confirmed schema v3 behavior on the real machine:
+- Adaptive layer config restored with `contexts=1` and the expected modifier role;
+- virtual-controller config restored with `enabled=True; type=xbox360`;
+- after the mandatory restart, `adaptive-layers.json` loaded before controller use;
+- the virtual-controller helper started automatically because the restored backup had XInput enabled;
+- switching into the Game layer then used the restored layer context as expected.
+
+Important nuance: in this restore case XInput does not need the #219 “mapping-save auto-enable” fallback. Schema v3 restores the persisted `enabled=True` setting, so the helper starts during normal post-restore startup. #219’s auto-enable path remains useful for a different case: the user manually has XInput Off and then configures a new virtual Xbox mapping in Control layers.
+
+The same log also showed firmware debounce counters at `filtered=11; rapid=3` on connection. Those values remained unchanged across the subsequent restart/restore cycles. Because the counters are cumulative from firmware boot, these events happened earlier in the MCU session; no new debounce diagnostic events were observed during the two restore checks. Gameplay had already been reported as clean and gamepad-fast, so this does not currently indicate an observed input fault.
