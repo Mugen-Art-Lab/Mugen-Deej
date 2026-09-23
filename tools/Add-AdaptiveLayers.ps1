@@ -120,7 +120,7 @@ function New-DefaultAdaptiveLayerConfig {
             screen = ''
             position = 'topRight'
             durationMs = 2000
-            opacityPercent = 100
+            opacityPercent = 50
         }
         contexts = @()
     }
