@@ -2104,3 +2104,36 @@ Real-machine acceptance for #200:
 - while Button/Toggle/Encoder settings or Control layers is open, press controls that already have side-effect assignments and confirm they still select/update the UI but do not launch programs, send hotkeys, run commands, or produce XInput;
 - close a dialog while a physical button is still held and confirm the held control does not fire immediately on close; it should become eligible again only after release and a new press;
 - for a layer button mapped to Virtual Xbox, confirm that outside settings it stays held for exactly as long as the physical button; ordinary non-Xbox actions are expected to execute once on the press edge.
+
+
+## Integrated #202 — held physical button now remains visibly held in Control layers
+
+A follow-up clarification after #200 isolated the reported "button releases itself" symptom to the **Control layers editor UI**, not to action execution or the physical input state:
+
+- in the normal physical-button action editor, pressing a hardware button selects it and the tile stays accent-filled for the entire physical hold;
+- in Control layers, the same physical press selected the button but the accent fill only flashed briefly, then disappeared even while the button was still physically held.
+
+This distinction is important: it confirms the raw `$script:LatestButtons` held state is available and the defect is specifically in the layer editor's visual refresh path.
+
+Root cause/fix direction:
+- #196 introduced a derived per-tile visual-state cache to stop the earlier 40 ms repaint flicker;
+- that cache could remain at a logical `pressed` key even after another WinForms/theming repaint had restored the tile's visible colors, so subsequent timer ticks skipped the repaint and the held indication appeared to vanish;
+- #202 removes that derived visual-key cache;
+- each 40 ms layer-editor tick now derives the desired fill/text/border directly from the current raw physical state and selected index;
+- to avoid reintroducing the old flicker, it changes a tile property only when the actual color differs from the desired color. Thus the refresh remains idempotent while a held button is continuously revalidated.
+
+Expected layer-editor behavior now matches the normal button editor:
+- physical hold => accent fill remains for the entire hold;
+- selected button => accent border remains independently of held state;
+- release => fill returns to normal while selection border stays on the selected button.
+
+CI:
+- run **#201**, run ID `35872122953`, head `b36ec287b31947f6acdd4edf57bbaa7c84c8f26b` — FAILED only because the previous CI still required the now-removed visual-state cache; staging succeeded;
+- run **#202**, run ID `35872128306` — **SUCCESS**;
+- built code head `c4969766a82e352d9d65dc5b1d46c87d06e73e97`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-202`, ID `10755203600`;
+- outer Actions digest `sha256:a08846faa88115b3a67a3948a5e19c234269601f987960fe575206b67209d54b`;
+- inner program ZIP SHA-256 `4fb97c45235f38f46386ad6cd49d11d853d0f303e224985630268c5353ebc138`;
+- staging, Windows PowerShell 5.1 parse/runtime assertions, launcher/helper build, packaging and upload: PASS.
+
+#202 supersedes #200 as the current focused layer/UI hardware-review candidate. The immediate acceptance check is simply to open Control layers, press and hold several physical buttons, and confirm each selected tile remains accent-filled until the physical release without flickering.
