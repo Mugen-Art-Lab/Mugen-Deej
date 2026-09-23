@@ -637,3 +637,16 @@ Two counters distinguish filtered raw chatter from potentially escaped rapid acc
 Run #218 (`35895588926`) succeeded at code head `4693b969237506ad1810aab4ea665b2454cafab9`; artifact ID `10766931651`; inner ZIP SHA-256 `2b631327b0a37426084749ec7e81a106948f74f98ff2338171aa93c9bb24ffdc`.
 
 The dev ZIP now bundles the exact matching firmware sketch under `firmware\MugenDeejCardboardNanoPrototype`.
+
+
+## #218 responsiveness — real-machine PASS; bounce safety pending log
+
+After flashing the 6 ms Cardboard Nano firmware, Cult of the Lamb rapid left/right alternation was reported to feel effectively instantaneous and comparable to the real gamepad. The remaining responsiveness gap seen with the older 18 ms firmware is therefore closed subjectively.
+
+Keep #218 diagnostics enabled until a gameplay log is reviewed; `rapid` counter behavior is still needed before declaring 6 ms electrically safe for the tested panel.
+
+## Current combined candidate — Integrated #219
+
+#219 keeps the #218 firmware/latency behavior and fixes the Control layers UX trap where Xbox mappings could be saved while XInput stayed Off. Saving a newly configured virtual gamepad layer action now auto-enables XInput, but unrelated edits respect an explicit manual Off.
+
+Run #219 (`35897242734`) succeeded at code head `9015586d6900a1e1f01951576e05edf0386d5f5b`; artifact ID `10766763919`; inner ZIP SHA-256 `c4cbb599765206e7bcbfcb765292ec971c4cd0092a05d08603b073b9899f7e9a`.
