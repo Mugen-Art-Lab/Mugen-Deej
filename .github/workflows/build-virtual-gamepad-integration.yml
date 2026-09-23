@@ -507,9 +507,6 @@ jobs:
           if ($runtimeText -notmatch 'Adaptive mapped action suppressed while a modal Mugen dialog is open') {
             throw 'Adaptive toggle/encoder dispatch does not use the modal-dialog safety gate.'
           }
-          if ($integrationText -notmatch 'Virtual controller input suspended while a modal Mugen dialog is open') {
-            throw 'Stateful virtual-controller output is not neutralized while modal dialogs are open.'
-          }
           if ($runtimeText -notmatch 'modifier.+layer.+encoder.+left/right and push') {
             throw 'Toggle/encoder settings still use the compact guidance copy.'
           }
@@ -747,6 +744,9 @@ jobs:
 
           $integrationModule = '.\artifacts\Mugen-Deej-VirtualGamepad-Integrated-Dev\virtual-gamepad\MugenDeej.VirtualGamepad.ps1'
           $integrationText = [System.IO.File]::ReadAllText((Resolve-Path $integrationModule), [System.Text.Encoding]::UTF8)
+          if ($integrationText -notmatch 'Virtual controller input suspended while a modal Mugen dialog is open') {
+            throw 'Stateful virtual-controller output is not neutralized while modal dialogs are open.'
+          }
           if ($integrationText -notmatch 'Virtual gamepad main toggle failed') {
             throw 'Integration module is missing the standalone main-window XInput toggle.'
           }
