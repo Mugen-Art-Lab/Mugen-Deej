@@ -2460,3 +2460,26 @@ Real-machine test:
 6. `filtered` increasing mildly means the shorter debounce is actively filtering contact chatter; `rapid` increasing repeatedly on the same contact is the more important warning that 6 ms may be too aggressive.
 
 #216 remains the accepted desktop rapid-repeat/low-latency basis; #218 changes the firmware debounce experiment and parser diagnostics on top of it.
+
+
+## Real-machine result — #218 6 ms matrix debounce feels gamepad-fast
+
+User flashed the #218 Cardboard Nano firmware and tested it in Cult of the Lamb. Subjective gameplay result: the remaining directional latency gap disappeared; rapid left/right alternation now feels effectively instantaneous and can be spammed at real-gamepad speed.
+
+This is a real-machine **responsiveness PASS** for the 6 ms matrix-debounce experiment.
+
+Bounce-safety acceptance is still pending the matching #218 diagnostic log. The firmware counters remain the deciding signal:
+- `filtered` may increase mildly without indicating a gameplay fault;
+- repeated growth of `rapid`, especially on the same B1..B28/T1/T2 contact, would indicate that 6 ms is too aggressive.
+
+## Integrated #219 — auto-enable XInput after configuring a layer gamepad action
+
+A UX issue was found while reconfiguring layers after backup restore: Control layers allowed Xbox mappings to be assigned while XInput remained Off, so the mapping looked correct but produced no virtual-gamepad output until the user separately remembered to enable XInput.
+
+#219 fixes that flow:
+- if the user actually configures an Xbox virtual-gamepad action during the current Control layers editing session and saves, XInput is automatically enabled;
+- the saved layer state is immediately reconciled through `Sync-MugenVirtualGamepadState`;
+- unrelated layer edits do not re-enable XInput after the user explicitly turned it Off, because auto-enable is guarded by a per-session `VirtualMappingConfigured` intent flag;
+- the #218 6 ms firmware/diagnostics remain unchanged and are bundled in the package.
+
+CI run **#219** (run ID `35897242734`) succeeded at code head `9015586d6900a1e1f01951576e05edf0386d5f5b`. Artifact `Mugen-Deej-VirtualGamepad-Integrated-219`, ID `10766763919`; outer digest `sha256:1c27fd12212953c3042a39d5e9eedb98ef27462b06ef0a5f5f2a9334461d6d28`; inner ZIP SHA-256 `c4cbb599765206e7bcbfcb765292ec971c4cd0092a05d08603b073b9899f7e9a`.
