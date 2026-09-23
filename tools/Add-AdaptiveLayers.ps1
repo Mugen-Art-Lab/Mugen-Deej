@@ -2419,5 +2419,108 @@ $text = Replace-LayerLiteralExactlyOnce -Text $text -OldText @'
     $save.Location = [System.Drawing.Point]::new(692, 794)
 '@ -Label 'move Adaptive save button below shifted editor'
 
+$toggleEditorOld = @'
+            if ($state.Kind -eq 't') {
+                $selectedHeading.Text = if ($script:Language -eq 'ru') { 'Тумблер ' + ($index + 1) } else { 'Toggle ' + ($index + 1) }
+                $row1Label.Text = if ($script:Language -eq 'ru') { 'При включении' } else { 'When switched ON' }
+                $row2Label.Text = if ($script:Language -eq 'ru') { 'При выключении' } else { 'When switched OFF' }
+                $row3Label.Visible = $false
+                $row3Combo.Visible = $false
+                Populate-AdaptiveActionCombo -Combo $row1Combo -Map $state.Map1 -CurrentAction (& $getCurrentAction '1')
+                Populate-AdaptiveActionCombo -Combo $row2Combo -Map $state.Map2 -CurrentAction (& $getCurrentAction '2')
+            }
+            else {
+'@
+$toggleEditorNew = @'
+            if ($state.Kind -eq 't') {
+                $isLayerModifier = Test-AdaptiveToggleIsLayerModifier -Index $index
+                $modifierLayer = if ($index -eq 0) { 1 } elseif ($index -eq 1) { 2 } else { 0 }
+                $modifierLayerName = if ($modifierLayer -gt 0) {
+                    Get-AdaptiveLayerDisplayName -Layer $modifierLayer
+                }
+                else { '' }
+
+                $selectedHeading.Text = if ($script:Language -eq 'ru') {
+                    'Тумблер ' + ($index + 1) + $(if ($isLayerModifier) { ' · модификатор слоя ' + $modifierLayerName } else { '' })
+                }
+                else {
+                    'Toggle ' + ($index + 1) + $(if ($isLayerModifier) { ' · layer modifier ' + $modifierLayerName } else { '' })
+                }
+
+                $row1Label.Text = if ($script:Language -eq 'ru') { 'При включении' } else { 'When switched ON' }
+                $row2Label.Text = if ($script:Language -eq 'ru') { 'При выключении' } else { 'When switched OFF' }
+                $row3Label.Visible = $false
+                $row3Combo.Visible = $false
+
+                Populate-AdaptiveActionCombo -Combo $row1Combo -Map $state.Map1 -CurrentAction (& $getCurrentAction '1')
+                Populate-AdaptiveActionCombo -Combo $row2Combo -Map $state.Map2 -CurrentAction (& $getCurrentAction '2')
+
+                $row1Combo.Enabled = (-not $isLayerModifier)
+                $row2Combo.Enabled = (-not $isLayerModifier)
+
+                $editorHint.Text = if ($isLayerModifier) {
+                    if ($script:Language -eq 'ru') {
+                        'Этот тумблер переключает слой «' + $modifierLayerName + '». Обычные действия ВКЛ/ВЫКЛ не выполняются. Изменить роль можно в «Слои управления…».'
+                    }
+                    else {
+                        'This toggle selects the “' + $modifierLayerName + '” layer. Its normal ON/OFF actions are suppressed. Change its role in Control layers…'
+                    }
+                }
+                else {
+                    if ($script:Language -eq 'ru') {
+                        'Для обычного тумблера можно отдельно назначить действие при включении и выключении.'
+                    }
+                    else {
+                        'A normal toggle can have separate actions for ON and OFF.'
+                    }
+                }
+            }
+            else {
+                $row1Combo.Enabled = $true
+                $row2Combo.Enabled = $true
+'@
+$text = Replace-LayerLiteralExactlyOnce -Text $text -OldText $toggleEditorOld -NewText $toggleEditorNew -Label 'explain disabled ordinary actions for layer modifier toggles'
+
+$encoderHintOld = @'
+                $row3Label.Visible = $hasPush
+                $row3Combo.Visible = $hasPush
+                Populate-AdaptiveActionCombo -Combo $row1Combo -Map $state.Map1 -CurrentAction (& $getCurrentAction '1')
+'@
+$encoderHintNew = @'
+                $row3Label.Visible = $hasPush
+                $row3Combo.Visible = $hasPush
+                $row3Combo.Enabled = $true
+                $editorHint.Text = if ($script:Language -eq 'ru') {
+                    'Каждый шаг поворота энкодера выполняет назначенное действие один раз. Точка • означает, что энкодер можно ещё и нажать.'
+                }
+                else {
+                    'Each encoder step runs the assigned action once. A • means the encoder can also be pressed.'
+                }
+                Populate-AdaptiveActionCombo -Combo $row1Combo -Map $state.Map1 -CurrentAction (& $getCurrentAction '1')
+'@
+$text = Replace-LayerLiteralExactlyOnce -Text $text -OldText $encoderHintOld -NewText $encoderHintNew -Label 'restore encoder help after selecting a layer modifier toggle'
+
+$liveToggleOld = @'
+        if ($state.Kind -eq 't') {
+            $isOn = (@($script:LatestToggles).Count -gt [int]$state.Index -and [int]$script:LatestToggles[[int]$state.Index] -eq 1)
+            $liveState.Text = if ($script:Language -eq 'ru') { 'Сейчас: ' + $(if ($isOn) { 'ВКЛ' } else { 'ВЫКЛ' }) } else { 'Now: ' + $(if ($isOn) { 'ON' } else { 'OFF' }) }
+        }
+'@
+$liveToggleNew = @'
+        if ($state.Kind -eq 't') {
+            $toggleIndex = [int]$state.Index
+            $isOn = (@($script:LatestToggles).Count -gt $toggleIndex -and [int]$script:LatestToggles[$toggleIndex] -eq 1)
+            $isLayerModifier = Test-AdaptiveToggleIsLayerModifier -Index $toggleIndex
+
+            $liveState.Text = if ($script:Language -eq 'ru') {
+                'Сейчас: ' + $(if ($isOn) { 'ВКЛ' } else { 'ВЫКЛ' }) + $(if ($isLayerModifier) { ' · модификатор слоя' } else { '' })
+            }
+            else {
+                'Now: ' + $(if ($isOn) { 'ON' } else { 'OFF' }) + $(if ($isLayerModifier) { ' · layer modifier' } else { '' })
+            }
+        }
+'@
+$text = Replace-LayerLiteralExactlyOnce -Text $text -OldText $liveToggleOld -NewText $liveToggleNew -Label 'show layer-modifier role in toggle live status'
+
 [System.IO.File]::WriteAllText($resolved, $text, (New-Object System.Text.UTF8Encoding($false)))
 Write-Host "Applied Adaptive toggle-layer mappings to staged runtime: $resolved"
