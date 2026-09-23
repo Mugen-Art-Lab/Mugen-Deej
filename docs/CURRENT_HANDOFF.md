@@ -1909,3 +1909,35 @@ Workflow:
 - staging, Windows PowerShell 5.1 parse/runtime assertions, windowing Add-Type compilation, launcher/helper build, packaging and upload: PASS.
 
 #185 is a hardware/UI review candidate. Real-machine acceptance should test the popup on each connected display, at several anchors, with a custom layer name, and verify that it does not take focus from a foreground application.
+
+
+## Integrated #188 — layer UI clarity + notification entry point repair
+
+Real-machine #185 exposed three UI/UX issues while the underlying layer runtime itself was working:
+
+1. the active layer name was appended to the narrow **Toggles / Тумблеры** label in the compact main status card, causing the text to wrap/clip and visually displace the heading;
+2. a toggle configured as a layer modifier still looked like a normal toggle with editable ON/OFF mappings in the typed-control settings, even though runtime intentionally suppresses those ordinary actions while modifier mode is enabled;
+3. the new Notifications button was accidentally inserted into the notification-settings dialog itself (and clipped off-screen) instead of into the Control layers dialog, so the user had no visible entry point.
+
+The real-machine log confirmed the intended modifier semantics: Toggle 1 ON/OFF transitions were detected, ordinary actions were explicitly suppressed, and the layer changed Основной -> Тест -> Основной.
+
+#188 fixes:
+- main status now keeps **Тумблеры / Toggles** untouched and creates a separate full-width **Активный слой / Active layer** row in the physical-input card;
+- the compact main layout reserves 24 px for that row only while Adaptive layers are enabled;
+- typed toggle settings detect modifier toggles, disable their ordinary ON/OFF action combos, and explicitly explain that the toggle is being used as a layer modifier;
+- live state text also marks a selected modifier toggle as such;
+- encoder selection restores the normal encoder help text and enabled action controls;
+- **Уведомления… / Notifications…** now exists exactly once, in the Control layers dialog header;
+- the accidental recursive/clipped button inside the notification-settings dialog was removed.
+
+Compatibility remains unchanged: all layer/modifier UI and behavior are Adaptive-only; Legacy/Extended stay on the established flat/profiled path.
+
+Workflow:
+- run **#188**, run ID `35858096113` — SUCCESS;
+- built code head `c479c70fc6074ebfb23e4c2ab2f0797c224ce1f7`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-188`, ID `10747704178`;
+- outer Actions digest `sha256:5cc358b5c8655f78735c3ac5c9ab889729f05a94180a776b66822134db7485e5`;
+- inner program ZIP SHA-256 `c16c815acffd86f858287a2d5cf9693c22335ea4d83fe40ec96c6bf513c4f393`;
+- staging, Windows PowerShell 5.1 parse/runtime assertions, launcher/helper build, packaging and upload: PASS.
+
+#188 is the next hardware/UI review candidate. Check main active-layer row, modifier-toggle explanation/disabled ON/OFF mappings, visible Notifications entry point, and popup positioning/focus behavior.
