@@ -2540,3 +2540,31 @@ User tested Encoder 1 with different foreground-application mappings:
 The real-machine log confirms the mapping switches with foreground focus. Before Firefox becomes active, encoder detents dispatch `system:volumeup` / `system:volumedown`. After foreground context changes to `firefox`, the same encoder immediately dispatches `mouse:wheelup` / `mouse:wheeldown`; when focus leaves Firefox, context returns to `__global__`.
 
 Fast detent sequences remain orderly across both mappings, so profile switching does not appear to degrade the low-latency encoder behavior.
+
+
+## Integrated #220 — physical-button settings hot-unplug hardening
+
+Real-machine bug discovery on #219:
+- Extended controller (6 buttons) was connected and the optimized Physical button actions dialog was open;
+- physical-button auto-selection worked by pressing the controller buttons;
+- unplugging the controller from USB while that modal dialog remained open caused an unhandled WinForms/PowerShell exception:
+  `RuntimeException: property "LastButtons" cannot be found for this object`;
+- the exception originated from a `System.Windows.Forms.Timer.OnTick` callback.
+
+The serial/recovery path itself behaved correctly: the log recorded `Serial connection lost`, armed targeted recovery, removed the COM port, and continued probing/recovery. The crash was isolated to the modal button editor's 25 ms live-selection timer.
+
+Root cause/fix:
+- the optimized editor used a very generic captured local variable named `$state` for `LastButtons`, selection state, and action-map state;
+- under nested WinForms timer/event execution during hot-unplug, the live timer could resolve a different dynamic `$state` object that did not expose `LastButtons`;
+- all editor state references are now isolated under the unique `$buttonEditorState` name;
+- the live-selection timer now explicitly short-circuits while `$script:IsConnected` is false, clears only its local button snapshot, leaves the modal editor open, and automatically resumes physical-button selection after reconnect;
+- CI rejects staged runtimes that still contain `$state.LastButtons` and verifies the hot-unplug guard.
+
+CI:
+- run **#220**, run ID `35906698320` — **SUCCESS**;
+- built code head `167fa38b5dc60eb651fe859d9ef679ef2e9634ea`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-220`, ID `10771134280`;
+- outer Actions digest `sha256:b8c624bcd298d8afebc8dbb24f7843f0034ab3c80e6d2c5ee3d5c17e77a2456f`;
+- inner program ZIP SHA-256 `6fdf609888e1166206a7f4bd0760d158a71d4c0b876d21ff6bd78a516c42306d`.
+
+Real-machine acceptance pending: reproduce the same Extended-controller scenario, leave Physical button actions open, unplug USB, then reconnect. Expected result is no JIT dialog; editor remains open/inert while disconnected and live button selection resumes after reconnect.
