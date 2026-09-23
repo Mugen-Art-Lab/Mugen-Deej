@@ -2425,3 +2425,38 @@ The stateful XInput frame is submitted before the one-shot dispatcher, so that l
 CI run **#216** (run ID `35891904212`) succeeded at code head `1d362e9f68b82328b98e095e16a2d03b342a2645`. Artifact `Mugen-Deej-VirtualGamepad-Integrated-216`, ID `10765317130`; outer artifact digest `sha256:2c1095abcedfe726bb7020b08b904755cb5a2459d4664994cd039a385e507232`; inner program ZIP SHA-256 `4904646210c93ff10d0e201ae11f9a9295d062e3cedb5df77c59d1716174ae44`.
 
 #216 is a conservative rapid-repeat candidate. It deliberately does not yet stretch or queue XInput button pulses, because the first step is to remove avoidable hot-path stalls without changing gameplay button timing semantics.
+
+
+## Integrated #218 — 6 ms matrix debounce experiment with firmware bounce diagnostics
+
+After #214/#216 real-machine gameplay testing, general XInput latency was reported as dramatically improved and attack spam behaved correctly. The remaining feel difference versus a real gamepad was fastest left/right direction alternation. The current Cardboard Nano firmware still used an 18 ms matrix debounce, which becomes visible when every direction change must wait for another accepted matrix edge.
+
+#218 is a controlled firmware-side latency experiment:
+- Cardboard Nano matrix debounce is reduced from **18 ms to 6 ms**;
+- the normal 25 ms full-state heartbeat remains unchanged, but accepted matrix changes still force an immediate packet as before;
+- firmware now tracks two cumulative debounce diagnostics without changing the 28-button/toggle mapping:
+  - **filtered** = a pending raw transition returned to the accepted state before the 6 ms debounce completed;
+  - **rapid** = an accepted matrix state reversed again within 35 ms, which is a candidate for bounce that escaped the shortened debounce window;
+- diagnostic contact mask maps bits 0..27 to B1..B28 and bits 28/29 to T1/T2;
+- Adaptive v3 accepts an optional diagnostic token `d<debounceMs>:<filteredCount>:<filteredMaskHex>:<rapidCount>:<rapidMaskHex>`;
+- diagnostics do not participate in capability/signature matching;
+- the desktop logs diagnostic activation and only logs later when counters change, including the affected contact names;
+- the exact matching Cardboard Nano sketch is bundled in the dev package at `firmware\MugenDeejCardboardNanoPrototype\MugenDeejCardboardNanoPrototype.ino`.
+
+CI:
+- run **#218**, run ID `35895588926` — **SUCCESS**;
+- built code head `4693b969237506ad1810aab4ea665b2454cafab9`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-218`, ID `10766931651`;
+- outer Actions digest `sha256:b629779765e7a4bf4962e6b1735995b2dd64b4a2d2f262c7c57be26f32ec4c4f`;
+- inner program ZIP SHA-256 `2b631327b0a37426084749ec7e81a106948f74f98ff2338171aa93c9bb24ffdc`;
+- staged runtime/PowerShell 5.1 checks, launcher/helper build, packaging and upload: PASS.
+
+Real-machine test:
+1. flash the bundled #218 Cardboard Nano sketch;
+2. launch the matching #218 desktop build;
+3. confirm the log contains `Firmware debounce diagnostics active: matrixDebounce=6 ms`;
+4. play normally and deliberately alternate left/right rapidly;
+5. send the resulting Mugen log back for review;
+6. `filtered` increasing mildly means the shorter debounce is actively filtering contact chatter; `rapid` increasing repeatedly on the same contact is the more important warning that 6 ms may be too aggressive.
+
+#216 remains the accepted desktop rapid-repeat/low-latency basis; #218 changes the firmware debounce experiment and parser diagnostics on top of it.
