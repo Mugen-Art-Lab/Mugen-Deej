@@ -75,7 +75,12 @@ const uint8_t POT_PINS[5] = {
 
 const unsigned long SERIAL_BAUD = 115200;
 const unsigned long PACKET_INTERVAL_MS = 25;
-const unsigned long MATRIX_DEBOUNCE_MS = 18;
+
+// Low-latency gameplay experiment. 18 ms was intentionally conservative for
+// the cardboard matrix; 6 ms should feel much closer to a real gamepad while
+// the counters below tell us whether the physical contacts object.
+const unsigned long MATRIX_DEBOUNCE_MS = 6;
+const unsigned long MATRIX_RAPID_REVERSAL_MS = 35;
 const unsigned long KEY_DEBOUNCE_MS = 20;
 
 // With the cardboard wiring and only the ATmega's internal pull-ups, a column
@@ -119,6 +124,18 @@ const uint8_t TOGGLE2_CELL = 1 * NUM_COLS + 7; // R2C8
 uint8_t matrixRaw[NUM_MATRIX_CELLS];
 uint8_t matrixStable[NUM_MATRIX_CELLS];
 unsigned long matrixRawChangedAt[NUM_MATRIX_CELLS];
+unsigned long matrixStableChangedAt[NUM_MATRIX_CELLS];
+
+// Debounce diagnostics are cumulative from boot. The bit layout is logical:
+// bits 0..27 = B1..B28, bit 28 = T1, bit 29 = T2. Spare matrix cells are ignored.
+//
+// filtered: a pending raw transition returned to the accepted state before 6 ms.
+// leaked:   an accepted state reversed again in under 35 ms (possible bounce that
+//           escaped the shortened debounce window).
+unsigned long matrixFilteredBounceCount = 0;
+uint32_t matrixFilteredBounceMask = 0;
+unsigned long matrixRapidReversalCount = 0;
+uint32_t matrixRapidReversalMask = 0;
 
 uint8_t keyRaw = HIGH;
 uint8_t keyStable = HIGH;
@@ -236,6 +253,26 @@ void initializeMatrix(const unsigned long now) {
     matrixRaw[i] = initial[i];
     matrixStable[i] = initial[i];
     matrixRawChangedAt[i] = now;
+    matrixStableChangedAt[i] = now;
+  }
+}
+
+int8_t getDiagnosticBitForMatrixCell(const uint8_t index) {
+  const uint8_t row = index / NUM_COLS;
+  const uint8_t col = index % NUM_COLS;
+
+  if (col < 7) {
+    return (int8_t)(row * 7 + col); // B1..B28 -> bits 0..27
+  }
+  if (index == TOGGLE1_CELL) { return 28; }
+  if (index == TOGGLE2_CELL) { return 29; }
+  return -1;
+}
+
+void markDiagnosticContact(uint32_t &mask, const uint8_t index) {
+  const int8_t bit = getDiagnosticBitForMatrixCell(index);
+  if (bit >= 0) {
+    mask |= ((uint32_t)1UL << (uint8_t)bit);
   }
 }
 
@@ -246,6 +283,17 @@ bool updateMatrix(const unsigned long now) {
 
   for (uint8_t i = 0; i < NUM_MATRIX_CELLS; ++i) {
     if (scanned[i] != matrixRaw[i]) {
+      // A transition was pending but the raw contact returned to the currently
+      // accepted state before the debounce interval completed.
+      if (
+        matrixRaw[i] != matrixStable[i] &&
+        scanned[i] == matrixStable[i] &&
+        (unsigned long)(now - matrixRawChangedAt[i]) < MATRIX_DEBOUNCE_MS
+      ) {
+        ++matrixFilteredBounceCount;
+        markDiagnosticContact(matrixFilteredBounceMask, i);
+      }
+
       matrixRaw[i] = scanned[i];
       matrixRawChangedAt[i] = now;
     }
@@ -254,7 +302,17 @@ bool updateMatrix(const unsigned long now) {
       matrixStable[i] != matrixRaw[i] &&
       (unsigned long)(now - matrixRawChangedAt[i]) >= MATRIX_DEBOUNCE_MS
     ) {
+      // If a just-accepted state reverses again almost immediately, the 6 ms
+      // window may have let contact bounce escape into the reported state.
+      if (
+        (unsigned long)(now - matrixStableChangedAt[i]) < MATRIX_RAPID_REVERSAL_MS
+      ) {
+        ++matrixRapidReversalCount;
+        markDiagnosticContact(matrixRapidReversalMask, i);
+      }
+
       matrixStable[i] = matrixRaw[i];
+      matrixStableChangedAt[i] = now;
       changed = true;
     }
   }
@@ -375,6 +433,19 @@ void sendAdaptivePacket() {
   Serial.print(positionSnapshot);
   Serial.print(':');
   Serial.print(keyStable == LOW ? 0 : 1);
+
+  // Optional Adaptive-v3 debounce diagnostic token:
+  // d<debounceMs>:<filteredCount>:<filteredMaskHex>:<rapidCount>:<rapidMaskHex>
+  Serial.print(F("|d"));
+  Serial.print(MATRIX_DEBOUNCE_MS);
+  Serial.print(':');
+  Serial.print(matrixFilteredBounceCount);
+  Serial.print(':');
+  Serial.print(matrixFilteredBounceMask, HEX);
+  Serial.print(':');
+  Serial.print(matrixRapidReversalCount);
+  Serial.print(':');
+  Serial.print(matrixRapidReversalMask, HEX);
 
   Serial.println();
 }

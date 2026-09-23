@@ -66,6 +66,7 @@ $script:LatestButtons = @()
 $script:LatestToggles = @()
 $script:LatestEncoders = @()
 $script:LastEncoderPositions = @()
+$script:AdaptiveDebounceDiagnostics = $null
 '@
 
 $text = Replace-LiteralExactlyOnce `
@@ -149,6 +150,10 @@ $newParserPrelude = @'
     # t0/t1 are logical OFF/ON states.
     # eN[:P] reports a cumulative signed detent position and optional push
     # state P using button semantics (0 pressed, 1 released).
+    #
+    # Optional low-latency firmware diagnostic:
+    #   d<debounceMs>:<filteredCount>:<filteredMaskHex>:<rapidCount>:<rapidMaskHex>
+    # It is ignored for controller capability/signature matching.
     if ([string]$parts[0] -eq 'v3') {
         if ($parts.Count -lt 2) { return $null }
 
@@ -156,6 +161,7 @@ $newParserPrelude = @'
         $adaptiveButtons = New-Object 'System.Collections.Generic.List[int]'
         $adaptiveToggles = New-Object 'System.Collections.Generic.List[int]'
         $adaptiveEncoders = New-Object System.Collections.ArrayList
+        $adaptiveDiagnostics = $null
 
         for ($partIndex = 1; $partIndex -lt $parts.Count; $partIndex++) {
             $part = [string]$parts[$partIndex]
@@ -197,6 +203,34 @@ $newParserPrelude = @'
                 continue
             }
 
+            if ($part -match '^d(\d{1,3}):(\d+):([0-9A-Fa-f]{1,8}):(\d+):([0-9A-Fa-f]{1,8})$') {
+                if ($null -ne $adaptiveDiagnostics) { return $null }
+
+                $debounceMs = 0
+                [uint64]$filteredCount = 0
+                [uint64]$rapidCount = 0
+                if (-not [int]::TryParse($Matches[1], [ref]$debounceMs)) { return $null }
+                if (-not [uint64]::TryParse($Matches[2], [ref]$filteredCount)) { return $null }
+                if (-not [uint64]::TryParse($Matches[4], [ref]$rapidCount)) { return $null }
+
+                try {
+                    [uint32]$filteredMask = [Convert]::ToUInt32($Matches[3], 16)
+                    [uint32]$rapidMask = [Convert]::ToUInt32($Matches[5], 16)
+                }
+                catch {
+                    return $null
+                }
+
+                $adaptiveDiagnostics = [pscustomobject][ordered]@{
+                    DebounceMs = $debounceMs
+                    FilteredCount = $filteredCount
+                    FilteredMask = $filteredMask
+                    RapidCount = $rapidCount
+                    RapidMask = $rapidMask
+                }
+                continue
+            }
+
             return $null
         }
 
@@ -208,6 +242,7 @@ $newParserPrelude = @'
             Buttons = @($adaptiveButtons.ToArray())
             Toggles = @($adaptiveToggles.ToArray())
             Encoders = @($adaptiveEncoders.ToArray())
+            Diagnostics = $adaptiveDiagnostics
         }
     }
 
@@ -225,15 +260,49 @@ $text = Replace-LiteralExactlyOnce `
 # ---------------------------------------------------------------------------
 
 $typedHelpersAndStatus = @'
+function Get-AdaptiveDebounceDiagnostics {
+    param([Parameter(Mandatory = $true)]$Packet)
+
+    $property = $Packet.PSObject.Properties['Diagnostics']
+    if ($null -eq $property) { return $null }
+    return $property.Value
+}
+
+function Get-AdaptiveDebounceDiagnosticContacts {
+    param([uint32]$Mask)
+
+    $labels = New-Object 'System.Collections.Generic.List[string]'
+    for ($bit = 0; $bit -lt 28; $bit++) {
+        if (($Mask -band ([uint32]1 -shl $bit)) -ne 0) {
+            $labels.Add(('B{0}' -f ($bit + 1)))
+        }
+    }
+    if (($Mask -band ([uint32]1 -shl 28)) -ne 0) { $labels.Add('T1') }
+    if (($Mask -band ([uint32]1 -shl 29)) -ne 0) { $labels.Add('T2') }
+
+    if ($labels.Count -eq 0) { return 'none' }
+    return ($labels -join ',')
+}
+
 function Initialize-AdaptiveControlStates {
     param([Parameter(Mandatory = $true)]$Packet)
 
     $script:LatestToggles = @(Get-ControllerPacketArray -Packet $Packet -Name 'Toggles')
     $script:LatestEncoders = @(Get-ControllerPacketArray -Packet $Packet -Name 'Encoders')
     $script:LastEncoderPositions = @()
+    $script:AdaptiveDebounceDiagnostics = Get-AdaptiveDebounceDiagnostics -Packet $Packet
 
     foreach ($encoder in $script:LatestEncoders) {
         $script:LastEncoderPositions += [int64]$encoder.Position
+    }
+
+    if ($null -ne $script:AdaptiveDebounceDiagnostics) {
+        Write-Log (
+            'Firmware debounce diagnostics active: matrixDebounce={0} ms; filtered={1}; rapid={2}' -f
+            [int]$script:AdaptiveDebounceDiagnostics.DebounceMs,
+            [uint64]$script:AdaptiveDebounceDiagnostics.FilteredCount,
+            [uint64]$script:AdaptiveDebounceDiagnostics.RapidCount
+        ) 'INFO'
     }
 }
 
@@ -242,6 +311,33 @@ function Update-AdaptiveControlStates {
 
     $newToggles = @(Get-ControllerPacketArray -Packet $Packet -Name 'Toggles')
     $newEncoders = @(Get-ControllerPacketArray -Packet $Packet -Name 'Encoders')
+    $newDiagnostics = Get-AdaptiveDebounceDiagnostics -Packet $Packet
+
+    if ($null -ne $newDiagnostics) {
+        $oldDiagnostics = $script:AdaptiveDebounceDiagnostics
+        $diagnosticsChanged = (
+            $null -eq $oldDiagnostics -or
+            [uint64]$newDiagnostics.FilteredCount -ne [uint64]$oldDiagnostics.FilteredCount -or
+            [uint64]$newDiagnostics.RapidCount -ne [uint64]$oldDiagnostics.RapidCount
+        )
+
+        if ($diagnosticsChanged -and $null -ne $oldDiagnostics) {
+            $filteredDelta = [int64]$newDiagnostics.FilteredCount - [int64]$oldDiagnostics.FilteredCount
+            $rapidDelta = [int64]$newDiagnostics.RapidCount - [int64]$oldDiagnostics.RapidCount
+            $contactsMask = [uint32]$newDiagnostics.FilteredMask -bor [uint32]$newDiagnostics.RapidMask
+            Write-Log (
+                'Firmware debounce diagnostic: matrixDebounce={0} ms; filtered={1} ({2:+#;-#;0}); rapid={3} ({4:+#;-#;0}); contacts={5}' -f
+                [int]$newDiagnostics.DebounceMs,
+                [uint64]$newDiagnostics.FilteredCount,
+                $filteredDelta,
+                [uint64]$newDiagnostics.RapidCount,
+                $rapidDelta,
+                (Get-AdaptiveDebounceDiagnosticContacts -Mask $contactsMask)
+            ) 'INFO'
+        }
+
+        $script:AdaptiveDebounceDiagnostics = $newDiagnostics
+    }
 
     $oldToggles = @($script:LatestToggles)
     for ($i = 0; $i -lt $newToggles.Count; $i++) {
@@ -490,6 +586,7 @@ $newCloseReset = @'
     $script:LatestToggles = @()
     $script:LatestEncoders = @()
     $script:LastEncoderPositions = @()
+    $script:AdaptiveDebounceDiagnostics = $null
 '@
 
 $text = Replace-LiteralExactlyOnce `
