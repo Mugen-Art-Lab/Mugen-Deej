@@ -2245,3 +2245,38 @@ Current source head includes the opacity feature plus the clarified label. For r
 - Test notification reflects the value before Save;
 - Save/reopen persists the selected opacity;
 - rounded popup geometry remains intact at partial opacity.
+
+
+## Integrated #209 — rebuild layer OSD as true per-pixel-alpha window
+
+Real-machine review of the new 50% OSD opacity exposed that the old rounded geometry was only superficially smooth at full opacity. At partial opacity the popup corners/edge became visibly clipped/jagged ("обкусанная"): the previous implementation combined a normal WinForms form, a rounded child card, `Form.Opacity`, and a hard `Region` clip. The alpha setting made the aliased native Region edge obvious.
+
+This mirrors an earlier Mugen Deej UI lesson: repeated Region/clipping patches are not a stable way to get smooth modern rounded geometry.
+
+#209 therefore replaces the layer popup architecture rather than adding another Region tweak:
+
+- `MugenLayerPopupForm` now uses `WS_EX_LAYERED` and Win32 `UpdateLayeredWindow`;
+- each OSD frame is rendered into a `Format32bppPArgb` bitmap with GDI+ anti-aliased rounded geometry, border and text;
+- the bitmap itself carries per-pixel alpha at the rounded edge, so the desktop shows through smoothly outside the curve instead of being chopped by a binary WinForms Region;
+- configured 20..100% opacity is applied through `BLENDFUNCTION.SourceConstantAlpha`, preserving the anti-aliased edge alpha;
+- the popup no longer creates a child `MugenCardPanel` or child Labels and no longer calls `Set-RoundedControlRegion` for the OSD;
+- no-activate / tool-window behavior, dynamic width, monitor placement, TopMost and timer lifetime are preserved;
+- theme colors and localized caption/name are passed into the layered renderer directly.
+
+CI:
+- run **#209**, run ID `35880032475` — **SUCCESS**;
+- built code head `1b162367504b07b0fb4c3fea4eb62c2a2fa9e661`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-209`, ID `10759249744`;
+- outer Actions digest `sha256:acafbd660d3a7fcfde5068de6fda8809c03765a5b5df60fef6f0c64949e12369`;
+- inner program ZIP SHA-256 `d1301f857322f29275a69f174db61d3f05852a5d82a48c4d926b3b2cde2d40ce`;
+- downloaded inner ZIP matches the packaged `.sha256`;
+- staging and Windows PowerShell 5.1 runtime/C# parse checks passed, including compilation of the new layered-window renderer; launcher/helper build, packaging and upload also passed.
+
+#209 supersedes #208 as the current OSD geometry review candidate.
+
+Real-machine acceptance:
+- test OSD at 50% first, because that exposed the defect most clearly;
+- inspect all four rounded corners and the 1 px outline against both light and dark desktop/game content;
+- compare 20%, 50% and 100% for consistent geometry (only alpha should change);
+- verify the OSD still does not steal focus and still closes on its configured timer;
+- verify dynamic width and long custom layer names still render correctly.
