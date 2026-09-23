@@ -483,6 +483,15 @@ jobs:
           if ($runtimeText -notmatch 'AdaptiveLayerStateLabel') {
             throw 'Main physical-input card is missing the dedicated active-layer status label.'
           }
+          foreach ($requiredLayerState in @(
+              '\$script:LayerStateLabel = \$null',
+              '\$script:AdaptiveLayerPopupForm = \$null',
+              '\$script:AdaptiveLayerPopupTimer = \$null'
+          )) {
+            if ($runtimeText -notmatch $requiredLayerState) {
+                throw ('Adaptive layer runtime state is not initialized for StrictMode: ' + $requiredLayerState)
+            }
+          }
           if ($runtimeText -notmatch 'Active layer: ') {
             throw 'Main active-layer status is not rendered independently from the Toggles heading.'
           }
