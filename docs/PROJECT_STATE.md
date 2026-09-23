@@ -1,6 +1,6 @@
 # Mugen Deej — living project state
 
-Last updated: 2026-09-19
+Last updated: 2026-09-24
 
 This is the authoritative short handoff for active development. Detailed prototype history is in `docs/VIRTUAL_CONTROLLER_TEST_LOG.md`; current product-integration work is in `docs/VIRTUAL_GAMEPAD_INTEGRATION.md`.
 
@@ -25,15 +25,18 @@ Hardware-tested stable behavior:
 
 ### Current active milestone
 
-Integrated **#101** is the current hardware-review build. Foreground application profiles cover ordinary momentary buttons plus Adaptive toggles/encoders, and physical buttons can now act as stateful digital Xbox stick directions (left/right stick, four cardinal directions each). Release returns the virtual axis to center; opposite directions cancel to center; Xbox buttons and stick directions are submitted as one coherent state.
+Integrated **#220** is the current hardware-tested baseline.
 
-Profile switching is based on the **effective profile**. A dedicated game profile -> unprofiled window transition becomes Game -> Global and neutralizes state. Moving between two unprofiled applications remains Global -> Global and does not reset merely because the foreground process changed. Any physical input held across a real profile boundary is suppressed until release so it cannot become a synthetic action in the new profile. This explicitly covers multi-monitor borderless-fullscreen workflows where focus changes by mouse click as well as Alt+Tab/Win+Tab.
+Recent accepted chain:
+- **#214**: 5 ms low-latency active-XInput serial drain and cached effective profile/layer resolution;
+- **#216**: rapid-repeat hot-path hardening removes avoidable synchronous logging/debounce work from virtual Xbox mappings;
+- **#218**: Cardboard Nano matrix debounce reduced to 6 ms with firmware diagnostics; real-game responsiveness and diagnostic review passed on the test panel;
+- **#219**: backup schema v3 restores Adaptive layers plus virtual-controller state, and layer Xbox mapping can auto-enable XInput when explicitly configured;
+- **#220**: Physical button actions hot-unplug hardening isolates editor state under `$buttonEditorState` and pauses its 25 ms live-selection timer while disconnected.
 
-Backward compatibility remains deliberate: Legacy has no buttons and is unchanged; Extended and Adaptive can use the same PC-side button/profile layer without firmware changes; `button-actions.json` remains Global; old #89/#90 profiles without `buttons` inherit Global; backup v1 and older v2 shapes remain accepted. Digital stick mappings are stored as ordinary button-action strings, so #101 does not require a backup schema bump.
+#220 has passed the real-machine regression that originally crashed: with the optimized Physical button actions dialog left open on the Extended 5-slider / 6-button controller, repeated USB unplug/replug cycles no longer produce the `LastButtons` WinForms/PowerShell exception. The application survives disconnect/recovery and physical input resumes after COM10 is detected again.
 
-See `docs/CURRENT_HANDOFF.md` for #101 run/artifact hashes and the exact real-machine test sequence.
-
-The first large physical cardboard panel is now wired for Uno bring-up as a 4x8 matrix: 28 momentary buttons, 2 matrix toggles, and a separate S1/S2/KEY encoder module. A dedicated Adaptive v3 sketch exposes 5 temporary software sliders + 28 buttons + 2 toggles + 1 encoder/push at 115200. Hardware validation is pending before the same wiring is migrated to Nano and real potentiometers.
+Stable `main` / v1.0.0 remains untouched. Detailed run/artifact hashes and the chronological development record live in `docs/CURRENT_HANDOFF.md`.
 
 Goal: keep Mugen Deej a generic low-cost DIY controller router while adding optional game-controller output on the PC side.
 
