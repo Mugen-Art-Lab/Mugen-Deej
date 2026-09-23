@@ -659,3 +659,12 @@ Real-machine gameplay plus the returned #218 log now support keeping the 6 ms ma
 A single early post-connect packet-shape mismatch was safely rejected and did not recur; track it separately from debounce tuning.
 
 #219 remains the current combined desktop candidate, with the same accepted 6 ms firmware plus Auto XInput-on-mapping UX.
+
+
+## #219 schema v3 restore — real-machine PASS
+
+A full delete/restore test was repeated twice. Schema v3 restored Adaptive layers and `virtualController.enabled=True`; after restart the helper started automatically and the restored Game layer was usable without manually re-enabling XInput.
+
+This is distinct from #219's new mapping-save auto-enable behavior: restore starts XInput because the backup itself persisted it as enabled.
+
+Latest firmware diagnostics connected at cumulative `filtered=11; rapid=3` and did not increase during the restore cycles. Keep 6 ms as the current hardware-tested debounce; the non-zero cumulative counters are observations, not currently correlated with any visible gameplay fault.
