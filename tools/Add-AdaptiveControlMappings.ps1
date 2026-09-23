@@ -1007,10 +1007,12 @@ function Show-AdaptiveControlSettings {
 
     $hint = New-Object System.Windows.Forms.Label
     $hint.Text = if ($script:Language -eq 'ru') {
-        'Выберите тумблер или энкодер слева — или просто воспользуйтесь им на контроллере. Для тумблера можно настроить действия при включении и выключении, для энкодера — поворот в обе стороны и, если есть, нажатие.'
+        'Выберите орган управления слева или просто воспользуйтесь им на контроллере.' + "`r`n" +
+        'Обычный тумблер — действия ВКЛ/ВЫКЛ; тумблер-модификатор — переключение слоя; энкодер — оба направления и нажатие.'
     }
     else {
-        'Choose a toggle or encoder on the left — or simply use it on the controller. A toggle can have separate ON/OFF actions; an encoder can have actions for both directions and, when available, push.'
+        'Choose a control on the left or simply use it on the controller.' + "`r`n" +
+        'A normal toggle has ON/OFF actions; a modifier toggle switches layers; an encoder has both directions and push.'
     }
     $hint.ForeColor = [System.Drawing.Color]::DimGray
     $hint.Location = [System.Drawing.Point]::new(25, 56)
