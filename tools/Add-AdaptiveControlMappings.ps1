@@ -1794,6 +1794,16 @@ $text = Replace-LiteralExactlyOnce `
     if ($ButtonIndex -lt 0) { return }
     $action = Get-ProfiledButtonAction -ButtonIndex $ButtonIndex
 
+    # Virtual Xbox mappings are stateful and were already submitted from the
+    # complete physical-button frame before edge dispatch. Do not run them
+    # through the legacy one-shot 80 ms debounce or its synchronous log path.
+    if (
+        $script:VirtualGamepadFeatureAvailable -and
+        (Test-MugenVirtualGamepadAction -Action $action)
+    ) {
+        return
+    }
+
     $now = Get-Date
 '@ `
     -Label 'resolve button press action through foreground profile'

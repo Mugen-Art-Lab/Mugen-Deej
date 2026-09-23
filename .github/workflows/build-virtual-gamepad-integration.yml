@@ -858,6 +858,12 @@ jobs:
           if ($runtimeText -notmatch '\$desiredInputInterval = if') {
             throw 'Development runtime is missing the active-XInput fast serial polling cadence.'
           }
+          if ($runtimeText -notmatch '\$xinputHotPath = \(') {
+            throw 'Development runtime still performs synchronous per-edge logging in the active XInput path.'
+          }
+          if ($runtimeText -notmatch 'Do not run them\s+# through the legacy one-shot 80 ms debounce') {
+            throw 'Development runtime still routes virtual Xbox mappings through the legacy press debounce.'
+          }
           if ($integrationText -notmatch 'Virtual gamepad.*connected') {
             throw 'Integration module is missing the stable virtual-gamepad status name/format.'
           }
@@ -1020,6 +1026,7 @@ jobs:
           Momentary-button application profiles are PC-side and work with both Extended and Adaptive controllers. Legacy controllers remain unchanged because they expose no buttons. Existing button-actions.json remains the Global fallback, and older backups/profiles without per-application button payloads continue to load through that Global path.
           Physical buttons can also hold the virtual Xbox left/right stick in any cardinal direction. Releasing the button returns that axis to center; opposite directions cancel to center. Effective profile changes neutralize all virtual state and suppress already-held physical inputs until release.
           Low-latency XInput pass: while the virtual gamepad is active, the desktop serial drain uses a 5 ms target cadence, gameplay mappings are cached outside the button hot path, and state updates are one-way to the elevated helper instead of waiting for a per-input pipe acknowledgement.
+          Rapid-repeat hardening: active XInput no longer writes every physical press/release synchronously to the log file, and virtual Xbox mappings exit the legacy press-only action dispatcher before its 80 ms debounce/logging path. This keeps rapid gameplay edges from doing avoidable filesystem work on the 5 ms serial/UI loop.
           '@
           [System.IO.File]::WriteAllText(
             (Join-Path $stage 'VIRTUAL-GAMEPAD-DEV.txt'),

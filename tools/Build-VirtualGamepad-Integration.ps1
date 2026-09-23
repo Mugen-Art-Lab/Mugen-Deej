@@ -150,6 +150,31 @@ $1
     -Label 'route stateful button frames'
 
 
+# Synchronous Add-Content on every button edge is useful for ordinary desktop
+# actions, but during gameplay it can stall the same WinForms thread that drains
+# serial input. The virtual gamepad already received the full state frame above,
+# so keep per-edge disk logging out of the active XInput hot path.
+$text = Replace-LiteralExactlyOnce `
+    -Text $text `
+    -OldText @'
+        $state = if ($newValue -eq 0) { 'pressed' } else { 'released' }
+        Write-Log ('Button {0} {1} (raw={2})' -f ($i + 1), $state, $newValue) 'INFO'
+        if ($newValue -eq 0) {
+'@ `
+    -NewText @'
+        $state = if ($newValue -eq 0) { 'pressed' } else { 'released' }
+        $xinputHotPath = (
+            $script:VirtualGamepadFeatureAvailable -and
+            $script:VirtualGamepadActive
+        )
+        if (-not $xinputHotPath) {
+            Write-Log ('Button {0} {1} (raw={2})' -f ($i + 1), $state, $newValue) 'INFO'
+        }
+        if ($newValue -eq 0) {
+'@ `
+    -Label 'remove synchronous edge logging from active XInput hot path'
+
+
 # The stable app only needs a 20 ms UI loop for audio/control-surface work. While
 # XInput is active, shorten the same safe UI-thread serial drain cadence so a
 # freshly arrived button packet spends less time waiting for the next WM_TIMER.
