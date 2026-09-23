@@ -438,3 +438,14 @@ Hardware acceptance should verify name persistence and propagation together with
 Run #185 (ID `35855451141`) succeeded at code head `45c6bf29b18bc317fa3a4393889164fd1fe08199`; artifact ID `10747820174`; outer digest `sha256:399c6be1de6ec50dcab428c653642f91ff0e044e0c98e5fb11d6b88c4a3df93d`; inner ZIP SHA-256 `977cd9f3e936d9881f29c640c4a1bb842ce60dc56ef7b75ca8dd7c1a936ba60a`.
 
 Hardware acceptance should validate monitor selection, each relevant anchor, timing, custom-name display and no-focus-steal behavior. Legacy/Extended remain outside the layer and layer-notification path.
+
+
+## Current layer hardware-review candidate — Integrated #188
+
+#185 proved that the physical T1 modifier path itself works on the real Nano controller: Toggle 1 was detected, its ordinary ON/OFF action was suppressed in modifier mode, and the active layer switched between the custom names Основной and Тест. The remaining findings were UI clarity/placement defects.
+
+#188 separates the active layer into its own main-status row, disables and explains normal ON/OFF mappings in the typed-control editor whenever the selected toggle is a modifier, and moves Notifications into the actual Control layers dialog instead of the accidentally recursive/clipped notification dialog.
+
+Run #188 (ID `35858096113`) succeeded at code head `c479c70fc6074ebfb23e4c2ab2f0797c224ce1f7`; artifact ID `10747704178`; outer digest `sha256:5cc358b5c8655f78735c3ac5c9ab889729f05a94180a776b66822134db7485e5`; inner ZIP SHA-256 `c16c815acffd86f858287a2d5cf9693c22335ea4d83fe40ec96c6bf513c4f393`.
+
+Hardware acceptance should now verify the repaired UI plus the notification OSD. #160 remains the last broad hardware-passed baseline until the complete layer feature set passes.
