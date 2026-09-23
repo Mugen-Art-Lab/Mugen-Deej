@@ -2137,3 +2137,41 @@ CI:
 - staging, Windows PowerShell 5.1 parse/runtime assertions, launcher/helper build, packaging and upload: PASS.
 
 #202 supersedes #200 as the current focused layer/UI hardware-review candidate. The immediate acceptance check is simply to open Control layers, press and hold several physical buttons, and confirm each selected tile remains accent-filled until the physical release without flickering.
+
+
+## Integrated #203 — move Control-layers button state into MugenButtonTile painting
+
+Real-machine review of #202 showed that its property-level fix still did not eliminate the visual race in **Control layers**:
+
+- the last selected button's accent border continued to flicker;
+- while a physical button was held, the full accent-filled pressed state also flickered;
+- screenshots captured both the selected-only state and the pressed accent-fill state, confirming the editor was alternating visual presentation rather than losing button selection entirely.
+
+#202 had already removed the stale derived-state cache and only changed BackColor/ForeColor/BorderColor when their actual values differed. That was still not robust enough because those public control colors can be repainted/reset independently of the layer editor's semantic selected/pressed state.
+
+#203 changes the model instead of trying another timer-side repaint workaround:
+
+1. `MugenButtonTile` now has an internal semantic-state renderer for selected/pressed tiles.
+2. The Control-layers editor feeds the raw `$script:LatestButtons` held state plus the selected index into `ApplySemanticStateTheme(...)`.
+3. `MugenButtonTile.OnPaint` chooses fill/text/border from that internal semantic state:
+   - normal = normal control surface;
+   - selected = normal fill + accent border;
+   - pressed = accent fill + accent text + accent border.
+4. `ApplySemanticStateTheme` invalidates only when the semantic state or palette actually changes. The 40 ms polling timer can therefore call it continuously without forcing a repaint every tick.
+5. Because the semantic state is owned by the tile's painter rather than inferred from mutable BackColor/BorderColor values, unrelated WinForms invalidations can repaint the control without temporarily losing the selected/pressed appearance.
+
+Workflow:
+- run **#203**, run ID `35873511506` — **SUCCESS**;
+- built code head `d027a7ef974e387677dccc2d315512e61353d7ef`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-203`, ID `10756505480`;
+- outer Actions digest `sha256:ff88663a62c1989a647b2ca398c3cf53cc427536f86439ef76794607214d1e63`;
+- inner program ZIP SHA-256 `a892a715c26187402ffb47381c39753ee89bfc84780acbc5d4cbcc72c43ae93e`;
+- downloaded artifact hash matches the packaged `.sha256` file;
+- staging, Windows PowerShell 5.1 parse/runtime assertions, windowing C# compilation, launcher/helper build, packaging and upload: PASS.
+
+#203 supersedes #202 as the current focused layer/UI review candidate.
+
+Immediate acceptance check:
+- open Control layers and leave a button selected without touching hardware: its accent border must remain perfectly steady;
+- press and hold that or another hardware button for several seconds: the accent-filled pressed state must remain perfectly steady for the entire hold;
+- release: the fill returns to normal and the selected button's accent border remains steady.
