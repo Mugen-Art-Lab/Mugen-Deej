@@ -246,12 +246,12 @@ $layerPopupClass = @'
                     using (StringFormat captionFormat = new StringFormat())
                     using (StringFormat nameFormat = new StringFormat())
                     {
-                        captionFormat.Alignment = StringAlignment.Near;
+                        captionFormat.Alignment = StringAlignment.Center;
                         captionFormat.LineAlignment = StringAlignment.Center;
                         captionFormat.Trimming = StringTrimming.EllipsisCharacter;
                         captionFormat.FormatFlags = StringFormatFlags.NoWrap;
 
-                        nameFormat.Alignment = StringAlignment.Near;
+                        nameFormat.Alignment = StringAlignment.Center;
                         nameFormat.LineAlignment = StringAlignment.Center;
                         nameFormat.Trimming = StringTrimming.EllipsisCharacter;
                         nameFormat.FormatFlags = StringFormatFlags.NoWrap;
@@ -260,7 +260,7 @@ $layerPopupClass = @'
                             captionText,
                             captionFont,
                             captionBrush,
-                            new RectangleF(18f, 11f, Math.Max(1, Width - 36), 24f),
+                            new RectangleF(14f, 9f, Math.Max(1, Width - 28), 20f),
                             captionFormat
                         );
 
@@ -268,7 +268,7 @@ $layerPopupClass = @'
                             layerText,
                             nameFont,
                             nameBrush,
-                            new RectangleF(17f, 36f, Math.Max(1, Width - 34), 49f),
+                            new RectangleF(14f, 29f, Math.Max(1, Width - 28), 42f),
                             nameFormat
                         );
                     }
@@ -901,20 +901,31 @@ function Show-AdaptiveLayerNotification {
     Close-AdaptiveLayerNotification
 
     $displayName = Get-AdaptiveLayerDisplayNameFromConfig -Config $Config -Layer $Layer
+    $captionText = if ($script:Language -eq 'ru') { 'Активный слой' } else { 'Active layer' }
     $nameFont = New-Object System.Drawing.Font('Segoe UI Semibold', 18)
+    $captionFont = New-Object System.Drawing.Font('Segoe UI', 9)
+    $measureFlags = [System.Windows.Forms.TextFormatFlags]::SingleLine -bor [System.Windows.Forms.TextFormatFlags]::NoPrefix
     $measuredName = [System.Windows.Forms.TextRenderer]::MeasureText(
         $displayName,
         $nameFont,
         [System.Drawing.Size]::new(2000, 80),
-        [System.Windows.Forms.TextFormatFlags]::SingleLine -bor [System.Windows.Forms.TextFormatFlags]::NoPrefix
+        $measureFlags
     )
-    $availablePopupWidth = [Math]::Max(260, ([int]$screen.WorkingArea.Width - 48))
+    $measuredCaption = [System.Windows.Forms.TextRenderer]::MeasureText(
+        $captionText,
+        $captionFont,
+        [System.Drawing.Size]::new(2000, 40),
+        $measureFlags
+    )
+    $contentWidth = [Math]::Max([int]$measuredName.Width, [int]$measuredCaption.Width)
+    $availablePopupWidth = [Math]::Max(170, ([int]$screen.WorkingArea.Width - 48))
     $maximumPopupWidth = [Math]::Min(620, $availablePopupWidth)
-    $minimumPopupWidth = [Math]::Min(340, $maximumPopupWidth)
+    $minimumPopupWidth = [Math]::Min(170, $maximumPopupWidth)
     $popupWidth = [Math]::Max(
         $minimumPopupWidth,
-        [Math]::Min($maximumPopupWidth, ([int]$measuredName.Width + 48))
+        [Math]::Min($maximumPopupWidth, ($contentWidth + 44))
     )
+    $popupHeight = 88
 
     $popup = New-Object MugenDeejWindowing.MugenLayerPopupForm
     $popup.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::None
@@ -924,13 +935,12 @@ function Show-AdaptiveLayerNotification {
     $opacityPercent = [int]$Config.notification.opacityPercent
     if ($opacityPercent -lt 20) { $opacityPercent = 20 }
     if ($opacityPercent -gt 100) { $opacityPercent = 100 }
-    $popup.ClientSize = [System.Drawing.Size]::new($popupWidth, 104)
+    $popup.ClientSize = [System.Drawing.Size]::new($popupWidth, $popupHeight)
     $popup.MinimumSize = $popup.Size
     $popup.MaximumSize = $popup.Size
     $popup.Padding = New-Object System.Windows.Forms.Padding(0)
 
     $palette = $script:ThemePalettes[(Get-EffectiveTheme)]
-    $captionText = if ($script:Language -eq 'ru') { 'Активный слой' } else { 'Active layer' }
     $popup.ConfigureSurface(
         $captionText,
         $displayName,
@@ -943,6 +953,7 @@ function Show-AdaptiveLayerNotification {
     )
 
     $nameFont.Dispose()
+    $captionFont.Dispose()
 
     $position = [string]$Config.notification.position
     $popup.Location = Get-AdaptiveLayerPopupLocation -Screen $screen -Position $position -Width $popup.Width -Height $popup.Height

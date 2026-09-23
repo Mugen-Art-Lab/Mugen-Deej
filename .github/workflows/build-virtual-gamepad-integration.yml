@@ -492,8 +492,23 @@ jobs:
           if ($runtimeText -notmatch '\[System\.Windows\.Forms\.TextRenderer\]::MeasureText') {
             throw 'Layer popup width is not measured from the accepted layer name.'
           }
-          if ($runtimeText -notmatch '\$popup\.ClientSize = \[System\.Drawing\.Size\]::new\(\$popupWidth, 104\)') {
-            throw 'Layer popup does not use the measured dynamic width.'
+          if ($runtimeText -notmatch '\$contentWidth = \[Math\]::Max\(\[int\]\$measuredName\.Width, \[int\]\$measuredCaption\.Width\)') {
+            throw 'Layer popup width is not driven by both caption and layer-name content.'
+          }
+          if ($runtimeText -notmatch '\$minimumPopupWidth = \[Math\]::Min\(170, \$maximumPopupWidth\)') {
+            throw 'Layer popup still uses the old oversized minimum width.'
+          }
+          if ($runtimeText -notmatch '\$popupHeight = 88') {
+            throw 'Layer popup is missing the compact adaptive height.'
+          }
+          if ($runtimeText -notmatch '\$popup\.ClientSize = \[System\.Drawing\.Size\]::new\(\$popupWidth, \$popupHeight\)') {
+            throw 'Layer popup does not use adaptive content-sized geometry.'
+          }
+          if ($runtimeText -notmatch 'captionFormat\.Alignment = StringAlignment\.Center') {
+            throw 'Layer popup caption is not centered.'
+          }
+          if ($runtimeText -notmatch 'nameFormat\.Alignment = StringAlignment\.Center') {
+            throw 'Layer popup layer name is not centered.'
           }
           if ($runtimeText -notmatch 'opacityPercent = 50') {
             throw 'Layer notification config is missing the default opacity.'
