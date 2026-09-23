@@ -2419,7 +2419,16 @@ $profileHintNew = @'
     $layerSettingsButton.Location = [System.Drawing.Point]::new(25, 211)
     $layerSettingsButton.Size = [System.Drawing.Size]::new(220, 32)
     $layerSettingsButton.Enabled = ([string]$script:ControllerProtocol -eq 'adaptive' -and [int]$script:DetectedToggleCount -gt 0 -and [int]$script:DetectedButtonCount -gt 0)
-    $layerSettingsButton.Add_Click({ Show-AdaptiveLayerSettings })
+    $layerSettingsButton.Add_Click({
+        Show-AdaptiveLayerSettings
+
+        # Control layers are saved directly into the live Adaptive layer config.
+        # Refresh this parent editor immediately after the child dialog closes so
+        # modifier roles and disabled ON/OFF actions never stay visually stale
+        # until some later click/toggle/encoder event happens to refresh them.
+        & $refreshEditor
+        & $refreshAssignmentList
+    })
     $settingsForm.Controls.Add($layerSettingsButton)
 
     $layerSettingsHint = New-Object System.Windows.Forms.Label

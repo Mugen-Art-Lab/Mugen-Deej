@@ -603,6 +603,9 @@ jobs:
           if ($runtimeText -notmatch '\$layerSettingsButton\.Location = \[System\.Drawing\.Point\]::new\(25, 211\)') {
             throw 'Adaptive Control layers button is still glued to the profile Add button.'
           }
+          if ($runtimeText -notmatch '\$layerSettingsButton\.Add_Click\(\{[\s\S]*Show-AdaptiveLayerSettings[\s\S]*& \$refreshEditor[\s\S]*& \$refreshAssignmentList') {
+            throw 'Adaptive Toggle/Encoder settings do not refresh immediately after Control layers closes.'
+          }
           if ($runtimeText -notmatch '\$profileHint\.Size = \[System\.Drawing\.Size\]::new\(770, 30\)') {
             throw 'Adaptive profile explanation is not using its own full-width row.'
           }
