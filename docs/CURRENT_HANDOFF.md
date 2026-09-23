@@ -2373,3 +2373,37 @@ Real-machine acceptance:
 - switch T1/T2/T1+T2 and profiles and confirm the sidebar follows the selected editor context;
 - click a sidebar row and confirm the corresponding numbered button becomes selected;
 - verify long human-readable gamepad/hotkey/program actions remain usable in the list (scroll/truncation is acceptable; content must not map to the wrong button).
+
+
+## Integrated #215 — universal backup schema v3 includes layers + virtual controller
+
+User noticed that a backup created from the #210-era prototype did not preserve the newly added Control layers configuration. Audit confirmed the backup schema was still v2 from before the layer subsystem existed.
+
+Persistent prototype settings are split across these active files:
+- `config.json`
+- `button-actions.json`
+- `adaptive-actions.json`
+- `adaptive-profiles.json`
+- `adaptive-layers.json`
+- `virtual-controller.json`
+
+Before #215, backup v2 already covered the first four families but omitted `adaptive-layers.json` and `virtual-controller.json`.
+
+#215 upgrades the universal backup to **schema v3**:
+- saves/restores the complete normalized Adaptive layer config, including modifier toggle roles, Base/T1/T2/T1+T2 names, per-profile/per-layer button overrides, per-layer encoder mappings, OSD enable/screen/position/duration/opacity settings;
+- saves/restores the virtual-controller config (`enabled`, `xbox360` type);
+- emergency pre-restore snapshots and rollback now include the same v3 families;
+- schema v1 and v2 backups remain readable;
+- restoring v2 deliberately preserves the current layers and virtual-controller setting because those older backups never contained them;
+- restoring v1 preserves all Adaptive-era setting families it never knew about.
+
+CI:
+- run **#215**, run ID `35890261732` — **SUCCESS**;
+- built code head `b54f8fa40daa91971622968966a5366ada86741d`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-215`, ID `10764074848`;
+- outer Actions digest `sha256:6835b86ff4ba2c66cdc982aecd2ce22def05740e85415ecd8be8b9b184905c86`;
+- inner program ZIP SHA-256 `efd321fa0a57a67668f409a22506af124164951bb6c073580d9d69a091fec860`;
+- downloaded package hash matches the packaged `.sha256`;
+- staged runtime explicitly contains schemaVersion 3, adaptiveLayers, virtualController, v3 restore logic, and v2 compatibility-preserve logic.
+
+Important: backups created by #210/#213/#214 are still schema v2 and therefore do **not** contain layer configuration. They are still valid for the older setting families. Current on-disk `adaptive-layers.json` remains the source of the user's existing layer setup until a new #215+ backup is created.
