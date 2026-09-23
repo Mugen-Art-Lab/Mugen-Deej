@@ -617,3 +617,12 @@ Schema v3 preserves layer modifier roles, layer names, button/encoder overrides 
 Run #215 (`35890261732`) succeeded at code head `b54f8fa40daa91971622968966a5366ada86741d`; artifact ID `10764074848`; inner ZIP SHA-256 `efd321fa0a57a67668f409a22506af124164951bb6c073580d9d69a091fec860`.
 
 #214 low-latency gameplay changes are included in #215; #215 is the current combined latency + backup-fix candidate pending real-machine review.
+
+
+## Current gameplay candidate — Integrated #216
+
+#214 established the low-latency XInput path and real-machine testing reported a night-and-day reduction in perceived lag. Rapid-repeat testing still exposed occasional empty-feeling presses. #216 removes synchronous physical-edge log writes from active XInput and bypasses the legacy 80 ms one-shot debounce/log path for virtual Xbox mappings after layer/profile resolution.
+
+This keeps button timing semantics unchanged while reducing UI-thread/file-I/O jitter during spam. If real-machine testing still loses repeated actions, the next targeted step is explicit repeat-edge shaping/queueing near the helper rather than another broad polling change.
+
+Run #216 (`35891904212`) succeeded at code head `1d362e9f68b82328b98e095e16a2d03b342a2645`; artifact ID `10765317130`; inner ZIP SHA-256 `4904646210c93ff10d0e201ae11f9a9295d062e3cedb5df77c59d1716174ae44`.
