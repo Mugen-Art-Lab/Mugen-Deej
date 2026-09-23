@@ -2529,3 +2529,14 @@ Observed log behavior:
 - layer modifier toggles continued to switch Base/Game cleanly and XInput profile neutralization followed those changes.
 
 This matches the user's subjective report that the encoder now feels much more immediate. The likely reason is the #214+ active-XInput 5 ms desktop serial-drain cadence: although the firmware matrix debounce change applies only to matrix buttons/toggles, the faster desktop drain consumes all Adaptive packets, including encoder position/push updates.
+
+
+## #219 application-profile encoder switching — real-machine PASS
+
+User tested Encoder 1 with different foreground-application mappings:
+- Global profile: CW/CCW = system volume up/down;
+- Firefox profile: CW/CCW = mouse wheel up/down.
+
+The real-machine log confirms the mapping switches with foreground focus. Before Firefox becomes active, encoder detents dispatch `system:volumeup` / `system:volumedown`. After foreground context changes to `firefox`, the same encoder immediately dispatches `mouse:wheelup` / `mouse:wheeldown`; when focus leaves Firefox, context returns to `__global__`.
+
+Fast detent sequences remain orderly across both mappings, so profile switching does not appear to degrade the low-latency encoder behavior.
