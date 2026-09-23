@@ -568,3 +568,14 @@ The OSD no longer relies on `Set-RoundedControlRegion` or child controls. Rounde
 Run #209 (`35880032475`) succeeded at head `1b162367504b07b0fb4c3fea4eb62c2a2fa9e661`; artifact ID `10759249744`; outer digest `sha256:acafbd660d3a7fcfde5068de6fda8809c03765a5b5df60fef6f0c64949e12369`; inner ZIP SHA-256 `d1301f857322f29275a69f174db61d3f05852a5d82a48c4d926b3b2cde2d40ce`.
 
 #160 remains the last broad hardware-passed baseline; #209 is the current focused OSD/UI candidate.
+
+
+## Current layer OSD UX candidate — Integrated #210
+
+#209 passed the real-machine smooth-corner test at 50% opacity. The remaining UX issue was the fixed 340 px minimum width plus left-aligned caption/name, which made short layer names look lost inside a large notification card.
+
+#210 sizes the OSD from the measured caption/name content, lowers the minimum width to 170 px, reduces height to 88 px and centers both caption and layer name. Long custom names still grow the popup up to the existing maximum/monitor bound.
+
+Run #210 (`35881369823`) succeeded at head `99364f9384f84a841f9174976ee4172d7356e127`; artifact ID `10760957127`; outer digest `sha256:539409753bf18a1fc45485fc9bb5aafc17c3262ad4e8f410379caa98fbf202b5`; inner ZIP SHA-256 `bd68f313d3b111ff7e2d0f5b5f4fbcbf3e0441e7f66049cfaef0bb0389ef1922`.
+
+#160 remains the last broad hardware-passed baseline; #210 is the current focused OSD/UI candidate.
