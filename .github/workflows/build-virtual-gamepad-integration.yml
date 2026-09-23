@@ -444,6 +444,36 @@ jobs:
           if ($runtimeText -notmatch 'function Get-AdaptiveLayerDisplayNameFromConfig') {
             throw 'Adaptive UI cannot resolve custom layer display names.'
           }
+          if ($runtimeText -notmatch 'public sealed class MugenLayerPopupForm : Form') {
+            throw 'Development runtime is missing the non-activating layer popup form.'
+          }
+          if ($runtimeText -notmatch 'WS_EX_NOACTIVATE') {
+            throw 'Layer popup can steal focus because the no-activate window style is missing.'
+          }
+          if ($runtimeText -notmatch 'notification = \[pscustomobject\]\[ordered\]@\{') {
+            throw 'Adaptive layer config is missing popup notification settings.'
+          }
+          if ($runtimeText -notmatch 'function Get-AdaptiveLayerNotificationScreen') {
+            throw 'Adaptive layer popup cannot resolve a configured monitor.'
+          }
+          if ($runtimeText -notmatch '\[System\.Windows\.Forms\.Screen\]::AllScreens') {
+            throw 'Adaptive layer popup settings are not multi-monitor aware.'
+          }
+          if ($runtimeText -notmatch 'function Get-AdaptiveLayerPopupLocation') {
+            throw 'Adaptive layer popup is missing monitor-working-area positioning.'
+          }
+          if ($runtimeText -notmatch 'function Show-AdaptiveLayerNotification') {
+            throw 'Adaptive layer popup renderer is missing.'
+          }
+          if ($runtimeText -notmatch 'function Show-AdaptiveLayerNotificationSettings') {
+            throw 'Adaptive layer popup settings dialog is missing.'
+          }
+          if ($runtimeText -notmatch 'Show-AdaptiveLayerNotification -Layer \$newLayer') {
+            throw 'Adaptive layer transitions do not trigger popup notifications.'
+          }
+          if ($runtimeText -notmatch 'Test notification') {
+            throw 'Adaptive layer popup settings are missing the preview/test action.'
+          }
           if ($runtimeText -notmatch 'function Set-AdaptiveLayerComboDisplayItems') {
             throw 'Adaptive layer selectors do not share the configured display names.'
           }
