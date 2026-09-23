@@ -2483,3 +2483,20 @@ A UX issue was found while reconfiguring layers after backup restore: Control la
 - the #218 6 ms firmware/diagnostics remain unchanged and are bundled in the package.
 
 CI run **#219** (run ID `35897242734`) succeeded at code head `9015586d6900a1e1f01951576e05edf0386d5f5b`. Artifact `Mugen-Deej-VirtualGamepad-Integrated-219`, ID `10766763919`; outer digest `sha256:1c27fd12212953c3042a39d5e9eedb98ef27462b06ef0a5f5f2a9334461d6d28`; inner ZIP SHA-256 `c4cbb599765206e7bcbfcb765292ec971c4cd0092a05d08603b073b9899f7e9a`.
+
+
+## #218 6 ms debounce — real-machine diagnostics PASS
+
+User returned the #218 desktop/firmware logs after the Cult of the Lamb test where rapid left/right alternation felt effectively identical to a real gamepad.
+
+The matching firmware diagnostic channel initialized successfully at `matrixDebounce=6 ms; filtered=0; rapid=0`. Across the rest of the captured session there were no subsequent `Firmware debounce diagnostic:` counter-change records, so neither the filtered raw-reversal counter nor the accepted rapid-reversal counter increased during the test.
+
+Acceptance:
+- responsiveness: PASS;
+- filtered bounce activity: 0 observed;
+- rapid accepted reversals (<35 ms): 0 observed;
+- no evidence in this session that 6 ms is too aggressive for the tested panel.
+
+One isolated startup warning reported a mismatched Adaptive packet shape (`expected=adaptive:5:28:2:1; got=adaptive:5:45:4:2`). It occurred shortly after connection/probe, was rejected by the existing shape guard, did not disconnect the controller, and did not recur during the gameplay interval. Treat as a separate protocol-startup robustness observation rather than a debounce failure.
+
+The 6 ms Cardboard Nano matrix debounce is now the current hardware-tested value for this panel.
