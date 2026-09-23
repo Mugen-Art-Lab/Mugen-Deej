@@ -25,6 +25,7 @@ $script:VirtualGamepadLastOutputSignature = ''
 $script:VirtualGamepadLastButtonProfileKey = ''
 $script:VirtualGamepadSuppressedPhysicalButtons = @{}
 $script:VirtualGamepadLastPhysicalButtons = @()
+$script:VirtualGamepadInputSuspended = $false
 $script:VirtualGamepadLastStartFailure = [DateTime]::MinValue
 $script:VirtualGamepadStartFailureCooldownSeconds = 20
 
@@ -889,12 +890,54 @@ function Update-MugenVirtualGamepadButtonStates {
         return
     }
 
+    $inputSuspended = $false
+    try {
+        if ($null -ne (Get-Command -Name Test-MugenInputActionsSuspended -CommandType Function -ErrorAction SilentlyContinue)) {
+            $inputSuspended = [bool](Test-MugenInputActionsSuspended)
+        }
+    }
+    catch {}
+
+    if ($inputSuspended) {
+        $heldWhileModal = @{}
+        for ($i = 0; $i -lt $valuesArray.Count; $i++) {
+            if ([int]$valuesArray[$i] -eq 0) {
+                $heldWhileModal[$i] = $true
+            }
+        }
+        $script:VirtualGamepadSuppressedPhysicalButtons = $heldWhileModal
+        $script:VirtualGamepadLastPhysicalButtons = @($valuesArray)
+
+        if (-not $script:VirtualGamepadInputSuspended) {
+            $script:VirtualGamepadInputSuspended = $true
+            if ($script:VirtualGamepadActive) {
+                try {
+                    [void](Send-MugenVirtualGamepadCommand -Command 'state 0 0 0 0 0 0 0 0 0')
+                    $script:VirtualGamepadLastMask = [uint32]0
+                    $script:VirtualGamepadLastOutputSignature = '0|0|0|0|0|0|0|0|0'
+                }
+                catch {
+                    Write-Log ('Virtual controller modal-safety neutralization failed: {0}' -f $_.Exception.Message) 'WARN'
+                }
+            }
+            Write-Log ('Virtual controller input suspended while a modal Mugen dialog is open; held inputs={0}' -f $heldWhileModal.Count) 'DEBUG'
+        }
+        return
+    }
+
+    $resumingModalInput = $false
+    if ($script:VirtualGamepadInputSuspended) {
+        $script:VirtualGamepadInputSuspended = $false
+        $resumingModalInput = $true
+        Write-Log 'Virtual controller input resumed after modal Mugen dialog closed; held inputs remain suppressed until release.' 'DEBUG'
+    }
+
     if (-not (Start-MugenVirtualGamepad)) { return }
 
     # Unchanged 25 ms button heartbeats must not resolve the foreground process
     # and rebuild profile state on the UI thread. A separate 200 ms profile
     # timer retains safe focus/profile boundary behavior.
-    $physicalChanged = Test-MugenVirtualGamepadPhysicalStateChanged -Values $valuesArray
+    $physicalChanged = ($resumingModalInput -or (Test-MugenVirtualGamepadPhysicalStateChanged -Values $valuesArray))
     if (-not $physicalChanged -and -not $ForceProfileCheck) {
         return
     }

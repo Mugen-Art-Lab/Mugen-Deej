@@ -1906,10 +1906,12 @@ function Show-AdaptiveLayerSettings {
 
     $editorHint = New-Object System.Windows.Forms.Label
     $editorHint.Text = if ($script:Language -eq 'ru') {
-        '«Наследовать» использует основное назначение выбранного профиля. «Не использовать» специально отключает кнопку только в этом слое.'
+        '«Наследовать» = основное назначение; «Не использовать» = отключить в этом слое.' + "`r`n" +
+        'Обычные действия — один раз при нажатии; Xbox — удерживается вместе с кнопкой.'
     }
     else {
-        'Inherit uses the selected profile base mapping. Do nothing explicitly disables the button only in this layer.'
+        'Inherit = base mapping; Do nothing = disable only in this layer.' + "`r`n" +
+        'Regular actions fire once per press; Xbox stays held with the physical button.'
     }
     $editorHint.ForeColor = [System.Drawing.Color]::DimGray
     $editorHint.Location = [System.Drawing.Point]::new(320, 211)

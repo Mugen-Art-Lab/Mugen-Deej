@@ -687,6 +687,11 @@ function Invoke-AdaptiveMappedAction {
         [string]$Source = 'Adaptive control'
     )
 
+    if (Test-MugenInputActionsSuspended) {
+        Write-Log ('Adaptive mapped action suppressed while a modal Mugen dialog is open: {0}' -f $Source) 'DEBUG'
+        return
+    }
+
     $Action = ConvertTo-SafeAdaptiveAction -Action $Action
     if ([string]::IsNullOrWhiteSpace($Action) -or $Action -eq 'none') { return }
 
@@ -1007,12 +1012,12 @@ function Show-AdaptiveControlSettings {
 
     $hint = New-Object System.Windows.Forms.Label
     $hint.Text = if ($script:Language -eq 'ru') {
-        'Выберите орган управления слева или просто воспользуйтесь им на контроллере.' + "`r`n" +
-        'Обычный тумблер — действия ВКЛ/ВЫКЛ; тумблер-модификатор — переключение слоя; энкодер — оба направления и нажатие.'
+        'Выберите орган управления слева или используйте его на контроллере.' + "`r`n" +
+        'Тумблер — ВКЛ/ВЫКЛ; модификатор — слой; энкодер — влево/вправо и нажатие.'
     }
     else {
-        'Choose a control on the left or simply use it on the controller.' + "`r`n" +
-        'A normal toggle has ON/OFF actions; a modifier toggle switches layers; an encoder has both directions and push.'
+        'Choose a control on the left or use it on the controller.' + "`r`n" +
+        'Toggle — ON/OFF; modifier — layer; encoder — left/right and push.'
     }
     $hint.ForeColor = [System.Drawing.Color]::DimGray
     $hint.Location = [System.Drawing.Point]::new(25, 56)

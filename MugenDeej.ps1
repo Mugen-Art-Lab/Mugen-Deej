@@ -1481,6 +1481,12 @@ namespace MugenDeejWindowing
         private Color disabledBackColor;
         private bool hovered;
 
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetWindowDC(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
+
         public MugenComboBox()
         {
             DrawMode = DrawMode.OwnerDrawFixed;
@@ -1593,9 +1599,17 @@ namespace MugenDeejWindowing
         {
             if (!IsHandleCreated || Width < 12 || Height < 8) return;
 
+            IntPtr hdc = IntPtr.Zero;
             try
             {
-                using (Graphics g = CreateGraphics())
+                // ComboBox owns a native non-client rim. CreateGraphics() only
+                // paints the client area, so Windows can leave different pieces
+                // of the native rim visible on different sides. Paint the full
+                // window DC after the native WM_PAINT/WM_NCPAINT pass instead.
+                hdc = GetWindowDC(Handle);
+                if (hdc == IntPtr.Zero) return;
+
+                using (Graphics g = Graphics.FromHdc(hdc))
                 {
                     g.SmoothingMode = SmoothingMode.AntiAlias;
 
@@ -1607,10 +1621,6 @@ namespace MugenDeejWindowing
                     using (SolidBrush backBrush = new SolidBrush(back))
                         g.FillRectangle(backBrush, whole);
 
-                    // Paint four exact one-pixel strips fully inside the
-                    // client area. DrawRectangle centers its stroke on the
-                    // rectangle edge, which can make opposite sides look
-                    // uneven when the native ComboBox clips the outer half.
                     int buttonWidth = Math.Min(24, Math.Max(19, Height - 2));
                     Rectangle textRect = new Rectangle(7, 1, Math.Max(1, Width - buttonWidth - 10), Height - 2);
                     string selectedText = SelectedIndex >= 0 ? GetItemText(SelectedItem) : Text;
@@ -1650,6 +1660,11 @@ namespace MugenDeejWindowing
             catch
             {
                 // Painting is cosmetic; never let it break combo-box behavior.
+            }
+            finally
+            {
+                if (hdc != IntPtr.Zero)
+                    ReleaseDC(Handle, hdc);
             }
         }
     }
@@ -7421,8 +7436,30 @@ function Clear-SoftMutesAfterControllerDisconnect {
     ) 'INFO'
 }
 
+function Test-MugenInputActionsSuspended {
+    try {
+        foreach ($openForm in @([System.Windows.Forms.Application]::OpenForms)) {
+            if (
+                $null -ne $openForm -and
+                -not $openForm.IsDisposed -and
+                $openForm.Modal
+            ) {
+                return $true
+            }
+        }
+    }
+    catch {}
+
+    return $false
+}
+
 function Invoke-ButtonAction {
     param([Parameter(Mandatory = $true)][int]$ButtonIndex)
+
+    if (Test-MugenInputActionsSuspended) {
+        Write-Log ('Button {0} mapped action suppressed while a modal Mugen dialog is open' -f ($ButtonIndex + 1)) 'DEBUG'
+        return
+    }
 
     Initialize-ButtonActions
 
