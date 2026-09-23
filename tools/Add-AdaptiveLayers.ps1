@@ -1930,11 +1930,8 @@ function Show-AdaptiveLayerSettings {
         ActionMap = New-Object System.Collections.ArrayList
         LastButtons = @($script:LatestButtons)
     }
-    $selectorVisualStates = @('') * $selectors.Count
-
     $refreshSelectorTiles = {
-        $themeKey = [string](Get-EffectiveTheme)
-        $palette = $script:ThemePalettes[$themeKey]
+        $palette = $script:ThemePalettes[[string](Get-EffectiveTheme)]
         $latest = @($script:LatestButtons)
 
         for ($tileIndex = 0; $tileIndex -lt $selectors.Count; $tileIndex++) {
@@ -1946,33 +1943,28 @@ function Show-AdaptiveLayerSettings {
                 [int]$latest[$tileIndex] -eq 0
             )
             $isSelected = ($tileIndex -eq [int]$layerButtonState.Selected)
-            $visualState = if ($isPressed) { 'pressed' } elseif ($isSelected) { 'selected' } else { 'normal' }
-            $visualKey = $themeKey + '|' + $visualState
-            if ([string]$selectorVisualStates[$tileIndex] -eq $visualKey) { continue }
 
-            if ($isPressed) {
-                $tile.ApplyTheme(
-                    $palette.Accent,
-                    $palette.AccentText,
-                    $palette.Accent
-                )
-            }
-            elseif ($isSelected) {
-                $tile.ApplyTheme(
-                    $palette.ControlHover,
-                    $palette.Text,
-                    $palette.Accent
-                )
-            }
-            else {
-                $tile.ApplyTheme(
-                    $palette.Control,
-                    $palette.Text,
-                    $palette.Border
-                )
-            }
+            # Use the same visual contract as the main physical-button editor:
+            # accent fill follows the raw held state for the entire press, while
+            # selection is an independent accent border. Do not cache a derived
+            # visual key: that cache can stay "pressed" after another WinForms
+            # repaint has already restored the tile's normal colors.
+            $targetBack = if ($isPressed) { $palette.Accent } else { $palette.Control }
+            $targetFore = if ($isPressed) { $palette.AccentText } else { $palette.Text }
+            $targetBorder = if ($isSelected -or $isPressed) { $palette.Accent } else { $palette.Border }
 
-            $selectorVisualStates[$tileIndex] = $visualKey
+            # The 40 ms timer may call this continuously while a button is held.
+            # Only touch a property when its actual color changed, so held-state
+            # correction is reliable without bringing back the old repaint flicker.
+            if ($tile.BackColor.ToArgb() -ne $targetBack.ToArgb()) {
+                $tile.BackColor = $targetBack
+            }
+            if ($tile.ForeColor.ToArgb() -ne $targetFore.ToArgb()) {
+                $tile.ForeColor = $targetFore
+            }
+            if ($tile.BorderColor.ToArgb() -ne $targetBorder.ToArgb()) {
+                $tile.BorderColor = $targetBorder
+            }
         }
     }
 
