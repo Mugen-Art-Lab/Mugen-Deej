@@ -2280,3 +2280,42 @@ Real-machine acceptance:
 - compare 20%, 50% and 100% for consistent geometry (only alpha should change);
 - verify the OSD still does not steal focus and still closes on its configured timer;
 - verify dynamic width and long custom layer names still render correctly.
+
+
+## Integrated #210 — compact content-sized centered layer OSD
+
+Real-machine review of #209 passed the important geometry change: the new per-pixel-alpha layered-window OSD is now visually smooth, including at 50% opacity.
+
+The follow-up UX observation was compositional rather than technical: although the popup was smooth, the short layer name “Основной” still appeared inside a large 340 px-wide card with both the caption and name aligned to the left. The result looked more like a generic notification panel than a compact layer OSD.
+
+#210 makes the popup visually adaptive to its content:
+
+- popup width is now calculated from the larger of the measured localized caption and measured layer-name width;
+- minimum width is reduced from 340 px to 170 px, while the existing 620 px maximum and monitor working-area bound remain;
+- horizontal content padding is 44 px, so short names produce a compact card and long custom names expand the card automatically;
+- popup height is reduced from 104 px to 88 px;
+- both “Active layer / Активный слой” and the layer name are centered in the layered renderer;
+- long names still use the same single-line ellipsis fallback only if they exceed the bounded maximum width;
+- per-pixel alpha, rounded geometry, opacity, positioning, no-focus-steal, TopMost and timer behavior are unchanged.
+
+Expected examples:
+- T1 / T2 / short names stay near the 170 px minimum;
+- “Основной”, “Стрим”, “Игры” produce a compact balanced OSD;
+- “Разработка” and longer custom names grow horizontally as needed instead of leaving large unused space.
+
+CI:
+- run **#210**, run ID `35881369823` — **SUCCESS**;
+- built code head `99364f9384f84a841f9174976ee4172d7356e127`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-210`, ID `10760957127`;
+- outer Actions digest `sha256:539409753bf18a1fc45485fc9bb5aafc17c3262ad4e8f410379caa98fbf202b5`;
+- inner program ZIP SHA-256 `bd68f313d3b111ff7e2d0f5b5f4fbcbf3e0441e7f66049cfaef0bb0389ef1922`;
+- downloaded inner ZIP matches the packaged `.sha256`;
+- staging, Windows PowerShell 5.1 parse/runtime assertions, layered-window C# compilation, launcher/helper build, packaging and upload: PASS.
+
+#210 supersedes #209 as the current OSD UX review candidate.
+
+Real-machine acceptance:
+- compare short layer names (T1, T2, “Стрим”, “Игры”) and longer names (“Разработка”, maximum custom length);
+- confirm short names produce a compact centered card rather than the previous wide left-heavy card;
+- confirm long names expand the card rather than clipping prematurely;
+- confirm smooth rounded corners at 50% opacity remain unchanged.
