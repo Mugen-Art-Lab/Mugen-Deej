@@ -2568,3 +2568,21 @@ CI:
 - inner program ZIP SHA-256 `6fdf609888e1166206a7f4bd0760d158a71d4c0b876d21ff6bd78a516c42306d`.
 
 Real-machine acceptance pending: reproduce the same Extended-controller scenario, leave Physical button actions open, unplug USB, then reconnect. Expected result is no JIT dialog; editor remains open/inert while disconnected and live button selection resumes after reconnect.
+
+## #220 real-machine hot-unplug acceptance — PASS
+
+Integrated #220 has now been exercised on the real Extended 5-slider / 6-button controller with the optimized Physical button actions dialog left open.
+
+Real-machine procedure/result:
+- physical-button live selection was confirmed before disconnect;
+- USB was unplugged and reconnected repeatedly while the modal button editor remained open;
+- no WinForms/.NET JIT exception appeared and the editor did not crash;
+- the application stayed alive through disconnect/recovery;
+- after COM10 returned, the Extended 5/6 topology was detected again and physical button input resumed;
+- the user repeated the unplug/replug cycle and again observed no crash.
+
+The captured runtime log corroborates the important recovery path: COM10 is lost while the large button-settings dialog is open, targeted recovery remains active, COM10 later reappears, the same Extended 5/6 topology is rediscovered, and button events resume. A later second disconnect is also present before the supplied log ends.
+
+Acceptance: **PASS**.
+
+#220 is now the hardware-tested baseline for Physical button actions hot-unplug behavior. Preserve the isolated `$buttonEditorState` and disconnected-timer short-circuit in subsequent editor/UI changes.
