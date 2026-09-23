@@ -68,6 +68,9 @@ $script:AdaptiveProfileConfigPath = Join-Path $script:BaseDir 'adaptive-profiles
 $script:AdaptiveLayerConfigPath = Join-Path $script:BaseDir 'adaptive-layers.json'
 $script:AdaptiveLayersLoaded = $false
 $script:AdaptiveLayerConfig = $null
+$script:LayerStateLabel = $null
+$script:AdaptiveLayerPopupForm = $null
+$script:AdaptiveLayerPopupTimer = $null
 '@
 $text = $text.Substring(0, $profileLineStart) + $stateNew + $text.Substring($profileLineEnd)
 
