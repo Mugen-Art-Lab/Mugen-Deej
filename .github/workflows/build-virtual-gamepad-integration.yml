@@ -294,8 +294,20 @@ jobs:
           if ($runtimeText -notmatch '\$sliderViews = @\(\)') {
             throw 'Development runtime is missing visual full-state control rendering.'
           }
-          if ($runtimeText -notmatch 'schemaVersion = 2') {
-            throw 'Development runtime is missing universal backup schema v2.'
+          if ($runtimeText -notmatch 'schemaVersion = 3') {
+            throw 'Development runtime is missing universal backup schema v3.'
+          }
+          if ($runtimeText -notmatch 'adaptiveLayers = \$layerConfig') {
+            throw 'Universal backup does not include Adaptive layer configuration.'
+          }
+          if ($runtimeText -notmatch 'virtualController = \$virtualConfig') {
+            throw 'Universal backup does not include virtual-controller configuration.'
+          }
+          if ($runtimeText -notmatch 'Adaptive layers restored from backup') {
+            throw 'Universal backup restore does not restore Adaptive layers.'
+          }
+          if ($runtimeText -notmatch 'Virtual controller setting restored from backup') {
+            throw 'Universal backup restore does not restore the virtual-controller setting.'
           }
           if ($runtimeText -notmatch '\$visibleEncoderCount = \[Math\]::Min\(\$encoderCount, 3\)') {
             throw 'Development runtime is missing the three-encoder compact summary limit.'
@@ -786,8 +798,11 @@ jobs:
           if ($runtimeText -notmatch 'Profiles created by #89 predate button mappings') {
             throw 'Development runtime is missing old-profile button fallback compatibility.'
           }
-          if ($runtimeText -notmatch 'Restored backup schema v1: current Adaptive mappings and application profiles were preserved') {
+          if ($runtimeText -notmatch 'Restored backup schema v1: current Adaptive mappings, application profiles, layers and virtual-controller setting were preserved') {
             throw 'Development runtime is missing old backup schema v1 compatibility.'
+          }
+          if ($runtimeText -notmatch 'Restored backup schema v2: current Adaptive layers and virtual-controller setting were preserved') {
+            throw 'Development runtime is missing backup schema v2 compatibility for newer layer settings.'
           }
           if ($runtimeText -notmatch '\$useProfiledButtonEditor = \(') {
             throw 'Development runtime does not route Extended/Adaptive button controllers through the profiled editor.'

@@ -2955,5 +2955,227 @@ $liveToggleNew = @'
 '@
 $text = Replace-LayerLiteralExactlyOnce -Text $text -OldText $liveToggleOld -NewText $liveToggleNew -Label 'show layer-modifier role in toggle live status'
 
+# Backup schema v3: v2 predated Control layers and the virtual-controller
+# setting, so a "universal" backup silently omitted the user's layer names,
+# modifier roles, per-layer button/encoder overrides, notification preferences
+# and whether the virtual Xbox gamepad was enabled.
+$text = Replace-LayerLiteralExactlyOnce -Text $text -OldText @'
+    $schema = [int]$data.schemaVersion
+    if ($schema -notin @(1, 2)) { throw ('Unsupported backup schema version: {0}' -f $schema) }
+'@ -NewText @'
+    $schema = [int]$data.schemaVersion
+    if ($schema -notin @(1, 2, 3)) { throw ('Unsupported backup schema version: {0}' -f $schema) }
+'@ -Label 'accept backup schema v3'
+
+$text = Replace-LayerLiteralExactlyOnce -Text $text -OldText @'
+    if ($schema -eq 2) {
+        if ($null -eq $data.PSObject.Properties['adaptiveActions'] -or $null -eq $data.adaptiveActions) { throw 'Backup v2 does not contain Adaptive actions.' }
+'@ -NewText @'
+    if ($schema -ge 2) {
+        if ($null -eq $data.PSObject.Properties['adaptiveActions'] -or $null -eq $data.adaptiveActions) { throw 'Backup does not contain Adaptive actions.' }
+'@ -Label 'validate Adaptive actions in backup v2 and v3'
+
+$text = Replace-LayerLiteralExactlyOnce -Text $text -OldText @'
+        if ($null -ne $data.PSObject.Properties['adaptiveProfiles'] -and $null -ne $data.adaptiveProfiles) {
+            if ($null -eq $data.adaptiveProfiles.PSObject.Properties['version'] -or [int]$data.adaptiveProfiles.version -ne 1) { throw 'Unsupported Adaptive application-profile schema in backup.' }
+            if ($null -eq $data.adaptiveProfiles.PSObject.Properties['profiles']) { throw 'Backup Adaptive application-profile list is missing.' }
+        }
+    }
+    return $data
+'@ -NewText @'
+        if ($null -ne $data.PSObject.Properties['adaptiveProfiles'] -and $null -ne $data.adaptiveProfiles) {
+            if ($null -eq $data.adaptiveProfiles.PSObject.Properties['version'] -or [int]$data.adaptiveProfiles.version -ne 1) { throw 'Unsupported Adaptive application-profile schema in backup.' }
+            if ($null -eq $data.adaptiveProfiles.PSObject.Properties['profiles']) { throw 'Backup Adaptive application-profile list is missing.' }
+        }
+
+        if ($schema -eq 3) {
+            if ($null -eq $data.PSObject.Properties['adaptiveLayers'] -or $null -eq $data.adaptiveLayers) { throw 'Backup v3 does not contain Adaptive layers.' }
+            if ($null -eq $data.adaptiveLayers.PSObject.Properties['version'] -or [int]$data.adaptiveLayers.version -ne 1) { throw 'Unsupported Adaptive layer schema in backup.' }
+
+            if ($null -eq $data.PSObject.Properties['virtualController'] -or $null -eq $data.virtualController) { throw 'Backup v3 does not contain virtual-controller settings.' }
+            if ($null -eq $data.virtualController.PSObject.Properties['configVersion'] -or [int]$data.virtualController.configVersion -ne 1) { throw 'Unsupported virtual-controller schema in backup.' }
+            if ($null -eq $data.virtualController.PSObject.Properties['enabled'] -or $null -eq $data.virtualController.PSObject.Properties['type']) { throw 'Backup virtual-controller payload is incomplete.' }
+            if ([string]$data.virtualController.type -ne 'xbox360') { throw 'Unsupported virtual-controller type in backup.' }
+        }
+    }
+    return $data
+'@ -Label 'validate layer and virtual-controller backup payloads'
+
+$text = Replace-LayerLiteralExactlyOnce -Text $text -OldText @'
+function New-MugenDeejBackupSnapshot {
+    Initialize-ButtonActions
+    Initialize-AdaptiveActions
+    Initialize-AdaptiveProfiles
+
+    $configClone = $script:Config | ConvertTo-Json -Depth 12 | ConvertFrom-Json
+'@ -NewText @'
+function New-MugenDeejBackupSnapshot {
+    Initialize-ButtonActions
+    Initialize-AdaptiveActions
+    Initialize-AdaptiveProfiles
+    Initialize-AdaptiveLayers
+    if ($script:VirtualGamepadFeatureAvailable) {
+        Initialize-MugenVirtualGamepadConfig
+    }
+
+    $configClone = $script:Config | ConvertTo-Json -Depth 12 | ConvertFrom-Json
+'@ -Label 'initialize all v3 backup setting families'
+
+$text = Replace-LayerLiteralExactlyOnce -Text $text -OldText @'
+    $typedProfiles = @(
+        $script:AdaptiveProfiles | ForEach-Object {
+            [pscustomobject][ordered]@{
+                name = [string]$_.name
+                process = [string]$_.process
+                buttons = @(Copy-AdaptiveProfileButtons -Items @($_.buttons))
+                toggles = @(Copy-AdaptiveProfileToggles -Items @($_.toggles))
+                encoders = @(Copy-AdaptiveProfileEncoders -Items @($_.encoders))
+            }
+        }
+    )
+
+    return [pscustomobject][ordered]@{
+'@ -NewText @'
+    $typedProfiles = @(
+        $script:AdaptiveProfiles | ForEach-Object {
+            [pscustomobject][ordered]@{
+                name = [string]$_.name
+                process = [string]$_.process
+                buttons = @(Copy-AdaptiveProfileButtons -Items @($_.buttons))
+                toggles = @(Copy-AdaptiveProfileToggles -Items @($_.toggles))
+                encoders = @(Copy-AdaptiveProfileEncoders -Items @($_.encoders))
+            }
+        }
+    )
+    $layerConfig = Copy-AdaptiveLayerConfig -Config $script:AdaptiveLayerConfig
+    $virtualConfig = if ($script:VirtualGamepadFeatureAvailable -and $null -ne $script:VirtualGamepadConfig) {
+        [pscustomobject][ordered]@{
+            configVersion = 1
+            enabled = [bool]$script:VirtualGamepadConfig.enabled
+            type = [string]$script:VirtualGamepadConfig.type
+        }
+    }
+    else {
+        [pscustomobject][ordered]@{
+            configVersion = 1
+            enabled = $false
+            type = 'xbox360'
+        }
+    }
+
+    return [pscustomobject][ordered]@{
+'@ -Label 'snapshot Adaptive layers and virtual-controller config'
+
+$text = Replace-LayerLiteralExactlyOnce -Text $text -OldText @'
+        format = 'MugenDeejBackup'
+        schemaVersion = 2
+'@ -NewText @'
+        format = 'MugenDeejBackup'
+        schemaVersion = 3
+'@ -Label 'write backup schema v3'
+
+$text = Replace-LayerLiteralExactlyOnce -Text $text -OldText @'
+        adaptiveActions = [pscustomobject][ordered]@{ version = 1; toggles = @($typedToggles); encoders = @($typedEncoders) }
+        adaptiveProfiles = [pscustomobject][ordered]@{ version = 1; profiles = @($typedProfiles) }
+'@ -NewText @'
+        adaptiveActions = [pscustomobject][ordered]@{ version = 1; toggles = @($typedToggles); encoders = @($typedEncoders) }
+        adaptiveProfiles = [pscustomobject][ordered]@{ version = 1; profiles = @($typedProfiles) }
+        adaptiveLayers = $layerConfig
+        virtualController = $virtualConfig
+'@ -Label 'include v3 layer and virtual-controller sections'
+
+$text = Replace-LayerLiteralExactlyOnce -Text $text -OldText @'
+    if ($schema -eq 2 -and $null -ne $backup.PSObject.Properties['sourceController']) {
+'@ -NewText @'
+    if ($schema -ge 2 -and $null -ne $backup.PSObject.Properties['sourceController']) {
+'@ -Label 'show compatibility metadata for backup v2 and v3'
+
+$text = Replace-LayerLiteralExactlyOnce -Text $text -OldText @'
+        if ($schema -eq 2) {
+            $restoredToggles = @($backup.adaptiveActions.toggles | ForEach-Object { [pscustomobject][ordered]@{ on = [string]$_.on; off = [string]$_.off } })
+'@ -NewText @'
+        if ($schema -ge 2) {
+            $restoredToggles = @($backup.adaptiveActions.toggles | ForEach-Object { [pscustomobject][ordered]@{ on = [string]$_.on; off = [string]$_.off } })
+'@ -Label 'restore Adaptive mappings from backup v2 and v3'
+
+$text = Replace-LayerLiteralExactlyOnce -Text $text -OldText @'
+            else {
+                Write-Log 'Restored older backup schema v2 without application profiles; current application profiles were preserved.' 'INFO'
+            }
+        }
+        else {
+            Write-Log 'Restored backup schema v1: current Adaptive mappings and application profiles were preserved because v1 did not contain those setting families.' 'INFO'
+        }
+
+        $script:Config = $restoredConfig
+'@ -NewText @'
+            else {
+                Write-Log 'Restored older backup without application profiles; current application profiles were preserved.' 'INFO'
+            }
+
+            if ($schema -eq 3) {
+                $restoredLayers = ConvertTo-NormalizedAdaptiveLayerConfig -Data $backup.adaptiveLayers
+                Write-AdaptiveLayerConfigFile -Path $script:AdaptiveLayerConfigPath -Config $restoredLayers
+                $script:AdaptiveLayerConfig = $restoredLayers
+                $script:AdaptiveLayersLoaded = $true
+                Write-Log ('Adaptive layers restored from backup: contexts={0}' -f @($restoredLayers.contexts).Count) 'INFO'
+
+                $script:VirtualGamepadConfig = [pscustomobject][ordered]@{
+                    configVersion = 1
+                    enabled = [bool]$backup.virtualController.enabled
+                    type = 'xbox360'
+                }
+                $script:VirtualGamepadConfigLoaded = $true
+                if ($script:VirtualGamepadFeatureAvailable) {
+                    Save-MugenVirtualGamepadConfig
+                }
+                Write-Log ('Virtual controller setting restored from backup: enabled={0}; type=xbox360' -f [bool]$script:VirtualGamepadConfig.enabled) 'INFO'
+            }
+            else {
+                Write-Log 'Restored backup schema v2: current Adaptive layers and virtual-controller setting were preserved because v2 did not contain those setting families.' 'INFO'
+            }
+        }
+        else {
+            Write-Log 'Restored backup schema v1: current Adaptive mappings, application profiles, layers and virtual-controller setting were preserved because v1 did not contain those setting families.' 'INFO'
+        }
+
+        $script:Config = $restoredConfig
+'@ -Label 'restore v3 layers and virtual-controller setting'
+
+$text = Replace-LayerLiteralExactlyOnce -Text $text -OldText @'
+                $script:AdaptiveProfiles = @($rollbackProfiles)
+                $script:AdaptiveProfilesLoaded = $true
+                Save-AdaptiveProfiles
+            }
+
+            Write-Log 'Rollback after failed restore completed successfully.' 'WARN'
+'@ -NewText @'
+                $script:AdaptiveProfiles = @($rollbackProfiles)
+                $script:AdaptiveProfilesLoaded = $true
+                Save-AdaptiveProfiles
+            }
+
+            if ($null -ne $rollback.PSObject.Properties['adaptiveLayers'] -and $null -ne $rollback.adaptiveLayers) {
+                $rollbackLayers = ConvertTo-NormalizedAdaptiveLayerConfig -Data $rollback.adaptiveLayers
+                Write-AdaptiveLayerConfigFile -Path $script:AdaptiveLayerConfigPath -Config $rollbackLayers
+                $script:AdaptiveLayerConfig = $rollbackLayers
+                $script:AdaptiveLayersLoaded = $true
+            }
+
+            if ($null -ne $rollback.PSObject.Properties['virtualController'] -and $null -ne $rollback.virtualController) {
+                $script:VirtualGamepadConfig = [pscustomobject][ordered]@{
+                    configVersion = 1
+                    enabled = [bool]$rollback.virtualController.enabled
+                    type = 'xbox360'
+                }
+                $script:VirtualGamepadConfigLoaded = $true
+                if ($script:VirtualGamepadFeatureAvailable) {
+                    Save-MugenVirtualGamepadConfig
+                }
+            }
+
+            Write-Log 'Rollback after failed restore completed successfully.' 'WARN'
+'@ -Label 'rollback v3 layer and virtual-controller settings'
+
 [System.IO.File]::WriteAllText($resolved, $text, (New-Object System.Text.UTF8Encoding($false)))
 Write-Host "Applied Adaptive toggle-layer mappings to staged runtime: $resolved"
