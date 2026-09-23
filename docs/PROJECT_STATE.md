@@ -626,3 +626,14 @@ Run #215 (`35890261732`) succeeded at code head `b54f8fa40daa91971622968966a5366
 This keeps button timing semantics unchanged while reducing UI-thread/file-I/O jitter during spam. If real-machine testing still loses repeated actions, the next targeted step is explicit repeat-edge shaping/queueing near the helper rather than another broad polling change.
 
 Run #216 (`35891904212`) succeeded at code head `1d362e9f68b82328b98e095e16a2d03b342a2645`; artifact ID `10765317130`; inner ZIP SHA-256 `4904646210c93ff10d0e201ae11f9a9295d062e3cedb5df77c59d1716174ae44`.
+
+
+## Current firmware latency candidate — Integrated #218
+
+#218 tests a **6 ms** Cardboard Nano matrix debounce instead of 18 ms to close the remaining feel gap during very fast left/right alternation. The matching Adaptive-v3 desktop parser accepts cumulative firmware diagnostics and logs contact names when bounce counters change.
+
+Two counters distinguish filtered raw chatter from potentially escaped rapid accepted reversals (<35 ms). This lets the real-machine test decide whether 6 ms is safe instead of tuning by feel alone.
+
+Run #218 (`35895588926`) succeeded at code head `4693b969237506ad1810aab4ea665b2454cafab9`; artifact ID `10766931651`; inner ZIP SHA-256 `2b631327b0a37426084749ec7e81a106948f74f98ff2338171aa93c9bb24ffdc`.
+
+The dev ZIP now bundles the exact matching firmware sketch under `firmware\MugenDeejCardboardNanoPrototype`.
