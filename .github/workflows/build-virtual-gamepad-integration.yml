@@ -474,6 +474,27 @@ jobs:
           if ($runtimeText -notmatch 'Test notification') {
             throw 'Adaptive layer popup settings are missing the preview/test action.'
           }
+          if ([regex]::Matches($runtimeText, '\$notificationSettingsButton =').Count -ne 1) {
+            throw 'Notifications button must exist exactly once in the Control layers dialog, not recursively inside notification settings.'
+          }
+          if ($runtimeText -notmatch '\$notificationSettingsButton\.Location = \[System\.Drawing\.Point\]::new\(650, 18\)') {
+            throw 'Control layers dialog is missing the visible Notifications button.'
+          }
+          if ($runtimeText -notmatch 'AdaptiveLayerStateLabel') {
+            throw 'Main physical-input card is missing the dedicated active-layer status label.'
+          }
+          if ($runtimeText -notmatch 'Active layer: ') {
+            throw 'Main active-layer status is not rendered independently from the Toggles heading.'
+          }
+          if ($runtimeText -notmatch '\$cursorY \+= 24') {
+            throw 'Main layout does not reserve a dedicated row for the active layer.'
+          }
+          if ($runtimeText -notmatch '\$row1Combo\.Enabled = \(-not \$isLayerModifier\)') {
+            throw 'Ordinary toggle ON/OFF controls remain editable while the toggle is a layer modifier.'
+          }
+          if ($runtimeText -notmatch 'Change its role in Control layers') {
+            throw 'Typed toggle settings do not explain layer-modifier behavior.'
+          }
           if ($runtimeText -notmatch 'function Set-AdaptiveLayerComboDisplayItems') {
             throw 'Adaptive layer selectors do not share the configured display names.'
           }
