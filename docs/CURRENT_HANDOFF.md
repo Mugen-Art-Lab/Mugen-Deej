@@ -2045,3 +2045,62 @@ CI history:
 ### Development handoff convention
 
 For this branch, user-facing test builds should only be handed over after the corresponding GitHub Actions integration run finishes green and the built artifact is downloaded/verified. Continue recording each meaningful real-machine finding, failed/intermediate CI run, green replacement build, artifact ID and hashes in `docs/CURRENT_HANDOFF.md` and `docs/PROJECT_STATE.md` so a fresh chat can resume from the repository alone.
+
+
+## Integrated #200 — modal input safety + typed-control/layout follow-up after #196
+
+Real-machine review of #196 on 2026-09-23 confirmed the layer notification popup itself is now correctly rounded, but exposed another set of UI/behavior findings:
+
+- the two-line explanatory text at the top of **Toggle and encoder settings** was too long for its fixed label and clipped on the right;
+- **Notifications…** in Control layers shows an ellipsis. This is intentional Windows-style UI punctuation because the button opens a separate dialog, consistent with other Mugen Deej buttons such as Add… and Layered encoder…;
+- the **Layer** and notification-settings MugenComboBox controls still showed visibly uneven edge/border thickness despite the #196 1 px client-edge strips;
+- layer button override testing gave the impression that a held physical button was being released. The supplied log does *not* show a physical-input fault: Button 1, Button 2 and Button 3 each remain physically down for substantial intervals before a single release edge. This means the Nano/serial input is preserving held state. Ordinary mapped actions in Mugen Deej are intentionally one-shot on the press edge; virtual Xbox/XInput mappings are the stateful mappings that must remain held with the physical button. The layer editor now states this explicitly so the two semantics are not confused;
+- a more important safety issue was identified: pressing controls while an assignment/settings dialog is open must be allowed to select/show the physical control in the editor, but must **not** simultaneously execute the already assigned hotkey/program/command/etc.
+
+The review log again detected the physical Nano cleanly as Adaptive on COM5 at 115200 with topology `5 sliders / 28 buttons / 2 toggles / 1 encoder`.
+
+#200 changes:
+
+1. **Modal input-action safety gate**
+   - added `Test-MugenInputActionsSuspended`, which reports true while a modal Mugen Deej form is open;
+   - ordinary physical button actions now stop at the dispatch boundary while such a dialog is open, while raw button state and editor auto-selection continue updating;
+   - Adaptive toggle/encoder mapped actions use the same safety gate;
+   - this intentionally does not freeze analog slider positions: those remain live, matching the existing physical-input UI contract.
+
+2. **Stateful virtual Xbox safety**
+   - while a modal Mugen dialog is open, XInput output is neutralized and no held virtual button/axis state is emitted;
+   - any physical buttons still held when the dialog closes remain suppressed until their physical release, preventing a control used to select an item in the editor from suddenly firing when the window closes;
+   - after the modal window closes, normal XInput state reconciliation resumes.
+
+3. **Toggle/encoder explanatory copy**
+   - shortened the top help text to a compact two-line form that fits the existing layout;
+   - no dialog-size growth was needed.
+
+4. **Layer override semantics**
+   - the layer editor now explicitly distinguishes regular actions (one execution per press) from Virtual Xbox mappings (state follows the physical hold).
+
+5. **MugenComboBox border rendering**
+   - #196 painted exact 1 px strips through `CreateGraphics()`, but that only addressed the ComboBox client DC while Windows could still leave pieces of the native non-client rim visible;
+   - #200 now paints the complete native ComboBox window surface through `GetWindowDC` / `ReleaseDC` after native WM_PAINT / WM_NCPAINT, then draws the same exact 1 px border strips. This is the next real-machine test for the uneven-edge defect.
+
+CI history for this change set:
+
+- run **#197**, run ID `35868866613`, head `50477ec33a26392e80ca67d8fea7f321e668f339` — FAILED after staging because a newly added CI assertion embedded Cyrillic UI text in a Windows PowerShell 5.1 workflow script and was mojibaked into invalid syntax. Runtime source was not the cause.
+- run **#198**, run ID `35869316188`, head `a4fd0c4e23f700ebc4dfa258b60258abd9025846` — FAILED a static assertion because the modal XInput marker was incorrectly checked in staged runtime text instead of the virtual-gamepad integration module.
+- run **#199**, run ID `35869532155`, head `e620db0cad3e5ded3a00ba1556af4a29f5cef558` — FAILED the same static assertion because `$integrationText` was checked before that module had been loaded by the workflow.
+- run **#200**, run ID `35869727173` — **SUCCESS**;
+- built code head `297de89bfaf38c41d0f2df895f2edae2c8bcba20`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-200`, ID `10754665659`;
+- outer Actions digest `sha256:9a4bf995fa7eb243f318e43d3ebd175ebae20dc1035db2b6208474d7ebe7d0ba`;
+- inner program ZIP SHA-256 `3d0688e7830de4c94c5d350095d8f7aa494a0e3e69672fc08bd2c42f0f9de7e1`;
+- staging, Windows PowerShell 5.1 parse/runtime assertions, launcher/helper build, packaging and artifact upload: PASS.
+
+#200 is the current layer/UI hardware-review candidate.
+
+Real-machine acceptance for #200:
+- verify the compact Toggle/Encoder explanation is fully visible;
+- recheck ComboBox border thickness on the Control layers **Layer** selector and all notification-settings combos;
+- confirm **Notifications…** continues to open the separate notification dialog (ellipsis is intentional);
+- while Button/Toggle/Encoder settings or Control layers is open, press controls that already have side-effect assignments and confirm they still select/update the UI but do not launch programs, send hotkeys, run commands, or produce XInput;
+- close a dialog while a physical button is still held and confirm the held control does not fire immediately on close; it should become eligible again only after release and a new press;
+- for a layer button mapped to Virtual Xbox, confirm that outside settings it stays held for exactly as long as the physical button; ordinary non-Xbox actions are expected to execute once on the press edge.
