@@ -2623,3 +2623,34 @@ CI progression:
 - final staging, Windows PowerShell 5.1 parse/runtime assertions, helper smoke test, launcher build, packaging and upload: PASS.
 
 #227 is a **UI-review candidate**, not yet a real-machine visual PASS. The intended review is the same six-window sweep used to motivate this pass: main window, Button actions, Toggle/encoder actions, Control layers, Virtual Xbox gamepad picker and Connection/diagnostics. Check RU first for clipping/wrapping and overall tone; a quick RU -> EN check is useful afterward because both languages were changed in the same pass.
+
+## Integrated #229 — legacy probe confidence hardening
+
+A real-machine backup-restore restart exposed a startup/probe race on the Adaptive 5/28/2/1 controller. The restored settings themselves were correct, but after restart COM5 at 115200 was twice accepted as a false `legacy:1:0:0:0` controller before normal Adaptive packets were observed. Those Adaptive packets were then rejected by the connected-shape guard, the connection timed out after 2500 ms, and recovery retried until the third probe finally locked onto `adaptive:5:28:2:1`.
+
+Observed log sequence from the real machine:
+- backup schema v3 restored settings, layers and `enabled=True; xbox360`, then requested restart;
+- first COM5 probe accepted `legacy; sliders=1`, then rejected `adaptive:5:28:2:1` as a shape change and timed out;
+- the same false Legacy acceptance happened a second time;
+- the third probe correctly detected `adaptive:5:28:2:1` and then started the virtual controller normally.
+
+The connected-shape guard itself behaved correctly: later, a single `adaptive:3:6:2:1` packet was ignored without tearing down the established `adaptive:5:28:2:1` connection. The weak point was therefore isolated to initial probe confidence, not steady-state topology enforcement.
+
+#229 hardens initial probing without changing the protocol parser or firmware:
+- the current candidate signature now records when it first became stable;
+- Extended/Adaptive remain high-confidence typed protocols and still win after two matching packets;
+- Legacy still requires repeated packets, but now must also remain stable for a short confidence interval before it can win;
+- a Legacy candidate whose slider count matches configured `expectedSliders` waits 300 ms;
+- a Legacy candidate whose slider count disagrees with `expectedSliders` waits 900 ms, giving an explicit typed packet time to supersede transient numeric fragments;
+- deferred Legacy candidates emit a focused DEBUG diagnostic (`Legacy probe candidate deferred: ...`) for future real-machine analysis;
+- genuine Legacy controllers remain supported; mismatching topology is delayed rather than permanently rejected.
+
+CI:
+- run **#229**, run ID `36175828878` — **SUCCESS**;
+- built head `3dfa6fa9f6feb764f6d4a8b2bc6080f164edbbfe`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-229`, ID `10881768060`;
+- outer Actions digest `sha256:be0633ce11cc9e4666d312ed5b1f6f9c32f40770028e2f833f9f245140b72536`;
+- inner program ZIP SHA-256 `cf9aaf6453139d2f988c784ecf1f5eb6a3af5f2a2ec9b00d95223bb3306aa2ae`;
+- staging, focused probe assertions, Windows PowerShell 5.1 parse/runtime checks, helper/launcher build, packaging and upload: PASS.
+
+Real-machine acceptance still pending. Primary test: use the same backup-restore/restart path that reproduced the issue and watch the main window plus log. Expected result: no visible temporary 1-slider Legacy topology, no repeated 2500 ms timeout/recovery loop, and COM5 should settle directly on the Adaptive 5/28/2/1 controller. The #227 UI-language changes are intentionally left untouched while this connection issue is verified.
