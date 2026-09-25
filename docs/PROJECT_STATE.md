@@ -1,6 +1,6 @@
 # Mugen Deej — living project state
 
-Last updated: 2026-09-24
+Last updated: 2026-09-25
 
 This is the authoritative short handoff for active development. Detailed prototype history is in `docs/VIRTUAL_CONTROLLER_TEST_LOG.md`; current product-integration work is in `docs/VIRTUAL_GAMEPAD_INTEGRATION.md`.
 
@@ -26,6 +26,8 @@ Hardware-tested stable behavior:
 ### Current active milestone
 
 Integrated **#220** is the current hardware-tested baseline.
+
+Integrated **#227** is the current UI-review candidate. It is a text-only bilingual polish pass over the main status, button settings, toggle/encoder settings, Control layers, the virtual Xbox picker and small diagnostics labels. The normal UI now prefers user-facing wording while diagnostics keeps COM/protocol/baud details. The virtual device is explicitly named **Virtual Xbox gamepad / Виртуальный геймпад Xbox**. CI/package is PASS; real-machine visual review is pending.
 
 Recent accepted chain:
 - **#214**: 5 ms low-latency active-XInput serial drain and cached effective profile/layer resolution;
