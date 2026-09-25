@@ -617,7 +617,7 @@ jobs:
           if ($runtimeText -notmatch 'A toggle can run actions or switch layers; an encoder uses rotation and push') {
             throw 'Toggle/encoder settings still use the compact guidance copy.'
           }
-          if ($runtimeText -notmatch 'Regular actions fire once per press; the Xbox gamepad stays held with the physical button') {
+          if ($runtimeText -notmatch 'Regular actions fire once per press; the virtual Xbox gamepad stays held while you hold the controller button') {
             throw 'Layer button editor does not explain one-shot versus held mappings.'
           }
           if ($runtimeText -notmatch 'Virtual Xbox gamepad') {
