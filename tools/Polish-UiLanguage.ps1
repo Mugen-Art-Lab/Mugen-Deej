@@ -144,7 +144,7 @@ $runtime = Replace-UiLiteral $runtime 'Controller driver is working — {0}' 'US
 [System.IO.File]::WriteAllText(
     $runtimeResolved,
     $runtime,
-    (New-Object System.Text.UTF8Encoding($false))
+    (New-Object System.Text.UTF8Encoding($true))
 )
 
 $integrationResolved = (Resolve-Path -LiteralPath $IntegrationModulePath).Path
@@ -160,7 +160,7 @@ $integration = Replace-UiLiteral $integration 'Virtual gamepad ·' 'Virtual Xbox
 [System.IO.File]::WriteAllText(
     $integrationResolved,
     $integration,
-    (New-Object System.Text.UTF8Encoding($false))
+    (New-Object System.Text.UTF8Encoding($true))
 )
 
 Write-Host 'Applied bilingual user-facing UI language polish to runtime and virtual-gamepad module.'

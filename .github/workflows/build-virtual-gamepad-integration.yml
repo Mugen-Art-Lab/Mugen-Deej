@@ -116,13 +116,6 @@ jobs:
             (New-Object System.Text.UTF8Encoding($false))
           )
 
-          # Keep the normal UI focused on what the user is doing rather than
-          # implementation terms. Diagnostics intentionally retains COM,
-          # protocol, baud and other technical details.
-          .\tools\Polish-UiLanguage.ps1 `
-            -RuntimePath $runtimePath `
-            -IntegrationModulePath $integrationModulePath
-
           # Windows PowerShell 5.1 treats UTF-8 source without a BOM as the
           # active ANSI code page. Both files contain Cyrillic UI strings, so
           # a missing BOM corrupts tokens before execution and causes launcher
@@ -131,6 +124,13 @@ jobs:
             $runtimePath,
             $integrationModulePath
           )
+
+          # Apply user-facing copy only after the final topology/mapping/layer
+          # patches have been staged by the encoding finalizer. The copy pass
+          # writes BOM-preserving UTF-8 so Windows PowerShell 5.1 remains safe.
+          .\tools\Polish-UiLanguage.ps1 `
+            -RuntimePath $runtimePath `
+            -IntegrationModulePath $integrationModulePath
 
           Copy-Item .\src\virtual-gamepad-helper\deps\HIDMaestro-LICENSE.txt $vgRoot -Force
           Copy-Item .\arduino\MugenDeejCardboardNanoPrototype\MugenDeejCardboardNanoPrototype.ino $firmwareRoot -Force
