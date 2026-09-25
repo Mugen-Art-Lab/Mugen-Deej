@@ -794,7 +794,7 @@ jobs:
           if ($runtimeText -notmatch 'function Get-AdaptiveActionDisplay') {
             throw 'Development runtime is missing typed-action display formatting.'
           }
-          if ($runtimeText -notmatch 'Assignments: \{0\} of \{1\}') {
+          if ($runtimeText -notmatch 'Assigned: \{0\} of \{1\}') {
             throw 'Development runtime is missing the typed-action assignment summary.'
           }
           if ($runtimeText -notmatch 'All mappings') {
