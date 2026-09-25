@@ -887,10 +887,10 @@ jobs:
 
           $integrationModule = '.\artifacts\Mugen-Deej-VirtualGamepad-Integrated-Dev\virtual-gamepad\MugenDeej.VirtualGamepad.ps1'
           $integrationText = [System.IO.File]::ReadAllText((Resolve-Path $integrationModule), [System.Text.Encoding]::UTF8)
-          if ($integrationText -notmatch 'Виртуальный геймпад Xbox · подключён') {
+          if ($integrationText -notmatch 'Virtual Xbox gamepad.*connected') {
             throw 'Integration module is missing the explicit Virtual Xbox gamepad status wording.'
           }
-          if ($integrationText -match 'XInput: Вкл') {
+          if ($integrationText -match 'XInput: On') {
             throw 'Main-window virtual-gamepad toggle still exposes XInput implementation wording.'
           }
           if ($integrationText -notmatch 'Virtual controller input suspended while a modal Mugen dialog is open') {
