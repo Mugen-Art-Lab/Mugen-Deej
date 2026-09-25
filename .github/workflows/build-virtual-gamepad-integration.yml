@@ -254,6 +254,15 @@ jobs:
           if ($runtimeText -notmatch "Protocol = 'adaptive'") {
             throw 'Development runtime is missing Adaptive v3 protocol parsing.'
           }
+          if ($runtimeText -notmatch '\$candidateFirstSeenAt = \[DateTime\]::MinValue') {
+            throw 'Controller probe is missing candidate-stability tracking.'
+          }
+          if ($runtimeText -notmatch '\$legacyMinStableMs = if \(\$legacyObservedSliders -eq \$legacyExpectedSliders\) \{ 300 \} else \{ 900 \}') {
+            throw 'Controller probe is missing confidence delays for Legacy candidates.'
+          }
+          if ($runtimeText -notmatch 'Legacy probe candidate deferred:') {
+            throw 'Controller probe is missing diagnostics for deferred Legacy candidates.'
+          }
           if ($runtimeText -notmatch "Firmware debounce diagnostics active") {
             throw 'Development runtime is missing Adaptive firmware debounce diagnostics.'
           }
