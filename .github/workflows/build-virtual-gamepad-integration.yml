@@ -26,6 +26,7 @@ on:
       - 'tools/Add-AdaptiveLayers.ps1'
       - 'tools/Optimize-LargeButtonSettings.ps1'
       - 'tools/Run-OptimizedLargeButtonSettings.ps1'
+      - 'tools/Polish-UiLanguage.ps1'
       - 'tools/Ensure-WindowsPowerShellUtf8Bom.ps1'
 
 permissions:
@@ -114,6 +115,13 @@ jobs:
             ("`r`n" + $asyncStopOverlay),
             (New-Object System.Text.UTF8Encoding($false))
           )
+
+          # Keep the normal UI focused on what the user is doing rather than
+          # implementation terms. Diagnostics intentionally retains COM,
+          # protocol, baud and other technical details.
+          .\tools\Polish-UiLanguage.ps1 `
+            -RuntimePath $runtimePath `
+            -IntegrationModulePath $integrationModulePath
 
           # Windows PowerShell 5.1 treats UTF-8 source without a BOM as the
           # active ANSI code page. Both files contain Cyrillic UI strings, so
@@ -222,7 +230,7 @@ jobs:
           if ($runtimeText -notmatch 'Spatial Xbox-style control map') {
             throw 'Development runtime is missing the spatial Xbox control picker.'
           }
-          if ($runtimeText -notmatch 'Choose an Xbox gamepad control') {
+          if ($runtimeText -notmatch 'Choose a virtual Xbox gamepad control') {
             throw 'Virtual-gamepad picker still uses the ambiguous bare-Xbox heading.'
           }
           if ($runtimeText -notmatch '\$picker\.ClientSize = \[System\.Drawing\.Size\]::new\(760, 625\)') {
@@ -297,8 +305,26 @@ jobs:
           if ($runtimeText -notmatch 'Assignments: \{0\} of \{1\}') {
             throw 'Development runtime is missing the scalable assignment overview.'
           }
-          if ($runtimeText -notmatch 'Press a physical button and Mugen will select it in the grid') {
+          if ($runtimeText -notmatch 'Press a button on the controller and Mugen will select it automatically') {
             throw 'Development runtime is missing physical-button auto-selection guidance.'
+          }
+          if ($runtimeText -notmatch 'Button actions') {
+            throw 'Development runtime is missing the simplified button-settings heading.'
+          }
+          if ($runtimeText -notmatch 'Toggle and encoder actions') {
+            throw 'Development runtime is missing the simplified toggle/encoder heading.'
+          }
+          if ($runtimeText -notmatch 'Layer switching') {
+            throw 'Development runtime is missing the user-facing layer-switching wording.'
+          }
+          if ($runtimeText -notmatch 'Same as base layer') {
+            throw 'Development runtime is missing the user-facing layer inheritance wording.'
+          }
+          if ($runtimeText -notmatch 'Port selection') {
+            throw 'Diagnostics are missing the clearer port-selection label.'
+          }
+          if ($runtimeText -match 'Physical button actions') {
+            throw 'Development runtime still exposes the old physical-button heading.'
           }
           if ($runtimeText -notmatch '\$buttonEditorState\.LastButtons') {
             throw 'Development runtime is missing isolated live button-editor state.'
@@ -588,7 +614,7 @@ jobs:
           if ($runtimeText -notmatch 'Adaptive mapped action suppressed while a modal Mugen dialog is open') {
             throw 'Adaptive toggle/encoder dispatch does not use the modal-dialog safety gate.'
           }
-          if ($runtimeText -notmatch 'modifier.+layer.+encoder.+left/right and push') {
+          if ($runtimeText -notmatch 'A toggle can run actions or switch layers; an encoder uses rotation and push') {
             throw 'Toggle/encoder settings still use the compact guidance copy.'
           }
           if ($runtimeText -notmatch 'Regular actions fire once per press; the Xbox gamepad stays held with the physical button') {
@@ -663,7 +689,7 @@ jobs:
           if ($runtimeText -notmatch '\$row1Combo\.Enabled = \(-not \$isLayerModifier\)') {
             throw 'Ordinary toggle ON/OFF controls remain editable while the toggle is a layer modifier.'
           }
-          if ($runtimeText -notmatch 'Change its role in Control layers') {
+          if ($runtimeText -notmatch 'Change this in Control layers') {
             throw 'Typed toggle settings do not explain layer-modifier behavior.'
           }
           if ($runtimeText -notmatch 'function Set-AdaptiveLayerComboDisplayItems') {
@@ -861,6 +887,12 @@ jobs:
 
           $integrationModule = '.\artifacts\Mugen-Deej-VirtualGamepad-Integrated-Dev\virtual-gamepad\MugenDeej.VirtualGamepad.ps1'
           $integrationText = [System.IO.File]::ReadAllText((Resolve-Path $integrationModule), [System.Text.Encoding]::UTF8)
+          if ($integrationText -notmatch 'Виртуальный геймпад Xbox · подключён') {
+            throw 'Integration module is missing the explicit Virtual Xbox gamepad status wording.'
+          }
+          if ($integrationText -match 'XInput: Вкл') {
+            throw 'Main-window virtual-gamepad toggle still exposes XInput implementation wording.'
+          }
           if ($integrationText -notmatch 'Virtual controller input suspended while a modal Mugen dialog is open') {
             throw 'Stateful virtual-controller output is not neutralized while modal dialogs are open.'
           }
@@ -900,7 +932,7 @@ jobs:
           if ($runtimeText -notmatch 'Do not run them\s+# through the legacy one-shot 80 ms debounce') {
             throw 'Development runtime still routes virtual Xbox mappings through the legacy press debounce.'
           }
-          if ($integrationText -notmatch 'Virtual gamepad.*connected') {
+          if ($integrationText -notmatch 'Virtual Xbox gamepad.*connected') {
             throw 'Integration module is missing the stable virtual-gamepad status name/format.'
           }
           if ($integrationText -notmatch '\$targetHeight = if \(\$Enabled\) \{ 68 \} else \{ 60 \}') {
@@ -1066,6 +1098,7 @@ jobs:
           Firmware latency experiment: the bundled Cardboard Nano sketch lowers matrix debounce from 18 ms to 6 ms and emits cumulative debounce diagnostics. "filtered" counts raw reversals suppressed before acceptance; "rapid" counts accepted transitions that reversed again within 35 ms. The app logs diagnostic changes with the affected B1..B28/T1/T2 contact mask.
           Layer/XInput UX: configuring an Xbox gamepad action inside Control layers now turns XInput on automatically when the layer settings are saved. The auto-enable only happens when a virtual mapping was actually configured in that editing session, so an explicit manual XInput Off is not undone by unrelated layer edits.
           Physical-button settings hot-unplug hardening: the live button-selection timer now uses isolated editor state and explicitly pauses topology inspection while the controller is disconnected, so unplugging an Extended/Adaptive controller while the modal button editor is open no longer throws a LastButtons property exception.
+          UI language polish: normal settings now prefer user-facing terms such as Button actions, Layer switching, Same as base layer, and Virtual Xbox gamepad; COM/protocol/baud details remain available in diagnostics.
           '@
           [System.IO.File]::WriteAllText(
             (Join-Path $stage 'VIRTUAL-GAMEPAD-DEV.txt'),
