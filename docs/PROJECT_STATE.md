@@ -27,6 +27,8 @@ Hardware-tested stable behavior:
 
 Integrated **#220** is the current hardware-tested baseline.
 
+Integrated **#229** is the current connection-probe review candidate. It keeps the #227 UI-language polish intact and hardens startup detection so transient Legacy-looking numeric fragments cannot immediately win over the real Adaptive controller. CI/package is PASS; real-machine backup-restore/restart verification is pending.
+
 Integrated **#227** is the current UI-review candidate. It is a text-only bilingual polish pass over the main status, button settings, toggle/encoder settings, Control layers, the virtual Xbox picker and small diagnostics labels. The normal UI now prefers user-facing wording while diagnostics keeps COM/protocol/baud details. The virtual device is explicitly named **Virtual Xbox gamepad / Виртуальный геймпад Xbox**. CI/package is PASS; real-machine visual review is pending.
 
 Recent accepted chain:
