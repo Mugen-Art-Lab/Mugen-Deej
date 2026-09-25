@@ -407,7 +407,7 @@ jobs:
           if ($runtimeText -notmatch 'LastHasPush') {
             throw 'Development runtime is missing persistent encoder push-capability tracking.'
           }
-          if ($runtimeText -notmatch 'push-capable') {
+          if ($runtimeText -notmatch 'with push') {
             throw 'Development runtime is missing encoder push-capability labeling.'
           }
           if ($runtimeText -notmatch 'DrawEllipse\(\$pushCuePen, 11, 11, 6, 6\)') {
