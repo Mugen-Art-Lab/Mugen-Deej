@@ -10,7 +10,7 @@ function Replace-UiLiteral {
     param(
         [Parameter(Mandatory = $true)][string]$Text,
         [Parameter(Mandatory = $true)][string]$OldText,
-        [Parameter(Mandatory = $true)][string]$NewText,
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$NewText,
         [Parameter(Mandatory = $true)][string]$Label,
         [switch]$Optional
     )
