@@ -2654,3 +2654,24 @@ CI:
 - staging, focused probe assertions, Windows PowerShell 5.1 parse/runtime checks, helper/launcher build, packaging and upload: PASS.
 
 Real-machine acceptance still pending. Primary test: use the same backup-restore/restart path that reproduced the issue and watch the main window plus log. Expected result: no visible temporary 1-slider Legacy topology, no repeated 2500 ms timeout/recovery loop, and COM5 should settle directly on the Adaptive 5/28/2/1 controller. The #227 UI-language changes are intentionally left untouched while this connection issue is verified.
+
+## #229 real-machine backup-restore acceptance — PASS
+
+The same backup-restore/restart scenario that reproduced the false Legacy detection was repeated on the real Adaptive 5/28/2/1 controller using #229.
+
+Observed result:
+- schema v3 restore completed normally and requested restart;
+- after restart COM5 was probed at 115200;
+- the first accepted controller topology was immediately `adaptive:5:28:2:1`;
+- there was no visible/accepted temporary `legacy:1:0:0:0` topology;
+- there was no 2500 ms timeout/recovery loop;
+- virtual-controller startup followed normally and reached ready state.
+
+Acceptance: **PASS**.
+
+#229 is therefore promoted from probe-review candidate to the current hardware-tested baseline for Adaptive startup after backup restore.
+
+UI note captured from the same test, but intentionally not changed yet:
+- the pre-restore confirmation dialog still exposes technical topology wording such as `Adaptive v3 — 5/28/2/1`;
+- the pre-restore dialog uses the light dialog treatment while the post-restore restart dialog follows the dark app theme;
+- the user has not yet given the broader #227 UI-review feedback, so these backup-dialog observations remain queued for that pass instead of being mixed into the connection fix.
