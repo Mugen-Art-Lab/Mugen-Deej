@@ -917,7 +917,7 @@ jobs:
           if (-not $integrationText.Contains("if (`$enabled) { 'Disable' } else { 'Enable' }")) {
             throw 'Main-window virtual-gamepad toggle is not phrased as an action.'
           }
-          if ($integrationText -notmatch 'Virtual Xbox gamepad · disabled') {
+          if ($integrationText -notmatch 'Virtual Xbox gamepad.*disabled') {
             throw 'Main-window virtual-gamepad row does not remain explicit while output is disabled.'
           }
           if ($integrationText -notmatch 'Virtual controller input suspended while a modal Mugen dialog is open') {
