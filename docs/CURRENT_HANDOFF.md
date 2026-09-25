@@ -1,6 +1,6 @@
 # Mugen Deej — current development handoff
 
-Last updated: 2026-09-18
+Last updated: 2026-09-25
 
 This is the short resume point for the active `feature/virtual-gamepad-ui` branch. Stable `main` / v1.0.0 remains untouched.
 
@@ -2586,3 +2586,40 @@ The captured runtime log corroborates the important recovery path: COM10 is lost
 Acceptance: **PASS**.
 
 #220 is now the hardware-tested baseline for Physical button actions hot-unplug behavior. Preserve the isolated `$buttonEditorState` and disconnected-timer short-circuit in subsequent editor/UI changes.
+
+## Integrated #227 — user-facing UI language polish
+
+After the #220 hot-unplug regression passed on real hardware, the next pass focuses on making the normal UI read like a product rather than an implementation/debug surface. The rule for this pass is: normal settings describe what the user is doing; COM/protocol/baud/rate and other implementation details remain available in diagnostics.
+
+User preference retained explicitly: the virtual device is called **«Виртуальный геймпад Xbox» / “Virtual Xbox gamepad”**, not just “Xbox gamepad”, because there is no physical Xbox controller involved.
+
+Main user-facing copy changes:
+- main connection status no longer exposes the COM port; it reads `Контроллер · …` / `Controller · …`, while diagnostics still shows the port;
+- virtual status is `Виртуальный геймпад Xbox · …` / `Virtual Xbox gamepad · …`; the main toggle no longer says `XInput: On/Off`, only `Включён/Выключен` / `On/Off`;
+- `Действия физических кнопок` -> `Действия кнопок`; profile/assignment/live-selection guidance is shorter and less technical;
+- toggle/encoder settings use `Действия тумблеров и энкодеров`, `Тумблеры и энкодеры`, and explain layer switching without requiring the user to understand the “modifier” term;
+- Control layers uses `Переключение слоёв`, `Действия кнопок в этом слое`, `Назначения в слое`, and `Как в основном слое` instead of modifier/override/inherit terminology;
+- a layer-switching toggle is described directly as `Тумблер N переключает слой «…»`; the redundant `роль: модификатор слоя` status suffix is removed;
+- the Xbox picker explicitly says `Виртуальный геймпад Xbox`, explains LT/RT as a full trigger press, and describes opposite stick directions in ordinary language;
+- diagnostics remains intentionally technical, with only small clarity changes such as `Выбор порта` and `USB-драйвер работает`.
+
+Implementation:
+- new final-stage patcher: `tools/Polish-UiLanguage.ps1`;
+- it runs after the topology/mapping/layer finalizer so it sees the complete staged runtime;
+- it preserves the UTF-8 BOM required by Windows PowerShell 5.1;
+- CI has focused assertions for the new English user-facing copy and for removal of selected old technical wording.
+
+CI progression:
+- #221 failed during staging because the first language pass ran before final Adaptive mapping/layer staging and therefore could not find typed-settings strings;
+- #222 fixed the staging order but exposed an empty-string replacement parameter restriction;
+- #223 fixed that restriction; staging passed, then a Windows PowerShell 5.1 workflow-script assertion containing Cyrillic was parsed through the runner's ANSI path;
+- #224 made the assertions ASCII-safe and then exposed the first stale exact-copy CI marker;
+- #225/#226 aligned the remaining old exact-copy assertions;
+- run **#227**, run ID `36173125566` — **SUCCESS**;
+- built code head `69616d88e24a985aee9a081614650d74985857c7`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-227`, ID `10881318047`;
+- outer Actions digest `sha256:17109ac4dd37a6b43c741e719455d9a09b27d224e52fd57817023882d5eafbf8`;
+- inner program ZIP SHA-256 `88b6274ea7c9e3a5a3adf318b5f38012e987fbfa9122ee3313b7a0009fb75232`;
+- final staging, Windows PowerShell 5.1 parse/runtime assertions, helper smoke test, launcher build, packaging and upload: PASS.
+
+#227 is a **UI-review candidate**, not yet a real-machine visual PASS. The intended review is the same six-window sweep used to motivate this pass: main window, Button actions, Toggle/encoder actions, Control layers, Virtual Xbox gamepad picker and Connection/diagnostics. Check RU first for clipping/wrapping and overall tone; a quick RU -> EN check is useful afterward because both languages were changed in the same pass.
