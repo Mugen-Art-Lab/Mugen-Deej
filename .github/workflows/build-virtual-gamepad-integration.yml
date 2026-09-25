@@ -332,6 +332,18 @@ jobs:
           if ($runtimeText -notmatch 'Port selection') {
             throw 'Diagnostics are missing the clearer port-selection label.'
           }
+          if ($runtimeText -notmatch 'Selected button: ') {
+            throw 'Button editor is missing the selected-button punctuation polish.'
+          }
+          if ($runtimeText -notmatch 'T1 and T2 can have separate button and encoder actions') {
+            throw 'Toggle/encoder settings are missing the simplified layer-settings hint.'
+          }
+          if ($runtimeText -notmatch 'Only separate actions for this layer are shown') {
+            throw 'Layer assignment sidebar is missing the compact explanatory copy.'
+          }
+          if ($runtimeText -notmatch 'opacityLabel\.Size = \[System\.Drawing\.Size\]::new\(140, 25\)') {
+            throw 'Layer notification opacity label is still too narrow.'
+          }
           if ($runtimeText -match 'Physical button actions') {
             throw 'Development runtime still exposes the old physical-button heading.'
           }
@@ -902,6 +914,12 @@ jobs:
           if ($integrationText -match 'XInput: On') {
             throw 'Main-window virtual-gamepad toggle still exposes XInput implementation wording.'
           }
+          if (-not $integrationText.Contains("if (`$enabled) { 'Disable' } else { 'Enable' }")) {
+            throw 'Main-window virtual-gamepad toggle is not phrased as an action.'
+          }
+          if ($integrationText -notmatch 'Virtual gamepad · disabled') {
+            throw 'Main-window virtual-gamepad row does not remain explicit while output is disabled.'
+          }
           if ($integrationText -notmatch 'Virtual controller input suspended while a modal Mugen dialog is open') {
             throw 'Stateful virtual-controller output is not neutralized while modal dialogs are open.'
           }
@@ -959,8 +977,8 @@ jobs:
           if ($integrationText -notmatch 'VirtualGamepadStatusLabel\.Size = \[System\.Drawing\.Size\]::new\(444, 28\)') {
             throw 'Integration module is missing the aligned two-row status text column.'
           }
-          if ($integrationText -notmatch 'VirtualGamepadToggleButton\.Location = \[System\.Drawing\.Point\]::new\(506, 19\)') {
-            throw 'Integration module does not center XInput across the two-row status card.'
+          if ($integrationText -notmatch 'VirtualGamepadToggleButton\.Location = \[System\.Drawing\.Point\]::new\(506, 31\)') {
+            throw 'Integration module does not align the virtual-gamepad action with its status row.'
           }
           if ($integrationText -notmatch 'if \(\[string\]\$script:VirtualGamepadUiState -eq \$State\) \{ return \}') {
             throw 'Integration module still repaints identical virtual lifecycle states on every heartbeat.'

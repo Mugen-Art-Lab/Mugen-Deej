@@ -64,6 +64,12 @@ $runtime = Replace-UiLiteral $runtime 'Toggle — ON/OFF; modifier — layer; en
 $runtime = Replace-UiLiteral $runtime 'Органы управления' 'Тумблеры и энкодеры' 'typed selector group RU'
 $runtime = Replace-UiLiteral $runtime 'Physical controls' 'Toggles and encoders' 'typed selector group EN'
 $runtime = Replace-UiLiteral $runtime 'Выбранный орган управления' 'Выбранный элемент' 'typed editor group RU'
+$runtime = Replace-UiLiteral $runtime 'T1/T2 как модификаторы: отдельные назначения кнопок и энкодера.' 'Для T1 и T2 можно задать отдельные действия кнопок и энкодера.' 'typed layer settings hint RU'
+$runtime = Replace-UiLiteral $runtime 'Use T1/T2 as modifiers for alternate button and encoder mappings.' 'T1 and T2 can have separate button and encoder actions.' 'typed layer settings hint EN'
+$runtime = Replace-UiLiteral $runtime ' · с нажатием' ': с нажатием' 'encoder heading push RU'
+$runtime = Replace-UiLiteral $runtime ' · только вращение' ': только вращение' 'encoder heading rotation RU'
+$runtime = Replace-UiLiteral $runtime ' · push-capable' ': with push' 'encoder heading push EN'
+$runtime = Replace-UiLiteral $runtime ' · rotation only' ': rotation only' 'encoder heading rotation EN'
 
 # ---------------------------------------------------------------------------
 # Control layers
@@ -78,8 +84,8 @@ $runtime = Replace-UiLiteral $runtime 'Переопределения кнопо
 $runtime = Replace-UiLiteral $runtime 'Button overrides' 'Button actions in this layer' 'layer button editor group EN'
 $runtime = Replace-UiLiteral $runtime 'Назначения слоя' 'Назначения в слое' 'layer assignment sidebar RU'
 $runtime = Replace-UiLiteral $runtime 'Layer assignments' 'Assignments in this layer' 'layer assignment sidebar EN'
-$runtime = Replace-UiLiteral $runtime 'Показываются отличия от основного профиля. Нажмите строку, чтобы перейти к кнопке.' 'Только кнопки с отдельным действием в этом слое. Нажмите строку, чтобы перейти к кнопке.' 'layer assignment hint RU'
-$runtime = Replace-UiLiteral $runtime 'Shows differences from the base profile. Select a row to jump to that button.' 'Only buttons with a separate action in this layer are shown. Select a row to jump to that button.' 'layer assignment hint EN'
+$runtime = Replace-UiLiteral $runtime 'Показываются отличия от основного профиля. Нажмите строку, чтобы перейти к кнопке.' 'Здесь только отдельные действия слоя. Нажмите строку, чтобы перейти к кнопке.' 'layer assignment hint RU'
+$runtime = Replace-UiLiteral $runtime 'Shows differences from the base profile. Select a row to jump to that button.' 'Only separate actions for this layer are shown. Select a row to jump to that button.' 'layer assignment hint EN'
 $runtime = Replace-UiLiteral $runtime '{0} · назначений: {1}' '{0} · назначено: {1}' 'layer assignment count RU'
 $runtime = Replace-UiLiteral $runtime '{0} · assignments: {1}' '{0} · assigned: {1}' 'layer assignment count EN'
 $runtime = Replace-UiLiteral $runtime 'Нет переопределений' 'Нет отдельных действий' 'empty layer assignment RU'
@@ -92,8 +98,8 @@ $runtime = Replace-UiLiteral $runtime 'Обычные действия — од�
 $runtime = Replace-UiLiteral $runtime 'Regular actions fire once per press; the Xbox gamepad stays held with the physical button.' 'Regular actions fire once per press; the virtual Xbox gamepad stays held while you hold the controller button.' 'layer editor hint line 2 EN'
 $runtime = Replace-UiLiteral $runtime 'Для каждого слоя можно отдельно задать вращение и нажатие. «Наследовать» оставляет обычное назначение энкодера из выбранного профиля.' 'Для каждого слоя можно отдельно задать вращение и нажатие. «Как в основном слое» оставляет обычное назначение энкодера из выбранного профиля.' 'layered encoder inherit hint RU'
 $runtime = Replace-UiLiteral $runtime 'Each layer can override rotation and push separately. Inherit keeps the normal encoder mapping from the selected profile.' 'Each layer can set rotation and push separately. “Same as base layer” keeps the normal encoder mapping from the selected profile.' 'layered encoder inherit hint EN'
-$runtime = Replace-UiLiteral $runtime ' · модификатор «' ' переключает слой «' 'typed layer-toggle heading RU'
-$runtime = Replace-UiLiteral $runtime ' · layer modifier ' ' switches to layer ' 'typed layer-toggle heading EN'
+$runtime = Replace-UiLiteral $runtime ' · модификатор «' ': переключает слой «' 'typed layer-toggle heading RU'
+$runtime = Replace-UiLiteral $runtime ' · layer modifier ' ': switches to layer ' 'typed layer-toggle heading EN'
 $runtime = Replace-UiLiteral $runtime ' · роль: модификатор слоя' '' 'typed layer-toggle live role RU'
 $runtime = Replace-UiLiteral $runtime ' · layer modifier' '' 'typed layer-toggle live role EN'
 $runtime = Replace-UiLiteral $runtime 'Обычные действия ВКЛ/ВЫКЛ отключены. Роль меняется в' 'Обычные действия ВКЛ/ВЫКЛ для него недоступны. Изменить это можно в' 'typed layer-toggle explanation RU'
@@ -110,6 +116,8 @@ $runtime = Replace-UiLiteral $runtime 'Выберите элемент гейм�
 $runtime = Replace-UiLiteral $runtime 'Choose an Xbox gamepad control' 'Choose a virtual Xbox gamepad control' 'gamepad picker heading EN'
 $runtime = Replace-UiLiteral $runtime 'Выберите, что будет делать выбранная кнопка на виртуальном геймпаде Xbox. LT/RT нажимаются полностью.' 'Выберите, что будет делать эта кнопка на виртуальном геймпаде Xbox. Для LT и RT кнопка работает как полное нажатие.' 'gamepad picker hint RU'
 $runtime = Replace-UiLiteral $runtime 'Choose what the selected button should do on the virtual Xbox gamepad. LT/RT are full-press.' 'Choose what this button does on the virtual Xbox gamepad. LT and RT act as a full trigger press.' 'gamepad picker hint EN'
+$runtime = Replace-UiLiteral $runtime 'Выберите, что будет делать эта кнопка на виртуальном геймпаде Xbox. Для LT и RT кнопка работает как полное нажатие.' 'Выберите, что будет делать эта кнопка на виртуальном геймпаде Xbox.'' + "`r`n" + ''Для LT и RT кнопка работает как полное нажатие.' 'gamepad picker balanced hint RU'
+$runtime = Replace-UiLiteral $runtime 'Choose what this button does on the virtual Xbox gamepad. LT and RT act as a full trigger press.' 'Choose what this button does on the virtual Xbox gamepad.'' + "`r`n" + ''LT and RT act as a full trigger press.' 'gamepad picker balanced hint EN'
 $runtime = Replace-UiLiteral $runtime 'Противоположные направления одной оси взаимно гасятся и оставляют её в центре.' 'Если нажать противоположные направления одновременно, стик вернётся в центр.' 'gamepad opposite-axis hint RU'
 $runtime = Replace-UiLiteral $runtime 'Opposite directions on the same axis cancel each other and leave that axis centered.' 'Pressing opposite directions at the same time returns the stick to center.' 'gamepad opposite-axis hint EN'
 
@@ -150,10 +158,10 @@ $runtime = Replace-UiLiteral $runtime 'Controller driver is working — {0}' 'US
 $integrationResolved = (Resolve-Path -LiteralPath $IntegrationModulePath).Path
 $integration = [System.IO.File]::ReadAllText($integrationResolved, [System.Text.Encoding]::UTF8)
 
-$integration = Replace-UiLiteral $integration 'XInput: Вкл' 'Включён' 'main virtual toggle RU on'
-$integration = Replace-UiLiteral $integration 'XInput: Выкл' 'Выключен' 'main virtual toggle RU off'
-$integration = Replace-UiLiteral $integration 'XInput: On' 'On' 'main virtual toggle EN on'
-$integration = Replace-UiLiteral $integration 'XInput: Off' 'Off' 'main virtual toggle EN off'
+$integration = Replace-UiLiteral $integration 'XInput: Вкл' 'Выключить' 'main virtual toggle RU on'
+$integration = Replace-UiLiteral $integration 'XInput: Выкл' 'Включить' 'main virtual toggle RU off'
+$integration = Replace-UiLiteral $integration 'XInput: On' 'Disable' 'main virtual toggle EN on'
+$integration = Replace-UiLiteral $integration 'XInput: Off' 'Enable' 'main virtual toggle EN off'
 $integration = Replace-UiLiteral $integration 'Виртуальный геймпад ·' 'Виртуальный геймпад Xbox ·' 'main virtual status RU'
 $integration = Replace-UiLiteral $integration 'Virtual gamepad ·' 'Virtual Xbox gamepad ·' 'main virtual status EN'
 

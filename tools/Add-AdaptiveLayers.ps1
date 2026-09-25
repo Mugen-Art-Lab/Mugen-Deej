@@ -1152,7 +1152,7 @@ function Show-AdaptiveLayerNotificationSettings {
     $opacityLabel = New-Object System.Windows.Forms.Label
     $opacityLabel.Text = if ($script:Language -eq 'ru') { 'Непрозрачность, %' } else { 'Opacity, %' }
     $opacityLabel.Location = [System.Drawing.Point]::new(16, 162)
-    $opacityLabel.Size = [System.Drawing.Size]::new(120, 25)
+    $opacityLabel.Size = [System.Drawing.Size]::new(140, 25)
     $opacityLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
     $card.Controls.Add($opacityLabel)
 
@@ -1161,7 +1161,7 @@ function Show-AdaptiveLayerNotificationSettings {
     $opacityBox.Increment = [decimal]5
     $opacityBox.Minimum = [decimal]20
     $opacityBox.Maximum = [decimal]100
-    $opacityBox.Location = [System.Drawing.Point]::new(138, 161)
+    $opacityBox.Location = [System.Drawing.Point]::new(160, 161)
     $opacityBox.Size = [System.Drawing.Size]::new(90, 26)
     $opacityBox.Value = [decimal][int]$workingNotification.opacityPercent
     $card.Controls.Add($opacityBox)
@@ -2055,7 +2055,7 @@ function Show-AdaptiveLayerSettings {
         $nameBox = New-Object System.Windows.Forms.TextBox
         $nameBox.Tag = $layerNameIndex
         $nameBox.MaxLength = 24
-        $nameBox.Location = [System.Drawing.Point]::new($columnX, 48)
+        $nameBox.Location = [System.Drawing.Point]::new($columnX, 52)
         $nameBox.Size = [System.Drawing.Size]::new(178, 25)
         $nameBox.Text = Get-AdaptiveLayerDisplayNameFromConfig -Config $working -Layer $layerNameIndex
         $namesGroup.Controls.Add($nameBox)
@@ -2143,12 +2143,12 @@ function Show-AdaptiveLayerSettings {
     }
     $layerAssignmentsHint.ForeColor = [System.Drawing.Color]::DimGray
     $layerAssignmentsHint.Location = [System.Drawing.Point]::new(14, 57)
-    $layerAssignmentsHint.Size = [System.Drawing.Size]::new(258, 48)
+    $layerAssignmentsHint.Size = [System.Drawing.Size]::new(258, 56)
     $layerAssignmentsGroup.Controls.Add($layerAssignmentsHint)
 
     $layerAssignmentsList = New-Object System.Windows.Forms.ListView
-    $layerAssignmentsList.Location = [System.Drawing.Point]::new(14, 108)
-    $layerAssignmentsList.Size = [System.Drawing.Size]::new(258, 492)
+    $layerAssignmentsList.Location = [System.Drawing.Point]::new(14, 116)
+    $layerAssignmentsList.Size = [System.Drawing.Size]::new(258, 484)
     $layerAssignmentsList.View = [System.Windows.Forms.View]::Details
     $layerAssignmentsList.FullRowSelect = $true
     $layerAssignmentsList.HideSelection = $false

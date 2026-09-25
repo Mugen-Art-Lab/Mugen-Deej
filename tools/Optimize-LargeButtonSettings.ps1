@@ -676,10 +676,10 @@ function Show-LargeButtonSettings {
         if ($Index -lt 0 -or $Index -ge $pendingActions.Count) { return }
         $buttonEditorState.Selected = $Index
         $selectedHeading.Text = if ($script:Language -eq 'ru') {
-            'Выбрана кнопка ' + ($Index + 1)
+            'Выбрана кнопка: ' + ($Index + 1)
         }
         else {
-            'Selected button ' + ($Index + 1)
+            'Selected button: ' + ($Index + 1)
         }
         & $populateActionCombo
         & $refreshSelectorStyles

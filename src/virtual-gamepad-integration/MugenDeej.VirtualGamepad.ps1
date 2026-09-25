@@ -176,7 +176,7 @@ function Set-MugenVirtualGamepadStatusLayout {
 
         # The toggle belongs to the card as a whole rather than visually
         # hanging from the first status line.
-        $script:VirtualGamepadToggleButton.Location = [System.Drawing.Point]::new(506, 19)
+        $script:VirtualGamepadToggleButton.Location = [System.Drawing.Point]::new(506, 31)
     }
     else {
         # Restore the original single-row card height/vertical rhythm when the
@@ -211,7 +211,9 @@ function Update-MugenVirtualGamepadStatusUi {
         [bool]$script:VirtualGamepadConfig.enabled
     )
 
-    Set-MugenVirtualGamepadStatusLayout -Enabled $enabled
+    # Keep the virtual-device row visible whenever this controller supports it,
+    # even while output is disabled. This makes the adjacent toggle unambiguous.
+    Set-MugenVirtualGamepadStatusLayout -Enabled $protocolAvailable
 
     if ($null -ne $script:VirtualGamepadToggleButton -and -not $script:VirtualGamepadToggleButton.IsDisposed) {
         $script:VirtualGamepadToggleButton.Visible = $protocolAvailable
@@ -223,7 +225,7 @@ function Update-MugenVirtualGamepadStatusUi {
         }
     }
 
-    if (-not $protocolAvailable -or -not $enabled) {
+    if (-not $protocolAvailable) {
         $script:VirtualGamepadStatusDot.Visible = $false
         $script:VirtualGamepadStatusLabel.Visible = $false
         return
@@ -234,6 +236,12 @@ function Update-MugenVirtualGamepadStatusUi {
     $script:VirtualGamepadStatusLabel.ForeColor = $physicalLabel.ForeColor
 
     $ru = ($script:Language -eq 'ru')
+    if (-not $enabled) {
+        $script:VirtualGamepadStatusLabel.Text = if ($ru) { 'Виртуальный геймпад · выключен' } else { 'Virtual gamepad · disabled' }
+        $script:VirtualGamepadStatusDot.ForeColor = [System.Drawing.Color]::Gray
+        return
+    }
+
     $text = if ($ru) { 'Виртуальный геймпад · ожидает контроллер' } else { 'Virtual gamepad · waiting for controller' }
     $color = [System.Drawing.Color]::Gray
 
