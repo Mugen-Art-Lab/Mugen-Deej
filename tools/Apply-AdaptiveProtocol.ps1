@@ -533,20 +533,90 @@ $text = Replace-LiteralExactlyOnce `
     -Label 'typed state probe initialization'
 
 # Adaptive and Extended packets are explicitly typed, so two repeated packet
-# signatures are sufficient during a baud probe; Legacy keeps the stricter 3.
-$oldRequiredHits = @'
-                        $requiredHits = if ([string]$parsed.Protocol -eq 'extended') { 2 } else { 3 }
+# signatures are sufficient during a baud probe. Legacy remains supported, but
+# a short-lived numeric fragment must not win the probe before a typed packet
+# has a chance to arrive. Track how long the current candidate signature has
+# remained stable and give Legacy candidates a small confidence delay.
+$oldProbeCandidateInit = @'
+            $buffer = ''
+            $candidateSignature = ''
+            $candidateHits = 0
 '@
 
-$newRequiredHits = @'
-                        $requiredHits = if ([string]$parsed.Protocol -in @('extended','adaptive')) { 2 } else { 3 }
+$newProbeCandidateInit = @'
+            $buffer = ''
+            $candidateSignature = ''
+            $candidateHits = 0
+            $candidateFirstSeenAt = [DateTime]::MinValue
 '@
 
 $text = Replace-LiteralExactlyOnce `
     -Text $text `
-    -OldText $oldRequiredHits `
-    -NewText $newRequiredHits `
-    -Label 'Adaptive baud-probe validation count'
+    -OldText $oldProbeCandidateInit `
+    -NewText $newProbeCandidateInit `
+    -Label 'probe candidate stability timestamp'
+
+$oldProbeSignatureTracking = @'
+                        if ($signature -eq $candidateSignature) {
+                            $candidateHits++
+                        }
+                        else {
+                            $candidateSignature = $signature
+                            $candidateHits = 1
+                        }
+
+                        # Requiring repeated packets makes accidental valid-looking
+                        # garbage at a wrong baud extremely unlikely to be accepted.
+                        $requiredHits = if ([string]$parsed.Protocol -eq 'extended') { 2 } else { 3 }
+                        if ($candidateHits -lt $requiredHits) { continue }
+'@
+
+$newProbeSignatureTracking = @'
+                        if ($signature -eq $candidateSignature) {
+                            $candidateHits++
+                        }
+                        else {
+                            $candidateSignature = $signature
+                            $candidateHits = 1
+                            $candidateFirstSeenAt = Get-Date
+                        }
+
+                        # Explicitly typed packets are high-confidence and can win
+                        # quickly. Legacy is intentionally held a little longer:
+                        # opening/resetting a USB-serial device can expose a short
+                        # numeric fragment that otherwise looks like a 1-slider
+                        # classic deej packet. A topology that also disagrees with
+                        # the configured slider count receives the longer grace.
+                        $requiredHits = if ([string]$parsed.Protocol -in @('extended','adaptive')) { 2 } else { 3 }
+                        if ($candidateHits -lt $requiredHits) { continue }
+
+                        if ([string]$parsed.Protocol -eq 'legacy') {
+                            $legacyObservedSliders = @($parsed.Sliders).Count
+                            $legacyExpectedSliders = [Math]::Max(1, [int]$script:Config.connection.expectedSliders)
+                            $legacyStableMs = ((Get-Date) - $candidateFirstSeenAt).TotalMilliseconds
+                            $legacyMinStableMs = if ($legacyObservedSliders -eq $legacyExpectedSliders) { 300 } else { 900 }
+
+                            if ($legacyStableMs -lt $legacyMinStableMs) {
+                                if ($candidateHits -eq $requiredHits) {
+                                    Write-Log (
+                                        'Legacy probe candidate deferred: port={0}; baud={1}; observedSliders={2}; expectedSliders={3}; requireStableMs={4}' -f
+                                        $PortName,
+                                        $baudRate,
+                                        $legacyObservedSliders,
+                                        $legacyExpectedSliders,
+                                        $legacyMinStableMs
+                                    ) 'DEBUG'
+                                }
+                                continue
+                            }
+                        }
+'@
+
+$text = Replace-LiteralExactlyOnce `
+    -Text $text `
+    -OldText $oldProbeSignatureTracking `
+    -NewText $newProbeSignatureTracking `
+    -Label 'Legacy probe confidence delay'
 
 # Update typed state on every accepted packet. Button handling remains exactly
 # where it already was so Extended/XInput behavior is not reordered.
