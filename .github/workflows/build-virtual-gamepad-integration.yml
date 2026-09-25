@@ -302,7 +302,7 @@ jobs:
           if ($runtimeText -notmatch 'Large button settings UI prepared') {
             throw 'Development runtime is missing large-button editor timing diagnostics.'
           }
-          if ($runtimeText -notmatch 'Assignments: \{0\} of \{1\}') {
+          if ($runtimeText -notmatch 'Assigned: \{0\} of \{1\}') {
             throw 'Development runtime is missing the scalable assignment overview.'
           }
           if ($runtimeText -notmatch 'Press a button on the controller and Mugen will select it automatically') {
