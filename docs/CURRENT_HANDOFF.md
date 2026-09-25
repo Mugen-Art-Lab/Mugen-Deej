@@ -2675,3 +2675,32 @@ UI note captured from the same test, but intentionally not changed yet:
 - the pre-restore confirmation dialog still exposes technical topology wording such as `Adaptive v3 — 5/28/2/1`;
 - the pre-restore dialog uses the light dialog treatment while the post-restore restart dialog follows the dark app theme;
 - the user has not yet given the broader #227 UI-review feedback, so these backup-dialog observations remain queued for that pass instead of being mixed into the connection fix.
+
+## Integrated #233 — focused UI layout polish
+
+Real-machine review of the #227 wording pass produced concrete layout/clarity fixes. #229 remains the hardware-tested connection baseline; this pass only changes user-facing UI/layout and virtual-gamepad status presentation.
+
+Changes in #233:
+- main status card: virtual-gamepad action button now aligns with the virtual-gamepad row instead of floating between the controller and virtual-device rows;
+- the virtual-device row remains visible when supported but disabled, showing an explicit disabled status; the button is phrased as an action (`Enable/Disable`, RU `Включить/Выключить`) rather than a status;
+- Physical button editor uses `Выбрана кнопка: N` / `Selected button: N`;
+- toggle/encoder settings replaces the remaining `T1/T2 as modifiers` wording with a plain explanation that T1/T2 can have separate actions;
+- encoder headings use colon punctuation (`Энкодер 1: с нажатием`, etc.);
+- layer-switch toggle headings use colon punctuation (`Тумблер 1: переключает слой «…»`);
+- virtual Xbox picker hint is deliberately split into two balanced lines;
+- Control layers adds more vertical spacing between layer-name labels and text boxes;
+- the right-side layer-assignment hint gets more height, the list is moved down, and the copy is shorter;
+- layer notification `Непрозрачность, %` label is widened and its numeric control shifted right so the percent sign no longer wraps to a second line.
+
+Theme note from backup restore review: the first confirmation dialog can legitimately appear in the default light theme before restore, while the post-restore dialog uses the theme loaded from the backup. No theme-behavior change was made in this pass.
+
+CI progression:
+- #230/#231/#232 exposed stale exact-copy/assertion checks after the UI wording/layout changes;
+- run **#233**, run ID `36179095524` — **SUCCESS**;
+- built head `9d23166e1d1776f1c02f8087b3aa2fd82f6ffdf8`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-233`, ID `10882928658`;
+- outer Actions digest `sha256:3e729e9ada6265c3cbbccba50ce057174b99e7d3bceabe47e2b77915ba137136`;
+- inner program ZIP SHA-256 `fc6187392744fd465de33eca64ebcab872d5408deaf52eb0aa1a22c90228bec6`;
+- staging, Windows PowerShell 5.1 parse/runtime checks, launcher/helper build, packaging and upload: PASS.
+
+#233 is the current UI-review candidate. Recheck the same windows from the screenshots: main status card, button settings, virtual Xbox picker, toggle/encoder settings, Control layers and layer notification settings.
