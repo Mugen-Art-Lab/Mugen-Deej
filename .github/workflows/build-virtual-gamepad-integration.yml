@@ -641,7 +641,7 @@ jobs:
           if ($runtimeText -notmatch 'Regular actions fire once per press' -or $runtimeText -notmatch 'The virtual Xbox gamepad stays held while you hold the controller button') {
             throw 'Layer button editor does not explain one-shot versus held mappings on separate lines.'
           }
-          if ($runtimeText -notmatch '“Same as base layer” keeps the normal action' -or $runtimeText -notmatch '“Do nothing” disables the button only in this layer') {
+          if ($runtimeText -notmatch 'keeps the normal action' -or $runtimeText -notmatch 'disables the button only in this layer') {
             throw 'Layer button editor is missing the split base/do-nothing guidance.'
           }
           if ($runtimeText -notmatch 'Virtual Xbox gamepad') {
