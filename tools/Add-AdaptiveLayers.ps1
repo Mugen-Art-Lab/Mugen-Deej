@@ -1516,14 +1516,14 @@ function Show-AdaptiveLayerEncoderSettings {
     $profileLabel = New-Object System.Windows.Forms.Label
     $profileLabel.Text = if ($script:Language -eq 'ru') { 'Профиль:' } else { 'Profile:' }
     $profileLabel.Location = [System.Drawing.Point]::new(25, 111)
-    $profileLabel.Size = [System.Drawing.Size]::new(80, 28)
+    $profileLabel.Size = [System.Drawing.Size]::new(68, 28)
     $profileLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
     $encoderLayerDialog.Controls.Add($profileLabel)
 
     $encoderLayerProfileCombo = New-Object MugenDeejWindowing.MugenComboBox
     $encoderLayerProfileCombo.DropDownStyle = 'DropDownList'
-    $encoderLayerProfileCombo.Location = [System.Drawing.Point]::new(105, 109)
-    $encoderLayerProfileCombo.Size = [System.Drawing.Size]::new(300, 30)
+    $encoderLayerProfileCombo.Location = [System.Drawing.Point]::new(92, 109)
+    $encoderLayerProfileCombo.Size = [System.Drawing.Size]::new(224, 30)
     $encoderLayerDialog.Controls.Add($encoderLayerProfileCombo)
 
     $encoderLayerProfileMap = New-Object System.Collections.ArrayList
@@ -1537,17 +1537,31 @@ function Show-AdaptiveLayerEncoderSettings {
     }
     $encoderLayerProfileCombo.SelectedIndex = 0
 
+    $layerLabel = New-Object System.Windows.Forms.Label
+    $layerLabel.Text = if ($script:Language -eq 'ru') { 'Слой:' } else { 'Layer:' }
+    $layerLabel.Location = [System.Drawing.Point]::new(330, 111)
+    $layerLabel.Size = [System.Drawing.Size]::new(48, 28)
+    $layerLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+    $encoderLayerDialog.Controls.Add($layerLabel)
+
     $encoderLayerLayerCombo = New-Object MugenDeejWindowing.MugenComboBox
     $encoderLayerLayerCombo.DropDownStyle = 'DropDownList'
-    $encoderLayerLayerCombo.Location = [System.Drawing.Point]::new(420, 109)
-    $encoderLayerLayerCombo.Size = [System.Drawing.Size]::new(130, 30)
+    $encoderLayerLayerCombo.Location = [System.Drawing.Point]::new(378, 109)
+    $encoderLayerLayerCombo.Size = [System.Drawing.Size]::new(126, 30)
     Set-AdaptiveLayerComboDisplayItems -Combo $encoderLayerLayerCombo -Config $encoderLayerWorking
     $encoderLayerDialog.Controls.Add($encoderLayerLayerCombo)
 
+    $encoderLabel = New-Object System.Windows.Forms.Label
+    $encoderLabel.Text = if ($script:Language -eq 'ru') { 'Энкодер:' } else { 'Encoder:' }
+    $encoderLabel.Location = [System.Drawing.Point]::new(516, 111)
+    $encoderLabel.Size = [System.Drawing.Size]::new(70, 28)
+    $encoderLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+    $encoderLayerDialog.Controls.Add($encoderLabel)
+
     $encoderLayerEncoderCombo = New-Object MugenDeejWindowing.MugenComboBox
     $encoderLayerEncoderCombo.DropDownStyle = 'DropDownList'
-    $encoderLayerEncoderCombo.Location = [System.Drawing.Point]::new(565, 109)
-    $encoderLayerEncoderCombo.Size = [System.Drawing.Size]::new(130, 30)
+    $encoderLayerEncoderCombo.Location = [System.Drawing.Point]::new(585, 109)
+    $encoderLayerEncoderCombo.Size = [System.Drawing.Size]::new(110, 30)
     for ($i = 0; $i -lt $encoderCount; $i++) {
         [void]$encoderLayerEncoderCombo.Items.Add($(if ($script:Language -eq 'ru') { 'Энкодер ' + ($i + 1) } else { 'Encoder ' + ($i + 1) }))
     }
@@ -1564,8 +1578,8 @@ function Show-AdaptiveLayerEncoderSettings {
     $encoderLayerCombos = @()
     $encoderLayerMaps = @()
     $encoderLayerKinds = @('cw','ccw','push')
-    $kindTitlesRu = @('По часовой', 'Против часовой', 'Нажатие')
-    $kindTitlesEn = @('Clockwise', 'Counter-clockwise', 'Push')
+    $kindTitlesRu = @('↻', '↺', 'Нажатие')
+    $kindTitlesEn = @('↻', '↺', 'Push')
 
     for ($i = 0; $i -lt 3; $i++) {
         $label = New-Object System.Windows.Forms.Label
@@ -1611,10 +1625,10 @@ function Show-AdaptiveLayerEncoderSettings {
         $baseCcw = Get-AdaptiveLayerBaseEncoderAction -ContextKey $contextKey -EncoderIndex $encoderIndex -Kind 'ccw'
         $basePush = Get-AdaptiveLayerBaseEncoderAction -ContextKey $contextKey -EncoderIndex $encoderIndex -Kind 'push'
         $encoderLayerBaseLabel.Text = if ($script:Language -eq 'ru') {
-            'Основное: ↻ {0} · ↺ {1} · нажатие {2}' -f (Get-AdaptiveActionDisplay -Action $baseCw), (Get-AdaptiveActionDisplay -Action $baseCcw), (Get-AdaptiveActionDisplay -Action $basePush)
+            'Основной слой: ↻ {0} · ↺ {1} · Нажатие: {2}' -f (Get-AdaptiveActionDisplay -Action $baseCw), (Get-AdaptiveActionDisplay -Action $baseCcw), (Get-AdaptiveActionDisplay -Action $basePush)
         }
         else {
-            'Base: ↻ {0} · ↺ {1} · push {2}' -f (Get-AdaptiveActionDisplay -Action $baseCw), (Get-AdaptiveActionDisplay -Action $baseCcw), (Get-AdaptiveActionDisplay -Action $basePush)
+            'Base layer: ↻ {0} · ↺ {1} · Push: {2}' -f (Get-AdaptiveActionDisplay -Action $baseCw), (Get-AdaptiveActionDisplay -Action $baseCcw), (Get-AdaptiveActionDisplay -Action $basePush)
         }
 
         $encoderLayerState.Suppress = $true
