@@ -31,7 +31,7 @@ Integrated **#229** has passed the real-machine backup-restore/restart regressio
 
 Backup-dialog UI note: the restore confirmation still exposes technical topology text (`Adaptive v3 — 5/28/2/1`) and uses a light treatment while the post-restore restart dialog follows the dark app theme. Keep this queued with the #227 UI review rather than mixing it into the probe fix.
 
-Integrated **#233** is the current UI-review candidate. It keeps the #229 connection fix intact and applies focused layout/wording cleanup from the real-machine screenshots: explicit virtual-gamepad controls, punctuation, balanced Xbox help text, layer spacing, assignment-sidebar spacing and notification opacity layout. CI/package is PASS; real-machine visual review is pending.
+Integrated **#235** is the current UI-review candidate. It keeps the #233 layout/wording polish and makes the Control layers button-help text four explicit lines (base-layer behavior, do-nothing behavior, ordinary one-shot actions, held Virtual Xbox gamepad behavior). CI/package is PASS; real-machine visual review is pending.
 
 Recent accepted chain:
 - **#214**: 5 ms low-latency active-XInput serial drain and cached effective profile/layer resolution;
