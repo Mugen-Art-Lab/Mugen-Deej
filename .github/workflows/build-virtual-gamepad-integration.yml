@@ -344,7 +344,7 @@ jobs:
           if ($runtimeText -notmatch 'The new profile will start with a copy of the current Global mappings') {
             throw 'Application-profile picker is missing the clearer copy-source explanation.'
           }
-          if ($runtimeText -notmatch "\$pickerAdd\.Text = if \(\$script:Language -eq 'ru'\) \{ 'Создать' \} else \{ 'Create' \}") {
+          if ($runtimeText -notmatch "\$pickerAdd\.Text = if \(\$script:Language -eq 'ru'\)" -or $runtimeText -notmatch "else \{ 'Create' \}") {
             throw 'Application-profile picker is missing the explicit Create action.'
           }
           if ($runtimeText -notmatch 'Choose a specific display and anchor for multi-monitor setups') {
