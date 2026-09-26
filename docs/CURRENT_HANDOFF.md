@@ -2756,3 +2756,38 @@ CI progression:
 - staging, Windows PowerShell 5.1 checks, launcher/helper build, packaging and artifact upload: PASS.
 
 #237 supersedes #235 as the current UI-review candidate; #229 remains the current hardware-tested connection baseline.
+
+## Integrated #242 — slider/application-picker UI polish
+
+Continuation of the real-machine UI cleanup after #237. This pass also folds the previously local #238/#239 hint-wrap tweaks into the real branch/build pipeline.
+
+Changes:
+- Button actions top guidance is deliberately split into two lines instead of relying on automatic wrapping.
+- Layered encoder help is deliberately split into two lines in RU/EN.
+- Layer-change notification help is deliberately split into two lines in RU/EN.
+- Application-profile picker wording is clearer and action-oriented:
+  - heading: `Для какого приложения создать профиль?` / `Which application should have its own profile?`;
+  - copy: the new profile gets/starts with a copy of the current Global profile mappings;
+  - primary action: `Создать` / `Create`.
+- Slider settings top help now separates the naming disclaimer onto its own line:
+  - purpose/examples;
+  - names are display-only and do not affect connection;
+  - physical-control identification remains the next line.
+- Application picker top help is split deliberately into two lines:
+  - active-audio sessions;
+  - running-but-silent applications.
+- The `Сейчас используют звук` / `Запущены без звука или уже сохранены` group captions have a little more breathing room above their tables by moving both list views down 7 px and reducing their heights accordingly.
+- The responsiveness explanation is aligned with the responsiveness selector, widened to use the freed right-side space, and vertically centered.
+- The normal slider-settings UI no longer exposes the technical `Открыть config.json` button. The file remains available in the portable folder for manual/dev access.
+
+CI progression:
+- #238/#239/#240 exposed stale/brittle exact-copy assertions from the profile-picker wording change;
+- #241 was superseded by the final workflow/assertion update;
+- run **#242**, run ID `36264648203` — **SUCCESS**;
+- built head `dc2c0d4edd8a5602d29d9b73dec99343258eddfd`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-242`, ID `10914180026`;
+- outer Actions digest `sha256:5ed7722c6853848576c202241d6533a8c5e0b3839233737953ce6082197b2b84`;
+- inner program ZIP SHA-256 `9c19332de8651e8580e28974dbaca71919008aefb191e851a6cbf2d93b288159`;
+- staging, Windows PowerShell 5.1 parse/runtime checks, launcher/helper build, packaging and artifact upload: PASS.
+
+#242 is the current UI-review candidate; #229 remains the current hardware-tested connection baseline.
