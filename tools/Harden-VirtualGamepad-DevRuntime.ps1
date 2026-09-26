@@ -90,10 +90,7 @@ if (-not $PreserveStartupRegistration) {
     $text = Replace-RegexExactlyOnce `
         -Text $text `
         -Pattern '(?m)^\$startWithWindowsCheck\.Checked = \(Test-StartupEnabled\)\r?\n\$startWithWindowsCheck\.Enabled = \(Test-Path -LiteralPath \$script:ExecutablePath\)' `
-        -Replacement @'
-    $startWithWindowsCheck.Checked = $false
-    $startWithWindowsCheck.Enabled = $false
-    '@ `
+        -Replacement ('$startWithWindowsCheck.Checked = $false' + [Environment]::NewLine + '$startWithWindowsCheck.Enabled = $false') `
         -Label 'disable startup checkbox'
 }
 
