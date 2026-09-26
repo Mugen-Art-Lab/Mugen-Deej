@@ -2704,3 +2704,32 @@ CI progression:
 - staging, Windows PowerShell 5.1 parse/runtime checks, launcher/helper build, packaging and upload: PASS.
 
 #233 is the current UI-review candidate. Recheck the same windows from the screenshots: main status card, button settings, virtual Xbox picker, toggle/encoder settings, Control layers and layer notification settings.
+
+## Integrated #235 — four-line layer action help
+
+Follow-up from real-machine UI review of #233.
+
+Control layers -> button action explanation is now deliberately split into four separate lines instead of relying on automatic wrapping:
+- `Same as base layer` explanation;
+- `Do nothing` explanation;
+- one-shot ordinary actions explanation;
+- held Virtual Xbox gamepad explanation.
+
+Russian wording follows the same four-line structure:
+- `«Как в основном слое» — оставить обычное действие.`
+- `«Не использовать» — отключить кнопку только в этом слое.`
+- `Обычные действия выполняются один раз при нажатии.`
+- `Виртуальный геймпад Xbox удерживает кнопку, пока вы держите кнопку на контроллере.`
+
+Screenshots from the same review also captured the first-run language chooser and the layered-encoder dialog for reference; no changes were requested for those two windows in this pass.
+
+CI:
+- #234 exposed one encoding-sensitive exact-text assertion in the workflow;
+- run **#235**, run ID `36215269162` — **SUCCESS**;
+- built head `352e3b05ff0f159d4ad4af8a9387e9468b82b617`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-235`, ID `10896789260`;
+- outer Actions digest `sha256:ccde4b0244d65ee8ff3c69e359f9152f480effde0910306d9e93fc3cfb58ce87`;
+- inner program ZIP SHA-256 `ec146066fd41e1a93ef15acec207be7639b5c256af171ecc735041244e6c4d3c`;
+- staging, Windows PowerShell 5.1 checks, launcher/helper build, packaging and artifact upload: PASS.
+
+#235 supersedes #233 as the current UI-review candidate; #229 remains the current hardware-tested connection baseline.
