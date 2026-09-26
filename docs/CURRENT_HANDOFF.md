@@ -2871,3 +2871,23 @@ CI progression:
 - staging, Windows PowerShell 5.1 checks, launcher/helper build, packaging and artifact upload: PASS.
 
 #247 supersedes #244 as the current UI-review candidate. #229 remains the current hardware-tested connection baseline.
+
+## #247 real-machine UI consistency review — PASS
+
+Real-machine review of #247 was visually clean.
+
+Observed runtime/log result:
+- backup restore completed normally and requested restart;
+- after restart COM5 was probed at 115200 and the first accepted controller topology was immediately Adaptive 5/28/2/1;
+- the #229 false-Legacy startup regression did not recur;
+- virtual controller startup completed asynchronously and reached ready state;
+- modal Mugen dialogs correctly suspended virtual-controller input and resumed it after closing;
+- large button settings prepared normally for all 28 buttons;
+- no JIT/PowerShell exceptions or connection-recovery loops were observed during this review.
+
+Visual result:
+- split Control layers intro looked correct;
+- Virtual Xbox gamepad enable/disable status wording looked consistent with the adjacent action button;
+- overall #247 UI review: **PASS**.
+
+#247 is now the current hardware-reviewed UI baseline. #229 remains the connection-probe milestone that originally established the startup fix.
