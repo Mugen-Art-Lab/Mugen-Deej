@@ -335,6 +335,24 @@ jobs:
           if ($runtimeText -notmatch 'Selected button: ') {
             throw 'Button editor is missing the selected-button punctuation polish.'
           }
+          if ($runtimeText -notmatch 'Only the selected button is edited on the right; the list below shows all assignments') {
+            throw 'Button editor is missing the deliberate two-line guidance copy.'
+          }
+          if ($runtimeText -notmatch 'Which application should have its own profile?') {
+            throw 'Application-profile picker is missing the clearer heading.'
+          }
+          if ($runtimeText -notmatch 'The new profile will start with a copy of the current Global mappings') {
+            throw 'Application-profile picker is missing the clearer copy-source explanation.'
+          }
+          if ($runtimeText -notmatch "\$pickerAdd\.Text = if \(\$script:Language -eq 'ru'\) \{ 'Создать' \} else \{ 'Create' \}") {
+            throw 'Application-profile picker is missing the explicit Create action.'
+          }
+          if ($runtimeText -notmatch 'Choose a specific display and anchor for multi-monitor setups') {
+            throw 'Layer notification dialog is missing the balanced second help line.'
+          }
+          if ($runtimeText -notmatch 'Same as base layer.*keeps the normal encoder mapping from the selected profile') {
+            throw 'Layered encoder dialog is missing the balanced second help line.'
+          }
           if ($runtimeText -notmatch 'T1 and T2 can have separate button and encoder actions') {
             throw 'Toggle/encoder settings are missing the simplified layer-settings hint.'
           }

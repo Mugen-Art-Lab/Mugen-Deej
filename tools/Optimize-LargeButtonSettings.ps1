@@ -457,7 +457,7 @@ function Show-LargeButtonSettings {
         Set-FormAppIcon -Form $picker
 
         $pickerHeading = New-Object System.Windows.Forms.Label
-        $pickerHeading.Text = if ($script:Language -eq 'ru') { 'Какому приложению нужен свой профиль?' } else { 'Which application needs its own profile?' }
+        $pickerHeading.Text = if ($script:Language -eq 'ru') { 'Для какого приложения создать профиль?' } else { 'Which application should have its own profile?' }
         $pickerHeading.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 13)
         $pickerHeading.AutoSize = $true
         $pickerHeading.Location = [System.Drawing.Point]::new(20, 18)
@@ -465,10 +465,10 @@ function Show-LargeButtonSettings {
 
         $pickerHint = New-Object System.Windows.Forms.Label
         $pickerHint.Text = if ($script:Language -eq 'ru') {
-            'Новый профиль начнёт с копии текущих назначений Общего профиля.'
+            'Новый профиль получит копию текущих назначений Общего профиля.'
         }
         else {
-            'The new profile starts as a copy of the current Global mappings.'
+            'The new profile will start with a copy of the current Global mappings.'
         }
         $pickerHint.ForeColor = [System.Drawing.Color]::DimGray
         $pickerHint.Location = [System.Drawing.Point]::new(22, 52)
@@ -493,7 +493,7 @@ function Show-LargeButtonSettings {
         $picker.Controls.Add($pickerCancel)
 
         $pickerAdd = New-Object MugenDeejWindowing.MugenButton
-        $pickerAdd.Text = if ($script:Language -eq 'ru') { 'Добавить' } else { 'Add' }
+        $pickerAdd.Text = if ($script:Language -eq 'ru') { 'Создать' } else { 'Create' }
         $pickerAdd.Tag = 'MugenPrimary'
         $pickerAdd.DialogResult = [System.Windows.Forms.DialogResult]::OK
         $pickerAdd.Location = [System.Drawing.Point]::new(438, 164)
