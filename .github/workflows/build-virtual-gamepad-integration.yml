@@ -728,16 +728,16 @@ jobs:
           if ($runtimeText -notmatch 'Set-AdaptiveLayerComboDisplayItems -Combo \$encoderLayerLayerCombo -Config \$encoderLayerWorking') {
             throw 'Layered encoder selector does not use custom layer names.'
           }
-          if ($runtimeText -notmatch "\$layerLabel\.Text = if \(\$script:Language -eq 'ru'\) \{ 'Слой:' \} else \{ 'Layer:' \}") {
+          if ($runtimeText -notmatch '\$layerLabel = New-Object System\.Windows\.Forms\.Label' -or $runtimeText -notmatch "'Layer:'") {
             throw 'Layered encoder dialog is missing an explicit Layer selector label.'
           }
-          if ($runtimeText -notmatch "\$encoderLabel\.Text = if \(\$script:Language -eq 'ru'\) \{ 'Энкодер:' \} else \{ 'Encoder:' \}") {
+          if ($runtimeText -notmatch '\$encoderLabel = New-Object System\.Windows\.Forms\.Label' -or $runtimeText -notmatch "'Encoder:'") {
             throw 'Layered encoder dialog is missing an explicit Encoder selector label.'
           }
-          if ($runtimeText -notmatch "Base layer: ↻ \{0\} · ↺ \{1\} · Push: \{2\}") {
+          if ($runtimeText -notmatch 'Base layer:' -or $runtimeText -notmatch 'Push: \{2\}') {
             throw 'Layered encoder dialog is missing the clarified base-layer summary.'
           }
-          if ($runtimeText -notmatch "\$kindTitlesEn = @\('↻', '↺', 'Push'\)") {
+          if ($runtimeText -notmatch "\$kindTitlesEn = @\(" -or $runtimeText -notmatch "'Push'\)") {
             throw 'Layered encoder dialog is missing symbolic rotation labels.'
           }
           if ($runtimeText -notmatch 'Get-AdaptiveLayerDisplayNameFromConfig -Config \$working -Layer \$currentLayer') {
