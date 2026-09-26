@@ -126,6 +126,27 @@ $runtime = Replace-UiLiteral $runtime 'Противоположные напра
 $runtime = Replace-UiLiteral $runtime 'Opposite directions on the same axis cancel each other and leave that axis centered.' 'Pressing opposite directions at the same time returns the stick to center.' 'gamepad opposite-axis hint EN'
 
 # ---------------------------------------------------------------------------
+# Slider settings and application picker
+# ---------------------------------------------------------------------------
+$runtime = Replace-UiLiteral $runtime 'Регуляторы идут слева направо. Их названия можно и нужно менять под назначение — например, «Музыка», «Игра» или «Чат». Названия используются только для отображения и не влияют на подключение.' 'Регуляторы идут слева направо. Их названия можно и нужно менять под назначение — например, «Музыка», «Игра» или «Чат».'' + "`r`n" + ''Названия используются только для отображения и не влияют на подключение.' 'slider settings naming hint RU'
+$runtime = Replace-UiLiteral $runtime 'Controls are ordered from left to right. Rename them to match their purpose, for example Music, Game, or Chat. Names are only labels and do not affect the device connection.' 'Controls are ordered from left to right. Rename them to match their purpose, for example Music, Game, or Chat.'' + "`r`n" + ''Names are only labels and do not affect the device connection.' 'slider settings naming hint EN'
+$runtime = Replace-UiLiteral $runtime 'Верхний список показывает приложения с активной аудиосессией. Ниже можно заранее выбрать запущенные приложения, которые пока молчат.' 'Верхний список показывает приложения с активной аудиосессией.'' + "`r`n" + ''Ниже можно заранее выбрать запущенные приложения, которые пока молчат.' 'application picker balanced hint RU'
+$runtime = Replace-UiLiteral $runtime 'The upper list shows active audio sessions. Below, you can preselect running applications that are currently silent.' 'The upper list shows active audio sessions.'' + "`r`n" + ''Below, you can preselect running applications that are currently silent.' 'application picker balanced hint EN'
+
+# Give the group captions a little breathing room above their tables.
+$runtime = Replace-UiLiteral $runtime '$activeListView.Location = New-Object System.Drawing.Point(12, 24)' '$activeListView.Location = New-Object System.Drawing.Point(12, 31)' 'active-audio list top spacing'
+$runtime = Replace-UiLiteral $runtime '$activeListView.Size = New-Object System.Drawing.Size(786, 145)' '$activeListView.Size = New-Object System.Drawing.Size(786, 138)' 'active-audio list height'
+$runtime = Replace-UiLiteral $runtime '$otherListView.Location = New-Object System.Drawing.Point(12, 24)' '$otherListView.Location = New-Object System.Drawing.Point(12, 31)' 'silent-app list top spacing'
+$runtime = Replace-UiLiteral $runtime '$otherListView.Size = New-Object System.Drawing.Size(786, 158)' '$otherListView.Size = New-Object System.Drawing.Size(786, 151)' 'silent-app list height'
+
+# The responsiveness explanation belongs on the same visual row as the selector.
+# config.json remains available in the portable folder, but direct file editing is
+# intentionally removed from the normal settings surface.
+$runtime = Replace-UiLiteral $runtime '$responseHint.Location = New-Object System.Drawing.Point(395, 58)' '$responseHint.Location = New-Object System.Drawing.Point(395, 64)' 'responsiveness hint vertical alignment'
+$runtime = Replace-UiLiteral $runtime '$responseHint.Size = New-Object System.Drawing.Size(410, 48)' '$responseHint.Size = New-Object System.Drawing.Size(645, 38)'' + "`r`n" + ''    $responseHint.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft' 'responsiveness hint width and alignment'
+$runtime = Replace-UiLiteral $runtime '$advancedConfigButton.Size = New-Object System.Drawing.Size(190, 32)' '$advancedConfigButton.Size = New-Object System.Drawing.Size(190, 32)'' + "`r`n" + ''    $advancedConfigButton.Visible = $false' 'hide technical config-json shortcut'
+
+# ---------------------------------------------------------------------------
 # Main status and diagnostics
 # ---------------------------------------------------------------------------
 $runtime = Replace-UiLiteral $runtime 'Контроллер подключён — {0} · {1} регуляторов · {2} кнопок' 'Контроллер · {1} регуляторов · {2} кнопок' 'Legacy/Extended main status RU with buttons'
