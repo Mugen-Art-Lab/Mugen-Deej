@@ -2824,3 +2824,20 @@ CI:
 - staging, strengthened exact-line guards, Windows PowerShell 5.1 parse/runtime checks, launcher/helper build, packaging and upload: PASS.
 
 #242 is rejected for real-machine use. #244 supersedes it as the current UI-review candidate. Real-machine acceptance: open `Регуляторы`, verify the dialog opens without JIT, then visually review the slider help / responsiveness row / application picker changes.
+
+## #244 real-machine slider/application-picker visual review — PASS
+
+Real-machine recheck after the #242 slider-dialog regression fix:
+
+- `Регуляторы / Controls` now opens normally with no JIT/PowerShell exception;
+- the top naming guidance is split into clearer semantic lines;
+- the responsiveness explanation is aligned with the selector instead of floating above it;
+- the technical `Открыть config.json` shortcut is no longer exposed in the normal UI;
+- the application picker top explanation is deliberately split into two lines;
+- the `Сейчас используют звук` and `Запущены без звука или уже сохранены` captions now have visible breathing room before their tables.
+
+User visual verdict: **much better**.
+
+Acceptance for this UI slice: **PASS**.
+
+#244 remains the current UI-review candidate; this PASS specifically covers the slider settings and application picker windows.
