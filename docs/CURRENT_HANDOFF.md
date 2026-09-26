@@ -2956,3 +2956,26 @@ CI:
 - inner RC1 ZIP SHA-256 `756be6e41d0e470eea6adaa4605699db1215aa68bd89472aad669f3653df638d`.
 
 #252 supersedes #251 as the current RC1 package.
+
+## 2.0.0 RC1 inversion-hint theme-order fix — run #253 PASS
+
+Real-machine review of #252 showed that the inversion hint still rendered gray despite the intended warning accent.
+
+Root cause:
+- #252 assigned the warm accent before `Apply-ThemeToForm`;
+- theme application normalized label colors afterwards and overwrote the custom `ForeColor`.
+
+Fix in #253:
+- the hint starts with the normal themed color;
+- immediately after `Apply-ThemeToForm -Form $wizard`, RC1 explicitly restores
+  `$nextHintLine3.ForeColor = [System.Drawing.Color]::FromArgb(230, 170, 70)`;
+- CI now asserts that the accent assignment occurs after the wizard theme application, not merely somewhere in the generated runtime.
+
+CI:
+- run **#253**, run ID `36269695340` — **SUCCESS**;
+- built head `0afbbbafd28080760213a77624e178903f7dba74`;
+- artifact `Mugen-Deej-2.0.0-rc1-253`, ID `10915725370`;
+- outer Actions digest `sha256:6fc2b38d3a3878bb3c20dd18d9f409dfb3ef01a71becb967bd668d0c5f09bba5`;
+- inner RC1 ZIP SHA-256 `a6a30b2a9b8a8236d81b39f293ccacfede04f401d42d20e8d8b472969fa8bfea`.
+
+#252 is rejected for this visual detail. #253 supersedes it as the current RC1 package.
