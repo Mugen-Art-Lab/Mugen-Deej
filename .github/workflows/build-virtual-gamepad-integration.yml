@@ -807,6 +807,9 @@ jobs:
           if ($runtimeText -notmatch 'Control layers') {
             throw 'Adaptive typed-settings dialog is missing the dedicated Control layers row.'
           }
+          if ($runtimeText -notmatch 'Anything unchanged works the same as the base layer') {
+            throw 'Control layers is missing the deliberate second intro line.'
+          }
           if ($runtimeText -notmatch '\$layerSettingsButton\.Location = \[System\.Drawing\.Point\]::new\(25, 211\)') {
             throw 'Adaptive Control layers button is still glued to the profile Add button.'
           }
@@ -963,7 +966,7 @@ jobs:
 
           $integrationModule = '.\artifacts\Mugen-Deej-VirtualGamepad-Integrated-Dev\virtual-gamepad\MugenDeej.VirtualGamepad.ps1'
           $integrationText = [System.IO.File]::ReadAllText((Resolve-Path $integrationModule), [System.Text.Encoding]::UTF8)
-          if ($integrationText -notmatch 'Virtual Xbox gamepad.*connected') {
+          if ($integrationText -notmatch 'Virtual Xbox gamepad.*enabled') {
             throw 'Integration module is missing the explicit Virtual Xbox gamepad status wording.'
           }
           if ($integrationText -match 'XInput: On') {
@@ -974,6 +977,12 @@ jobs:
           }
           if ($integrationText -notmatch 'Virtual Xbox gamepad.*disabled') {
             throw 'Main-window virtual-gamepad row does not remain explicit while output is disabled.'
+          }
+          if ($integrationText -notmatch 'Virtual Xbox gamepad.*enabling') {
+            throw 'Main-window virtual-gamepad starting state is not phrased consistently with enable/disable.'
+          }
+          if ($integrationText -notmatch 'Virtual Xbox gamepad.*enabled.*waiting for controller') {
+            throw 'Main-window virtual-gamepad waiting state is not phrased consistently with enable/disable.'
           }
           if ($integrationText -notmatch 'Virtual controller input suspended while a modal Mugen dialog is open') {
             throw 'Stateful virtual-controller output is not neutralized while modal dialogs are open.'
@@ -1014,7 +1023,7 @@ jobs:
           if ($runtimeText -notmatch 'Do not run them\s+# through the legacy one-shot 80 ms debounce') {
             throw 'Development runtime still routes virtual Xbox mappings through the legacy press debounce.'
           }
-          if ($integrationText -notmatch 'Virtual Xbox gamepad.*connected') {
+          if ($integrationText -notmatch 'Virtual Xbox gamepad.*enabled') {
             throw 'Integration module is missing the stable virtual-gamepad status name/format.'
           }
           if ($integrationText -notmatch '\$targetHeight = if \(\$Enabled\) \{ 68 \} else \{ 60 \}') {
