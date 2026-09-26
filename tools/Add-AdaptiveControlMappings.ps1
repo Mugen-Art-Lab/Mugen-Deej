@@ -3030,7 +3030,7 @@ function Show-FirstRunWizard {
     $wizard.Controls.Add($nextHintLine2)
 
     $nextHintLine3 = New-Object System.Windows.Forms.Label
-    $nextHintLine3.ForeColor = [System.Drawing.Color]::FromArgb(230, 170, 70)
+    $nextHintLine3.ForeColor = [System.Drawing.Color]::DimGray
     $nextHintLine3.Location = New-Object System.Drawing.Point(27, 310)
     $nextHintLine3.Size = New-Object System.Drawing.Size(606, 22)
     $nextHintLine3.Visible = $false
@@ -3234,6 +3234,8 @@ function Show-FirstRunWizard {
     })
 
     Apply-ThemeToForm -Form $wizard -ThemeName (Get-EffectiveTheme)
+    # Theme application normalizes label colors, so restore the warning accent afterwards.
+    $nextHintLine3.ForeColor = [System.Drawing.Color]::FromArgb(230, 170, 70)
     & $refreshWizard
     $wizard.Add_Shown({
         Ensure-FormVisible -Form $wizard -CenterIfOffscreen

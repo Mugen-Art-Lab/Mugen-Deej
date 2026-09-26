@@ -456,6 +456,9 @@ jobs:
           if ($runtimeText -notmatch '\$nextHintLine3\.ForeColor = \[System\.Drawing\.Color\]::FromArgb\(230, 170, 70\)') {
             throw 'RC runtime is missing the warning-accent color on the inversion hint.'
           }
+          if ($runtimeText -notmatch '(?s)Apply-ThemeToForm -Form \$wizard.*?\$nextHintLine3\.ForeColor = \[System\.Drawing\.Color\]::FromArgb\(230, 170, 70\)') {
+            throw 'RC runtime applies the inversion accent before theming, where it would be overwritten.'
+          }
           if ($runtimeText -notmatch "CloseHint = 'Continue'") {
             throw 'RC runtime is missing the Continue action in the first-run window.'
           }
