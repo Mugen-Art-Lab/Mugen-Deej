@@ -1,6 +1,6 @@
 # Mugen Deej — living project state
 
-Last updated: 2026-09-25
+Last updated: 2026-09-26
 
 This is the authoritative short handoff for active development. Detailed prototype history is in `docs/VIRTUAL_CONTROLLER_TEST_LOG.md`; current product-integration work is in `docs/VIRTUAL_GAMEPAD_INTEGRATION.md`.
 
@@ -31,7 +31,7 @@ Integrated **#229** has passed the real-machine backup-restore/restart regressio
 
 Backup-dialog UI note: the restore confirmation still exposes technical topology text (`Adaptive v3 — 5/28/2/1`) and uses a light treatment while the post-restore restart dialog follows the dark app theme. Keep this queued with the #227 UI review rather than mixing it into the probe fix.
 
-Integrated **#235** is the current UI-review candidate. It keeps the #233 layout/wording polish and makes the Control layers button-help text four explicit lines (base-layer behavior, do-nothing behavior, ordinary one-shot actions, held Virtual Xbox gamepad behavior). CI/package is PASS; real-machine visual review is pending.
+Integrated **#237** is the current UI-review candidate. It keeps the #235 UI polish and cleans up the layered-encoder dialog: explicit Profile/Layer/Encoder labels, a clearer Base layer summary, and symbolic ↻/↺ rotation rows while keeping Push/Nажатие textual. CI/package is PASS; real-machine visual review is pending.
 
 Recent accepted chain:
 - **#214**: 5 ms low-latency active-XInput serial drain and cached effective profile/layer resolution;
