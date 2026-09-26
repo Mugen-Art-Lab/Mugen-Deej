@@ -2791,3 +2791,36 @@ CI progression:
 - staging, Windows PowerShell 5.1 parse/runtime checks, launcher/helper build, packaging and artifact upload: PASS.
 
 #242 is the current UI-review candidate; #229 remains the current hardware-tested connection baseline.
+
+## Integrated #244 — slider dialog runtime regression fix
+
+Real-machine testing of #242 found an immediate regression when opening `Регуляторы / Controls`: WinForms showed an unhandled PowerShell `ParameterBindingException`.
+
+Observed exception:
+- `Не удается найти позиционный параметр, принимающий аргумент " + "`r`n" + ".`
+- triggered by clicking the main `Регуляторы` button;
+- application startup, Adaptive detection and virtual-gamepad startup were otherwise normal before the click.
+
+Root cause:
+- two final-stage UI patch replacements for the responsiveness layout and hidden `config.json` button attempted to inject an additional PowerShell source line by embedding the literal text `' + "`r`n" + '` inside the replacement string;
+- that produced syntactically parseable but runtime-invalid source such as:
+  `$responseHint.Size = New-Object System.Drawing.Size(645, 38)' + "`r`n" + ' ...`;
+- therefore the existing PowerShell parse check could not catch it, and the exception only appeared when `Show-SliderSettings` executed.
+
+Fix in #244:
+- multiline source replacements now use here-string blocks so actual source newlines are emitted;
+- the staged runtime now contains clean executable lines:
+  - `$responseHint.Size = New-Object System.Drawing.Size(645, 38)`
+  - `$responseHint.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft`
+  - `$advancedConfigButton.Visible = $false`
+- CI was strengthened to validate those as complete standalone runtime lines, preventing the same malformed multiline-patch pattern from passing on substring checks again.
+
+CI:
+- run **#244**, run ID `36265188623` — **SUCCESS**;
+- built head `d912d69416b718e5192a896fc9b23754e497b492`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-244`, ID `10914065682`;
+- outer Actions digest `sha256:32d9d6e68f7855ba0d53fb498b82f01d02662cf5dc1ed8d9ef10a9e8706fd0a2`;
+- inner program ZIP SHA-256 `b0b84823b27dfca7cc3e416b81c6a32b56a42188ada32b2c27a0dbcc306ef715`;
+- staging, strengthened exact-line guards, Windows PowerShell 5.1 parse/runtime checks, launcher/helper build, packaging and upload: PASS.
+
+#242 is rejected for real-machine use. #244 supersedes it as the current UI-review candidate. Real-machine acceptance: open `Регуляторы`, verify the dialog opens without JIT, then visually review the slider help / responsiveness row / application picker changes.
