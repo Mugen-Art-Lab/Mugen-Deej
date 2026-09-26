@@ -2915,3 +2915,28 @@ CI progression:
 - staging, Windows PowerShell 5.1 checks, launcher/helper build, RC notes, packaging and upload: PASS.
 
 RC1 real-machine acceptance is pending. Test from a clean extracted folder, then restore the current schema-v3 backup and exercise the production Windows-startup checkbox because startup isolation has intentionally been removed from the RC.
+
+## 2.0.0 RC1 first-run polish — run #251 PASS
+
+First-run onboarding received the final RC wording polish before wider acceptance testing.
+
+Changes:
+- lower guidance now reads:
+  - `Можно настроить нужные элементы прямо сейчас.`
+  - `Или закрыть это окно и вернуться к настройкам позже.`
+- the bottom action is now `Продолжить / Continue` instead of `Закрыть подсказку / Close guide`;
+- when the detected controller has one or more sliders, the onboarding adds a third hint:
+  - `Если регуляторы работают наоборот — включите инверсию направления в «Регуляторах».`
+  - EN: `If the controls move backwards, enable direction inversion in Controls.`
+- that inversion hint stays hidden for zero-slider controllers;
+- the wizard is 22 px taller so the third line keeps the same spacing rhythm without colliding with the three setup buttons.
+
+CI:
+- run **#250** validated the Continue/wording change;
+- run **#251**, run ID `36268669356` — **SUCCESS** with the conditional inversion hint;
+- built head `5625c6284c2769e7d292f51aed415892b0255c73`;
+- artifact `Mugen-Deej-2.0.0-rc1-251`, ID `10914479982`;
+- outer Actions digest `sha256:c2b19e0b8891f0ec3586184a93ee2a1bc69ae4d987ae8b4fc492b47c249b0556`;
+- inner RC1 ZIP SHA-256 `88b8de5c40bb382e5a8de731e6440346221f074a11c0c52bc5c8c8cba2f88bdf`.
+
+#251 supersedes #249 as the current RC1 package for first-run and release acceptance testing.
