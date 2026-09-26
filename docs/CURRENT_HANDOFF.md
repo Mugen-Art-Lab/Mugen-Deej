@@ -2979,3 +2979,17 @@ CI:
 - inner RC1 ZIP SHA-256 `a6a30b2a9b8a8236d81b39f293ccacfede04f401d42d20e8d8b472969fa8bfea`.
 
 #252 is rejected for this visual detail. #253 supersedes it as the current RC1 package.
+
+## #253 first-run inversion accent — real-machine PASS
+
+Real-machine visual recheck confirms the regulator inversion hint now renders in the intended warm warning accent after the theme is applied.
+
+Observed result:
+- first-run wizard remains visually balanced;
+- the inversion line is clearly distinguishable from the two neutral guidance lines;
+- accent matches the existing Important/Важно guidance color family;
+- no additional layout regression observed.
+
+Acceptance for this first-run visual detail: **PASS**.
+
+#253 remains the current RC1 package.
