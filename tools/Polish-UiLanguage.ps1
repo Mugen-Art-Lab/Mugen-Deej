@@ -74,8 +74,10 @@ $runtime = Replace-UiLiteral $runtime ' · rotation only' ': rotation only' 'enc
 # ---------------------------------------------------------------------------
 # Control layers
 # ---------------------------------------------------------------------------
-$runtime = Replace-UiLiteral $runtime 'Тумблеры T1 и T2 могут работать как модификаторы. Здесь задаются отличия кнопок и энкодера для T1, T2 и T1 + T2; пустые назначения наследуют основной профиль.' 'T1 и T2 могут переключать слои с отдельными действиями. Для каждого слоя можно изменить действия кнопок и энкодера. Всё, что не изменено, работает как в основном слое.' 'layer intro RU'
-$runtime = Replace-UiLiteral $runtime 'Toggles T1 and T2 can act as modifiers. Define button and encoder overrides for T1, T2, and T1 + T2 here; empty overrides inherit the base profile.' 'T1 and T2 can switch layers with separate actions. Each layer can change button and encoder actions; anything unchanged works the same as the base layer.' 'layer intro EN'
+$layerIntroRu = 'T1 и T2 могут переключать слои с отдельными действиями. Для каждого слоя можно изменить действия кнопок и энкодера.' + [Environment]::NewLine + 'Всё, что не изменено, работает как в основном слое.'
+$runtime = Replace-UiLiteral $runtime 'Тумблеры T1 и T2 могут работать как модификаторы. Здесь задаются отличия кнопок и энкодера для T1, T2 и T1 + T2; пустые назначения наследуют основной профиль.' $layerIntroRu 'layer intro RU'
+$layerIntroEn = 'T1 and T2 can switch layers with separate actions. Each layer can change button and encoder actions.' + [Environment]::NewLine + 'Anything unchanged works the same as the base layer.'
+$runtime = Replace-UiLiteral $runtime 'Toggles T1 and T2 can act as modifiers. Define button and encoder overrides for T1, T2, and T1 + T2 here; empty overrides inherit the base profile.' $layerIntroEn 'layer intro EN'
 $runtime = Replace-UiLiteral $runtime 'Тумблеры-модификаторы' 'Переключение слоёв' 'layer switch group RU'
 $runtime = Replace-UiLiteral $runtime 'Modifier toggles' 'Layer switching' 'layer switch group EN'
 $runtime = Replace-UiLiteral $runtime 'Когда тумблер используется как модификатор, его обычные действия ВКЛ/ВЫКЛ временно не выполняются.' 'Когда тумблер переключает слой, его обычные действия ВКЛ/ВЫКЛ не выполняются.' 'layer switch hint RU'
