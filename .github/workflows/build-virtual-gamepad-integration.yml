@@ -350,6 +350,24 @@ jobs:
           if ($runtimeText -notmatch 'Same as base layer.*keeps the normal encoder mapping from the selected profile') {
             throw 'Layered encoder dialog is missing the balanced second help line.'
           }
+          if ($runtimeText -notmatch 'Names are only labels and do not affect the device connection') {
+            throw 'Slider settings are missing the separated naming guidance.'
+          }
+          if ($runtimeText -notmatch 'Below, you can preselect running applications that are currently silent') {
+            throw 'Application picker is missing the deliberate second help line.'
+          }
+          if ($runtimeText -notmatch 'activeListView\.Location = New-Object System\.Drawing\.Point\(12, 31\)') {
+            throw 'Application picker still places the active-audio table too close to its group caption.'
+          }
+          if ($runtimeText -notmatch 'otherListView\.Location = New-Object System\.Drawing\.Point\(12, 31\)') {
+            throw 'Application picker still places the silent-app table too close to its group caption.'
+          }
+          if ($runtimeText -notmatch 'responseHint\.Size = New-Object System\.Drawing\.Size\(645, 38\)') {
+            throw 'Slider responsiveness help is not using the widened single-row layout.'
+          }
+          if ($runtimeText -notmatch 'advancedConfigButton\.Visible = \$false') {
+            throw 'Slider settings still expose the technical config.json shortcut.'
+          }
           if ($runtimeText -notmatch 'T1 and T2 can have separate button and encoder actions') {
             throw 'Toggle/encoder settings are missing the simplified layer-settings hint.'
           }
@@ -866,7 +884,7 @@ jobs:
           if ($runtimeText -notmatch '\$profileCombo\.Items\.Add') {
             throw 'Development runtime is missing the application-profile selector.'
           }
-          if ($runtimeText -notmatch 'The new profile starts as a copy of the current Global mappings') {
+          if ($runtimeText -notmatch 'The new profile will start with a copy of the current Global mappings') {
             throw 'Development runtime is missing application-profile creation guidance.'
           }
           if ($runtimeText -notmatch 'Adaptive profile settings saved') {
