@@ -3136,12 +3136,12 @@ function Show-FirstRunWizard {
             $connectedDetailsPanel.Visible = $true
             $waitingPanel.Visible = $false
 
-            $nextHintLine1.Text = if ($ru) { 'Хотите — настройте нужные элементы сейчас.' } else { 'Configure what you need now.' }
+            $nextHintLine1.Text = if ($ru) { 'Можно настроить нужные элементы прямо сейчас.' } else { 'You can configure the controls you need right now.' }
             $nextHintLine2.Text = if ($ru) {
-                'Не хотите — закройте подсказку и вернитесь к настройкам позже.'
+                'Или закрыть это окно и вернуться к настройкам позже.'
             }
             else {
-                'Or close this guide and come back to the settings later.'
+                'Or close this window and return to the settings later.'
             }
         }
         else {

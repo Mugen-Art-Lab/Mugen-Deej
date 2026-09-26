@@ -3243,7 +3243,7 @@ $script:Strings = @{
         WizardTitle = 'Первый запуск — Mugen Deej'
         WizardHeading = 'Добро пожаловать в Mugen Deej'
         WizardSteps = ("1. Подключите контроллер к USB.`r`n" + '2. Поверните крутилку или передвиньте фейдер — соответствующий индикатор должен двигаться.' + "`r`n" + '3. Нажмите «Настроить регуляторы». Каждый регулятор можно переименовать и назначить ему общую громкость, приложения или уровень микрофона.')
-        CloseHint = 'Закрыть подсказку'
+        CloseHint = 'Продолжить'
         WizardConnected = '✓ Контроллер подключён — {0}'
         WizardNotFound = 'Контроллер пока не найден. Подключите USB или откройте диагностику.'
     }
@@ -3387,7 +3387,7 @@ $script:Strings = @{
         WizardTitle = 'First run — Mugen Deej'
         WizardHeading = 'Welcome to Mugen Deej'
         WizardSteps = ('1. Connect the controller by USB.' + "`r`n" + '2. Turn a knob or move a fader — the matching indicator should move.' + "`r`n" + '3. Select "Configure controls". You can rename every control and assign master volume, applications, or microphone level.')
-        CloseHint = 'Close guide'
+        CloseHint = 'Continue'
         WizardConnected = '✓ Controller connected — {0}'
         WizardNotFound = 'Controller not found yet. Connect USB or open diagnostics.'
     }

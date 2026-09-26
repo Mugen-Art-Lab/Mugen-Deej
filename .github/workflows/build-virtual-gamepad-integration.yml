@@ -441,6 +441,15 @@ jobs:
           if ($runtimeText -notmatch 'Your controller is connected and ready') {
             throw 'Development runtime is missing capability-driven first-run onboarding.'
           }
+          if ($runtimeText -notmatch 'You can configure the controls you need right now') {
+            throw 'RC runtime is missing the polished first-run guidance.'
+          }
+          if ($runtimeText -notmatch 'Or close this window and return to the settings later') {
+            throw 'RC runtime is missing the polished first-run follow-up line.'
+          }
+          if ($runtimeText -notmatch "CloseHint = 'Continue'") {
+            throw 'RC runtime is missing the Continue action in the first-run window.'
+          }
           if ($runtimeText -notmatch 'The connected controller does not expose any physical analog controls') {
             throw 'Development runtime is missing the zero-slider settings guard.'
           }
