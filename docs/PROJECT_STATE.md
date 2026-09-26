@@ -31,7 +31,7 @@ Integrated **#229** has passed the real-machine backup-restore/restart regressio
 
 Backup-dialog UI note: the restore confirmation still exposes technical topology text (`Adaptive v3 — 5/28/2/1`) and uses a light treatment while the post-restore restart dialog follows the dark app theme. Keep this queued with the #227 UI review rather than mixing it into the probe fix.
 
-Integrated **#247** remains the last hardware-reviewed UI baseline. **2.0.0-rc1 / run #253** is now the current release-candidate package. #252 is rejected for the inversion-hint visual detail: the theme pass overwrote its warning color. #253 restores the warm accent after `Apply-ThemeToForm` and CI now verifies the ordering. CI/package: PASS; real-machine visual recheck is pending.
+Integrated **#247** remains the last hardware-reviewed UI baseline. **2.0.0-rc1 / run #253** is now the current release-candidate package. First-run inversion-accent real-machine visual recheck: PASS. #252 is rejected for the inversion-hint visual detail: the theme pass overwrote its warning color. #253 restores the warm accent after `Apply-ThemeToForm` and CI now verifies the ordering. CI/package: PASS; real-machine visual recheck is pending.
 
 Recent accepted chain:
 - **#214**: 5 ms low-latency active-XInput serial drain and cached effective profile/layer resolution;
