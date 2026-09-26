@@ -2891,3 +2891,27 @@ Visual result:
 - overall #247 UI review: **PASS**.
 
 #247 is now the current hardware-reviewed UI baseline. #229 remains the connection-probe milestone that originally established the startup fix.
+
+## 2.0.0 RC1 packaging — run #249 PASS
+
+Feature freeze is active for the 2.0.0 release line. RC1 removes the Prototype product identity from the staged runtime and packages the integrated branch as **Mugen Deej 2.0.0-rc1**.
+
+Release-prep changes:
+- staged runtime product version: `2.0.0-rc1`;
+- package filename: `Mugen-Deej-2.0.0-rc1-Portable.zip`;
+- RC package note replaces the old development-build note;
+- Windows startup registration is no longer suppressed in RC staging: RC1 uses production startup/autostart behavior so it can be verified before final 2.0.0;
+- CHANGELOG gains a 2.0.0-rc1 summary;
+- EN/RU README files now describe Legacy, Extended and Adaptive v3 and identify 1.0.0 as stable plus 2.0.0-rc1 as the current candidate.
+
+CI progression:
+- #248 failed in staging because the first conditional startup-isolation wrapper indented a PowerShell here-string terminator;
+- #249 fixed the hardener to use a PowerShell-safe replacement string;
+- run **#249**, run ID `36267455441` — **SUCCESS**;
+- built head `4e39f2fa171f07ecd5598ec87ecaf9055d1256c5`;
+- artifact `Mugen-Deej-2.0.0-rc1-249`, ID `10914840013`;
+- outer Actions digest `sha256:4633d0c5c751c53dc3ad6879762c12a7fc6cf873ed74b57cffae2b9c7446f045`;
+- inner RC1 ZIP SHA-256 `f3fe1a354b945298f25528e41086c3d940b60da1e83d72b728d8918a817d2d05`;
+- staging, Windows PowerShell 5.1 checks, launcher/helper build, RC notes, packaging and upload: PASS.
+
+RC1 real-machine acceptance is pending. Test from a clean extracted folder, then restore the current schema-v3 backup and exercise the production Windows-startup checkbox because startup isolation has intentionally been removed from the RC.
