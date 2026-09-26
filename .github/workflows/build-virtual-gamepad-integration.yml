@@ -362,11 +362,18 @@ jobs:
           if ($runtimeText -notmatch 'otherListView\.Location = New-Object System\.Drawing\.Point\(12, 31\)') {
             throw 'Application picker still places the silent-app table too close to its group caption.'
           }
-          if ($runtimeText -notmatch 'responseHint\.Size = New-Object System\.Drawing\.Size\(645, 38\)') {
-            throw 'Slider responsiveness help is not using the widened single-row layout.'
+          $runtimeLines = @($runtimeText -split "\r?\n")
+          $responseHintSizeLine = @($runtimeLines | Where-Object { $_ -match 'responseHint\.Size = ' })
+          if ($responseHintSizeLine.Count -ne 1 -or $responseHintSizeLine[0].Trim() -ne '$responseHint.Size = New-Object System.Drawing.Size(645, 38)') {
+            throw 'Slider responsiveness help is not using a clean executable widened layout line.'
           }
-          if ($runtimeText -notmatch 'advancedConfigButton\.Visible = \$false') {
-            throw 'Slider settings still expose the technical config.json shortcut.'
+          $responseHintAlignLine = @($runtimeLines | Where-Object { $_ -match 'responseHint\.TextAlign = ' })
+          if ($responseHintAlignLine.Count -ne 1 -or $responseHintAlignLine[0].Trim() -ne '$responseHint.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft') {
+            throw 'Slider responsiveness help alignment line is malformed.'
+          }
+          $configVisibleLine = @($runtimeLines | Where-Object { $_ -match 'advancedConfigButton\.Visible = ' })
+          if ($configVisibleLine.Count -ne 1 -or $configVisibleLine[0].Trim() -ne '$advancedConfigButton.Visible = $false') {
+            throw 'Slider settings config.json visibility line is malformed or missing.'
           }
           if ($runtimeText -notmatch 'T1 and T2 can have separate button and encoder actions') {
             throw 'Toggle/encoder settings are missing the simplified layer-settings hint.'
