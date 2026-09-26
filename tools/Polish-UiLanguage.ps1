@@ -143,8 +143,18 @@ $runtime = Replace-UiLiteral $runtime '$otherListView.Size = New-Object System.D
 # config.json remains available in the portable folder, but direct file editing is
 # intentionally removed from the normal settings surface.
 $runtime = Replace-UiLiteral $runtime '$responseHint.Location = New-Object System.Drawing.Point(395, 58)' '$responseHint.Location = New-Object System.Drawing.Point(395, 64)' 'responsiveness hint vertical alignment'
-$runtime = Replace-UiLiteral $runtime '$responseHint.Size = New-Object System.Drawing.Size(410, 48)' '$responseHint.Size = New-Object System.Drawing.Size(645, 38)'' + "`r`n" + ''    $responseHint.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft' 'responsiveness hint width and alignment'
-$runtime = Replace-UiLiteral $runtime '$advancedConfigButton.Size = New-Object System.Drawing.Size(190, 32)' '$advancedConfigButton.Size = New-Object System.Drawing.Size(190, 32)'' + "`r`n" + ''    $advancedConfigButton.Visible = $false' 'hide technical config-json shortcut'
+$responseHintLayoutOld = '$responseHint.Size = New-Object System.Drawing.Size(410, 48)'
+$responseHintLayoutNew = @'
+$responseHint.Size = New-Object System.Drawing.Size(645, 38)
+$responseHint.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+'@.Trim()
+$runtime = Replace-UiLiteral $runtime $responseHintLayoutOld $responseHintLayoutNew 'responsiveness hint width and alignment'
+$advancedConfigLayoutOld = '$advancedConfigButton.Size = New-Object System.Drawing.Size(190, 32)'
+$advancedConfigLayoutNew = @'
+$advancedConfigButton.Size = New-Object System.Drawing.Size(190, 32)
+$advancedConfigButton.Visible = $false
+'@.Trim()
+$runtime = Replace-UiLiteral $runtime $advancedConfigLayoutOld $advancedConfigLayoutNew 'hide technical config-json shortcut'
 
 # ---------------------------------------------------------------------------
 # Main status and diagnostics
