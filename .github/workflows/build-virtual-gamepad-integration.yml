@@ -447,6 +447,12 @@ jobs:
           if ($runtimeText -notmatch 'Or close this window and return to the settings later') {
             throw 'RC runtime is missing the polished first-run follow-up line.'
           }
+          if ($runtimeText -notmatch 'If the controls move backwards, enable direction inversion in Controls') {
+            throw 'RC runtime is missing the first-run regulator inversion hint.'
+          }
+          if ($runtimeText -notmatch '\$nextHintLine3\.Visible = \(\$sliders -gt 0\)') {
+            throw 'RC runtime does not scope the inversion hint to controllers with sliders.'
+          }
           if ($runtimeText -notmatch "CloseHint = 'Continue'") {
             throw 'RC runtime is missing the Continue action in the first-run window.'
           }

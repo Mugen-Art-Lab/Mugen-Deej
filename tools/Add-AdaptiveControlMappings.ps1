@@ -2912,9 +2912,9 @@ function Show-FirstRunWizard {
     $wizard = New-Object System.Windows.Forms.Form
     $wizard.Text = (T -Key 'WizardTitle')
     $wizard.StartPosition = 'CenterParent'
-    $wizard.ClientSize = New-Object System.Drawing.Size(660, 430)
-    $wizard.MinimumSize = New-Object System.Drawing.Size(676, 469)
-    $wizard.MaximumSize = New-Object System.Drawing.Size(676, 469)
+    $wizard.ClientSize = New-Object System.Drawing.Size(660, 452)
+    $wizard.MinimumSize = New-Object System.Drawing.Size(676, 491)
+    $wizard.MaximumSize = New-Object System.Drawing.Size(676, 491)
     $wizard.Font = New-Object System.Drawing.Font('Segoe UI', 10)
     $wizard.FormBorderStyle = 'FixedDialog'
     $wizard.MaximizeBox = $false
@@ -3029,6 +3029,13 @@ function Show-FirstRunWizard {
     $nextHintLine2.Size = New-Object System.Drawing.Size(606, 22)
     $wizard.Controls.Add($nextHintLine2)
 
+    $nextHintLine3 = New-Object System.Windows.Forms.Label
+    $nextHintLine3.ForeColor = [System.Drawing.Color]::DimGray
+    $nextHintLine3.Location = New-Object System.Drawing.Point(27, 310)
+    $nextHintLine3.Size = New-Object System.Drawing.Size(606, 22)
+    $nextHintLine3.Visible = $false
+    $wizard.Controls.Add($nextHintLine3)
+
     $sliderButton = New-Object MugenDeejWindowing.MugenButton
     $sliderButton.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 9.5)
     $sliderButton.Size = New-Object System.Drawing.Size(188, 38)
@@ -3049,7 +3056,7 @@ function Show-FirstRunWizard {
 
     $laterButton = New-Object MugenDeejWindowing.MugenButton
     $laterButton.Text = (T -Key 'CloseHint')
-    $laterButton.Location = New-Object System.Drawing.Point(478, 378)
+    $laterButton.Location = New-Object System.Drawing.Point(478, 400)
     $laterButton.Size = New-Object System.Drawing.Size(158, 36)
     $wizard.Controls.Add($laterButton)
 
@@ -3076,7 +3083,7 @@ function Show-FirstRunWizard {
         $total = ($count * $width) + (($count - 1) * $gap)
         $startX = [int][Math]::Floor((660 - $total) / 2)
         for ($i = 0; $i -lt $count; $i++) {
-            $available[$i].Location = New-Object System.Drawing.Point(($startX + ($i * ($width + $gap))), 326)
+            $available[$i].Location = New-Object System.Drawing.Point(($startX + ($i * ($width + $gap))), 348)
         }
     }
 
@@ -3143,6 +3150,17 @@ function Show-FirstRunWizard {
             else {
                 'Or close this window and return to the settings later.'
             }
+
+            $nextHintLine3.Visible = ($sliders -gt 0)
+            $nextHintLine3.Text = if ($sliders -gt 0) {
+                if ($ru) {
+                    'Если регуляторы работают наоборот — включите инверсию направления в «Регуляторах».'
+                }
+                else {
+                    'If the controls move backwards, enable direction inversion in Controls.'
+                }
+            }
+            else { '' }
         }
         else {
             $introLine1.Text = if ($ru) { 'Подключите контроллер по USB.' } else { 'Connect your controller by USB.' }
@@ -3171,6 +3189,8 @@ function Show-FirstRunWizard {
                 'You can leave this window open — it will update automatically.'
             }
             $nextHintLine2.Text = ''
+            $nextHintLine3.Text = ''
+            $nextHintLine3.Visible = $false
         }
 
         $sliderButton.Visible = ($connected -and $sliders -gt 0)
