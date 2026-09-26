@@ -2841,3 +2841,33 @@ User visual verdict: **much better**.
 Acceptance for this UI slice: **PASS**.
 
 #244 remains the current UI-review candidate; this PASS specifically covers the slider settings and application picker windows.
+
+## Integrated #247 — layer intro and virtual-gamepad status consistency
+
+Small real-machine UI follow-up after #244.
+
+Changes:
+- Control layers top help is now deliberately two lines; the second line starts with the fallback rule (`Всё, что не изменено…` / `Anything unchanged…`).
+- Main-window Virtual Xbox gamepad status now uses the same enable/disable concept as its adjacent action button:
+  - disabled: `выключен / disabled` with `Включить / Enable`;
+  - starting: `включается… / enabling…`;
+  - ready: `включён / enabled` with `Выключить / Disable`;
+  - enabled but physical controller absent: `включён · ожидает контроллер / enabled · waiting for controller`.
+- This removes the mixed `подключён / connected` status versus `Включить/Выключить` action language.
+
+Backup file-picker observation:
+- the create/restore backup windows shown in this review are the standard Windows Save/Open file dialogs;
+- their white/native appearance and English `Open/Save/Cancel` controls come from the host Windows UI language/theme rather than Mugen Deej;
+- no custom replacement was introduced in this pass, to preserve the familiar native file picker behavior and accessibility.
+
+CI progression:
+- #245 (layer-intro-only) passed;
+- #246 changed the gamepad wording and failed only because the workflow still asserted the old `connected` copy;
+- run **#247**, run ID `36266154979` — **SUCCESS**;
+- built head `26f8c473d19d1040aeb0f1f61862f015ad518eee`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-247`, ID `10914001840`;
+- outer Actions digest `sha256:e483f90f59875cfd0e7b82743bfcd30f4542a40abad16ce4974fd103bc80cf57`;
+- inner program ZIP SHA-256 `1dbb93bc54fbae6f5c25597433c543357c38dd3a335ad51e8096f39478f0e5f8`;
+- staging, Windows PowerShell 5.1 checks, launcher/helper build, packaging and artifact upload: PASS.
+
+#247 supersedes #244 as the current UI-review candidate. #229 remains the current hardware-tested connection baseline.
