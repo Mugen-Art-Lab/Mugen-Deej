@@ -1,5 +1,6 @@
 param(
-    [Parameter(Mandatory = $true)][string]$Path
+    [Parameter(Mandatory = $true)][string]$Path,
+    [switch]$PreserveStartupRegistration
 )
 
 Set-StrictMode -Version 2.0
@@ -70,26 +71,31 @@ function Replace-RegexBlockExactlyOnceLiteral {
 $resolved = (Resolve-Path -LiteralPath $Path).Path
 $text = [System.IO.File]::ReadAllText($resolved, [System.Text.Encoding]::UTF8)
 
-# A portable stable Mugen installation may already own the HKCU Run value.
-# The experimental build lives in a throwaway folder and must never move that
-# registration to itself merely because it was launched for hardware testing.
-$text = Replace-RegexExactlyOnce `
-    -Text $text `
-    -Pattern '(?m)^Sync-StartupRegistrationPath\r?$' `
-    -Replacement "Write-Log 'Development build: Windows startup registration sync suppressed.' 'INFO'" `
-    -Label 'suppress startup path sync'
-
-# Also prevent the development UI from changing the stable application's
-# autostart registration. Start-minimized remains available; only the Run-key
-# checkbox is disabled for this isolated package.
-$text = Replace-RegexExactlyOnce `
-    -Text $text `
-    -Pattern '(?m)^\$startWithWindowsCheck\.Checked = \(Test-StartupEnabled\)\r?\n\$startWithWindowsCheck\.Enabled = \(Test-Path -LiteralPath \$script:ExecutablePath\)' `
-    -Replacement @'
-$startWithWindowsCheck.Checked = $false
-$startWithWindowsCheck.Enabled = $false
-'@ `
-    -Label 'disable startup checkbox'
+# Development packages can isolate themselves from the stable HKCU Run value.
+# RC staging passes -PreserveStartupRegistration so startup behavior matches
+# the final release candidate instead of the old throwaway-dev behavior.
+if (-not $PreserveStartupRegistration) {
+    # A portable stable Mugen installation may already own the HKCU Run value.
+    # The experimental build lives in a throwaway folder and must never move that
+    # registration to itself merely because it was launched for hardware testing.
+    $text = Replace-RegexExactlyOnce `
+        -Text $text `
+        -Pattern '(?m)^Sync-StartupRegistrationPath\r?$' `
+        -Replacement "Write-Log 'Development build: Windows startup registration sync suppressed.' 'INFO'" `
+        -Label 'suppress startup path sync'
+    
+    # Also prevent the development UI from changing the stable application's
+    # autostart registration. Start-minimized remains available; only the Run-key
+    # checkbox is disabled for this isolated package.
+    $text = Replace-RegexExactlyOnce `
+        -Text $text `
+        -Pattern '(?m)^\$startWithWindowsCheck\.Checked = \(Test-StartupEnabled\)\r?\n\$startWithWindowsCheck\.Enabled = \(Test-Path -LiteralPath \$script:ExecutablePath\)' `
+        -Replacement @'
+    $startWithWindowsCheck.Checked = $false
+    $startWithWindowsCheck.Enabled = $false
+    '@ `
+        -Label 'disable startup checkbox'
+}
 
 # The stable 1.0.0 action normalizer does not know the experimental virtual
 # action namespace. Preserve validated virtual mappings instead of silently

@@ -72,9 +72,9 @@ jobs:
             -SourcePath .\MugenDeej.ps1 `
             -OutputPath $runtimePath
 
-          # The throwaway dev build must never steal the stable portable app's
-          # HKCU Run registration merely because both share the Mugen Deej name.
-          .\tools\Harden-VirtualGamepad-DevRuntime.ps1 -Path $runtimePath
+          # RC1 keeps production startup-registration behavior enabled so the
+          # final Windows-startup flow can be tested before 2.0.0.
+          .\tools\Harden-VirtualGamepad-DevRuntime.ps1 -Path $runtimePath -PreserveStartupRegistration
 
           # Adaptive v3 is the self-describing typed-input protocol generation.
           # It keeps Legacy and Extended parsing intact while adding first-class
@@ -188,11 +188,14 @@ jobs:
 
           $runtime = '.\artifacts\Mugen-Deej-VirtualGamepad-Integrated-Dev\MugenDeej.ps1'
           $runtimeText = [System.IO.File]::ReadAllText((Resolve-Path $runtime), [System.Text.Encoding]::UTF8)
-          if ($runtimeText -match '(?m)^Sync-StartupRegistrationPath\s*$') {
-            throw 'Development runtime still contains active startup registration sync.'
+          if ($runtimeText -notmatch '(?m)^Sync-StartupRegistrationPath\s*$') {
+            throw 'RC runtime is missing production startup-registration sync.'
           }
-          if ($runtimeText -notmatch "Development build: Windows startup registration sync suppressed") {
-            throw 'Development runtime is missing the startup-isolation marker.'
+          if ($runtimeText -match "Development build: Windows startup registration sync suppressed") {
+            throw 'RC runtime still contains development startup isolation.'
+          }
+          if ($runtimeText -notmatch '\$startWithWindowsCheck\.Checked = \(Test-StartupEnabled\)') {
+            throw 'RC runtime does not expose the production Windows-startup setting.'
           }
           if ($runtimeText -notmatch 'Legacy and Extended retain the stable wording') {
             throw 'Development runtime no longer preserves Legacy/Extended connected-status wording.'
@@ -915,8 +918,8 @@ jobs:
           if ($runtimeText -notmatch 'Button application-profile settings saved') {
             throw 'Development runtime is missing transactional button-profile editor persistence.'
           }
-          if ($runtimeText -notmatch '\$script:AppVersion = ''2\.0\.0 Prototype''') {
-            throw 'Development runtime still reports the stable 1.0.0 product version.'
+          if ($runtimeText -notmatch '\$script:AppVersion = ''2\.0\.0-rc1''') {
+            throw 'RC runtime does not report the 2.0.0-rc1 product version.'
           }
           if ($runtimeText -notmatch 'Preserve virtual gamepad actions during button normalization') {
             throw 'Development runtime can still discard virtual gamepad actions during normalization.'
@@ -1156,14 +1159,14 @@ jobs:
             if (Test-Path $resource) { Remove-Item $resource -Force }
           }
 
-      - name: Add dev package notes
+      - name: Add RC1 package notes
         shell: pwsh
         run: |
           $stage = Join-Path $PWD 'artifacts\Mugen-Deej-VirtualGamepad-Integrated-Dev'
           $text = @'
-          Mugen Deej — Virtual Gamepad Integrated Dev Build
+          Mugen Deej 2.0.0-rc1
 
-          Experimental feature branch build. Stable v1.0.0 is not modified.
+          Release candidate for Mugen Deej 2.0.0. Feature freeze is active: only bug fixes and release-documentation changes should land before final 2.0.0.
 
           Test path:
           1. Close any other Mugen Deej instance so this build can own the controller COM port.
@@ -1175,12 +1178,12 @@ jobs:
           7. Click Save and accept elevation if Windows shows it.
           8. Check joy.cpl for Mugen Deej Virtual Gamepad.
 
-          Protocol generations in this dev build: Legacy, Extended, Adaptive v3.
+          Supported protocol generations: Legacy, Extended, Adaptive v3.
           Adaptive v3 packets begin with v3 and can report sliders, momentary buttons, latching toggles and cumulative-position rotary encoders as first-class input types.
           Adaptive builds show live first-class toggle switches plus a rotary-knob position indicator and encoder-push state on the main window without pretending they are ordinary buttons.
           For controllers with more than 12 buttons, Button Settings uses a compact live selector grid, one shared action editor and a fixed-height assignment overview. Pressing a physical button should automatically select the matching numbered tile.
           The virtual controller is OFF by default. Its setting is stored in virtual-controller.json next to the app.
-          Windows startup registration is intentionally disabled in this development package so it cannot replace the stable Mugen Deej autostart path.
+          Windows startup registration is enabled in this release candidate so the final startup flow can be verified before 2.0.0.
           Adaptive toggles and encoders now have first-class action mapping: separate toggle ON/OFF actions plus encoder CW/CCW/push actions. These typed controls can use standard Mugen actions; virtual-gamepad output remains mapped from momentary buttons in this milestone.
           Momentary-button application profiles are PC-side and work with both Extended and Adaptive controllers. Legacy controllers remain unchanged because they expose no buttons. Existing button-actions.json remains the Global fallback, and older backups/profiles without per-application button payloads continue to load through that Global path.
           Physical buttons can also hold the virtual Xbox left/right stick in any cardinal direction. Releasing the button returns that axis to center; opposite directions cancel to center. Effective profile changes neutralize all virtual state and suppress already-held physical inputs until release.
@@ -1192,16 +1195,16 @@ jobs:
           UI language polish: normal settings now prefer user-facing terms such as Button actions, Layer switching, Same as base layer, and Virtual Xbox gamepad; COM/protocol/baud details remain available in diagnostics.
           '@
           [System.IO.File]::WriteAllText(
-            (Join-Path $stage 'VIRTUAL-GAMEPAD-DEV.txt'),
+            (Join-Path $stage 'RELEASE-CANDIDATE.txt'),
             $text,
             (New-Object System.Text.UTF8Encoding($false))
           )
 
-      - name: Package integrated dev build
+      - name: Package 2.0.0 RC1
         shell: pwsh
         run: |
           $stage = Join-Path $PWD 'artifacts\Mugen-Deej-VirtualGamepad-Integrated-Dev'
-          $zip = Join-Path $PWD 'artifacts\Mugen-Deej-VirtualGamepad-Integrated-Dev.zip'
+          $zip = Join-Path $PWD 'artifacts\Mugen-Deej-2.0.0-rc1-Portable.zip'
           $shaFile = $zip + '.sha256'
 
           if (Test-Path $zip) { Remove-Item $zip -Force }
@@ -1210,17 +1213,17 @@ jobs:
           $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
           [System.IO.File]::WriteAllText(
             $shaFile,
-            "$hash  Mugen-Deej-VirtualGamepad-Integrated-Dev.zip`r`n",
+            "$hash  Mugen-Deej-2.0.0-rc1-Portable.zip`r`n",
             (New-Object System.Text.UTF8Encoding($false))
           )
-          Write-Host "Integrated dev ZIP SHA-256: $hash"
+          Write-Host "Mugen Deej 2.0.0-rc1 ZIP SHA-256: $hash"
 
-      - name: Upload integrated dev artifact
+      - name: Upload 2.0.0 RC1 artifact
         uses: actions/upload-artifact@v7
         with:
-          name: Mugen-Deej-VirtualGamepad-Integrated-${{ github.run_number }}
+          name: Mugen-Deej-2.0.0-rc1-${{ github.run_number }}
           path: |
-            artifacts/Mugen-Deej-VirtualGamepad-Integrated-Dev.zip
-            artifacts/Mugen-Deej-VirtualGamepad-Integrated-Dev.zip.sha256
+            artifacts/Mugen-Deej-2.0.0-rc1-Portable.zip
+            artifacts/Mugen-Deej-2.0.0-rc1-Portable.zip.sha256
           if-no-files-found: error
           retention-days: 14

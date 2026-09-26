@@ -46,13 +46,13 @@ function Replace-LiteralExactlyOnce {
 $source = (Resolve-Path -LiteralPath $SourcePath).Path
 $text = [System.IO.File]::ReadAllText($source, [System.Text.Encoding]::UTF8)
 
-# Stable main remains 1.0.0. The integrated experimental branch is the v2
-# prototype line and should identify itself as such in title/log/backup metadata.
+# Stable main remains 1.0.0. The integrated feature branch is now frozen for
+# 2.0.0 RC testing and should identify staged packages as the release candidate.
 $text = Replace-LiteralExactlyOnce `
     -Text $text `
     -OldText '$script:AppVersion = ''1.0.0''' `
-    -NewText '$script:AppVersion = ''2.0.0 Prototype''' `
-    -Label 'set prototype product version'
+    -NewText '$script:AppVersion = ''2.0.0-rc1''' `
+    -Label 'set RC1 product version'
 
 # Stable 1.0.0 did not know virtual Xbox action strings. Preserve both virtual
 # buttons and digital stick directions when controller discovery normalizes the

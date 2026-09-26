@@ -119,11 +119,11 @@ Mugen Deej automatically adapts its interface to the detected controller protoco
 
 For most users, use the **Setup EXE**. It performs a portable-style installation and does not register Mugen Deej in Windows Installed Apps. A **portable ZIP** is also provided if you prefer to extract and run the application manually.
 
-Current tested build: **1.0.0**.
+Latest stable release: **1.0.0**. Current release candidate under hardware testing: **2.0.0-rc1**.
 
 ## Controller protocol
 
-Mugen Deej automatically detects two compatible newline-delimited packet formats at `9600` baud.
+Mugen Deej supports three controller protocol generations. Legacy and Extended use `9600` baud; Adaptive v3 uses `115200` baud and is self-describing.
 
 **Legacy deej format** — numeric fields only:
 
@@ -143,13 +143,21 @@ s512|s123|s900|s456|s777|b1|b1|b0|b1|b1|b1
 
 The tested reference Extended firmware is included in [`arduino/MugenDeejController/`](arduino/MugenDeejController/). Its default profile uses five analog controls and six buttons, sends complete state packets, debounces buttons in firmware, and preserves the classic `9600` baud rate.
 
+**Adaptive v3 format** — typed, self-describing packets beginning with `v3`:
+
+```text
+v3|s...|b...|t...|e...
+```
+
+Adaptive v3 can report any supported combination of sliders, momentary buttons, latching toggles and cumulative-position rotary encoders. The desktop derives topology from the packet itself, so the tested 5/28/2/1 panel is not hardcoded. The current Cardboard Nano reference firmware runs at `115200` baud.
+
 ## Quick start
 
 1. Connect a deej-compatible controller by USB.
 2. Run the Setup EXE, or extract the portable ZIP and run `MugenDeej.exe`.
 3. Choose the interface language.
-4. Open **Configure controls** and assign each physical control.
-5. If an Extended controller with buttons is detected, open **Configure buttons** to assign button actions.
+4. Open **Controls** and assign the physical sliders.
+5. Use **Buttons** and **Toggles and encoders** for detected digital controls. Adaptive controllers can additionally use application profiles, Control layers and the optional Virtual Xbox gamepad.
 
 ## Source layout
 

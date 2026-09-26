@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.0.0-rc1 — 2026-09-27
+
+Release candidate for the 2.0 generation. Feature freeze is active; RC testing is focused on regressions and release readiness.
+
+- Added self-describing **Adaptive v3** controller support with independent sliders, momentary buttons, latching toggles and cumulative-position rotary encoders.
+- Added first-class toggle and encoder actions, application profiles and layered mappings.
+- Added **Control layers** driven by T1/T2, including custom layer names, per-layer button/encoder actions and configurable on-screen layer notifications.
+- Added an optional **Virtual Xbox gamepad** backend with stateful press/hold/release behavior, digital stick directions, safe neutralization on profile/layer changes and low-latency input handling.
+- Added automatic XInput enablement when a virtual mapping is explicitly configured in a layer, without undoing unrelated manual disablement.
+- Added universal **backup schema v3** for main configuration, button actions, Adaptive actions/profiles/layers and virtual-controller state, with compatibility for older backups.
+- Hardened controller discovery and reconnect behavior, including false-Legacy probe protection, hot-unplug survival in the button editor and nonblocking virtual-controller startup/teardown.
+- Reduced the tested Cardboard Nano matrix debounce to **6 ms** and added cumulative firmware debounce diagnostics.
+- Refined the bilingual UI across controller status, button actions, toggle/encoder actions, layers, diagnostics, slider settings and application selection.
+- Restored production Windows-startup behavior in RC1 so autostart can be tested exactly as it will behave in final 2.0.0.
+- Pre-RC real-machine baseline: Integrated #247, with Adaptive 5/28/2/1 startup, backup restore, virtual gamepad, modal-dialog input suppression and the reviewed UI passing.
+
 ## 1.0.0 — 2026-09-15
 
 - Introduced the first public **Extended-controller architecture** while preserving compatibility with classic deej slider-only hardware.
