@@ -2940,3 +2940,19 @@ CI:
 - inner RC1 ZIP SHA-256 `88b8de5c40bb382e5a8de731e6440346221f074a11c0c52bc5c8c8cba2f88bdf`.
 
 #251 supersedes #249 as the current RC1 package for first-run and release acceptance testing.
+
+## 2.0.0 RC1 inversion-hint accent — run #252 PASS
+
+Final first-run visual polish for RC1:
+- the conditional regulator inversion hint now uses the same warm warning/accent color as the existing `Важно / Important` guidance in settings;
+- exact color: `System.Drawing.Color.FromArgb(230, 170, 70)`;
+- wording and conditional visibility from #251 are unchanged.
+
+CI:
+- run **#252**, run ID `36269302275` — **SUCCESS**;
+- built head `26a5f4bfedceb459150b3aff56431e500dde37c7`;
+- artifact `Mugen-Deej-2.0.0-rc1-252`, ID `10915285776`;
+- outer Actions digest `sha256:c07d55ee59a563701d632df21233444c935af3a07eeb4f37edaacb6d12735cdc`;
+- inner RC1 ZIP SHA-256 `756be6e41d0e470eea6adaa4605699db1215aa68bd89472aad669f3653df638d`.
+
+#252 supersedes #251 as the current RC1 package.
