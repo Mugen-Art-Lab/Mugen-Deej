@@ -31,7 +31,7 @@ Integrated **#229** has passed the real-machine backup-restore/restart regressio
 
 Backup-dialog UI note: the restore confirmation still exposes technical topology text (`Adaptive v3 — 5/28/2/1`) and uses a light treatment while the post-restore restart dialog follows the dark app theme. Keep this queued with the #227 UI review rather than mixing it into the probe fix.
 
-Integrated **#247** is the current hardware-reviewed UI baseline. It keeps the #244 slider/application-picker PASS, splits the Control layers intro deliberately, and aligns Virtual Xbox gamepad status wording with the adjacent Enable/Disable action (`disabled`, `enabling`, `enabled`, `enabled · waiting for controller`). CI/package: PASS. Real-machine visual/runtime review: PASS.
+Integrated **#247** remains the last hardware-reviewed UI baseline. **2.0.0-rc1 / run #249** is now the current release-candidate package: Prototype identity removed, RC naming/package notes applied, and production Windows-startup registration restored for final behavior testing. CI/package: PASS; RC1 real-machine acceptance is pending.
 
 Recent accepted chain:
 - **#214**: 5 ms low-latency active-XInput serial drain and cached effective profile/layer resolution;
