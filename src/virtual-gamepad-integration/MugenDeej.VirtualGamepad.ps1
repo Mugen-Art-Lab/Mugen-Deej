@@ -242,16 +242,16 @@ function Update-MugenVirtualGamepadStatusUi {
         return
     }
 
-    $text = if ($ru) { 'Виртуальный геймпад · ожидает контроллер' } else { 'Virtual gamepad · waiting for controller' }
+    $text = if ($ru) { 'Виртуальный геймпад · включён · ожидает контроллер' } else { 'Virtual gamepad · enabled · waiting for controller' }
     $color = [System.Drawing.Color]::Gray
 
     switch ($script:VirtualGamepadUiState) {
         'starting' {
-            $text = if ($ru) { 'Виртуальный геймпад · подключается…' } else { 'Virtual gamepad · connecting…' }
+            $text = if ($ru) { 'Виртуальный геймпад · включается…' } else { 'Virtual gamepad · enabling…' }
             $color = [System.Drawing.Color]::RoyalBlue
         }
         'ready' {
-            $text = if ($ru) { 'Виртуальный геймпад · подключён' } else { 'Virtual gamepad · connected' }
+            $text = if ($ru) { 'Виртуальный геймпад · включён' } else { 'Virtual gamepad · enabled' }
             $color = [System.Drawing.Color]::SeaGreen
         }
         'error' {
@@ -259,7 +259,7 @@ function Update-MugenVirtualGamepadStatusUi {
             $color = [System.Drawing.Color]::Firebrick
         }
         default {
-            $text = if ($ru) { 'Виртуальный геймпад · ожидает контроллер' } else { 'Virtual gamepad · waiting for controller' }
+            $text = if ($ru) { 'Виртуальный геймпад · включён · ожидает контроллер' } else { 'Virtual gamepad · enabled · waiting for controller' }
             $color = [System.Drawing.Color]::Gray
         }
     }
