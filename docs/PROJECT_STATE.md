@@ -31,7 +31,7 @@ Integrated **#229** has passed the real-machine backup-restore/restart regressio
 
 Backup-dialog UI note: the restore confirmation still exposes technical topology text (`Adaptive v3 — 5/28/2/1`) and uses a light treatment while the post-restore restart dialog follows the dark app theme. Keep this queued with the #227 UI review rather than mixing it into the probe fix.
 
-Integrated **#247** remains the last hardware-reviewed UI baseline. **2.0.0-rc1 / run #251** is now the current release-candidate package: Prototype identity removed, production Windows-startup behavior restored, first-run wording polished, `Продолжить / Continue` replaces the old close-guide wording, and controllers with sliders get a direction-inversion hint. CI/package: PASS; RC1 real-machine acceptance is pending.
+Integrated **#247** remains the last hardware-reviewed UI baseline. **2.0.0-rc1 / run #252** is now the current release-candidate package: first-run wording and Continue action remain from #251, while the conditional regulator inversion hint now uses the same warm warning accent as other Important guidance. CI/package: PASS; RC1 real-machine acceptance is pending.
 
 Recent accepted chain:
 - **#214**: 5 ms low-latency active-XInput serial drain and cached effective profile/layer resolution;
