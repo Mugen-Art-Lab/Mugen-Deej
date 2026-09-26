@@ -2733,3 +2733,26 @@ CI:
 - staging, Windows PowerShell 5.1 checks, launcher/helper build, packaging and artifact upload: PASS.
 
 #235 supersedes #233 as the current UI-review candidate; #229 remains the current hardware-tested connection baseline.
+
+## Integrated #237 — layered encoder selector polish
+
+Follow-up from the layered-encoder screenshot review.
+
+Changes:
+- first-run language chooser remains unchanged; it already reads clearly and the bilingual presentation is intentional before a language has been selected;
+- the layered-encoder selector row now labels all three controls explicitly: `Profile / Профиль`, `Layer / Слой`, and `Encoder / Энкодер`;
+- the profile field was compacted slightly so all three labeled selectors still fit on one row;
+- the base summary now says `Base layer / Основной слой` and punctuates the push action explicitly;
+- clockwise/counter-clockwise action rows now use the intuitive rotation symbols `↻` and `↺` instead of textual clock-direction labels;
+- the push row remains textual (`Push / Нажатие`).
+
+CI progression:
+- #236 exposed one encoding-sensitive exact-text assertion in the workflow;
+- run **#237**, run ID `36217913486` — **SUCCESS**;
+- built head `bb7060f2894c6abedbeef8b20264e86f6fcffce4`;
+- artifact `Mugen-Deej-VirtualGamepad-Integrated-237`, ID `10898265706`;
+- outer Actions digest `sha256:2a1b95b17827386bbb43ed72dec186f340eeac6010c82c8b87f8376e7ab39b7a`;
+- inner program ZIP SHA-256 `fe45226235c946fc6694e219401cb0298c3d10edbd4a98ac1dd7be200f1453b4`;
+- staging, Windows PowerShell 5.1 checks, launcher/helper build, packaging and artifact upload: PASS.
+
+#237 supersedes #235 as the current UI-review candidate; #229 remains the current hardware-tested connection baseline.
