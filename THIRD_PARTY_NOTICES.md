@@ -17,12 +17,12 @@ We are grateful to Omri Harel and the deej community for the original project an
 
 The optional CH340/CH341 driver is downloaded from the official WCH website when requested by the user. The driver installer is not redistributed in this repository or release archive.
 
-## HIDMaestro (experimental virtual-controller branch only)
+## HIDMaestro
 
-The `feature/virtual-gamepad-ui` development branch currently uses HIDMaestro as an experimental virtual-controller backend for the isolated prototype harness.
+Mugen Deej 2.0 uses HIDMaestro as the backend for the optional virtual Xbox 360 / XInput controller feature.
 
 - Project: https://github.com/hifihedgehog/HIDMaestro
-- Prototype version: 1.8.0
+- Bundled version: 1.8.0
 - License: MIT License
 
-The prototype build downloads the pinned upstream release archive during CI, verifies its SHA-256, and includes the upstream license with the prototype artifact. HIDMaestro is not part of the stable Mugen Deej 1.0.0 release.
+The release build downloads the pinned upstream v1.8.0 archive, verifies its SHA-256 before use, publishes the Mugen Deej helper with the verified HIDMaestro.Core.dll, and includes the upstream HIDMaestro license in the release package. The virtual-controller feature is optional and remains disabled until the user enables or configures it.
