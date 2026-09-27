@@ -3111,3 +3111,23 @@ Final package validation:
 - no `2.0.0-rc1` release identity remains in the runtime/portable release text.
 
 **Build #4 is the current final 2.0.0 package candidate.** It is not merged, tagged, or published yet. One short real-machine smoke test is pending after source/pipeline consolidation.
+
+
+## 2.0.0 final package — real-machine hardware smoke PASS
+
+The consolidated final 2.0.0 package built by the normal release workflow was installed over the accepted RC1 installation on the real machine.
+
+Observed final-package acceptance:
+- the application identifies itself as **Mugen Deej 2.0.0**;
+- the existing configuration survives the RC1 -> 2.0.0 in-place update;
+- Adaptive 5/28/2/1 is rediscovered at 115200 baud;
+- 28 button actions, both Adaptive layer-modifier toggles, and the Adaptive action configuration load successfully;
+- the optional virtual Xbox 360 / XInput helper starts asynchronously and reaches ready state;
+- switching T2 changes the active layer between **Основной** and **Game** and switches the effective virtual-gamepad layer profile with neutralization;
+- Windows `joy.cpl` sees **Mugen Deej Virtual Gamepad** and responds to the physical buttons mapped in the Game layer.
+
+Final 2.0.0 hardware smoke: **PASS**.
+
+One isolated malformed/partial Adaptive packet was rejected by the existing topology-shape guard during startup (`expected=adaptive:5:28:2:1; got=adaptive:2:9:2:1`). The controller topology remained intact and the virtual controller subsequently reached ready state, so this was handled as designed and is not treated as a release blocker.
+
+The 2.0.0 runtime, packaging pipeline, Setup/Portable payload, upgrade path, backup restore, Windows startup path, controller-generation compatibility and virtual-XInput path are now release-accepted. Remaining release actions are administrative: PR review/merge, tag `v2.0.0`, and GitHub Release publication after explicit approval.
