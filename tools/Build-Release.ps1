@@ -41,6 +41,29 @@ function Get-GoCommand {
     return $go
 }
 
+function Get-DotNetCommand {
+    $dotnet = Get-Command 'dotnet.exe' -ErrorAction SilentlyContinue
+    if ($null -eq $dotnet) { $dotnet = Get-Command 'dotnet' -ErrorAction SilentlyContinue }
+    return $dotnet
+}
+
+function Assert-Utf8Bom {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$Label
+    )
+
+    $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path -LiteralPath $Path).Path)
+    if (
+        $bytes.Length -lt 3 -or
+        $bytes[0] -ne 0xEF -or
+        $bytes[1] -ne 0xBB -or
+        $bytes[2] -ne 0xBF
+    ) {
+        throw "$Label must carry a UTF-8 BOM for Windows PowerShell 5.1."
+    }
+}
+
 function Assert-PowerShell51Parse {
     param(
         [Parameter(Mandatory = $true)]$PowerShellCommand,
@@ -87,6 +110,11 @@ $versionFile = Join-Path $repoRoot 'VERSION.txt'
 $templatePath = Join-Path $repoRoot 'packaging\README.txt.template'
 $launcherDir = Join-Path $repoRoot 'src\launcher'
 $setupDir = Join-Path $repoRoot 'src\setup'
+$virtualModuleSource = Join-Path $repoRoot 'src\virtual-gamepad-integration\MugenDeej.VirtualGamepad.ps1'
+$helperProject = Join-Path $repoRoot 'src\virtual-gamepad-helper\MugenDeej.VirtualGamepadHost.csproj'
+$helperDepsDir = Join-Path $repoRoot 'src\virtual-gamepad-helper\deps'
+$prepareHidScript = Join-Path $repoRoot 'tools\Prepare-HIDMaestro.ps1'
+$firmwareSource = Join-Path $repoRoot 'arduino\MugenDeejCardboardNanoPrototype\MugenDeejCardboardNanoPrototype.ino'
 $iconPath = Join-Path $repoRoot 'MugenDeej.ico'
 
 Require-File $sourceScript
@@ -98,6 +126,10 @@ Require-File (Join-Path $launcherDir 'go.mod')
 Require-File (Join-Path $setupDir 'main.go')
 Require-File (Join-Path $setupDir 'go.mod')
 Require-File (Join-Path $setupDir 'setup.ps1')
+Require-File $virtualModuleSource
+Require-File $helperProject
+Require-File $prepareHidScript
+Require-File $firmwareSource
 
 if ([string]::IsNullOrWhiteSpace($Version)) {
     $Version = (Get-Content -LiteralPath $versionFile -Raw -Encoding UTF8).Trim()
@@ -136,15 +168,56 @@ foreach ($path in @($stageDir, $zipPath, $zipChecksumPath, $setupPath, $setupChe
 New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
 
 $stagedScript = Join-Path $stageDir 'MugenDeej.ps1'
+$virtualRoot = Join-Path $stageDir 'virtual-gamepad'
+$hostOut = Join-Path $virtualRoot 'host'
+$stagedVirtualModule = Join-Path $virtualRoot 'MugenDeej.VirtualGamepad.ps1'
+$firmwareRoot = Join-Path $stageDir 'firmware\MugenDeejCardboardNanoPrototype'
+New-Item -ItemType Directory -Path $hostOut -Force | Out-Null
+New-Item -ItemType Directory -Path $firmwareRoot -Force | Out-Null
+
 Copy-Item -LiteralPath $sourceScript -Destination $stagedScript -Force
+Copy-Item -LiteralPath $virtualModuleSource -Destination $stagedVirtualModule -Force
+Copy-Item -LiteralPath $firmwareSource -Destination (Join-Path $firmwareRoot 'MugenDeejCardboardNanoPrototype.ino') -Force
 
 $windowsPowerShell = Get-Command 'powershell.exe' -ErrorAction SilentlyContinue
 if ($null -eq $windowsPowerShell) {
     throw 'powershell.exe (Windows PowerShell 5.1) was not found. Release packages must be built on Windows.'
 }
 
+Assert-Utf8Bom -Path $stagedScript -Label 'Staged MugenDeej.ps1'
+Assert-Utf8Bom -Path $stagedVirtualModule -Label 'Staged virtual-gamepad module'
 Assert-PowerShell51Parse -PowerShellCommand $windowsPowerShell -Path $stagedScript -Label 'Staged MugenDeej.ps1'
+Assert-PowerShell51Parse -PowerShellCommand $windowsPowerShell -Path $stagedVirtualModule -Label 'Staged virtual-gamepad module'
 Assert-PowerShell51Parse -PowerShellCommand $windowsPowerShell -Path (Join-Path $setupDir 'setup.ps1') -Label 'Setup wizard script'
+
+# Reproduce the pinned virtual-controller backend used by the hardware-proven RC.
+& $prepareHidScript -DestinationDir $helperDepsDir
+$hidLicense = Join-Path $helperDepsDir 'HIDMaestro-LICENSE.txt'
+Require-File (Join-Path $helperDepsDir 'HIDMaestro.Core.dll')
+Require-File $hidLicense
+Copy-Item -LiteralPath $hidLicense -Destination (Join-Path $virtualRoot 'HIDMaestro-LICENSE.txt') -Force
+
+$dotnet = Get-DotNetCommand
+if ($null -eq $dotnet) {
+    throw '.NET SDK was not found in PATH. Building the virtual-controller helper requires .NET 10.'
+}
+
+Write-Host 'Publishing self-contained virtual-controller helper...'
+& $dotnet.Source publish $helperProject `
+    -c Release `
+    -r win-x64 `
+    --self-contained true `
+    -o $hostOut
+if ($LASTEXITCODE -ne 0) {
+    throw "dotnet publish failed with exit code $LASTEXITCODE"
+}
+
+$helperExe = Join-Path $hostOut 'MugenDeej.VirtualGamepadHost.exe'
+Require-File $helperExe
+& $helperExe --help
+if ($LASTEXITCODE -ne 0) {
+    throw "Published virtual-controller helper smoke check failed with exit code $LASTEXITCODE"
+}
 
 $launcherOutput = Join-Path $stageDir 'MugenDeej.exe'
 
@@ -211,21 +284,17 @@ $readmeTemplate = Get-Content -LiteralPath $templatePath -Raw -Encoding UTF8
 $readmeText = $readmeTemplate.Replace('{{VERSION}}', $Version)
 Write-Utf8NoBom -Path (Join-Path $stageDir 'README.txt') -Text $readmeText
 
-$manifestNames = @(
-    'MugenDeej.exe',
-    'MugenDeej.ps1',
-    'MugenDeej.ico',
-    'MugenDeej-Debug.cmd',
-    'README.txt',
-    'LICENSE',
-    'THIRD_PARTY_NOTICES.md'
+$manifestFiles = @(
+    Get-ChildItem -LiteralPath $stageDir -Recurse -File |
+        Where-Object { $_.Name -ne 'SHA256SUMS.txt' } |
+        Sort-Object FullName
 )
 
-$manifestLines = foreach ($name in $manifestNames) {
-    $path = Join-Path $stageDir $name
-    Require-File $path
-    $hash = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
-    "$hash  $name"
+$manifestLines = foreach ($file in $manifestFiles) {
+    $relative = $file.FullName.Substring($stageDir.Length).TrimStart('\')
+    $relative = $relative -replace '\\', '/'
+    $hash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+    "$hash  $relative"
 }
 Write-Utf8NoBom -Path (Join-Path $stageDir 'SHA256SUMS.txt') -Text (($manifestLines -join "`r`n") + "`r`n")
 
