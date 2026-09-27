@@ -14,6 +14,8 @@ Release candidate for the 2.0 generation. Feature freeze is active; RC testing i
 - Reduced the tested Cardboard Nano matrix debounce to **6 ms** and added cumulative firmware debounce diagnostics.
 - Refined the bilingual UI across controller status, button actions, toggle/encoder actions, layers, diagnostics, slider settings and application selection.
 - Restored production Windows-startup behavior in RC1 so autostart can be tested exactly as it will behave in final 2.0.0.
+- Added self-contained RC Setup packaging from the exact Portable payload, preserving one runtime payload across both delivery formats.
+- Slider-direction inversion is now remembered per detected controller protocol/topology, so differently wired Legacy, Extended and Adaptive controllers can be swapped without repeatedly changing a global inversion setting.
 - Pre-RC real-machine baseline: Integrated #247, with Adaptive 5/28/2/1 startup, backup restore, virtual gamepad, modal-dialog input suppression and the reviewed UI passing.
 
 ## 1.0.0 — 2026-09-15
