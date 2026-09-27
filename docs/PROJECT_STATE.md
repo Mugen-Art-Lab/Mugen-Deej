@@ -702,3 +702,10 @@ The live 25 ms physical-button auto-selection timer now uses isolated `$buttonEd
 Run #220 (`35906698320`) succeeded at code head `167fa38b5dc60eb651fe859d9ef679ef2e9634ea`; artifact ID `10771134280`; inner ZIP SHA-256 `6fdf609888e1166206a7f4bd0760d158a71d4c0b876d21ff6bd78a516c42306d`.
 
 Hardware retest pending: unplug/replug Extended while Physical button actions remains open.
+
+
+## Final 2.0.0 release acceptance
+
+Final 2.0.0 hardware smoke: PASS. The normal consolidated release workflow package was installed over RC1, preserved the existing schema-v3 configuration, detected the real Adaptive 5/28/2/1 controller, restored layer behavior, started the optional virtual Xbox helper to ready, and produced working XInput button output visible in Windows joy.cpl.
+
+Runtime and packaging are release-accepted. Remaining steps: PR/merge, v2.0.0 tag and GitHub Release publication after explicit approval.
