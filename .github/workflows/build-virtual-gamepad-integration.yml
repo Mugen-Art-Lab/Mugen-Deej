@@ -1,35 +1,9 @@
-name: Build virtual gamepad integration
+name: Legacy RC patch-chain build (archived)
 
 on:
+  # Historical RC1 patch-chain builder. Kept for forensic comparison only.
+  # The 2.0.0 source is consolidated from the hardware-proven #255 runtime.
   workflow_dispatch:
-  push:
-    branches:
-      - feature/virtual-gamepad-ui
-    paths:
-      - '.github/workflows/build-virtual-gamepad-integration.yml'
-      - 'MugenDeej.ps1'
-      - 'MugenDeej-Debug.cmd'
-      - 'MugenDeej.ico'
-      - 'src/launcher/**'
-      - 'src/virtual-gamepad-helper/**'
-      - 'src/virtual-gamepad-integration/**'
-      - 'tools/Prepare-HIDMaestro.ps1'
-      - 'tools/Build-VirtualGamepad-Integration.ps1'
-      - 'tools/Harden-VirtualGamepad-DevRuntime.ps1'
-      - 'tools/Apply-AdaptiveProtocol.ps1'
-      - 'tools/Apply-AdaptiveButtonUi.ps1'
-      - 'tools/Apply-AdaptiveInputStatusUi.ps1'
-      - 'tools/Polish-AdaptiveInputStatusUi.ps1'
-      - 'tools/Revise-AdaptiveMainUi.ps1'
-      - 'tools/Harden-AdaptiveTopologyUi.ps1'
-      - 'tools/Add-AdaptiveControlMappings.ps1'
-      - 'tools/Add-AdaptiveLayers.ps1'
-      - 'tools/Optimize-LargeButtonSettings.ps1'
-      - 'tools/Run-OptimizedLargeButtonSettings.ps1'
-      - 'tools/Apply-PerControllerSliderInversion.ps1'
-      - 'tools/Polish-UiLanguage.ps1'
-      - 'tools/Ensure-WindowsPowerShellUtf8Bom.ps1'
-      - 'tools/Build-SetupFromPortable.ps1'
 
 permissions:
   contents: read
