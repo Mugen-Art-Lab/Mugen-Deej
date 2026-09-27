@@ -3051,3 +3051,22 @@ Real-machine acceptance:
 Per-controller slider inversion multi-generation regression: **PASS**.
 
 **#255 supersedes #253/#254 and is the current 2.0.0-rc1 release candidate.**
+
+
+## #255 clean Setup + schema-v3 restore + Windows reboot/autostart — real-machine PASS
+
+Final user-facing RC1 installation/autostart regression was run from a clean target folder at `C:\Mugen Deej`.
+
+Observed sequence:
+- first launch started with no config, created a fresh default config and showed the normal initial-language/first-run flow;
+- Adaptive 5/28/2/1 was discovered from the clean install and basic button configuration persisted across a manual application restart;
+- the current schema-v3 backup restored successfully, including Adaptive layers and virtual Xbox enablement;
+- the post-restore automatic restart loaded 28 button actions, both layer-modifier toggles, Adaptive actions and the restored `invert=True` controller profile;
+- virtual Xbox reached ready state after restore;
+- the Game layer activated from the restored toggle mapping;
+- after a real Windows reboot, Mugen Deej started from `C:\Mugen Deej\MugenDeej.exe` with the main window suppressed for start-minimized launch;
+- Adaptive 5/28/2/1 was rediscovered automatically and virtual Xbox again reached ready state.
+
+The clean-install, restore, persisted-settings and production Windows-startup path for RC1 #255 are therefore **PASS**.
+
+With this result, the remaining release work is internal consolidation/final 2.0.0 packaging rather than additional user-facing RC1 feature validation.
