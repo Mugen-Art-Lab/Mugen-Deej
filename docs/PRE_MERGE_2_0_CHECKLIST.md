@@ -47,7 +47,7 @@ Work through this document in order. After each completed step:
 
 ## Step 1 — repository inventory and cleanup plan
 
-Status: **IN PROGRESS / inventory captured**
+Status: **PASS / classification captured**
 
 Current release-facing root includes the expected project files such as
 `README.md`, `README_RU.md`, `CHANGELOG.md`, `VERSION.txt`,
@@ -80,10 +80,170 @@ Important cleanup observations:
 
 - [x] Capture top-level repository inventory.
 - [x] Capture `arduino/`, `tools/`, `.github/workflows/` and `dev/` inventory.
-- [ ] Classify files as **public/current**, **developer/current**,
+- [x] Classify files as **public/current**, **developer/current**,
   **historical/archive**, or **remove before main**.
-- [ ] Record the proposed final public repository structure before moving or
+- [x] Record the proposed final public repository structure before moving or
   deleting anything.
+
+### Step 1 classification
+
+#### Public / current
+
+Keep visible and intentionally supported:
+
+- root project/release files: `README.md`, `README_RU.md`, `CHANGELOG.md`,
+  `LICENSE`, `ACKNOWLEDGEMENTS.md`, `SECURITY.md`, `CONTRIBUTING.md`,
+  `THIRD_PARTY_NOTICES.md`, `VERSION.txt`, `MugenDeej.ps1`,
+  `MugenDeej.ico`, `MugenDeej-Debug.cmd`, `BUILD_RELEASE.cmd`;
+- `src/launcher/`, `src/setup/`, `src/virtual-gamepad-helper/`;
+- canonical `src/virtual-gamepad-integration/MugenDeej.VirtualGamepad.ps1`;
+- `tools/Build-Release.ps1` and `tools/Prepare-HIDMaestro.ps1`;
+- `tools/Build-SetupFromPortable.ps1` is retained for now as a useful exact-
+  payload Setup wrapper, especially while the code-signing workflow is still
+  undecided;
+- `.github/workflows/build-release.yml` is the canonical package workflow;
+- current public docs: `PROTOCOL.md`, `CONTROL_MODEL.md`,
+  `BACKUP_COMPATIBILITY.md`, `TROUBLESHOOTING.md`, plus the new Adaptive v3
+  build/wiring docs to be written;
+- `arduino/MugenDeejController/` remains the tested Extended reference
+  firmware;
+- `arduino/MugenDeejCardboardNanoPrototype/` is in fact the hardware-proven
+  Adaptive 5/28/2/1 firmware and is shipped in the 2.0 package. Its
+  `Prototype`/cardboard naming is now misleading and should be promoted to a
+  clear Adaptive reference-firmware name before merge.
+
+#### Developer / current
+
+Keep, but clearly separate from normal user-facing material:
+
+- `docs/BUILDING.md` — current in concept but needs its 2.0 package/dependency
+  list updated;
+- `docs/HARDWARE_VISION.md` — useful architecture direction, but its
+  candidate-prototype section contains stale pre-final topology wording and must
+  be updated;
+- `docs/PROFILE_LAYER_ARCHITECTURE.md` — useful contributor architecture;
+- `docs/VIRTUAL_CONTROLLER_UI.md` and
+  `docs/VIRTUAL_GAMEPAD_INTEGRATION.md` — retain only after checking/removing
+  old prototype/branch language;
+- `arduino/MugenDeejUnoAdaptiveTest/` — useful Adaptive capability/topology
+  regression fixture, but should live under an explicitly developer/test path;
+- `arduino/MugenDeejUnoTransportTest/` — useful auto-baud/transport regression
+  fixture if retained, but should also live under a developer/test path;
+- `config.example.json` — intended public/developer example, but must be
+  audited against the actual 2.0 schema before merge.
+
+#### Historical / archive
+
+Preserve only material that has ongoing explanatory value:
+
+- existing `docs/history/`;
+- old version-specific release/development notes can be grouped under history
+  rather than left mixed with current 2.0 documentation;
+- `arduino/MugenDeejCardboardUnoPrototype/` documents the physical bring-up
+  that preceded the final Nano Adaptive build. It may be preserved as history
+  if desired, but it must not be presented as current firmware.
+
+#### Remove before main
+
+These are construction artifacts whose useful history already exists in Git:
+
+- `.github/workflows/build-virtual-gamepad-integration.yml` — obsolete RC
+  patch-chain builder; automatic triggering is already disabled;
+- `.github/workflows/build-virtual-gamepad-prototype.yml` and
+  `dev/virtual-gamepad/` — proof-of-concept harness superseded by the
+  integrated production virtual-controller path;
+- `src/virtual-gamepad-integration/MugenDeej.VirtualGamepad.AsyncStop.ps1` —
+  development overlay already consolidated into the canonical module;
+- obsolete source-rewrite/RC patchers:
+  - `tools/Add-AdaptiveControlMappings.ps1`
+  - `tools/Add-AdaptiveLayers.ps1`
+  - `tools/Apply-AdaptiveButtonUi.ps1`
+  - `tools/Apply-AdaptiveInputStatusUi.ps1`
+  - `tools/Apply-AdaptiveProtocol.ps1`
+  - `tools/Apply-PerControllerSliderInversion.ps1`
+  - `tools/Build-VirtualGamepad-Integration.ps1`
+  - `tools/Ensure-WindowsPowerShellUtf8Bom.ps1`
+  - `tools/Harden-AdaptiveTopologyUi.ps1`
+  - `tools/Harden-VirtualGamepad-DevRuntime.ps1`
+  - `tools/Optimize-LargeButtonSettings.ps1`
+  - `tools/Polish-AdaptiveInputStatusUi.ps1`
+  - `tools/Polish-UiLanguage.ps1`
+  - `tools/Revise-AdaptiveMainUi.ps1`
+  - `tools/Run-OptimizedLargeButtonSettings.ps1`;
+- `arduino/MugenDeejPanelPrototype/` — obsolete pre-Adaptive design that
+  explicitly emulates toggles/encoders as fake Extended buttons;
+- `docs/CURRENT_HANDOFF.md`, `docs/PROJECT_STATE.md`, and this
+  `PRE_MERGE_2_0_CHECKLIST.md` are internal continuity scaffolding and should
+  be deleted in final pre-merge cleanup after all durable information has been
+  moved into proper documentation.
+
+`docs/VIRTUAL_CONTROLLER_TEST_LOG.md` is tentatively classified as
+**historical/remove**: its important acceptance result belongs in release notes
+or contributor docs; the long chronological test log itself does not need to
+become public 2.0 documentation.
+
+### Proposed final repository shape
+
+The exact directory names can be adjusted while moving files, but the intended
+shape is:
+
+```text
+/
+  README.md
+  README_RU.md
+  CHANGELOG.md
+  VERSION.txt
+  MugenDeej.ps1
+  ...normal license/security/build entry files...
+
+  .github/workflows/
+    build-release.yml
+    [future signing workflow/integration, if SignPath is approved]
+
+  arduino/
+    reference/
+      Extended/          # current tested s/b reference firmware
+      Adaptive/          # current tested Adaptive v3 5/28/2/1 firmware
+    tests/
+      AdaptiveTopology/  # bare-board dynamic-topology regression fixture
+      Transport/         # optional 9600/115200 transport fixture
+
+  docs/
+    ADAPTIVE_V3.md
+    ADAPTIVE_V3_WIRING.md
+    ADAPTIVE_V3_BUILD.md
+    PROTOCOL.md
+    CONTROL_MODEL.md
+    BACKUP_COMPATIBILITY.md
+    TROUBLESHOOTING.md
+    BUILDING.md
+    PROFILE_LAYER_ARCHITECTURE.md
+    VIRTUAL_CONTROLLER_UI.md
+    VIRTUAL_GAMEPAD_INTEGRATION.md
+    HARDWARE_VISION.md
+    history/
+      ...version/development history intentionally retained...
+
+  src/
+    launcher/
+    setup/
+    virtual-gamepad-helper/
+    virtual-gamepad-integration/
+      MugenDeej.VirtualGamepad.ps1
+
+  tools/
+    Build-Release.ps1
+    Build-SetupFromPortable.ps1
+    Prepare-HIDMaestro.ps1
+```
+
+### Step 1 conclusion
+
+**PASS.** The intended 2.0 public/developer structure is now defined. No files
+were deleted or moved during classification. The next step is the Adaptive v3
+source-of-truth hardware/firmware audit before any Arduino reorganization, so
+the current proven firmware path remains untouched until its wiring facts have
+been captured.
 
 ## Step 2 — Adaptive v3 hardware/firmware source-of-truth audit
 
