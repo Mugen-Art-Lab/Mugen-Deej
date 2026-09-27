@@ -482,8 +482,12 @@ Functional hardware test with the final 325 ohm pull-up:
 
 - both switch LEDs illuminate only in the ON state;
 - both toggles continue to report correctly through Adaptive v3;
-- pressing row buttons individually and in groups produced no observed false
-  matrix activations.
+- buttons were exercised across all four matrix rows, individually and in
+  groups, with the illuminated toggle wiring active; no false matrix
+  activations were observed;
+- the captured runtime log also showed a clean Adaptive 5/28/2/1 reconnect with
+  firmware debounce diagnostics filtered=0 / rapid=0, and correctly preserved
+  simultaneous held states for B21 and B28 until release.
 
 This illumination arrangement is specific to the tested three-terminal switch
 construction. Public wiring docs must tell builders to identify which main
