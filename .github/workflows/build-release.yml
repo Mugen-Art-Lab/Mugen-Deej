@@ -1,5 +1,8 @@
 name: Build release packages
 
+# 2.0 release-prep validation: the feature branch builds the same packages that
+# will be produced manually from main after merge/tag approval.
+
 on:
   workflow_dispatch:
     inputs:
