@@ -1,4 +1,4 @@
-Set-StrictMode -Version 2.0
+﻿Set-StrictMode -Version 2.0
 
 $script:VirtualGamepadConfigPath = Join-Path $script:BaseDir 'virtual-controller.json'
 $script:VirtualGamepadConfigLoaded = $false
@@ -218,10 +218,10 @@ function Update-MugenVirtualGamepadStatusUi {
     if ($null -ne $script:VirtualGamepadToggleButton -and -not $script:VirtualGamepadToggleButton.IsDisposed) {
         $script:VirtualGamepadToggleButton.Visible = $protocolAvailable
         $script:VirtualGamepadToggleButton.Text = if ($script:Language -eq 'ru') {
-            if ($enabled) { 'XInput: Вкл' } else { 'XInput: Выкл' }
+            if ($enabled) { 'Выключить' } else { 'Включить' }
         }
         else {
-            if ($enabled) { 'XInput: On' } else { 'XInput: Off' }
+            if ($enabled) { 'Disable' } else { 'Enable' }
         }
     }
 
@@ -237,29 +237,29 @@ function Update-MugenVirtualGamepadStatusUi {
 
     $ru = ($script:Language -eq 'ru')
     if (-not $enabled) {
-        $script:VirtualGamepadStatusLabel.Text = if ($ru) { 'Виртуальный геймпад · выключен' } else { 'Virtual gamepad · disabled' }
+        $script:VirtualGamepadStatusLabel.Text = if ($ru) { 'Виртуальный геймпад Xbox · выключен' } else { 'Virtual Xbox gamepad · disabled' }
         $script:VirtualGamepadStatusDot.ForeColor = [System.Drawing.Color]::Gray
         return
     }
 
-    $text = if ($ru) { 'Виртуальный геймпад · включён · ожидает контроллер' } else { 'Virtual gamepad · enabled · waiting for controller' }
+    $text = if ($ru) { 'Виртуальный геймпад Xbox · включён · ожидает контроллер' } else { 'Virtual Xbox gamepad · enabled · waiting for controller' }
     $color = [System.Drawing.Color]::Gray
 
     switch ($script:VirtualGamepadUiState) {
         'starting' {
-            $text = if ($ru) { 'Виртуальный геймпад · включается…' } else { 'Virtual gamepad · enabling…' }
+            $text = if ($ru) { 'Виртуальный геймпад Xbox · включается…' } else { 'Virtual Xbox gamepad · enabling…' }
             $color = [System.Drawing.Color]::RoyalBlue
         }
         'ready' {
-            $text = if ($ru) { 'Виртуальный геймпад · включён' } else { 'Virtual gamepad · enabled' }
+            $text = if ($ru) { 'Виртуальный геймпад Xbox · включён' } else { 'Virtual Xbox gamepad · enabled' }
             $color = [System.Drawing.Color]::SeaGreen
         }
         'error' {
-            $text = if ($ru) { 'Виртуальный геймпад · ошибка запуска' } else { 'Virtual gamepad · startup failed' }
+            $text = if ($ru) { 'Виртуальный геймпад Xbox · ошибка запуска' } else { 'Virtual Xbox gamepad · startup failed' }
             $color = [System.Drawing.Color]::Firebrick
         }
         default {
-            $text = if ($ru) { 'Виртуальный геймпад · включён · ожидает контроллер' } else { 'Virtual gamepad · enabled · waiting for controller' }
+            $text = if ($ru) { 'Виртуальный геймпад Xbox · включён · ожидает контроллер' } else { 'Virtual Xbox gamepad · enabled · waiting for controller' }
             $color = [System.Drawing.Color]::Gray
         }
     }
@@ -1092,3 +1092,160 @@ function Sync-MugenVirtualGamepadState {
 
 Ensure-MugenVirtualGamepadUiTimer
 Ensure-MugenVirtualGamepadProfileTimer
+
+# Development-stage overlay: keep HIDMaestro teardown off the WinForms UI path.
+#
+# HIDMaestro currently needs roughly ten seconds on the tested machine to
+# dispose/remove the Xbox virtual device. That cleanup is real work, but Mugen
+# must not synchronously WaitForExit() on the UI thread while it happens.
+
+$script:VirtualGamepadStopping = $false
+$script:VirtualGamepadStopProcess = $null
+$script:VirtualGamepadStopReason = ''
+$script:VirtualGamepadStopTimer = $null
+
+# Preserve the proven nonblocking start implementation, then wrap it so a new
+# virtual controller cannot be created while the previous helper is still
+# removing its HID/PnP state.
+$script:MugenVirtualGamepadStartCore = ${function:Start-MugenVirtualGamepad}
+
+function Complete-MugenVirtualGamepadStop {
+    if (-not $script:VirtualGamepadStopping) {
+        if ($null -ne $script:VirtualGamepadStopTimer) {
+            try { $script:VirtualGamepadStopTimer.Stop() } catch { }
+        }
+        return
+    }
+
+    $finished = $false
+    if ($null -eq $script:VirtualGamepadStopProcess) {
+        $finished = $true
+    }
+    else {
+        try { $finished = [bool]$script:VirtualGamepadStopProcess.HasExited }
+        catch { $finished = $true }
+    }
+
+    if (-not $finished) { return }
+
+    if ($null -ne $script:VirtualGamepadStopTimer) {
+        try { $script:VirtualGamepadStopTimer.Stop() } catch { }
+    }
+
+    $reason = $script:VirtualGamepadStopReason
+    $script:VirtualGamepadStopping = $false
+    $script:VirtualGamepadStopProcess = $null
+    $script:VirtualGamepadStopReason = ''
+
+    Write-Log ('Virtual controller background cleanup finished: {0}' -f $reason) 'INFO'
+
+    # If the user re-enabled the feature while the old HID was still being
+    # removed, start a fresh controller only after the old helper has exited.
+    if (
+        $script:VirtualGamepadConfigLoaded -and
+        $null -ne $script:VirtualGamepadConfig -and
+        [bool]$script:VirtualGamepadConfig.enabled -and
+        (Test-MugenVirtualGamepadProtocolAvailable) -and
+        $script:IsConnected -and
+        $script:DetectedButtonCount -gt 0
+    ) {
+        Set-MugenVirtualGamepadUiState -State 'waiting'
+        [void](Start-MugenVirtualGamepad)
+    }
+}
+
+function Ensure-MugenVirtualGamepadStopTimer {
+    if ($null -ne $script:VirtualGamepadStopTimer) { return }
+
+    $script:VirtualGamepadStopTimer = New-Object System.Windows.Forms.Timer
+    $script:VirtualGamepadStopTimer.Interval = 150
+    $script:VirtualGamepadStopTimer.Add_Tick({
+        try { Complete-MugenVirtualGamepadStop }
+        catch { Write-Log ('Virtual controller background cleanup polling failed: {0}' -f $_.Exception.Message) 'WARN' }
+    })
+}
+
+function Stop-MugenVirtualGamepad {
+    param([string]$Reason = 'stop requested')
+
+    # Repeated full-state packets can arrive while cleanup is in progress. The
+    # first stop request already disconnected the bridge, so later requests are
+    # no-ops instead of restarting or waiting on the helper.
+    if (
+        $script:VirtualGamepadStopping -and
+        -not $script:VirtualGamepadActive -and
+        -not $script:VirtualGamepadStarting
+    ) {
+        return
+    }
+
+    $wasActive = $script:VirtualGamepadActive
+    $wasStarting = $script:VirtualGamepadStarting
+    $helperToReap = $script:VirtualGamepadHelperProcess
+
+    if ($wasStarting) {
+        $script:VirtualGamepadStarting = $false
+        Stop-MugenVirtualGamepadStartTimer
+        Clear-MugenVirtualGamepadStartWait
+    }
+
+    if ($wasActive) {
+        try { [void](Send-MugenVirtualGamepadCommand -Command 'release') } catch { }
+    }
+
+    # Closing our side of the pipe is the proven signal that makes the elevated
+    # helper release the controller and run HIDMaestro cleanup.
+    Reset-MugenVirtualGamepadBridgeObjects
+    $script:VirtualGamepadHelperProcess = $null
+
+    $helperStillRunning = $false
+    if ($null -ne $helperToReap) {
+        try { $helperStillRunning = -not [bool]$helperToReap.HasExited }
+        catch { $helperStillRunning = $false }
+    }
+
+    if ($helperStillRunning) {
+        $script:VirtualGamepadStopping = $true
+        $script:VirtualGamepadStopProcess = $helperToReap
+        $script:VirtualGamepadStopReason = $Reason
+        Ensure-MugenVirtualGamepadStopTimer
+        $script:VirtualGamepadStopTimer.Start()
+        Write-Log ('Virtual controller teardown is pending in the background; UI remains responsive: {0}' -f $Reason) 'DEBUG'
+    }
+    else {
+        $script:VirtualGamepadStopping = $false
+        $script:VirtualGamepadStopProcess = $null
+        $script:VirtualGamepadStopReason = ''
+        if ($wasActive -or $wasStarting) {
+            Write-Log ('Virtual controller stopped immediately: {0}' -f $Reason) 'INFO'
+        }
+    }
+
+    if (
+        $script:VirtualGamepadConfigLoaded -and
+        $null -ne $script:VirtualGamepadConfig -and
+        [bool]$script:VirtualGamepadConfig.enabled -and
+        (Test-MugenVirtualGamepadProtocolAvailable)
+    ) {
+        Set-MugenVirtualGamepadUiState -State 'waiting'
+    }
+    else {
+        Set-MugenVirtualGamepadUiState -State 'disabled'
+    }
+}
+
+function Start-MugenVirtualGamepad {
+    if ($script:VirtualGamepadStopping) {
+        if (
+            $script:VirtualGamepadConfigLoaded -and
+            $null -ne $script:VirtualGamepadConfig -and
+            [bool]$script:VirtualGamepadConfig.enabled -and
+            (Test-MugenVirtualGamepadProtocolAvailable)
+        ) {
+            Set-MugenVirtualGamepadUiState -State 'waiting'
+        }
+        return $false
+    }
+
+    return (& $script:MugenVirtualGamepadStartCore)
+}
