@@ -1,8 +1,8 @@
 # Changelog
 
-## 2.0.0-rc1 — 2026-09-27
+## 2.0.0 — 2026-09-27
 
-Release candidate for the 2.0 generation. Feature freeze is active; RC testing is focused on regressions and release readiness.
+Major 2.0 generation release, promoted from the hardware-accepted RC1 line.
 
 - Added self-describing **Adaptive v3** controller support with independent sliders, momentary buttons, latching toggles and cumulative-position rotary encoders.
 - Added first-class toggle and encoder actions, application profiles and layered mappings.
@@ -13,10 +13,10 @@ Release candidate for the 2.0 generation. Feature freeze is active; RC testing i
 - Hardened controller discovery and reconnect behavior, including false-Legacy probe protection, hot-unplug survival in the button editor and nonblocking virtual-controller startup/teardown.
 - Reduced the tested Cardboard Nano matrix debounce to **6 ms** and added cumulative firmware debounce diagnostics.
 - Refined the bilingual UI across controller status, button actions, toggle/encoder actions, layers, diagnostics, slider settings and application selection.
-- Restored production Windows-startup behavior in RC1 so autostart can be tested exactly as it will behave in final 2.0.0.
-- Added self-contained RC Setup packaging from the exact Portable payload, preserving one runtime payload across both delivery formats.
+- Restored and hardware-verified production Windows-startup behavior, including a real reboot from a clean Setup installation.
+- Added self-contained Setup packaging from the exact Portable payload, preserving one runtime payload across both delivery formats.
 - Slider-direction inversion is now remembered per detected controller protocol/topology, so differently wired Legacy, Extended and Adaptive controllers can be swapped without repeatedly changing a global inversion setting.
-- Pre-RC real-machine baseline: Integrated #247, with Adaptive 5/28/2/1 startup, backup restore, virtual gamepad, modal-dialog input suppression and the reviewed UI passing.
+- Hardware acceptance covered Legacy, Extended, and Adaptive 5/28/2/1 switching; 1.0.0 → 2.0.0 in-place update; clean Setup; schema-v3 restore; layer/XInput mappings; per-controller slider inversion; and Windows reboot/autostart.
 
 ## 1.0.0 — 2026-09-15
 
