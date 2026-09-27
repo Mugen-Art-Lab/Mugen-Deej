@@ -26,6 +26,7 @@ on:
       - 'tools/Add-AdaptiveLayers.ps1'
       - 'tools/Optimize-LargeButtonSettings.ps1'
       - 'tools/Run-OptimizedLargeButtonSettings.ps1'
+      - 'tools/Apply-PerControllerSliderInversion.ps1'
       - 'tools/Polish-UiLanguage.ps1'
       - 'tools/Ensure-WindowsPowerShellUtf8Bom.ps1'
       - 'tools/Build-SetupFromPortable.ps1'
@@ -100,6 +101,12 @@ jobs:
           # shared action editor plus lightweight selector tiles and a fixed
           # assignment overview.
           .\tools\Run-OptimizedLargeButtonSettings.ps1 -Path $runtimePath
+
+          # Slider direction depends on the physical wiring, not on the app as a
+          # whole. Remember inversion per detected protocol/topology signature
+          # so swapping Legacy, Extended and Adaptive controllers does not make
+          # users repeatedly flip the same global checkbox.
+          .\tools\Apply-PerControllerSliderInversion.ps1 -Path $runtimePath
 
           Copy-Item .\src\virtual-gamepad-integration\MugenDeej.VirtualGamepad.ps1 $integrationModulePath -Force
 
