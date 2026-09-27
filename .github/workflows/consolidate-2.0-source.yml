@@ -51,7 +51,7 @@ jobs:
           )
           [System.IO.File]::AppendAllText(
             $modulePath,
-            ("\`r\`n" + $asyncStopOverlay),
+            ("`r`n" + $asyncStopOverlay),
             (New-Object System.Text.UTF8Encoding($false))
           )
 
@@ -97,16 +97,31 @@ jobs:
           Copy-Item $modulePath .\src\virtual-gamepad-integration\MugenDeej.VirtualGamepad.ps1 -Force
           [System.IO.File]::WriteAllText(
             (Join-Path $PWD 'VERSION.txt'),
-            "2.0.0\`r\`n",
+            "2.0.0`r`n",
             (New-Object System.Text.UTF8Encoding($false))
           )
 
           $rcHash = (Get-FileHash $runtimePath -Algorithm SHA256).Hash.ToLowerInvariant()
           $finalHash = (Get-FileHash .\MugenDeej.ps1 -Algorithm SHA256).Hash.ToLowerInvariant()
           $moduleHash = (Get-FileHash .\src\virtual-gamepad-integration\MugenDeej.VirtualGamepad.ps1 -Algorithm SHA256).Hash.ToLowerInvariant()
-          Write-Host "RC255-equivalent staged runtime SHA-256: $rcHash"
-          Write-Host "Consolidated final runtime SHA-256:      $finalHash"
-          Write-Host "Consolidated virtual module SHA-256:     $moduleHash"
+
+          $expectedRcHash = '2e41804c7ac4303f94aa126ebcbd251f558b030650e8804ee2046735e0239452'
+          $expectedFinalHash = '47639e7f4c4217727c1e693ba309f4b0d12f39ac18e1fc223035be609a7b7023'
+          $expectedModuleHash = '8cee712cf8fede4fbbb9635fef6ea647e84ade9047d7090b104896ea1317e868'
+
+          if ($rcHash -ne $expectedRcHash) {
+            throw "RC255 runtime reproduction hash mismatch: $rcHash"
+          }
+          if ($finalHash -ne $expectedFinalHash) {
+            throw "Consolidated final runtime identity-only hash mismatch: $finalHash"
+          }
+          if ($moduleHash -ne $expectedModuleHash) {
+            throw "RC255 virtual module reproduction hash mismatch: $moduleHash"
+          }
+
+          Write-Host "RC255 staged runtime SHA-256:        $rcHash"
+          Write-Host "Final identity-only runtime SHA-256: $finalHash"
+          Write-Host "RC255 virtual module SHA-256:        $moduleHash"
 
       - name: Windows PowerShell 5.1 parse and identity checks
         shell: powershell
