@@ -2993,3 +2993,61 @@ Observed result:
 Acceptance for this first-run visual detail: **PASS**.
 
 #253 remains the current RC1 package.
+
+
+## 2.0.0 RC1 Setup packaging — run #254 PASS
+
+RC1 now produces the self-contained Setup EXE from the exact Portable ZIP payload built earlier in the same workflow.
+
+Release-packaging result:
+- run **#254**, run ID `36297735714` — **SUCCESS**;
+- built head `584fae233eba50890f7546ef0e8b76fc43edb4c9`;
+- artifact `Mugen-Deej-2.0.0-rc1-254`, ID `10924492612`;
+- Portable ZIP SHA-256 `defa4202c311fbff5f4680fb59fdd90c4979402b8f4055dad8af41f5722965dd`;
+- Setup EXE SHA-256 `0bc94db3a585a196b31125f0515ce9ae3c347d2e2f5e22d805e69913f48dfc37`;
+- staging, Windows PowerShell 5.1 checks, launcher/helper build, Portable packaging, Setup wrapping and artifact upload: PASS.
+
+Real-machine update acceptance:
+- Setup detected the existing 1.0.0 installation under the normal per-user LocalAppData path and updated it in place;
+- existing configuration, logs and backups remained present;
+- the upgraded RC successfully detected real Legacy 5/0, Extended 5/6 and Adaptive 5/28/2/1 controllers in sequence;
+- schema-v3 backup restore succeeded after the upgrade;
+- restored Adaptive layers, encoder actions and virtual Xbox state became active after the automatic restart;
+- layer-specific XInput mappings were observed working on the real controller.
+
+The 1.0.0 -> 2.0.0-rc1 in-place update and schema-v3 restore path are therefore hardware accepted.
+
+## 2.0.0 RC1 per-controller slider inversion — run #255 PASS
+
+A real multi-generation-controller test exposed one final wiring UX issue: slider direction was stored globally even though potentiometer direction is a property of the physical controller wiring.
+
+#255 changes inversion persistence to a detected controller protocol/topology signature:
+- Legacy 5-slider controller: `legacy:5:0:0:0`;
+- Extended 5-slider / 6-button controller: `extended:5:6:0:0`;
+- current Adaptive fixture: `adaptive:5:28:2:1`;
+- the COM-port name is intentionally not part of the identity.
+
+Compatibility behavior:
+- an existing pre-#255 global inversion value is migrated to the first detected controller signature;
+- once per-controller profiles exist, an unseen controller topology defaults to normal/non-inverted direction;
+- the existing inversion checkbox stays in the same Controls UI and edits the currently detected controller profile.
+
+CI/package:
+- run **#255**, run ID `36301215332` — **SUCCESS**;
+- built head `3dbb18dab01b7b8082963e8955cf4be8d9aafb48`;
+- artifact `Mugen-Deej-2.0.0-rc1-255`, ID `10925905683`;
+- outer Actions digest `sha256:1144728bda6fd04ffbf35a5241494dfd9f726d05ed5510a8a8d38a5adea46db4`;
+- Portable ZIP SHA-256 `46584d94c8970fb0ed3fb92a904b9d816802a86d70a17b59fc43fd0ba759f6e7`;
+- Setup EXE SHA-256 `3f3087d42d10a92ef68d522ca7b6f4636d0f7ec6d8cb4dc2f5de1bd8fec490f1`;
+- staging, Windows PowerShell 5.1 parse checks, launcher/helper build, Portable packaging, Setup packaging and artifact upload: PASS.
+
+Real-machine acceptance:
+- RC1 started with the Adaptive controller and migrated the existing global `invert=True` to `adaptive:5:28:2:1`;
+- switching to the real Legacy controller used the correct non-inverted direction;
+- switching to the real Extended controller used the correct non-inverted direction;
+- switching back to the real Adaptive controller automatically restored the required inverted direction;
+- virtual Xbox startup also returned to ready state after the Adaptive controller was reconnected.
+
+Per-controller slider inversion multi-generation regression: **PASS**.
+
+**#255 supersedes #253/#254 and is the current 2.0.0-rc1 release candidate.**
