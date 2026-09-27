@@ -247,21 +247,215 @@ been captured.
 
 ## Step 2 — Adaptive v3 hardware/firmware source-of-truth audit
 
-Status: **NOT STARTED**
+Status: **PASS / source-of-truth captured**
 
 Goal: derive documentation from the actual hardware-proven firmware and protocol,
 not from memory.
 
-- [ ] Identify the exact firmware shipped in the 2.0.0 package.
-- [ ] Extract its actual pin assignments and electrical assumptions.
-- [ ] Cross-check packet format against `docs/PROTOCOL.md`.
-- [ ] Cross-check intended hardware model against `docs/HARDWARE_VISION.md`.
-- [ ] Separate facts proven by source/firmware from physical-build details that
+- [x] Identify the exact firmware shipped in the 2.0.0 package.
+- [x] Extract its actual pin assignments and electrical assumptions.
+- [x] Cross-check packet format against `docs/PROTOCOL.md`.
+- [x] Cross-check intended hardware model against `docs/HARDWARE_VISION.md`.
+- [x] Separate facts proven by source/firmware from physical-build details that
   require confirmation from the real controller.
-- [ ] Decide which older Arduino sketches are examples, experiments, or history.
+- [x] Decide which older Arduino sketches are examples, experiments, or history.
 
-Deliverable: a reviewed factual wiring/pin-map source from which public docs and
-a diagram can be produced.
+### Adaptive v3 hardware source of truth
+
+The normal 2.0 release builder explicitly packages:
+
+`arduino/MugenDeejCardboardNanoPrototype/MugenDeejCardboardNanoPrototype.ino`
+
+This file is therefore the current hardware-proven **Adaptive reference
+firmware**, despite its historical `Cardboard...Prototype` name.
+
+Reference topology:
+
+`5 sliders / 28 momentary buttons / 2 latching toggles / 1 encoder with push`
+
+Transport:
+
+- Adaptive v3;
+- 115200 baud;
+- 25 ms periodic heartbeat;
+- changed matrix/key/encoder state can trigger a packet before the next
+  heartbeat.
+
+### Proven Nano pin map
+
+Classic ATmega328P Nano-class board:
+
+| Function | Logical signal | Nano pin |
+| --- | --- | --- |
+| Encoder | S1 | D2 |
+| Encoder | S2 | D3 |
+| Encoder | KEY / push | A2 |
+| Matrix | C1 | D4 |
+| Matrix | C2 | **D6** |
+| Matrix | C3 | **D5** |
+| Matrix | C4 | D7 |
+| Matrix | C5 | D8 |
+| Matrix | C6 | D9 |
+| Matrix | C7 | D10 |
+| Matrix | C8 | D11 |
+| Matrix | R1 | D12 |
+| Matrix | R2 | D13 |
+| Matrix | R3 | A0 |
+| Matrix | R4 | A1 |
+| Potentiometer | P1 wiper | A3 |
+| Potentiometer | P2 wiper | A4 |
+| Potentiometer | P3 wiper | A5 |
+| Potentiometer | P4 wiper | A6 |
+| Potentiometer | P5 wiper | A7 |
+| USB serial | RX/TX | D0/D1 reserved |
+
+Important: **C2=D6 and C3=D5 are intentionally swapped in the real proven
+firmware.** The firmware comment records that this physical jumper swap removed
+same-column ghost presses while preserving the original logical C1..C8 /
+B1..B28 numbering. The existing Nano README still says C2=D5/C3=D6 and must be
+corrected before it is used as public wiring documentation.
+
+A6/A7 are used only as analog inputs, matching classic Nano hardware.
+
+### Matrix logical layout
+
+```text
+        C1   C2   C3   C4   C5   C6   C7   C8
+R1      B1   B2   B3   B4   B5   B6   B7   T1
+R2      B8   B9   B10  B11  B12  B13  B14  T2
+R3      B15  B16  B17  B18  B19  B20  B21  spare
+R4      B22  B23  B24  B25  B26  B27  B28  spare
+```
+
+C8 is not part of the 28 normal-button fields. Only R1C8/R2C8 are exposed as
+the two Adaptive toggle fields; R3C8/R4C8 are ignored spare cells.
+
+Electrical/scan assumptions in source:
+
+- columns use `INPUT_PULLUP`;
+- all rows are outputs and idle HIGH;
+- one row at a time is driven LOW for scanning;
+- every populated matrix contact is diode-isolated;
+- diode path is:
+  `COLUMN -> switch -> diode anode -> diode cathode/stripe -> ROW`;
+- active-row settle = 6 microseconds;
+- row-release/column-recharge settle = 60 microseconds;
+- the 60 microsecond recovery interval exists because the long physical wiring
+  previously produced same-column ghosting.
+
+Matrix debounce:
+
+- stable-state debounce = 6 ms;
+- diagnostic rapid-reversal window = 35 ms;
+- encoder push debounce = 20 ms.
+
+### Potentiometers
+
+Source-proven wiring:
+
+```text
+one outer leg -> 5V
+wiper/middle -> A3/A4/A5/A6/A7
+other outer leg -> GND
+```
+
+The firmware reports raw 10-bit ADC values `0..1023`. It discards the first
+ADC conversion after switching channels, then transmits the second reading.
+There is no firmware smoothing, endpoint calibration, dead zone or remapping.
+
+Reversing a potentiometer's two outer 5V/GND wires reverses that individual
+control. Mugen 2.0 additionally remembers a whole-controller slider-inversion
+setting by protocol/topology signature; this does not replace correct
+per-potentiometer wiring when only one control is reversed.
+
+### Encoder
+
+The reference firmware assumes a ready-made module with
+`S1 / S2 / KEY / 5V / GND`:
+
+- S1 -> D2;
+- S2 -> D3;
+- KEY -> A2;
+- module 5V -> 5V;
+- module GND -> common GND.
+
+D2/D3 are handled through CHANGE interrupts and a Gray-code transition table.
+Current reference constants:
+
+- 4 quadrature edges per reported step/detent;
+- direction multiplier = +1;
+- encoder position is a signed cumulative counter;
+- push is active LOW and is embedded in the Adaptive encoder field.
+
+These edge/direction assumptions are proven for the current physical module but
+may need adjustment for a different encoder/module.
+
+### Adaptive packet actually emitted by the reference firmware
+
+Each state line is:
+
+```text
+v3
+| five s fields
+| twenty-eight b fields
+| two t fields
+| one ePOSITION:PUSH field
+| one d... diagnostic field
+```
+
+The optional diagnostic token is:
+
+```text
+d<debounceMs>:<filteredCount>:<filteredMaskHex>:<rapidCount>:<rapidMaskHex>
+```
+
+Current desktop 2.0 parser explicitly accepts this token, stores it separately
+from the physical controls and excludes it from controller topology/signature
+matching. The public `docs/PROTOCOL.md` currently omits this implemented
+diagnostic token and must be updated.
+
+### Documentation discrepancies found by the audit
+
+1. **Nano README C2/C3 mapping is stale/wrong.**
+   It says C2=D5/C3=D6; proven firmware is C2=D6/C3=D5.
+2. `docs/HARDWARE_VISION.md` still describes the panel as an untested Uno
+   bring-up with first-class toggle/encoder semantics not yet implemented.
+   That section is pre-2.0 history and must be rewritten or moved to history.
+3. `docs/PROTOCOL.md` has stale implementation-status language from before
+   Adaptive actions/layers and current real-hardware acceptance.
+4. `docs/PROTOCOL.md` does not document the implemented optional `d...`
+   firmware diagnostics token.
+5. The current proven reference has 28 normal buttons; some older fixtures/docs
+   intentionally use 29 synthetic buttons. Public docs must clearly distinguish
+   the **reference hardware 5/28/2/1** from the **Adaptive topology test fixture**.
+
+### Facts not derivable from firmware alone
+
+Do not invent these in public BOM/wiring docs:
+
+- exact potentiometer resistance/value and mechanical model;
+- exact commercial encoder-module model;
+- exact toggle-switch product/terminal numbering;
+- wire gauge, connector family and enclosure dimensions;
+- final 3D enclosure mounting dimensions.
+
+The electrical interface can be documented without those details. If a
+reproducible MakerWorld/BOM package is produced later, those physical part
+details should come from the actual build or CAD model, not inference.
+
+### Older Arduino sketches after source audit
+
+- `MugenDeejController`: current Extended reference firmware.
+- `MugenDeejCardboardNanoPrototype`: current proven Adaptive reference,
+  pending rename/reorganization.
+- `MugenDeejUnoAdaptiveTest`: developer topology regression fixture.
+- `MugenDeejUnoTransportTest`: developer transport/auto-baud fixture.
+- `MugenDeejCardboardUnoPrototype`: historical bring-up predecessor.
+- `MugenDeejPanelPrototype`: obsolete pre-Adaptive design/history.
+
+Deliverable: **PASS**. A reviewed factual wiring/pin-map source is now captured.
+Step 3 can build the public Adaptive docs/diagram from these facts without
+guessing.
 
 ## Step 3 — Adaptive v3 public documentation
 
