@@ -35,21 +35,21 @@ Mugen Deej turns a deej-compatible USB serial controller with physical controls 
 - Automatically discovers compatible controllers across COM ports.
 - Reconnects after USB disconnects, resets, and COM-port changes.
 - Supports automatic discovery and manual port selection.
-- Supports both **Legacy** controllers with physical sliders/knobs only and **Extended** controllers with additional buttons.
-- Shows live positions for five physical controls by default.
+- Supports **Legacy**, **Extended**, and self-describing **Adaptive v3** controllers.
+- Shows live analog-control positions and adapts the interface to the detected controller topology.
 - Controls Windows master volume, one or more applications, the default microphone, or a selected input device.
 - Lets silent applications be assigned before they create an audio session.
-- Lets Extended-controller buttons perform actions such as soft mute, media play/pause, or launching a file/program.
+- Lets physical buttons perform desktop actions such as soft mute, media controls, hotkeys, launching files/programs, and more.
 - Can start with Windows and optionally launch directly to the notification area.
 - Includes **Auto, Light, and Dark** themes; Auto follows Windows theme changes while the app is running.
 - Includes Russian and English interfaces and a first-run guide.
-- Can back up and restore the application configuration, including button assignments.
-- Provides clearer diagnostics for busy ports, driver problems, and rare COM-number conflicts.
+- Adaptive v3 adds toggle/encoder actions, application profiles, Control layers, and an optional virtual Xbox 360 / XInput gamepad.
+- Uses universal backup schema v3 for the main configuration, button actions, Adaptive mappings/layers, and virtual-controller state.
 - Ships both as a self-contained Setup EXE and as a portable ZIP.
 
 ## Interface tour
 
-Mugen Deej adapts its main window to the detected controller. Extended firmware can expose buttons in addition to physical volume controls, while Legacy firmware keeps the simpler controls-only layout. Click any screenshot to view it at full size.
+Mugen Deej adapts its main window to the detected controller. Legacy firmware keeps the simpler controls-only layout, Extended can add buttons, and Adaptive v3 can expose sliders, buttons, toggles, and encoders. Click any screenshot to view it at full size.
 
 ### First-run guide
 
@@ -71,9 +71,9 @@ Rename each control and assign Windows master volume, applications, a microphone
   </a>
 </p>
 
-### Configure Extended-controller buttons
+### Configure physical button actions
 
-When the connected firmware exposes buttons, assign actions such as soft mute, media play/pause, or launching a file/program.
+When the connected firmware exposes buttons, assign desktop actions or optional virtual Xbox 360 / XInput mappings.
 
 <p align="center">
   <a href="assets/screenshots/en/button-settings.webp">
@@ -119,7 +119,7 @@ Mugen Deej automatically adapts its interface to the detected controller protoco
 
 For most users, use the **Setup EXE**. It performs a portable-style installation and does not register Mugen Deej in Windows Installed Apps. A **portable ZIP** is also provided if you prefer to extract and run the application manually.
 
-Latest stable release: **1.0.0**. Current release candidate under hardware testing: **2.0.0-rc1**.
+Latest public stable release: **1.0.0**. The **2.0.0** final package is prepared on the active release branch after RC1 hardware acceptance.
 
 ## Controller protocol
 
