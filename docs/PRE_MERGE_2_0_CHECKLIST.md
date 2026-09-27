@@ -429,6 +429,67 @@ diagnostic token and must be updated.
    intentionally use 29 synthetic buttons. Public docs must clearly distinguish
    the **reference hardware 5/28/2/1** from the **Adaptive topology test fixture**.
 
+### Hardware-proven illuminated toggle wiring
+
+The physical reference build now also has working illumination in both
+automotive-style 12 V toggle switches without adding any GPIO pins.
+
+Observed internal switch behavior:
+
+- each switch has two main contact terminals plus a separate LED negative
+  terminal;
+- the internal LED positive is tied to one of the two main switch terminals;
+- therefore the switch must be oriented so that the **LED-positive/contact
+  terminal is on the ROW/diode side**, while C8 connects to the opposite main
+  terminal;
+- each LED negative terminal connects to common GND.
+
+The matrix wiring remains:
+
+```text
++5V
+ |
+325 ohm
+ |
+C8 / D11
+ |
++---- switch T1 ---- LED+ node ---- matrix diode ---- R1
+|                         |
+|                         +---- internal LED ---- GND
+|
++---- switch T2 ---- LED+ node ---- matrix diode ---- R2
+                          |
+                          +---- internal LED ---- GND
+```
+
+The external 1N4148 matrix diodes keep their existing orientation:
+**contact -> diode anode -> diode cathode/stripe -> ROW**.
+
+The added **325 ohm pull-up from +5 V to C8/D11** is hardware-tested with both
+illuminated toggles ON simultaneously.
+
+Measured on the current Nano build:
+
+- Nano supply: approximately **4.88 V**;
+- C8/D11 with one illuminated toggle ON and ~500 ohm pull-up: approximately
+  **3.71-3.73 V**;
+- C8/D11 with both illuminated toggles ON and ~500 ohm pull-up: approximately
+  **3.16-3.17 V**;
+- C8/D11 with both illuminated toggles ON and **325 ohm pull-up**:
+  approximately **3.43-3.44 V**.
+
+Functional hardware test with the final 325 ohm pull-up:
+
+- both switch LEDs illuminate only in the ON state;
+- both toggles continue to report correctly through Adaptive v3;
+- pressing row buttons individually and in groups produced no observed false
+  matrix activations.
+
+This illumination arrangement is specific to the tested three-terminal switch
+construction. Public wiring docs must tell builders to identify which main
+terminal is internally tied to LED+ before soldering; other illuminated switch
+types may use different internal wiring.
+
 ### Facts not derivable from firmware alone
 
 Do not invent these in public BOM/wiring docs:
