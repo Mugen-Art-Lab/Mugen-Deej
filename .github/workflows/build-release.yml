@@ -7,6 +7,25 @@ on:
         description: "Optional version confirmation/override; leave empty to use VERSION.txt"
         required: false
         type: string
+  push:
+    branches:
+      - feature/virtual-gamepad-ui
+    paths:
+      - '.github/workflows/build-release.yml'
+      - 'MugenDeej.ps1'
+      - 'VERSION.txt'
+      - 'MugenDeej-Debug.cmd'
+      - 'MugenDeej.ico'
+      - 'LICENSE'
+      - 'THIRD_PARTY_NOTICES.md'
+      - 'packaging/README.txt.template'
+      - 'src/launcher/**'
+      - 'src/setup/**'
+      - 'src/virtual-gamepad-helper/**'
+      - 'src/virtual-gamepad-integration/MugenDeej.VirtualGamepad.ps1'
+      - 'arduino/MugenDeejCardboardNanoPrototype/**'
+      - 'tools/Prepare-HIDMaestro.ps1'
+      - 'tools/Build-Release.ps1'
 
 permissions:
   contents: read
@@ -18,6 +37,11 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v7
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
 
       - name: Set up Go
         uses: actions/setup-go@v7
