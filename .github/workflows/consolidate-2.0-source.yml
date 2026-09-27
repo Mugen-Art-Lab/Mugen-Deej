@@ -70,25 +70,21 @@ jobs:
           if (($rcText.Split("# Mugen Deej 1.0.0").Count - 1) -ne 1) {
             throw 'Expected exactly one RC source-header identity anchor.'
           }
-          if (($rcText.Split("\`$script:AppVersion = '2.0.0-rc1'").Count - 1) -ne 1) {
+          $rcAppVersion = '$script:AppVersion = ''2.0.0-rc1'''
+          $finalAppVersion = '$script:AppVersion = ''2.0.0'''
+          if (($rcText.Split($rcAppVersion).Count - 1) -ne 1) {
             throw 'Expected exactly one RC AppVersion identity anchor.'
           }
 
           $finalText = $rcText.Replace('# Mugen Deej 1.0.0', '# Mugen Deej 2.0.0')
-          $finalText = $finalText.Replace(
-            "\`$script:AppVersion = '2.0.0-rc1'",
-            "\`$script:AppVersion = '2.0.0'"
-          )
+          $finalText = $finalText.Replace($rcAppVersion, $finalAppVersion)
 
           if ($finalText -match '2\.0\.0-rc1') {
             throw 'RC identity remains in the consolidated runtime.'
           }
 
           $roundTrip = $finalText.Replace('# Mugen Deej 2.0.0', '# Mugen Deej 1.0.0')
-          $roundTrip = $roundTrip.Replace(
-            "\`$script:AppVersion = '2.0.0'",
-            "\`$script:AppVersion = '2.0.0-rc1'"
-          )
+          $roundTrip = $roundTrip.Replace($finalAppVersion, $rcAppVersion)
           if ($roundTrip -cne $rcText) {
             throw 'Final runtime differs from RC255 staging by more than release identity.'
           }
@@ -160,7 +156,7 @@ jobs:
           if ($runtimeText -notmatch '(?m)^# Mugen Deej 2\.0\.0\s*$') {
             throw 'Consolidated source header is not 2.0.0.'
           }
-          if ($runtimeText -notmatch "\`$script:AppVersion = '2\.0\.0'") {
+          if ($runtimeText -notmatch '\$script:AppVersion = ''2\.0\.0''') {
             throw 'Consolidated AppVersion is not 2.0.0.'
           }
           if ((Get-Content .\VERSION.txt -Raw -Encoding UTF8).Trim() -ne '2.0.0') {
