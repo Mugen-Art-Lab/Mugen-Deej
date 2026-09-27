@@ -1,6 +1,6 @@
 # Mugen Deej — living project state
 
-Last updated: 2026-09-26
+Last updated: 2026-09-27
 
 This is the authoritative short handoff for active development. Detailed prototype history is in `docs/VIRTUAL_CONTROLLER_TEST_LOG.md`; current product-integration work is in `docs/VIRTUAL_GAMEPAD_INTEGRATION.md`.
 
@@ -31,7 +31,7 @@ Integrated **#229** has passed the real-machine backup-restore/restart regressio
 
 Backup-dialog UI note: the restore confirmation still exposes technical topology text (`Adaptive v3 — 5/28/2/1`) and uses a light treatment while the post-restore restart dialog follows the dark app theme. Keep this queued with the #227 UI review rather than mixing it into the probe fix.
 
-Integrated **#247** remains the last hardware-reviewed UI baseline. **2.0.0-rc1 / run #253** is now the current release-candidate package. First-run inversion-accent real-machine visual recheck: PASS. #252 is rejected for the inversion-hint visual detail: the theme pass overwrote its warning color. #253 restores the warm accent after `Apply-ThemeToForm` and CI now verifies the ordering. CI/package: PASS; real-machine visual recheck: PASS.
+Integrated **#247** remains the last full UI-review baseline. **2.0.0-rc1 / run #255** is now the current release-candidate package. #254 added a self-contained Setup built from the exact Portable payload and passed the real-machine 1.0.0 -> RC1 in-place update plus schema-v3 restore path. #255 adds per-controller slider-inversion profiles keyed by protocol/topology; real Adaptive -> Legacy -> Extended -> Adaptive swapping passed with the correct direction restored automatically for each wiring layout. CI/package: PASS; real-machine multi-generation inversion regression: PASS.
 
 Recent accepted chain:
 - **#214**: 5 ms low-latency active-XInput serial drain and cached effective profile/layer resolution;
