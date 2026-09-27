@@ -3,38 +3,52 @@ Mugen Deej {{VERSION}}
 
 RU
 --
-Портативный Windows-клиент для физических USB-аудиоконтроллеров,
+Портативный Windows-клиент для физических USB-контроллеров,
 совместимых с deej.
 
 Быстрый старт:
 1. Полностью распакуйте архив в обычную папку.
 2. Подключите совместимый USB-контроллер.
 3. Запустите MugenDeej.exe.
-4. При первом запуске выберите язык и настройте физические регуляторы.
+4. При первом запуске выберите язык и настройте нужные элементы.
 
-Mugen Deej поддерживает классические контроллеры только с регуляторами.
-Расширенные контроллеры могут также передавать физические кнопки; доступные
-действия и элементы интерфейса зависят от возможностей обнаруженного устройства.
+Поддерживаемые поколения протокола:
+- Legacy: классические числовые пакеты с аналоговыми регуляторами.
+- Extended: регуляторы и физические кнопки.
+- Adaptive v3: самоописываемые регуляторы, кнопки, тумблеры и энкодеры.
 
-Программа портативная и не требует установки.
+Для Adaptive v3 доступны профили приложений, слои управления и действия
+тумблеров/энкодеров. При необходимости физические кнопки можно назначить на
+опциональный виртуальный Xbox 360 / XInput-контроллер. Виртуальный контроллер
+по умолчанию выключен и включается только пользователем.
+
+Программа портативная и не требует установки. Setup EXE устанавливает тот же
+самый payload в выбранную папку и может создать ярлык на рабочем столе.
 Если включён автозапуск вместе с Windows, сначала отключите его в Mugen Deej,
 а уже затем удаляйте или перемещайте portable-папку.
 
 EN
 --
-Portable Windows client for physical deej-compatible USB audio controllers.
+Portable Windows client for physical deej-compatible USB controllers.
 
 Quick start:
 1. Extract the complete archive to a normal folder.
 2. Connect a compatible USB controller.
 3. Run MugenDeej.exe.
-4. On first launch, choose a language and configure the physical controls.
+4. On first launch, choose a language and configure the controls you need.
 
-Mugen Deej supports classic controls-only controllers. Extended controllers may
-also expose physical buttons; available actions and interface elements depend on
-the capabilities detected from the connected device.
+Supported protocol generations:
+- Legacy: classic numeric packets with analog controls.
+- Extended: analog controls plus physical buttons.
+- Adaptive v3: self-describing controls, buttons, toggles, and encoders.
 
-Mugen Deej is portable and does not require installation.
+Adaptive v3 supports application profiles, Control layers, and first-class
+toggle/encoder actions. Physical buttons can also be mapped to the optional
+virtual Xbox 360 / XInput controller. Virtual-controller output is off by
+default and is enabled only by the user.
+
+Mugen Deej is portable and does not require installation. The Setup EXE installs
+the same payload into a selected folder and can create a desktop shortcut.
 If Windows startup is enabled, disable it in Mugen Deej before deleting or
 moving the portable folder.
 
