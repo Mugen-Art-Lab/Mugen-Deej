@@ -121,6 +121,14 @@ For most users, use the **Setup EXE**. It performs a portable-style installation
 
 Current tested build: **1.0.0**.
 
+## Code signing policy
+
+Mugen Deej is currently applying for the SignPath Foundation open-source code signing program. Current published releases are unsigned.
+
+If accepted, future release artifacts may be signed through SignPath.io using a certificate issued to SignPath Foundation.
+
+See [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md) for details.
+
 ## Controller protocol
 
 Mugen Deej automatically detects two compatible newline-delimited packet formats at `9600` baud.
