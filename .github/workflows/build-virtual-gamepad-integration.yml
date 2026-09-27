@@ -28,6 +28,7 @@ on:
       - 'tools/Run-OptimizedLargeButtonSettings.ps1'
       - 'tools/Polish-UiLanguage.ps1'
       - 'tools/Ensure-WindowsPowerShellUtf8Bom.ps1'
+      - 'tools/Build-SetupFromPortable.ps1'
 
 permissions:
   contents: read
@@ -1239,6 +1240,13 @@ jobs:
           )
           Write-Host "Mugen Deej 2.0.0-rc1 ZIP SHA-256: $hash"
 
+      - name: Build 2.0.0 RC1 Setup from the exact portable payload
+        shell: pwsh
+        run: |
+          .\tools\Build-SetupFromPortable.ps1 `
+            -PortableZip .\artifacts\Mugen-Deej-2.0.0-rc1-Portable.zip `
+            -Version 2.0.0-rc1
+
       - name: Upload 2.0.0 RC1 artifact
         uses: actions/upload-artifact@v7
         with:
@@ -1246,5 +1254,7 @@ jobs:
           path: |
             artifacts/Mugen-Deej-2.0.0-rc1-Portable.zip
             artifacts/Mugen-Deej-2.0.0-rc1-Portable.zip.sha256
+            artifacts/Mugen-Deej-2.0.0-rc1-Setup.exe
+            artifacts/Mugen-Deej-2.0.0-rc1-Setup.exe.sha256
           if-no-files-found: error
           retention-days: 14
