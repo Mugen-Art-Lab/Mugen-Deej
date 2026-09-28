@@ -263,9 +263,9 @@ Hardware/runtime result:
   2 encoders;
 - runtime logging recorded repeated Encoder 2 movement in both directions;
 - Adaptive action configuration saved with `encoders=2`;
-- the physical direction is currently reversed (clockwise decrements and
-  counter-clockwise increments), which can be corrected by swapping A/B or by
-  setting the experimental firmware direction multiplier to -1.
+- the initial E2 physical direction was reversed; the EC11 A/B connections
+  were then swapped physically, after which clockwise/counter-clockwise
+  direction matched the intended behavior without a firmware direction hack.
 
 The test also exposed a dashboard layout bug: the shared toggle/encoder row
 allowed two encoders logically but only reserved enough width for one visual
@@ -286,6 +286,29 @@ patch, while the feature branch already contains the same final layout.
 
 Do not promote the E2 test firmware to the 2.0 reference firmware until the
 hardware/UI test is explicitly accepted.
+
+### Hardware vNext clean-build concept
+
+A separate durable design note now exists at:
+
+`docs/HARDWARE_VNEXT.md`
+
+It records the post-2.0 clean-build direction:
+
+- keep the cardboard/Nano controller intact as a historical/regression fixture;
+- design a new enclosure in Autodesk Inventor;
+- target 5 potentiometers, 28 keyboard switches, 2 illuminated toggles and
+  4 push-capable EC11 encoders;
+- expand matrix columns through a CD74HC4067-class 16-channel multiplexer;
+- move dashboard encoders to their own row so four full-size encoder indicators
+  fit cleanly below the toggle row;
+- preserve native encoder Push semantics and the existing center-dot/push
+  highlight behavior;
+- treat the clean build as hardware vNext, **not a 2.0.0 release blocker**.
+
+Ordered-part context is also captured there: four CD74HC4067 modules, six bare
+push-capable EC11 encoders, five 10 kOhm panel potentiometers (taper still to be
+verified on arrival), and seventy 3-pin linear Silver-style keyboard switches.
 
 ### Launcher hot-unplug diagnostic incident
 
