@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 	"unsafe"
 )
 
@@ -113,7 +114,8 @@ func main() {
 	}
 	defer logFile.Close()
 
-	fmt.Fprintln(logFile, "\r\n===== Mugen Deej launcher start =====")
+	startedAt := time.Now()
+	fmt.Fprintf(logFile, "\r\n===== Mugen Deej launcher start %s =====\r\n", startedAt.Format(time.RFC3339))
 
 	escapedScript := strings.ReplaceAll(script, "'", "''")
 	powerShellCommand := fmt.Sprintf(
@@ -142,16 +144,33 @@ func main() {
 	cmd.Stderr = logFile
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 
-	if err := cmd.Run(); err != nil {
+	err = cmd.Run()
+	runtime := time.Since(startedAt).Round(time.Millisecond)
+	if err != nil {
+		exitCode := -1
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			exitCode = exitErr.ExitCode()
+		}
+		fmt.Fprintf(
+			logFile,
+			"===== launcher observed PowerShell failure =====\r\nexitCode=%d\r\nruntime=%s\r\nerror=%v\r\n",
+			exitCode,
+			runtime,
+			err,
+		)
 		_ = logFile.Sync()
 		details := tailFile(launcherLog, 6000)
 		text := localized(
-			fmt.Sprintf("Mugen Deej завершился с ошибкой.\n\nЖурнал:\n%s", launcherLog),
-			fmt.Sprintf("Mugen Deej exited with an error.\n\nLog:\n%s", launcherLog),
+			fmt.Sprintf("Mugen Deej завершился с ошибкой.\n\nКод выхода PowerShell: %d\nВремя работы: %s\n\nЖурнал:\n%s", exitCode, runtime, launcherLog),
+			fmt.Sprintf("Mugen Deej exited with an error.\n\nPowerShell exit code: %d\nRuntime: %s\n\nLog:\n%s", exitCode, runtime, launcherLog),
 		)
 		if details != "" {
 			text += localized("\n\nПоследние строки:\n", "\n\nLast lines:\n") + details
 		}
-		messageBox(localized("Mugen Deej — ошибка запуска", "Mugen Deej — startup error"), text)
+		messageBox(localized("Mugen Deej — ошибка процесса", "Mugen Deej — process error"), text)
+		return
 	}
+
+	fmt.Fprintf(logFile, "===== Mugen Deej exited normally; runtime=%s =====\r\n", runtime)
+	_ = logFile.Sync()
 }
