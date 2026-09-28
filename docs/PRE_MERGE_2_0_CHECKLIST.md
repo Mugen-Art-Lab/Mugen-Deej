@@ -381,6 +381,20 @@ of zero missed detents: a controlled test with a known physical detent count
 should be used before declaring the matrix/multiplexer encoder path fully
 reference-ready.
 
+Follow-up latency experiment:
+
+- commit `5f0865abb01ce5101ec88649cf522ea3c8174b0b`
+  (`firmware: test 100 Hz adaptive snapshots at 500k`);
+- experimental E2 firmware remains at 500000 baud;
+- `PACKET_INTERVAL_MS` is reduced from 25 ms to **10 ms**;
+- target is up to 100 full Adaptive snapshots/s;
+- desktop build does not change: CI #11 already supports the 500000-baud
+  controller and should be reused for this firmware-only comparison.
+
+**10 ms acceptance status: PENDING HARDWARE TEST.** Compare UI responsiveness,
+fast E1/E2 back-and-forth behavior, packet rate, debounce diagnostics and any
+new serial/reconnect instability against the preliminary 25 ms pass.
+
 Do not promote 500000 to the accepted 2.0 reference firmware/default transport
 from this result alone; keep it experimental until the controlled-count test
 and broader stability/reconnect checks pass.
