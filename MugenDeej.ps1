@@ -19286,6 +19286,7 @@ $form.Add_FormClosing({
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 20
 $timer.Add_Tick({
+    try {
     $desiredInputInterval = if (
         $script:VirtualGamepadFeatureAvailable -and
         $script:VirtualGamepadActive
@@ -19486,6 +19487,50 @@ $timer.Add_Tick({
         if (((Get-Date) - $script:LastReconnectAttempt).TotalSeconds -ge $seconds) {
             $script:LastReconnectAttempt = Get-Date
             [void](Connect-Controller -Quiet)
+        }
+    }
+    }
+    catch {
+        $timerError = $_
+        $diagnostic = ''
+        try {
+            $diagnostic = Get-ExceptionDiagnosticText -ErrorRecord $timerError
+        }
+        catch {
+            $diagnostic = 'diagnostic formatting failed: ' + [string]$_.Exception.Message
+        }
+
+        $stackText = ''
+        try {
+            $stackText = ([string]$timerError.ScriptStackTrace) -replace '[\r\n]+', ' <- '
+        }
+        catch { }
+
+        $categoryText = ''
+        try { $categoryText = [string]$timerError.CategoryInfo } catch { }
+
+        $fqidText = ''
+        try { $fqidText = [string]$timerError.FullyQualifiedErrorId } catch { }
+
+        try {
+            Write-Log (
+                'Main UI timer callback failed but was contained; {0}; category={1}; fqid={2}; stack={3}' -f
+                $diagnostic,
+                $categoryText,
+                $fqidText,
+                $stackText
+            ) 'ERROR'
+        }
+        catch { }
+
+        # Avoid a tight exception loop if the failure happened in controller
+        # recovery. Connect-Controller's finally block has already cleared
+        # IsConnecting; simply defer the next targeted attempt.
+        if (
+            -not $script:IsConnected -and
+            -not [string]::IsNullOrWhiteSpace([string]$script:ControllerRecoveryPort)
+        ) {
+            $script:ControllerRecoveryAt = (Get-Date).AddSeconds(2)
         }
     }
     Update-KnobMonitor
