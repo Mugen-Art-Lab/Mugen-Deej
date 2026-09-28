@@ -93,7 +93,10 @@ const unsigned long SERIAL_BAUD = 500000;
 // force one complete serial packet per detent. E2 keeps accumulating locally;
 // the normal heartbeat publishes the latest cumulative position. Direct E1 can
 // still request an immediate packet because its A/B edges are interrupt-driven.
-const unsigned long PACKET_INTERVAL_MS = 25;
+// High-rate transport follow-up: at 500000 baud, try publishing the full
+// Adaptive snapshot every 10 ms (up to 100 Hz). E2 still accumulates locally
+// between snapshots, so transport cadence remains decoupled from edge capture.
+const unsigned long PACKET_INTERVAL_MS = 10;
 
 // Low-latency gameplay experiment. 18 ms was intentionally conservative for
 // the cardboard matrix; 6 ms should feel much closer to a real gamepad while
