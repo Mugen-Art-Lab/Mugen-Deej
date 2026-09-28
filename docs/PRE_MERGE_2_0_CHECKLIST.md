@@ -424,6 +424,19 @@ Desktop hardening commit:
 `04bfd6088ac30a1c60eda83c84145b1d9b01a315`
 (`fix: keep diagnostics responsive during high-rate serial input`)
 
+Matching CI test build:
+
+- workflow: `Build release packages`;
+- run: **#12**, run ID `36443484827`;
+- result: **success**;
+- artifact: `Mugen-Deej-packages-12`, artifact ID `10978654829`;
+- artifact digest:
+  `sha256:18e0604ad0e68f55171a7f6d717d0cf1db90eeae2dcc5f0f5e908e1ab66b7543`;
+- Portable SHA-256:
+  `6befca51d35ca55f35d0b02f0a36281ac5bbdcc82e42b9e6ecbcb72eee0d2b50`;
+- Setup SHA-256:
+  `2e02beb5e7fc528640fe8b9740a147279175e0a1664c91f38d5db64fca61199b`.
+
 It:
 
 - removes the synchronous driver-status refresh from the diagnostics pre-show
