@@ -13192,22 +13192,24 @@ function Ensure-MainToggleIndicators {
             }
 
             $toggleItemHost = New-Object System.Windows.Forms.Panel
-            $toggleItemHost.Size = [System.Drawing.Size]::new(112, 28)
-            $toggleItemHost.Margin = New-Object System.Windows.Forms.Padding(2, 0, 5, 0)
+            # Keep the main-card toggle compact enough to share one row with
+            # two encoder indicators on the fixed-width dashboard.
+            $toggleItemHost.Size = [System.Drawing.Size]::new(104, 28)
+            $toggleItemHost.Margin = New-Object System.Windows.Forms.Padding(2, 0, 3, 0)
             $toggleItemHost.BorderStyle = [System.Windows.Forms.BorderStyle]::None
             $toggleItemHost.BackColor = $surfaceBack
 
             $numberLabel = New-Object System.Windows.Forms.Label
             $numberLabel.Text = [string]($i + 1)
             $numberLabel.Location = [System.Drawing.Point]::new(0, 2)
-            $numberLabel.Size = [System.Drawing.Size]::new(20, 24)
+            $numberLabel.Size = [System.Drawing.Size]::new(18, 24)
             $numberLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
             $numberLabel.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 9)
             $toggleItemHost.Controls.Add($numberLabel)
 
             $switchView = New-Object System.Windows.Forms.Panel
             $switchView.Tag = $i
-            $switchView.Location = [System.Drawing.Point]::new(22, 1)
+            $switchView.Location = [System.Drawing.Point]::new(19, 1)
             $switchView.Size = [System.Drawing.Size]::new(42, 26)
             $switchView.BackColor = $surfaceBack
             Enable-AdaptiveIndicatorDoubleBuffer -Control $switchView
@@ -13257,8 +13259,8 @@ function Ensure-MainToggleIndicators {
             $toggleItemHost.Controls.Add($switchView)
 
             $stateLabel = New-Object System.Windows.Forms.Label
-            $stateLabel.Location = [System.Drawing.Point]::new(68, 2)
-            $stateLabel.Size = [System.Drawing.Size]::new(42, 24)
+            $stateLabel.Location = [System.Drawing.Point]::new(64, 2)
+            $stateLabel.Size = [System.Drawing.Size]::new(38, 24)
             $stateLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
             $stateLabel.Font = New-Object System.Drawing.Font('Segoe UI', 8.5)
             $toggleItemHost.Controls.Add($stateLabel)
@@ -13299,22 +13301,24 @@ function Ensure-MainEncoderIndicators {
             }
 
             $encoderItemHost = New-Object System.Windows.Forms.Panel
-            $encoderItemHost.Size = [System.Drawing.Size]::new(120, 30)
-            $encoderItemHost.Margin = New-Object System.Windows.Forms.Padding(2, 0, 8, 0)
+            # Two compact encoder indicators must fit beside the two-toggle
+            # block in the shared typed-control row.
+            $encoderItemHost.Size = [System.Drawing.Size]::new(112, 30)
+            $encoderItemHost.Margin = New-Object System.Windows.Forms.Padding(2, 0, 3, 0)
             $encoderItemHost.BorderStyle = [System.Windows.Forms.BorderStyle]::None
             $encoderItemHost.BackColor = $surfaceBack
 
             $numberLabel = New-Object System.Windows.Forms.Label
             $numberLabel.Text = [string]($i + 1)
             $numberLabel.Location = [System.Drawing.Point]::new(0, 3)
-            $numberLabel.Size = [System.Drawing.Size]::new(20, 24)
+            $numberLabel.Size = [System.Drawing.Size]::new(18, 24)
             $numberLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
             $numberLabel.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 9)
             $encoderItemHost.Controls.Add($numberLabel)
 
             $knobView = New-Object System.Windows.Forms.Panel
             $knobView.Tag = $i
-            $knobView.Location = [System.Drawing.Point]::new(24, 1)
+            $knobView.Location = [System.Drawing.Point]::new(20, 1)
             $knobView.Size = [System.Drawing.Size]::new(28, 28)
             $knobView.BackColor = $surfaceBack
             Enable-AdaptiveIndicatorDoubleBuffer -Control $knobView
@@ -13404,7 +13408,7 @@ function Ensure-MainEncoderIndicators {
             $encoderItemHost.Controls.Add($knobView)
 
             $positionLabel = New-Object System.Windows.Forms.Label
-            $positionLabel.Location = [System.Drawing.Point]::new(58, 3)
+            $positionLabel.Location = [System.Drawing.Point]::new(52, 3)
             $positionLabel.Size = [System.Drawing.Size]::new(54, 24)
             $positionLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
             $positionLabel.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 9)
@@ -13695,17 +13699,17 @@ function Set-MainButtonLayout {
     }
 
     if ($adaptiveMetrics.HasControls) {
-        $shareTypedRow = ($adaptiveMetrics.VisibleToggleCount -gt 0 -and $adaptiveMetrics.VisibleEncoderCount -gt 0 -and $adaptiveMetrics.VisibleToggleCount -le 3 -and $adaptiveMetrics.VisibleEncoderCount -le 2)
+        $shareTypedRow = ($adaptiveMetrics.VisibleToggleCount -gt 0 -and $adaptiveMetrics.VisibleEncoderCount -gt 0 -and $adaptiveMetrics.VisibleToggleCount -le 2 -and $adaptiveMetrics.VisibleEncoderCount -le 2)
         if ($shareTypedRow) {
             $typedY = $cursorY
             $script:ToggleStateLabel.Location = [System.Drawing.Point]::new(13, ($typedY + 3))
-            $script:ToggleStateLabel.Size = [System.Drawing.Size]::new(72, 24)
-            $script:ToggleStateFlow.Location = [System.Drawing.Point]::new(88, $typedY)
-            $script:ToggleStateFlow.Size = [System.Drawing.Size]::new(252, [int]$adaptiveMetrics.ToggleHeight)
-            $script:EncoderStateLabel.Location = [System.Drawing.Point]::new(350, ($typedY + 3))
-            $script:EncoderStateLabel.Size = [System.Drawing.Size]::new(76, 24)
-            $script:EncoderStateFlow.Location = [System.Drawing.Point]::new(428, $typedY)
-            $script:EncoderStateFlow.Size = [System.Drawing.Size]::new(191, [int]$adaptiveMetrics.EncoderHeight)
+            $script:ToggleStateLabel.Size = [System.Drawing.Size]::new(68, 24)
+            $script:ToggleStateFlow.Location = [System.Drawing.Point]::new(82, $typedY)
+            $script:ToggleStateFlow.Size = [System.Drawing.Size]::new(218, [int]$adaptiveMetrics.ToggleHeight)
+            $script:EncoderStateLabel.Location = [System.Drawing.Point]::new(307, ($typedY + 3))
+            $script:EncoderStateLabel.Size = [System.Drawing.Size]::new(68, 24)
+            $script:EncoderStateFlow.Location = [System.Drawing.Point]::new(377, $typedY)
+            $script:EncoderStateFlow.Size = [System.Drawing.Size]::new(242, [int]$adaptiveMetrics.EncoderHeight)
             $cursorY += [Math]::Max([int]$adaptiveMetrics.ToggleHeight, [int]$adaptiveMetrics.EncoderHeight)
         }
         else {
