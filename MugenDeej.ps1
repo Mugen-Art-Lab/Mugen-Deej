@@ -17076,6 +17076,8 @@ function Get-ControllerBaudCandidates {
     # Keep the last proven rate first for existing controllers, then try the
     # high-speed Adaptive experiment before falling back to configured/legacy
     # rates. This keeps upgrades fast without dropping 115200/9600 support.
+    # The current 500k hardware exercise lives in
+    # dev/firmware/MugenDeejCardboardNanoE2Test/.
     foreach ($rate in @($lastWorking, 500000, $configured, 115200, 9600)) {
         $candidate = [int]$rate
         if ($candidate -lt 300 -or $candidate -gt 2000000) { continue }
