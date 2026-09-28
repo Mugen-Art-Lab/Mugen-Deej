@@ -269,9 +269,20 @@ Hardware/runtime result:
 
 The test also exposed a dashboard layout bug: the shared toggle/encoder row
 allowed two encoders logically but only reserved enough width for one visual
-indicator. Commit `ac002944ff621d73b09776f0d8afff7f211fd821` compacts the two
-toggle indicators and two encoder indicators so the 2+2 reference topology fits
-on one row. Visual acceptance of this compact layout is still pending.
+indicator. The final compact geometry rebalances the shared row so two toggles
+and two encoder indicators fit on one line without clipping the Russian section
+labels or encoder values.
+
+Visual hardware acceptance now passes:
+
+- both "Тумблеры" and "Энкодеры" labels remain on one line;
+- both toggle indicators remain readable;
+- E1 and E2 indicators and their numeric positions are visible simultaneously;
+- the fixed-width main dashboard did not need to grow;
+- additional horizontal breathing room remains to the right of E2.
+
+The local acceptance install reached this final geometry through the v4 test
+patch, while the feature branch already contains the same final layout.
 
 Do not promote the E2 test firmware to the 2.0 reference firmware until the
 hardware/UI test is explicitly accepted.
