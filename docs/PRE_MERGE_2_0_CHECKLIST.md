@@ -353,11 +353,45 @@ The main UI timer callback now:
   repeating exception loop.
 
 **Acceptance status: PENDING.** Re-run aggressive unplug/replug and encoder
-stress on the locally patched runtime. If the underlying exception recurs, the
-expected result is that Mugen stays alive and the new
-`Main UI timer callback failed but was contained` diagnostic identifies the
-exact throw site. This incident is a concrete 2.0 release blocker until the
-containment/recovery behavior passes hardware stress.
+stress using the CI-built package from the exact hardening commit, not a locally
+patched installation.
+
+CI provenance for the stress-test build:
+
+- source commit:
+  `999d1189c341093c9dc80c13a47892f5e9c5537e`;
+- workflow: `Build release packages`;
+- run: **#9**, run ID `36431010952`;
+- artifact: `Mugen-Deej-packages-9`, artifact ID `10974000869`;
+- Actions artifact digest:
+  `sha256:a5e77a2baf03eb6ef9bf502f1b2e74518c909c0ed7c356b61eeb27350f6a6005`;
+- Portable SHA-256:
+  `b484fb889f74f01aa36dd755a9f3a5bd73dea8e0f5d27fd58acf4c2c416a834a`;
+- Setup SHA-256:
+  `2bd94c6cd665d0daece194d5c1f983b77ec810d3e2f99e0f53456d99bb3de909`.
+
+If the underlying exception recurs, the expected result is that Mugen stays
+alive and the new `Main UI timer callback failed but was contained` diagnostic
+identifies the exact throw site. This incident is a concrete 2.0 release blocker
+until the containment/recovery behavior passes hardware stress.
+
+### Test-build discipline from this point forward
+
+Do not patch the installed release candidate in place for product/runtime
+acceptance work. The installed copy had accumulated several UI test patches and
+therefore no longer provided a reliable source baseline for literal patch
+anchors.
+
+For release-prep/runtime validation, use this chain only:
+
+```text
+feature branch source -> commit -> GitHub Actions release build
+-> download/unpack artifact -> hardware test -> record result here
+```
+
+Local patch scripts may still be used for disposable UI experiments, but a
+result is not considered release acceptance until the equivalent source is
+committed and tested from a CI-built artifact.
 
 ### Launcher hot-unplug diagnostic incident
 
