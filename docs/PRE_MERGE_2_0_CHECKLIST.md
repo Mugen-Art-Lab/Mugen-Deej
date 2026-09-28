@@ -322,6 +322,49 @@ for the future CD74HC4067 / multi-encoder design; do not call four
 matrix/multiplexer encoders reference-ready until high-speed rotation is proven
 on real hardware.
 
+### 500000-baud Adaptive transport experiment
+
+A follow-up test intentionally raises only the experimental E2 firmware
+transport from 115200 to **500000 baud** while keeping the fast-scan/polling
+mitigation otherwise unchanged. The accepted 2.0 reference firmware remains
+untouched.
+
+Pinned combined source state:
+
+- desktop 500000-baud auto-probe support:
+  `97e300027d619491a92a553cc68b7550ed4d80c8`;
+- experimental E2 firmware switched to 500000:
+  `fa421797a33163923faa46470a9f507a9387bac5`;
+- combined test head:
+  `852a8cd721f03533288bf84075b1915d74d22cbd`.
+
+Desktop auto-probe keeps the last known working baud first, then includes
+500000 before the remaining configured/legacy fallbacks. Existing 115200/9600
+support is not removed.
+
+CI provenance for the matching desktop test build:
+
+- workflow: `Build release packages`;
+- run: **#11**, run ID `36439846440`;
+- result: **success**;
+- artifact: `Mugen-Deej-packages-11`, artifact ID `10976813395`;
+- artifact digest:
+  `sha256:ac03b1aef47d6fa32aee3583912e9fb3f201023735441be223425a4f6e161c73`;
+- Portable SHA-256:
+  `6262caaf5f1e26c823ab0392e94021c5a9ddedd916288cb46f71f506a6e469da`;
+- Setup SHA-256:
+  `7aa659281dc2b26ae1d21e16b77e0006026a9bf36a9ab221a7bf3e281b1a3d4d`.
+
+The exact experimental firmware blob is
+`403a23f7388f75e688743b8b6b3621cb2768d289`.
+
+**Acceptance status: PENDING HARDWARE TEST.** Install the #11 desktop build,
+flash the exact 500000-baud E2 firmware, confirm connection diagnostics report
+500000 baud, then compare deliberately fast E1/E2 spins. Record whether E2
+still loses physical detents or visibly lags behind E1. Do not promote 500000
+to the reference firmware/default transport solely from successful connection;
+the fast-rotation result is the point of this test.
+
 ### Hardware vNext clean-build concept
 
 A separate durable design note now exists at:
