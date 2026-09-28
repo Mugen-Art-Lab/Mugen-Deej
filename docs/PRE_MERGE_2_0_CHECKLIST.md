@@ -358,12 +358,32 @@ CI provenance for the matching desktop test build:
 The exact experimental firmware blob is
 `403a23f7388f75e688743b8b6b3621cb2768d289`.
 
-**Acceptance status: PENDING HARDWARE TEST.** Install the #11 desktop build,
-flash the exact 500000-baud E2 firmware, confirm connection diagnostics report
-500000 baud, then compare deliberately fast E1/E2 spins. Record whether E2
-still loses physical detents or visibly lags behind E1. Do not promote 500000
-to the reference firmware/default transport solely from successful connection;
-the fast-rotation result is the point of this test.
+**Acceptance status: PRELIMINARY HARDWARE PASS.** The #11 desktop build and
+the exact 500000-baud E2 firmware were tested on the real controller.
+
+Observed on hardware:
+
+- diagnostics reported COM5 / Adaptive v3 / 500000 baud / 5 sliders /
+  28 buttons / 2 toggles / 2 encoders;
+- firmware debounce remained 6 ms with no immediate diagnostic regression at
+  connection;
+- deliberately fast E2 back-and-forth spins no longer felt like they were
+  dropping chunks of movement;
+- the desktop log showed cumulative E2 deltas such as +4, +5, -4 and -3,
+  confirming that the polling encoder can now accumulate several physical
+  detents between Adaptive snapshots instead of requiring one packet per step;
+- the on-screen encoder animation still looked slightly delayed, while the
+  actual back-and-forth action response felt substantially more exact.
+
+This is strong evidence that the fast-scan plus 500000-baud transport removes
+the obvious E2 starvation seen at 115200. It is not yet a mathematical proof
+of zero missed detents: a controlled test with a known physical detent count
+should be used before declaring the matrix/multiplexer encoder path fully
+reference-ready.
+
+Do not promote 500000 to the accepted 2.0 reference firmware/default transport
+from this result alone; keep it experimental until the controlled-count test
+and broader stability/reconnect checks pass.
 
 ### Hardware vNext clean-build concept
 
