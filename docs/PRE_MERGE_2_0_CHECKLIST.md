@@ -237,6 +237,33 @@ shape is:
     Prepare-HIDMaestro.ps1
 ```
 
+### Launcher hot-unplug diagnostic incident
+
+During continued Adaptive hardware work, unplugging the active COM5 controller
+produced a launcher error dialog even though the runtime first handled the serial
+loss normally and armed controller recovery. The runtime log ended shortly
+after recovery began and did not contain the normal `Mugen Deej stopped`
+marker.
+
+The existing Go launcher only showed a generic error when `powershell.exe`
+returned a non-zero status, but did not record the actual `cmd.Run()` error,
+PowerShell exit code, or process lifetime. Its log could therefore contain only
+repeated `Mugen Deej launcher start` markers, which made the incident
+undiagnosable after the fact.
+
+Commit `f31a013614736e5f28a62020edab4a506a16d0b2` adds launcher-only diagnostics:
+
+- timestamped launcher start;
+- PowerShell exit code;
+- launcher-observed process error;
+- process runtime before failure;
+- clean-exit marker on normal shutdown.
+
+This does **not** yet identify or fix the underlying runtime termination. Treat
+the incident as an open pre-release reliability item until the diagnostic
+launcher captures a recurrence or repeated unplug/replug testing proves it
+non-reproducible.
+
 ### Step 1 conclusion
 
 **PASS.** The intended 2.0 public/developer structure is now defined. No files
