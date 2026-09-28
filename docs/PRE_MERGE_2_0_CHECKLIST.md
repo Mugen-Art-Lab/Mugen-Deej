@@ -391,9 +391,53 @@ Follow-up latency experiment:
 - desktop build does not change: CI #11 already supports the 500000-baud
   controller and should be reused for this firmware-only comparison.
 
-**10 ms acceptance status: PENDING HARDWARE TEST.** Compare UI responsiveness,
-fast E1/E2 back-and-forth behavior, packet rate, debounce diagnostics and any
-new serial/reconnect instability against the preliminary 25 ms pass.
+**10 ms acceptance status: HARDWARE OBSERVED, DESKTOP HARDENING RETEST
+PENDING.** The 500000-baud / 10 ms firmware connected successfully as Adaptive
+`5/28/2/2`. Fast E2 back-and-forth movement continued to produce cumulative
+multi-step deltas (commonly +/-2 and occasionally +/-3), so the matrix encoder
+did not regress to the original one-step starvation behavior.
+
+The diagnostics window reported roughly **17-18 ms packet age / ~55-60 Hz**
+rather than 100 Hz. This is consistent with the current firmware scheduling:
+`lastPacketAt` is assigned *after* `sendAdaptivePacket()`, so
+`PACKET_INTERVAL_MS = 10` means approximately "finish a packet, then wait
+10 ms" rather than a strict 10 ms start-to-start period. The full snapshot
+itself therefore remains part of the observed frame time.
+
+Two malformed capability-shaped packets were also rejected during this test
+while opening/handling diagnostics (examples observed by the desktop were
+`adaptive:5:45:4:3` and `adaptive:3:7:2:2` while the established topology
+was `adaptive:5:28:2:2`). Mugen correctly discarded them, but this is not
+acceptable as a reference transport result.
+
+A correlated desktop issue was identified: `Show-ConnectionDiagnosticsWindow`
+performed the synchronous CIM/WMI-backed `Update-DriverStatus` call *before*
+showing the dialog. On the test machine this could take multiple seconds, making
+the diagnostics button appear unresponsive. If the main form was hidden to the
+tray during that delay, the modal dialog could then be created with an invisible
+owner and only become visible after the main form was restored. The same UI
+stall also pauses `Process-SerialData`, which is a plausible contributor to
+receive-buffer pressure at the higher packet rate.
+
+Desktop hardening commit:
+
+`04bfd6088ac30a1c60eda83c84145b1d9b01a315`
+(`fix: keep diagnostics responsive during high-rate serial input`)
+
+It:
+
+- removes the synchronous driver-status refresh from the diagnostics pre-show
+  path and from the COM-list refresh button;
+- uses the already event-refreshed/cached driver status instead;
+- explicitly brings the shown diagnostics dialog into view/foreground;
+- increases `SerialPort.ReadBufferSize` to 65536 bytes before opening the
+  port, providing headroom for short UI stalls at high Adaptive rates.
+
+**Next acceptance test:** keep the exact 500000-baud / 10 ms firmware, install
+the CI build from the desktop-hardening commit, verify that diagnostics opens
+immediately, repeat fast E1/E2 spins, and check whether capability-mismatch
+warnings disappear. Do not tighten the firmware to a true 10 ms start-to-start
+schedule until this desktop-side retest is clean.
 
 Do not promote 500000 to the accepted 2.0 reference firmware/default transport
 from this result alone; keep it experimental until the controlled-count test
