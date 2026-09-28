@@ -310,6 +310,55 @@ Ordered-part context is also captured there: four CD74HC4067 modules, six bare
 push-capable EC11 encoders, five 10 kOhm panel potentiometers (taper still to be
 verified on arrival), and seventy 3-pin linear Silver-style keyboard switches.
 
+### Long-run controller-recovery process failure — 2026-09-28
+
+A second launcher-level process failure was reproduced during aggressive
+controller/encoder testing after more than 11 hours of uptime.
+
+Observed sequence from the captured logs:
+
+- Encoder 2 continued reporting valid movement in both directions.
+- The controller then stopped producing valid packets for 2500 ms and ordinary
+  COM5 recovery was armed.
+- Multiple targeted COM5 probes failed normally without killing the app.
+- COM5 later recovered successfully as Adaptive `5/28/2/2`, and Encoder 2
+  movement resumed.
+- A few seconds later valid packets stopped again.
+- Recovery started another targeted COM5 probe.
+- The Mugen runtime log ended immediately after
+  `Opening COM5 for protocol probe; baud candidates=115200,9600`.
+- The launcher subsequently reported PowerShell `exitCode=2` after
+  approximately 11h14m33s.
+- No normal `Mugen Deej stopped` line was written.
+
+There is no explicit `exit 2` path in the runtime. The main 5/20 ms WinForms
+timer callback also previously had no outer exception boundary, so an
+unexpected terminating exception escaping controller recovery could terminate
+the PowerShell process even though ordinary SerialPort probe errors are handled
+inside `Open-And-ProbePort`.
+
+Containment hardening was committed as:
+
+`999d1189c341093c9dc80c13a47892f5e9c5537e`
+(`fix: contain unexpected controller recovery timer failures`)
+
+The main UI timer callback now:
+
+- has an outer `try/catch`;
+- logs the exception chain, PowerShell category/FQID and script stack when an
+  unexpected callback failure escapes lower-level recovery handling;
+- keeps the application alive instead of allowing the callback failure to end
+  the PowerShell process;
+- defers the next targeted controller recovery by two seconds to avoid a tight
+  repeating exception loop.
+
+**Acceptance status: PENDING.** Re-run aggressive unplug/replug and encoder
+stress on the locally patched runtime. If the underlying exception recurs, the
+expected result is that Mugen stays alive and the new
+`Main UI timer callback failed but was contained` diagnostic identifies the
+exact throw site. This incident is a concrete 2.0 release blocker until the
+containment/recovery behavior passes hardware stress.
+
 ### Launcher hot-unplug diagnostic incident
 
 During continued Adaptive hardware work, unplugging the active COM5 controller
