@@ -446,11 +446,37 @@ It:
 - increases `SerialPort.ReadBufferSize` to 65536 bytes before opening the
   port, providing headroom for short UI stalls at high Adaptive rates.
 
-**Next acceptance test:** keep the exact 500000-baud / 10 ms firmware, install
-the CI build from the desktop-hardening commit, verify that diagnostics opens
-immediately, repeat fast E1/E2 spins, and check whether capability-mismatch
-warnings disappear. Do not tighten the firmware to a true 10 ms start-to-start
-schedule until this desktop-side retest is clean.
+**Desktop-hardening retest: SHORT HARDWARE PASS.** With CI #12 installed and
+the same 500000-baud / old 10 ms-after-send firmware still flashed:
+
+- the diagnostics window opened immediately;
+- the controller was detected as Adaptive `5/28/2/2` at 500000 baud;
+- debounce diagnostics remained `6 ms / filtered=0 / rapid=0`;
+- encoder activity continued while the diagnostics modal was open;
+- no capability-shape mismatch warning appeared in the fresh post-install test
+  session before the next firmware experiment.
+
+This is sufficient to proceed with the isolated cadence experiment, but longer
+high-rate runtime/reconnect testing is still required before 500000 is treated
+as a reference transport.
+
+True start-to-start heartbeat experiment:
+
+- commit `e77a89e6c8bbf3fbe53cd07465e1f7b566eac25c`
+  (`firmware: schedule 10 ms adaptive heartbeat start-to-start`);
+- `PACKET_INTERVAL_MS` remains 10;
+- the heartbeat timestamp is now recorded immediately **before**
+  `sendAdaptivePacket()`, so serialization time counts inside the 10 ms frame
+  period instead of adding on top of it;
+- E2 still accumulates locally and does not force an immediate packet;
+- direct E1, button and toggle changes retain their existing immediate packet
+  behavior, so the 10 ms target describes the regular heartbeat cadence rather
+  than a hard global minimum between every possible event-driven packet.
+
+**True 10 ms acceptance status: PENDING HARDWARE TEST.** Expected idle
+diagnostics rate should move from roughly 55-60 Hz toward roughly 100 Hz if the
+Nano plus full Adaptive snapshot can sustain the cadence. Re-check E2 movement,
+debounce counters, capability mismatch warnings and reconnect behavior.
 
 Do not promote 500000 to the accepted 2.0 reference firmware/default transport
 from this result alone; keep it experimental until the controlled-count test
