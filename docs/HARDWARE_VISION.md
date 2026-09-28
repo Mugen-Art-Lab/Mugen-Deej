@@ -2,6 +2,12 @@
 
 This note captures the broader hardware direction behind Mugen Deej beyond the original deej-style volume mixer.
 
+> **Current clean-build follow-up:** the purpose-designed panel with a
+> CD74HC4067-expanded matrix, 5 potentiometers, 28 keyboard switches,
+> 2 illuminated toggles and 4 push-capable EC11 encoders is tracked in
+> [HARDWARE_VNEXT.md](HARDWARE_VNEXT.md). That work is intentionally separate
+> from the already hardware-accepted Mugen Deej 2.0.0 release.
+
 ## Product idea
 
 Mugen Deej should evolve into a **software-defined DIY control-surface platform**: inexpensive, simple physical hardware whose meaning is assigned on the PC side instead of being hard-coded into each microcontroller build.
