@@ -93,9 +93,12 @@ const unsigned long SERIAL_BAUD = 500000;
 // force one complete serial packet per detent. E2 keeps accumulating locally;
 // the normal heartbeat publishes the latest cumulative position. Direct E1 can
 // still request an immediate packet because its A/B edges are interrupt-driven.
-// High-rate transport follow-up: at 500000 baud, try publishing the full
-// Adaptive snapshot every 10 ms (up to 100 Hz). E2 still accumulates locally
-// between snapshots, so transport cadence remains decoupled from edge capture.
+// High-rate transport follow-up: at 500000 baud, publish the regular full
+// Adaptive heartbeat on a 10 ms start-to-start schedule (~100 Hz target).
+// The heartbeat timestamp is recorded immediately BEFORE serialization so the
+// time spent inside sendAdaptivePacket() counts toward the 10 ms frame period.
+// E2 still accumulates locally between snapshots, so transport cadence remains
+// decoupled from edge capture.
 const unsigned long PACKET_INTERVAL_MS = 10;
 
 // Low-latency gameplay experiment. 18 ms was intentionally conservative for
@@ -198,7 +201,7 @@ const int8_t ENCODER_TRANSITION_TABLE[16] = {
    0,  1, -1,  0
 };
 
-unsigned long lastPacketAt = 0;
+unsigned long lastPacketStartedAt = 0;
 
 // ---------------------------------------------------------------------------
 // Setup
@@ -239,7 +242,7 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(ENCODER_S1_PIN), handleEncoderChange, CHANGE);
   attachInterrupt(digitalPinToInterrupt(ENCODER_S2_PIN), handleEncoderChange, CHANGE);
 
-  lastPacketAt = now - PACKET_INTERVAL_MS;
+  lastPacketStartedAt = now - PACKET_INTERVAL_MS;
 }
 
 // ---------------------------------------------------------------------------
@@ -269,11 +272,15 @@ void loop() {
   }
 
   const bool heartbeatDue =
-      (unsigned long)(now - lastPacketAt) >= PACKET_INTERVAL_MS;
+      (unsigned long)(now - lastPacketStartedAt) >= PACKET_INTERVAL_MS;
 
   if (matrixChanged || keyChanged || encoderChanged || heartbeatDue) {
+    // Record the packet START, not the end. At 500000 baud the full Adaptive
+    // snapshot itself takes several milliseconds to serialize; counting that
+    // work inside the frame period turns PACKET_INTERVAL_MS into a real
+    // start-to-start heartbeat interval instead of "serialize, then wait 10 ms".
+    lastPacketStartedAt = millis();
     sendAdaptivePacket();
-    lastPacketAt = millis();
   }
 }
 
