@@ -20,6 +20,79 @@ The new enclosure is intended to be designed in Autodesk Inventor and may
 eventually be published as a printable/open DIY build (for example on a maker
 model-sharing site) together with Mugen Deej firmware/wiring documentation.
 
+## Two enclosure/reference variants
+
+The printable clean-build hardware should intentionally support **two enclosure
+variants**, not only the maximum CD74HC4067 build.
+
+### Base / Direct Nano variant — no multiplexer
+
+This variant preserves the topology already proven on the cardboard controller
+and is intended for builders who want the simplest wiring and firmware path.
+
+Target topology:
+
+```text
+5 analog controls
+28 momentary buttons
+2 illuminated latching toggles
+2 rotary encoders
+  E1 = CW / CCW / Push
+  E2 = CW / CCW (no Push)
+```
+
+This corresponds to the already hardware-proven experimental
+`adaptive:5:28:2:2` arrangement:
+
+- C1..C7 carry the 28 buttons;
+- R1C8 / R2C8 carry the two illuminated toggles;
+- R3C8 / R4C8 carry E2 A/B;
+- E1 remains on the direct encoder pins and keeps its dedicated Push input;
+- no CD74HC4067 is required.
+
+The clean enclosure for this variant should therefore provide physical mounting
+for **two encoders** and should be usable with essentially the tested direct-Nano
+architecture.
+
+This is the low-complexity DIY option: fewer parts, less wiring, no multiplexer
+bring-up, and a topology already demonstrated on real hardware.
+
+### Expanded / 4067 variant — four Push encoders
+
+The larger clean-build variant adds the CD74HC4067-expanded column path and
+targets:
+
+```text
+5 analog controls
+28 momentary buttons
+2 illuminated latching toggles
+4 rotary encoders, each with CW / CCW / Push
+```
+
+This variant is for builders who want the full control-surface concept and are
+comfortable with the additional multiplexer wiring and firmware.
+
+### Shared mechanical family
+
+Where practical, both enclosures should share the same design language and as
+many dimensions/components as possible:
+
+- same 4 x 7 key grid;
+- same five-potentiometer top row;
+- same illuminated-toggle placement;
+- same keycaps/switch plate geometry;
+- same Nano/USB/service strategy.
+
+The right-side encoder area can then have two mechanical configurations:
+
+- **Base:** two encoder positions;
+- **Expanded:** four encoder positions.
+
+If the CAD model permits it cleanly, prefer a common lower enclosure plus
+swappable/top-panel variants rather than maintaining two completely unrelated
+cases. Final feasibility depends on real component measurements and internal
+clearance after the ordered parts arrive.
+
 ## Current physical concept
 
 The current hand sketch places:
