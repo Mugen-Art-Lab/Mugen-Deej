@@ -17129,6 +17129,11 @@ function Open-And-ProbePort {
     $serial.RtsEnable = $false
     $serial.ReadTimeout = 200
     $serial.WriteTimeout = 200
+    # High-rate Adaptive controllers can continue transmitting while the UI
+    # thread is briefly busy. Keep enough receive headroom that a short modal,
+    # theme, or device-status operation does not overflow the default ~4 KiB
+    # SerialPort buffer and leave partial/concatenated protocol lines behind.
+    $serial.ReadBufferSize = 65536
     $serial.NewLine = "`n"
 
     $accepted = $false
@@ -18797,9 +18802,13 @@ function Get-ControllerDiagnosticsSnapshot {
 function Show-ConnectionDiagnosticsWindow {
     if ($null -eq $form -or $form.IsDisposed) { return }
 
+    # Driver status is already refreshed on startup, connect/disconnect and
+    # driver-install events. Do not run the synchronous CIM/WMI query here:
+    # on some systems it takes seconds, making the button look dead and, at
+    # high serial rates, starving Process-SerialData long enough to overflow
+    # the receive buffer. Show the cached/current status immediately instead.
     Refresh-PortList
     Update-ConnectionControls
-    Update-DriverStatus
 
     $dialog = New-Object System.Windows.Forms.Form
     $title = [string](T -Key 'DiagnosticsClosed')
@@ -18888,6 +18897,14 @@ function Show-ConnectionDiagnosticsWindow {
     try {
         & $refreshInfo
         Apply-ThemeToForm -Form $dialog -ThemeName (Get-EffectiveTheme)
+        $dialog.Add_Shown({
+            Ensure-FormVisible -Form $dialog -CenterIfOffscreen
+            try {
+                $dialog.BringToFront()
+                $dialog.Activate()
+            }
+            catch { }
+        })
         $diagTimer.Start()
         [void]$dialog.ShowDialog($form)
     }
@@ -19177,7 +19194,7 @@ function Request-AppExit {
 
 $backupMenuButton.Add_Click({ Show-MugenDeejBackupMenu -OwnerControl $backupMenuButton })
 $advancedToggle.Add_Click({ Show-ConnectionDiagnosticsWindow })
-$refreshButton.Add_Click({ Refresh-PortList; Update-DriverStatus })
+$refreshButton.Add_Click({ Refresh-PortList; Update-ConnectionControls })
 $connectButton.Add_Click({
     $script:ResumeReconnectAt = [DateTime]::MinValue
     $script:ResumeHotplugRetryUntil = [DateTime]::MinValue
