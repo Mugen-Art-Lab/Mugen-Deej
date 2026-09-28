@@ -85,7 +85,9 @@ const uint8_t POT_PINS[5] = {
 // Transport / timing
 // ---------------------------------------------------------------------------
 
-const unsigned long SERIAL_BAUD = 115200;
+// High-speed transport experiment. 500000 is intentionally isolated to this
+// E2 test firmware; the accepted 2.0 reference firmware remains unchanged.
+const unsigned long SERIAL_BAUD = 500000;
 
 // Adaptive v3 is a full-state snapshot, so a matrix-backed encoder must not
 // force one complete serial packet per detent. E2 keeps accumulating locally;
