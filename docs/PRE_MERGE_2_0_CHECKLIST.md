@@ -287,6 +287,41 @@ patch, while the feature branch already contains the same final layout.
 Do not promote the E2 test firmware to the 2.0 reference firmware until the
 hardware/UI test is explicitly accepted.
 
+### Matrix encoder fast-rotation follow-up
+
+The experimental matrix-backed E2 exposed a separate timing issue during fast
+rotation. Direct E1 is counted from D2/D3 interrupts, while E2 is polled from
+R3C8/R4C8 during the matrix scan. Under a fast spin, E1 continued to accumulate
+multi-step deltas between desktop packets, while E2 was much easier to starve.
+
+The key firmware-side cause was that every completed E2 detent immediately
+requested a full Adaptive-v3 snapshot. At 115200 baud that full-state
+`Serial.print()` path creates blind time for a polling-based encoder, which can
+then miss later quadrature transitions.
+
+Experimental mitigation committed in:
+
+`1b38ae6e5cb3fdfa07ada636e45aa8ba2e25829f`
+(`firmware: reduce matrix encoder edge loss during fast rotation`)
+
+The E2 test firmware now:
+
+- accumulates E2 position locally instead of forcing a complete v3 packet on
+  every E2 step;
+- publishes the cumulative E2 position on the normal 25 ms heartbeat;
+- keeps direct interrupt-driven E1 on its existing immediate-notification path;
+- briefly re-samples E2 A/B between chunks of the full serial snapshot so UART
+  buffer waits do not create one long blind polling window;
+- leaves the accepted 2.0 reference firmware unchanged.
+
+**Acceptance status: PENDING HARDWARE TEST.** Compare direct E1 and matrix E2
+with deliberately fast spins after flashing this exact experimental firmware.
+The desired result is that E2 no longer visibly falls behind or drops a
+meaningful fraction of physical detents. This result is also important input
+for the future CD74HC4067 / multi-encoder design; do not call four
+matrix/multiplexer encoders reference-ready until high-speed rotation is proven
+on real hardware.
+
 ### Hardware vNext clean-build concept
 
 A separate durable design note now exists at:
