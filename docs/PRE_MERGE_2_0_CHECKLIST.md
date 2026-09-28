@@ -237,6 +237,45 @@ shape is:
     Prepare-HIDMaestro.ps1
 ```
 
+### Experimental second matrix encoder (E2)
+
+A second bare EC11 encoder has now been physically wired into the two previously
+unused C8 matrix cells:
+
+- EC11 COM -> C8 / D11;
+- EC11 A -> diode -> R3 / A0 (R3C8);
+- EC11 B -> diode -> R4 / A1 (R4C8);
+- encoder push contacts intentionally unused;
+- matrix diode stripe/cathode remains on the ROW side.
+
+Experimental firmware is kept separate from the 2.0 reference firmware at:
+
+`dev/firmware/MugenDeejCardboardNanoE2Test/MugenDeejCardboardNanoE2Test.ino`
+
+The experimental firmware decodes R3C8/R4C8 from raw matrix scans, bypassing
+the ordinary 6 ms button/toggle debounce for those two cells, and emits E2 as a
+second Adaptive `e<position>` field without a push suffix.
+
+Hardware/runtime result:
+
+- Mugen Deej detected `adaptive:5:28:2:2`;
+- the main status header displayed 5 sliders / 28 buttons / 2 toggles /
+  2 encoders;
+- runtime logging recorded repeated Encoder 2 movement in both directions;
+- Adaptive action configuration saved with `encoders=2`;
+- the physical direction is currently reversed (clockwise decrements and
+  counter-clockwise increments), which can be corrected by swapping A/B or by
+  setting the experimental firmware direction multiplier to -1.
+
+The test also exposed a dashboard layout bug: the shared toggle/encoder row
+allowed two encoders logically but only reserved enough width for one visual
+indicator. Commit `ac002944ff621d73b09776f0d8afff7f211fd821` compacts the two
+toggle indicators and two encoder indicators so the 2+2 reference topology fits
+on one row. Visual acceptance of this compact layout is still pending.
+
+Do not promote the E2 test firmware to the 2.0 reference firmware until the
+hardware/UI test is explicitly accepted.
+
 ### Launcher hot-unplug diagnostic incident
 
 During continued Adaptive hardware work, unplugging the active COM5 controller
