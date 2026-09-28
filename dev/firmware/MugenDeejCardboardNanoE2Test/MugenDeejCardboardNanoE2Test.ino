@@ -86,6 +86,11 @@ const uint8_t POT_PINS[5] = {
 // ---------------------------------------------------------------------------
 
 const unsigned long SERIAL_BAUD = 115200;
+
+// Adaptive v3 is a full-state snapshot, so a matrix-backed encoder must not
+// force one complete serial packet per detent. E2 keeps accumulating locally;
+// the normal heartbeat publishes the latest cumulative position. Direct E1 can
+// still request an immediate packet because its A/B edges are interrupt-driven.
 const unsigned long PACKET_INTERVAL_MS = 25;
 
 // Low-latency gameplay experiment. 18 ms was intentionally conservative for
@@ -172,7 +177,8 @@ volatile int8_t encoderSubsteps = 0;
 volatile long encoderPosition = 0;
 volatile bool encoderPositionChanged = false;
 
-// E2 is scanned synchronously through the matrix, so these do not need to be
+// E2 is scanned synchronously through the matrix, including brief extra phase
+// samples while a serial packet is being emitted, so these do not need to be
 // volatile. The state machine is otherwise identical to the direct-pin E1.
 uint8_t matrixEncoderPreviousAB = 0;
 int8_t matrixEncoderSubsteps = 0;
@@ -249,8 +255,11 @@ void loop() {
   }
   interrupts();
 
+  // E2 is polling-based, so do not let it request an immediate full packet.
+  // Its cumulative position is published by the regular heartbeat below. This
+  // keeps the main loop scanning instead of spending most of a fast spin in
+  // Serial.print(). Clear only the notification flag; never the position.
   if (matrixEncoderPositionChanged) {
-    encoderChanged = true;
     matrixEncoderPositionChanged = false;
   }
 
@@ -315,6 +324,65 @@ void markDiagnosticContact(uint32_t &mask, const uint8_t index) {
   }
 }
 
+bool updateMatrixEncoderAB(const uint8_t currentMatrixEncoderAB) {
+  if (currentMatrixEncoderAB == matrixEncoderPreviousAB) {
+    return false;
+  }
+
+  const uint8_t transition =
+      (matrixEncoderPreviousAB << 2) | currentMatrixEncoderAB;
+  const int8_t delta = ENCODER_TRANSITION_TABLE[transition & 0x0F];
+
+  matrixEncoderPreviousAB = currentMatrixEncoderAB;
+  if (delta == 0) {
+    return false;
+  }
+
+  matrixEncoderSubsteps += delta * MATRIX_ENCODER_DIRECTION;
+
+  if (matrixEncoderSubsteps >= MATRIX_ENCODER_EDGES_PER_STEP) {
+    ++matrixEncoderPosition;
+    matrixEncoderSubsteps = 0;
+    matrixEncoderPositionChanged = true;
+    return true;
+  }
+
+  if (matrixEncoderSubsteps <= -MATRIX_ENCODER_EDGES_PER_STEP) {
+    --matrixEncoderPosition;
+    matrixEncoderSubsteps = 0;
+    matrixEncoderPositionChanged = true;
+    return true;
+  }
+
+  return false;
+}
+
+// Serial.print() eventually waits for room in the small AVR TX buffer. E1 is
+// safe during those waits because D2/D3 are interrupt-driven; E2 is not. Take
+// quick phase samples between chunks of the full Adaptive packet so a fast E2
+// rotation does not become invisible while UART bytes are draining.
+void serviceMatrixEncoderDuringSerial() {
+  uint8_t currentMatrixEncoderAB = 0;
+
+  digitalWrite(MATRIX_ROW_PINS[2], LOW);
+  delayMicroseconds(MATRIX_ACTIVE_SETTLE_US);
+  if (digitalRead(MATRIX_COL_PINS[7]) == HIGH) {
+    currentMatrixEncoderAB |= 0x02;
+  }
+  digitalWrite(MATRIX_ROW_PINS[2], HIGH);
+  delayMicroseconds(MATRIX_RELEASE_SETTLE_US);
+
+  digitalWrite(MATRIX_ROW_PINS[3], LOW);
+  delayMicroseconds(MATRIX_ACTIVE_SETTLE_US);
+  if (digitalRead(MATRIX_COL_PINS[7]) == HIGH) {
+    currentMatrixEncoderAB |= 0x01;
+  }
+  digitalWrite(MATRIX_ROW_PINS[3], HIGH);
+  delayMicroseconds(MATRIX_RELEASE_SETTLE_US);
+
+  (void)updateMatrixEncoderAB(currentMatrixEncoderAB);
+}
+
 bool updateMatrix(const unsigned long now) {
   bool changed = false;
   uint8_t scanned[NUM_MATRIX_CELLS];
@@ -326,30 +394,10 @@ bool updateMatrix(const unsigned long now) {
   if (scanned[MATRIX_ENCODER_A_CELL] == HIGH) { currentMatrixEncoderAB |= 0x02; }
   if (scanned[MATRIX_ENCODER_B_CELL] == HIGH) { currentMatrixEncoderAB |= 0x01; }
 
-  if (currentMatrixEncoderAB != matrixEncoderPreviousAB) {
-    const uint8_t transition =
-        (matrixEncoderPreviousAB << 2) | currentMatrixEncoderAB;
-    const int8_t delta = ENCODER_TRANSITION_TABLE[transition & 0x0F];
-
-    matrixEncoderPreviousAB = currentMatrixEncoderAB;
-
-    if (delta != 0) {
-      matrixEncoderSubsteps += delta * MATRIX_ENCODER_DIRECTION;
-
-      if (matrixEncoderSubsteps >= MATRIX_ENCODER_EDGES_PER_STEP) {
-        ++matrixEncoderPosition;
-        matrixEncoderSubsteps = 0;
-        matrixEncoderPositionChanged = true;
-        changed = true;
-      }
-      else if (matrixEncoderSubsteps <= -MATRIX_ENCODER_EDGES_PER_STEP) {
-        --matrixEncoderPosition;
-        matrixEncoderSubsteps = 0;
-        matrixEncoderPositionChanged = true;
-        changed = true;
-      }
-    }
-  }
+  // Deliberately do not mark the ordinary matrix state as changed when only E2
+  // advances. Otherwise every detent immediately sends a full v3 snapshot,
+  // creating exactly the serial blind time that makes polling lose fast edges.
+  (void)updateMatrixEncoderAB(currentMatrixEncoderAB);
 
   for (uint8_t i = 0; i < NUM_MATRIX_CELLS; ++i) {
     // E2 phase contacts must stay raw; running them through MATRIX_DEBOUNCE_MS
@@ -491,16 +539,24 @@ void sendAdaptivePacket() {
   for (uint8_t i = 0; i < NUM_POTS; ++i) {
     Serial.print(F("|s"));
     Serial.print(readPotentiometer(POT_PINS[i]));
+    serviceMatrixEncoderDuringSerial();
   }
 
   // 28 ordinary buttons: C1..C7 across each row.
+  uint8_t serializedButtonCount = 0;
   for (uint8_t row = 0; row < NUM_ROWS; ++row) {
     for (uint8_t col = 0; col < 7; ++col) {
       const uint8_t index = row * NUM_COLS + col;
       Serial.print(F("|b"));
       Serial.print(matrixStable[index] == LOW ? 0 : 1);
+
+      ++serializedButtonCount;
+      if ((serializedButtonCount & 0x03) == 0) {
+        serviceMatrixEncoderDuringSerial();
+      }
     }
   }
+  serviceMatrixEncoderDuringSerial();
 
   // Latching toggles in R1C8 / R2C8.
   Serial.print(F("|t"));
@@ -508,17 +564,20 @@ void sendAdaptivePacket() {
 
   Serial.print(F("|t"));
   Serial.print(matrixStable[TOGGLE2_CELL] == LOW ? 1 : 0);
+  serviceMatrixEncoderDuringSerial();
 
   // E1 cumulative position + direct module push switch.
   Serial.print(F("|e"));
   Serial.print(positionSnapshot);
   Serial.print(':');
   Serial.print(keyStable == LOW ? 0 : 1);
+  serviceMatrixEncoderDuringSerial();
 
   // E2 cumulative position only. No ':push' suffix is emitted, so desktop
   // capability discovery exposes CW/CCW actions but no Push action for E2.
   Serial.print(F("|e"));
   Serial.print(matrixPositionSnapshot);
+  serviceMatrixEncoderDuringSerial();
 
   // Optional Adaptive-v3 debounce diagnostic token:
   // d<debounceMs>:<filteredCount>:<filteredMaskHex>:<rapidCount>:<rapidMaskHex>
@@ -532,6 +591,7 @@ void sendAdaptivePacket() {
   Serial.print(matrixRapidReversalCount);
   Serial.print(':');
   Serial.print(matrixRapidReversalMask, HEX);
+  serviceMatrixEncoderDuringSerial();
 
   Serial.println();
 }
