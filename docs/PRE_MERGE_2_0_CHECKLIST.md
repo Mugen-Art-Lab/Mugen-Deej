@@ -500,11 +500,24 @@ The fix:
 - adds diagnostics open/shown/closed log markers, including owner visibility,
   owner TopMost state and tray-transition state.
 
-**Acceptance status: PENDING CI/HARDWARE RETEST.** From the CI package built
-from the exact fix, test both ordinary use and the original regression path:
+**Acceptance status: TRAY REGRESSION PASS; HIBERNATION RETEST PENDING.**
+CI #13 from the exact fix was installed and exercised on hardware.
+
+Observed in the captured session:
+
+- diagnostics opened three times and every open produced the new
+  `Connection diagnostics shown and activated` marker;
+- two dialogs were explicitly closed with `result=Cancel`; the third remained
+  open only because the log was captured while it was still on screen;
+- a direct `hide to tray -> restore -> immediately open diagnostics` regression
+  test passed;
+- the diagnostics owner was logged as visible and non-TopMost with no tray
+  transition in progress;
+- the main application remained responsive after closing the modal dialogs.
+
+The exact post-hibernation path still needs one final retest on CI #13:
 hide Mugen to tray -> hibernate -> resume -> restore Mugen -> immediately open
-Connection and diagnostics. The dialog must remain visible above the main form,
-close normally, and leave the main form interactive.
+Connection and diagnostics.
 
 True start-to-start heartbeat experiment:
 
@@ -519,10 +532,29 @@ True start-to-start heartbeat experiment:
   behavior, so the 10 ms target describes the regular heartbeat cadence rather
   than a hard global minimum between every possible event-driven packet.
 
-**True 10 ms acceptance status: PENDING HARDWARE TEST.** Expected idle
-diagnostics rate should move from roughly 55-60 Hz toward roughly 100 Hz if the
-Nano plus full Adaptive snapshot can sustain the cadence. Re-check E2 movement,
-debounce counters, capability mismatch warnings and reconnect behavior.
+**True 10 ms acceptance status: SHORT HARDWARE PASS.** With CI #13
+desktop installed and the 500000-baud true start-to-start firmware flashed:
+
+- diagnostics typically reported roughly **92-98 Hz**, with brief excursions
+  above 100 Hz observed during active testing;
+- the controller remained Adaptive `5/28/2/2` at 500000 baud;
+- firmware debounce diagnostics remained `6 ms / filtered=0 / rapid=0`;
+- the captured session contained **3139 Encoder 1 movement records** and
+  **1038 Encoder 2 movement records** during deliberate stress;
+- no capability-shape mismatch warning occurred in the session;
+- no serial-loss warning occurred in the session;
+- no contained main-UI timer failure occurred in the session;
+- repeated diagnostics-window use did not interrupt serial processing.
+
+The occasional displayed rate above 100 Hz is not itself an error. The 10 ms
+setting defines the regular heartbeat target; direct E1/button/toggle changes
+can still request additional event-driven snapshots, and the desktop rate
+display is a moving measurement rather than a hard firmware clock.
+
+This is sufficient to treat 500000 baud / 10 ms start-to-start as a successful
+experimental latency result. A controlled physical-detent count and longer
+runtime/reconnect/resume soak are still required before making it the public
+reference/default transport.
 
 Do not promote 500000 to the accepted 2.0 reference firmware/default transport
 from this result alone; keep it experimental until the controlled-count test
