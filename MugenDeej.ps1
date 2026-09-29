@@ -18681,7 +18681,11 @@ function Show-MainWindowForeground {
         )
 
         $form.Activate()
-        [System.Windows.Forms.Application]::DoEvents()
+
+        # Do not pump a nested WinForms message loop while the temporary
+        # TopMost pulse is active. A fast click can otherwise open a modal
+        # child from inside DoEvents(), leaving the TopMost owner above the
+        # dialog and making the application appear locked.
         $form.TopMost = $false
 
         Write-Log 'Main window restored from tray' 'DEBUG'
@@ -18897,16 +18901,46 @@ function Show-ConnectionDiagnosticsWindow {
     try {
         & $refreshInfo
         Apply-ThemeToForm -Form $dialog -ThemeName (Get-EffectiveTheme)
+
+        # A modal child must never be opened while its owner is temporarily
+        # TopMost. This can happen during tray restoration if another UI event
+        # is delivered re-entrantly. The restore path no longer pumps DoEvents,
+        # but keep this defensive reset here as well.
+        if ($form.TopMost) {
+            Write-Log 'Diagnostics opening while the main window is TopMost; clearing transient owner TopMost state' 'WARN'
+            $form.TopMost = $false
+        }
+
+        Write-Log (
+            'Opening connection diagnostics; ownerVisible={0}; ownerTopMost={1}; trayTransitionInProgress={2}' -f
+            [bool]$form.Visible,
+            [bool]$form.TopMost,
+            [bool]$script:TrayTransitionInProgress
+        ) 'DEBUG'
+
         $dialog.Add_Shown({
             Ensure-FormVisible -Form $dialog -CenterIfOffscreen
             try {
+                # Give the newly-created owned modal one explicit z-order pulse,
+                # then immediately return it to normal owned-window behavior.
+                # No DoEvents() here: nested message pumping is exactly what can
+                # strand a modal dialog behind its disabled owner.
+                $dialog.TopMost = $true
                 $dialog.BringToFront()
+                [void][MugenDeejWindowing.Foreground]::BringWindowToTop($dialog.Handle)
+                [void][MugenDeejWindowing.Foreground]::SetForegroundWindow($dialog.Handle)
                 $dialog.Activate()
+                $dialog.TopMost = $false
+                Write-Log 'Connection diagnostics shown and activated' 'DEBUG'
             }
-            catch { }
+            catch {
+                try { $dialog.TopMost = $false } catch { }
+                Write-Log ('Failed to activate connection diagnostics: {0}' -f $_.Exception.Message) 'WARN'
+            }
         })
         $diagTimer.Start()
-        [void]$dialog.ShowDialog($form)
+        $dialogResult = $dialog.ShowDialog($form)
+        Write-Log ('Connection diagnostics closed; result={0}' -f $dialogResult) 'DEBUG'
     }
     finally {
         $diagTimer.Stop()
