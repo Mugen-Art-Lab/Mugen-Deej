@@ -13,6 +13,9 @@ Major 2.0 generation release, promoted from the hardware-accepted RC1 line.
 - Hardened controller discovery and reconnect behavior, including false-Legacy probe protection, hot-unplug survival in the button editor and nonblocking virtual-controller startup/teardown.
 - Reduced the tested Cardboard Nano matrix debounce to **6 ms** and added cumulative firmware debounce diagnostics.
 - Refined the bilingual UI across controller status, button actions, toggle/encoder actions, layers, diagnostics, slider settings and application selection.
+- Improved connection diagnostics for high-rate Adaptive traffic: packet freshness/rate wording is clearer, driver-status lookup no longer blocks the modal open path, the serial receive buffer has more headroom, and malformed topology-shaped packets remain guarded.
+- Added optional 500000-baud probing for high-rate Adaptive development hardware while preserving the normal 9600/115200 compatibility path and the 115200-baud public Adaptive reference.
+- Added a dedicated fast encoder-indicator lane so Adaptive rotary position/value visuals can update near the controller heartbeat without forcing the rest of the dashboard or audio-slider work to run at the same rate.
 - Restored and hardware-verified production Windows-startup behavior, including a real reboot from a clean Setup installation.
 - Added self-contained Setup packaging from the exact Portable payload, preserving one runtime payload across both delivery formats.
 - Slider-direction inversion is now remembered per detected controller protocol/topology, so differently wired Legacy, Extended and Adaptive controllers can be swapped without repeatedly changing a global inversion setting.

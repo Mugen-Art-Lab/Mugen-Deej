@@ -40,7 +40,9 @@ Requirements:
 
 - Windows PowerShell 5.1;
 - Go 1.20 or newer in `PATH`;
-- internet access on the first build so Go can obtain the pinned `rsrc` tool.
+- .NET SDK 10 in `PATH` for the self-contained virtual-gamepad helper;
+- internet access so the first build can obtain the pinned `rsrc` tool and
+  the pinned HIDMaestro backend archive used by `Prepare-HIDMaestro.ps1`.
 
 From the repository root, either double-click:
 
@@ -96,7 +98,8 @@ The Setup EXE performs a portable-style installation/update. It intentionally do
 
 ## Portable package contents
 
-A portable release archive contains:
+A portable release archive contains the desktop runtime plus the optional
+virtual-controller backend and the tested Adaptive reference firmware:
 
 - `MugenDeej.exe`
 - `MugenDeej.ps1`
@@ -106,7 +109,31 @@ A portable release archive contains:
 - `LICENSE`
 - `THIRD_PARTY_NOTICES.md`
 - `SHA256SUMS.txt`
+- `firmware/MugenDeejCardboardNanoPrototype/MugenDeejCardboardNanoPrototype.ino`
+- `virtual-gamepad/MugenDeej.VirtualGamepad.ps1`
+- `virtual-gamepad/HIDMaestro-LICENSE.txt`
+- `virtual-gamepad/host/` — self-contained win-x64
+  `MugenDeej.VirtualGamepadHost` output and its required managed/runtime files.
 
-`config.json`, recovery copies, button mappings, `.backup` files, and the `logs/` and `drivers/` directories are runtime data and are never bundled by the builder.
+The release builder downloads the pinned HIDMaestro dependency, verifies it,
+builds the helper with .NET 10, and smoke-runs the published helper before
+packaging.
+
+`config.json`, recovery copies, button mappings, Adaptive mapping/profile/layer
+files, `.backup` files, and the `logs/` and `drivers/` directories are
+runtime/user data and are never bundled by the builder.
 
 Do not bundle third-party driver installers unless their redistribution terms are confirmed. Mugen Deej downloads the official WCH driver only after the user requests it and verifies the publisher's digital signature before launch.
+
+
+## Code signing
+
+The build pipeline does not currently Authenticode-sign the launcher or Setup
+EXE. A locally or CI-built 2.0 package may therefore trigger Windows Unknown
+publisher / SmartScreen UI.
+
+For published releases, distribute the generated SHA-256 sidecars and keep the
+release files on the official GitHub Release so users can verify provenance.
+If code signing is added later, signing must happen in a reproducible release
+step and any signed/repacked binary must receive a fresh hardware/package smoke
+test before publication.

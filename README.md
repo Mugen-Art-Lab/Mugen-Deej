@@ -119,7 +119,18 @@ Mugen Deej automatically adapts its interface to the detected controller protoco
 
 For most users, use the **Setup EXE**. It performs a portable-style installation and does not register Mugen Deej in Windows Installed Apps. A **portable ZIP** is also provided if you prefer to extract and run the application manually.
 
-Latest public stable release: **1.0.0**. The **2.0.0** final package is prepared on the active release branch after RC1 hardware acceptance.
+Latest public stable release: **1.0.0**. The **2.0.0** release is being finalized on the active release branch after RC1 and real-hardware acceptance.
+
+### Windows SmartScreen / unsigned builds
+
+The current 2.0 release path does not have an Authenticode code-signing
+certificate. Windows may therefore show **Unknown publisher** or a Microsoft
+Defender SmartScreen warning for the Setup EXE/launcher.
+
+Download release files only from this repository's GitHub Releases page and
+verify the supplied SHA-256 sidecar/checksum before running them. An unsigned
+publisher prompt describes the absence of a trusted code signature; it is not
+a substitute for verifying where the file came from.
 
 ## Controller protocol
 

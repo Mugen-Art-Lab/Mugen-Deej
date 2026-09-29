@@ -1090,19 +1090,30 @@ presented as the required/reference firmware in the public build instructions.
 
 ## Step 4 — public README/release-facing polish
 
-Status: **NOT STARTED**
+Status: **PASS / RELEASE-FACING TEXT AUDITED**
 
-- [ ] Read `README.md` top-to-bottom as a first-time user.
-- [ ] Read `README_RU.md` top-to-bottom as a first-time user.
-- [ ] remove stale RC/prototype/experimental wording.
-- [ ] ensure Legacy / Extended / Adaptive v3 are explained consistently.
-- [ ] ensure Setup vs Portable and unsigned-build/SmartScreen guidance is clear.
-- [ ] add code-signing wording only after final release wording is chosen.
-  As of 2026-09-29 there is no signing path available for this release, so
-  prepare accurate unsigned-publisher / SmartScreen guidance rather than
-  blocking documentation cleanup on signing.
-- [ ] verify `THIRD_PARTY_NOTICES.md`, `SECURITY.md`, `CONTRIBUTING.md`,
-  `BUILDING.md` and `CHANGELOG.md` are consistent with 2.0.0.
+- [x] Read `README.md` top-to-bottom as a first-time user.
+- [x] Read `README_RU.md` top-to-bottom as a first-time user.
+- [x] remove stale release-branch wording where it implied 2.0 was already
+  published; historical firmware directory names are now explained instead of
+  pretending they are new product names.
+- [x] ensure Legacy / Extended / Adaptive v3 are explained consistently.
+- [x] ensure Setup vs Portable and unsigned-build/SmartScreen guidance is clear.
+- [x] record current signing status. As of 2026-09-29 there is no Authenticode
+  signing path available for this release; README/BUILDING/release-note wording
+  now explains Unknown publisher/SmartScreen without treating it as a security
+  verdict.
+- [x] verify `THIRD_PARTY_NOTICES.md`, `SECURITY.md`, `CONTRIBUTING.md`,
+  `BUILDING.md` and `CHANGELOG.md` against 2.0.0.
+- [x] update `docs/BUILDING.md` for the .NET 10/HIDMaestro build dependency
+  and actual virtual-gamepad/reference-firmware package contents.
+- [x] audit `config.example.json` against config schema 9; add
+  `baudRateMode`, `lastWorkingBaudRate` and
+  `invertSlidersByController`.
+
+A final publication-date/version-link sanity pass still belongs in Step 7
+because README must continue to say 1.0.0 is the latest *published* release
+until 2.0.0 is actually published.
 
 ## Step 5 — development archaeology cleanup
 
@@ -1121,16 +1132,19 @@ Do not delete anything until classified in Step 1.
 
 ## Step 6 — release publication preparation
 
-Status: **NOT STARTED**
+Status: **IN PROGRESS / RELEASE BODY DRAFTED**
 
-- [ ] draft `docs/RELEASE_NOTES_2.0.0.md` / GitHub Release body.
-- [ ] prepare upgrade notes from 1.0.0.
-- [ ] prepare Setup/Portable checksum presentation.
-- [ ] incorporate SignPath/code-signing workflow if approved and available.
-- [ ] if signing is not available in time, document the unsigned publisher /
-  SmartScreen expectation without implying a security failure.
-- [ ] run final release builder again if signing or package contents change.
-- [ ] hardware-smoke any newly signed/repackaged final artifacts if their binary
+- [x] draft `docs/RELEASE_NOTES_2.0.0.md` / GitHub Release body in English
+  and Russian.
+- [x] prepare upgrade notes from 1.0.0.
+- [x] prepare Setup/Portable checksum presentation with explicit FINAL/TBD
+  placeholders so an older CI checksum cannot accidentally be published.
+- [ ] incorporate code signing only if a real signing path becomes available.
+- [x] document the current unsigned publisher / SmartScreen expectation without
+  implying a security failure.
+- [ ] run the final release builder from the final pre-merge source state.
+- [ ] replace release-note checksum placeholders with the final artifact hashes.
+- [ ] hardware-smoke any newly signed/repackaged/final artifacts if their binary
   contents differ from the accepted build.
 
 ## Step 7 — pre-merge cleanup
