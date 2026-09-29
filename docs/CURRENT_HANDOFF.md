@@ -1,8 +1,42 @@
 # Mugen Deej — current development handoff
 
-Last updated: 2026-09-25
+Last updated: 2026-09-29
 
 This is the short resume point for the active `feature/virtual-gamepad-ui` branch. Stable `main` / v1.0.0 remains untouched.
+
+## Current release-prep resume — 2026-09-29
+
+The newest CI-built runtime under hardware validation is **Build release
+packages #16** from
+`1d414f6d5a0f5eeccc3ec7e9519e1a4e04e02efd`
+(`ui: add fast encoder indicator lane`). Any documentation-only commits after
+that point do not imply a newer tested installer.
+
+Current experimental hardware state is Adaptive `5/28/2/2` at 500000 baud
+with the true 10 ms heartbeat firmware. The desktop shows roughly near-100 Hz
+packet rates in normal diagnostics. CI #16 adds a dedicated 10 ms
+serial/paint lane for changed encoder indicators while keeping audio-slider and
+ordinary dashboard work on the main cadence. Real-machine stress showed
+noticeably lower visual encoder lag and no fresh topology-shape mismatch,
+serial-loss, or fast-lane failure in the captured session.
+
+The public 2.0 reference hardware is still the proven Nano `5/28/2/1` at
+115200 baud / 25 ms. Do not promote the 500000-baud second-encoder experiment
+into the public reference merely because it is currently working well.
+
+Remaining runtime observations are intentionally narrow:
+
+- exact tray -> hibernate -> resume -> restore -> immediately open diagnostics
+  regression path can still be closed when convenient; tray-only diagnostics
+  already passes;
+- long-run controller-recovery containment still benefits from ordinary
+  multi-hour use/reconnect soak;
+- a controlled known-detent encoder count is useful before future
+  matrix/multiplexer encoders become reference hardware.
+
+Runtime feature freeze remains active. Next work should be public Adaptive docs,
+README/release polish, repository archaeology cleanup and 2.0 release notes,
+not new product features unless a concrete release blocker appears.
 
 ## Protocol generations
 

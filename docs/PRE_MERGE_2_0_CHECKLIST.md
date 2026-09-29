@@ -35,6 +35,13 @@ The isolated malformed/partial Adaptive startup packet
 controller remained `adaptive:5:28:2:1`; virtual-controller startup then
 completed normally. This is not currently treated as a release blocker.
 
+Post-baseline runtime follow-up is intentionally tracked separately from the
+original #4 acceptance package. The newest CI-built runtime under hardware
+validation is **Build release packages #16** from
+`1d414f6d5a0f5eeccc3ec7e9519e1a4e04e02efd`
+(`ui: add fast encoder indicator lane`). Documentation-only commits after
+that source state must not be mistaken for a newer packaged runtime.
+
 ## Pre-merge rule
 
 Work through this document in order. After each completed step:
@@ -560,6 +567,85 @@ Do not promote 500000 to the accepted 2.0 reference firmware/default transport
 from this result alone; keep it experimental until the controlled-count test
 and broader stability/reconnect checks pass.
 
+
+### 2026-09-29 release-prep follow-up
+
+Two small desktop/UI follow-ups were validated after the earlier 500000-baud /
+10 ms hardware work.
+
+**Diagnostics wording — CI #15**
+
+- source commit:
+  `1541b08b48d0095669aa4d6f4330229557266175`;
+- workflow: `Build release packages`;
+- run: **#15**, run ID `36510087674`;
+- artifact: `Mugen-Deej-packages-15`, artifact ID `11009116699`;
+- Setup SHA-256:
+  `eacba742c9cc1334fd67f27a281859cfd63b26cd5133c1ed9d354910dc7f17f2`.
+
+The diagnostics freshness line is now human-readable instead of looking like a
+raw metric label. Russian uses wording such as
+`16 мс назад · Частота: ~98,0 Гц`; English uses
+`16 ms ago · Rate: ~98.0 Hz`. Timing calculations themselves were not
+changed.
+
+A visual backward-compatibility spot check also passed with the old controller:
+the same desktop build detected **Legacy / 9600 / 5 sliders / 0 buttons /
+0 toggles / 0 encoders**, while the experimental controller still detected
+Adaptive `5/28/2/2` at 500000. The diagnostics wording remained correct in
+both cases.
+
+**Fast encoder indicator lane — CI #16**
+
+- source commit:
+  `1d414f6d5a0f5eeccc3ec7e9519e1a4e04e02efd`;
+- workflow: `Build release packages`;
+- run: **#16**, run ID `36563600572`;
+- artifact: `Mugen-Deej-packages-16`, artifact ID `11031355287`;
+- Actions artifact digest:
+  `sha256:5fd4d9a9f1a7bd4bc9d7b3b5524676a26bd00342a1ac21e1cf8e703e6899edb4`;
+- Setup SHA-256:
+  `a779cee723ba5f5b9519d6f334110891203c3b4c48407eaa1fec787a2c7129a4`.
+
+The desktop now gives Adaptive encoder indicators a dedicated **10 ms**
+input/paint lane while leaving the rest of the dashboard and audio-slider work
+on the existing main cadence. Only changed encoder position labels/28x28 knob
+indicators are forced to paint immediately. The implementation iterates the
+detected encoder-indicator collection rather than assuming exactly two
+encoders, so it is compatible with the planned future two- and four-encoder
+layouts.
+
+Real-hardware observations from the CI #16 test:
+
+- controller detected as Adaptive `5/28/2/2` at 500000 baud;
+- deliberate rapid E1/E2 rotation remained responsive in both directions;
+- the visual encoder lag was noticeably reduced;
+- aggressive back-and-forth stress produced accumulated deltas such as
+  `+2`/larger values instead of requiring one desktop packet per detent;
+- no capability-shape mismatch warning, serial-loss warning, or
+  `Fast encoder UI lane failed` marker occurred in the captured CI #16
+  session;
+- the operator observed at most roughly one-detent disagreement only when
+  intentionally spinning/reversing the encoder far faster than normal use.
+  This is **not** a controlled detent-count result, so the known-count test
+  remains useful before the matrix/multiplexer encoder design becomes a public
+  hardware reference.
+
+The application was also observed returning to normal use after a hibernation
+cycle during this test period. The captured CI #16 log did not contain a new
+explicit suspend/resume marker for that observation, so this is recorded as an
+operator usability pass rather than replacing the exact diagnostics regression
+test below.
+
+The exact historical diagnostics regression remains narrowly defined as:
+hide to tray -> hibernate -> resume -> restore -> immediately open Connection
+and diagnostics. The tray-only form of that test already passes; the exact
+post-hibernation click path can be closed the next time it is convenient.
+
+The earlier long-run recovery containment item also remains open until a
+sufficiently long normal-use/reconnect soak is accumulated. Do not manufacture
+a runtime change merely to close that timer-based observation.
+
 ### Hardware vNext clean-build concept
 
 A separate durable design note now exists at:
@@ -980,17 +1066,27 @@ guessing.
 
 ## Step 3 — Adaptive v3 public documentation
 
-Status: **NOT STARTED**
+Status: **IN PROGRESS / TEXTUAL DOCS COMPLETE**
 
-Target public docs (names can be adjusted during the audit):
+Target public docs:
 
-- [ ] `docs/ADAPTIVE_V3.md` — what Adaptive v3 is, capabilities, protocol role.
-- [ ] `docs/ADAPTIVE_V3_WIRING.md` — board/pin table, wiring rules, inversion note.
-- [ ] `docs/ADAPTIVE_V3_BUILD.md` — flash/build/test instructions.
-- [ ] add a clear wiring diagram/image after the factual pin map is confirmed.
-- [ ] link these docs from both English and Russian README files where useful.
-- [ ] ensure wording clearly distinguishes the tested reference controller from
-  the protocol's dynamic/non-hardcoded topology.
+- [x] `docs/ADAPTIVE_V3.md` — protocol/capability overview and reference scope.
+- [x] `docs/ADAPTIVE_V3_WIRING.md` — proven Nano pin map, matrix/diode rules,
+  illuminated-toggle wiring and text diagrams.
+- [x] `docs/ADAPTIVE_V3_BUILD.md` — flash/build/smoke-test instructions.
+- [ ] add a polished graphical wiring diagram/image; the factual text diagram
+  and pin tables are now present, so this is presentation work rather than a
+  missing electrical fact.
+- [x] link the Adaptive docs from both English and Russian README files.
+- [x] clearly distinguish the tested reference controller from Adaptive's
+  dynamic/non-hardcoded topology.
+- [x] update `docs/PROTOCOL.md` for the implemented optional `d...`
+  diagnostics token, current implementation status and 500000-baud experimental
+  desktop support.
+
+The accepted public reference remains **5/28/2/1 at 115200 baud / 25 ms**.
+The experimental 5/28/2/2, 500000-baud and 10 ms work is intentionally not
+presented as the required/reference firmware in the public build instructions.
 
 ## Step 4 — public README/release-facing polish
 
@@ -1001,7 +1097,10 @@ Status: **NOT STARTED**
 - [ ] remove stale RC/prototype/experimental wording.
 - [ ] ensure Legacy / Extended / Adaptive v3 are explained consistently.
 - [ ] ensure Setup vs Portable and unsigned-build/SmartScreen guidance is clear.
-- [ ] add code-signing wording only after SignPath status is known.
+- [ ] add code-signing wording only after final release wording is chosen.
+  As of 2026-09-29 there is no signing path available for this release, so
+  prepare accurate unsigned-publisher / SmartScreen guidance rather than
+  blocking documentation cleanup on signing.
 - [ ] verify `THIRD_PARTY_NOTICES.md`, `SECURITY.md`, `CONTRIBUTING.md`,
   `BUILDING.md` and `CHANGELOG.md` are consistent with 2.0.0.
 

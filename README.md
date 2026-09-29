@@ -151,6 +151,8 @@ v3|s...|b...|t...|e...
 
 Adaptive v3 can report any supported combination of sliders, momentary buttons, latching toggles and cumulative-position rotary encoders. The desktop derives topology from the packet itself, so the tested 5/28/2/1 panel is not hardcoded. The current Cardboard Nano reference firmware runs at `115200` baud.
 
+Reference documentation: [Adaptive v3 overview](docs/ADAPTIVE_V3.md) · [Nano wiring](docs/ADAPTIVE_V3_WIRING.md) · [build and smoke test](docs/ADAPTIVE_V3_BUILD.md) · [protocol details](docs/PROTOCOL.md).
+
 ## Quick start
 
 1. Connect a deej-compatible controller by USB.
@@ -163,6 +165,7 @@ Adaptive v3 can report any supported combination of sliders, momentary buttons, 
 
 - `MugenDeej.ps1` — main PowerShell/WinForms application: UI, controller protocol handling, COM discovery, Core Audio integration, configuration, backup/restore, diagnostics, tray and startup behavior.
 - `arduino/MugenDeejController/` — tested reference Extended controller firmware and hardware pin profile.
+- `arduino/MugenDeejCardboardNanoPrototype/` — hardware-proven Adaptive v3 Nano 5/28/2/1 reference firmware (historical directory name).
 - `src/launcher/` — small Go launcher used to start the PowerShell application as a Windows GUI executable.
 - `src/setup/` — self-contained Go Setup wrapper plus the bilingual PowerShell/WinForms installer UI.
 - `tools/Build-Release.ps1` — release builder for the portable ZIP, Setup EXE and SHA-256 checksum files.
