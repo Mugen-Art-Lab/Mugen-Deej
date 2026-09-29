@@ -480,7 +480,7 @@ function Expand-PortablePayloadWithRetry {
                 throw
             }
 
-            $lockedMessage = L -Ru "Один из файлов Mugen Deej сейчас используется.`r`n`r`nЗакройте Mugen Deej и другие программы, которые могут использовать файлы из папки установки, затем нажмите «Повторить»." -En "One of the Mugen Deej files is currently in use.`r`n`r`nClose Mugen Deej and any other program that may be using files in the installation folder, then click Retry."
+            $lockedMessage = L -Ru "Один из файлов Mugen Deej сейчас используется.`r`n`r`nЗакройте Mugen Deej и другие программы, которые могут использовать файлы из папки программы, затем нажмите «Повторить»." -En "One of the Mugen Deej files is currently in use.`r`n`r`nClose Mugen Deej and any other program that may be using files in the application folder, then click Retry."
             $retry = Show-SetupConfirm -Message $lockedMessage -IsWarning $true -DefaultYes $true -YesCaption (L -Ru 'Повторить' -En 'Retry') -NoCaption (L -Ru 'Отмена' -En 'Cancel')
             if (-not $retry) {
                 return $false
@@ -579,7 +579,7 @@ $introTitleLabel.ForeColor = $script:SetupPalette['TextColor']
 $panel.Controls.Add($introTitleLabel)
 
 $introBodyLabel = New-Object System.Windows.Forms.Label
-$introBodyLabel.Text = (L -Ru "Выберите папку, куда распаковать Mugen Deej.`r`nПо умолчанию в выбранном месте будет создана папка «Mugen Deej»." -En "Choose where to extract Mugen Deej.`r`nBy default, a ""Mugen Deej"" folder will be created in the selected location.")
+$introBodyLabel.Text = (L -Ru "Выберите папку, куда распаковать Mugen Deej.`r`nПо умолчанию в выбранном месте будет создана папка «Mugen Deej»." -En "Choose where to extract Mugen Deej.`r`nBy default, a Mugen Deej folder will be created in the selected location.")
 $introBodyLabel.Location = New-Object System.Drawing.Point(20, 41)
 $introBodyLabel.Size = New-Object System.Drawing.Size(620, 58)
 $introBodyLabel.ForeColor = $script:SetupPalette['MutedColor']
