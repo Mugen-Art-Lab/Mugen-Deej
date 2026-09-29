@@ -1214,3 +1214,24 @@ Windows startup registry entry is created and removed by Mugen Deej itself only
 when the user enables/disables **Start Mugen Deej with Windows**. Before moving
 or deleting the portable folder, the UI correctly recommends disabling that
 setting first.
+
+
+Portable-wording correction CI provenance:
+
+- source commit:
+  `bae5bd0cb6f23d3f782ce897267d0d6ce740e0b4`
+  (`docs: describe Setup as portable extractor`);
+- workflow: `Build release packages`;
+- run: **#19**, run ID `36601931318`;
+- result: **success**;
+- artifact: `Mugen-Deej-packages-19`, artifact ID `11049581653`;
+- Actions artifact digest:
+  `sha256:f692ff2db75715780f848acb7264ff22ea2b4a6109c24512edd73de6aa3370bd`;
+- Setup SHA-256:
+  `d6e16ed76c2154805ad638478dcaf88180a6bbc22c034c47dbbdb041c4133db9`;
+- Portable ZIP SHA-256:
+  `0b23faec10405a0443ee20abf1b329e8eb8e908319df8652297f7a4fb5dd560c`.
+
+The Setup UI now consistently says **extract/unpack** instead of implying a
+traditional Windows installation. This is a wording-only runtime change on top
+of the already tested application behavior.
