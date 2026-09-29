@@ -209,7 +209,7 @@ function Select-SetupLanguage {
     catch { }
 
     $languageTitle = New-Object System.Windows.Forms.Label
-    $languageTitle.Text = 'Язык установщика / Installer language'
+    $languageTitle.Text = 'Язык Setup / Setup language'
     $languageTitle.Location = New-Object System.Drawing.Point(20, 24)
     $languageTitle.Size = New-Object System.Drawing.Size(390, 34)
     $languageTitle.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 15)
@@ -557,7 +557,7 @@ $versionLabel.ForeColor = $script:SetupPalette['MutedColor']
 $form.Controls.Add($versionLabel)
 
 $subtitleLabel = New-Object System.Windows.Forms.Label
-$subtitleLabel.Text = (L -Ru 'Установка в папку без регистрации в Windows' -En 'Folder-based installation without Windows app registration')
+$subtitleLabel.Text = (L -Ru 'Распаковка portable-версии' -En 'Extract the portable package')
 $subtitleLabel.Location = New-Object System.Drawing.Point(33, 67)
 $subtitleLabel.Size = New-Object System.Drawing.Size(620, 26)
 $subtitleLabel.ForeColor = $script:SetupPalette['MutedColor']
@@ -571,7 +571,7 @@ $panel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
 $form.Controls.Add($panel)
 
 $introTitleLabel = New-Object System.Windows.Forms.Label
-$introTitleLabel.Text = (L -Ru 'Простая установка в выбранную папку' -En 'Simple folder-based installation')
+$introTitleLabel.Text = (L -Ru 'Куда распаковать Mugen Deej' -En 'Choose where to extract Mugen Deej')
 $introTitleLabel.Location = New-Object System.Drawing.Point(20, 15)
 $introTitleLabel.Size = New-Object System.Drawing.Size(620, 25)
 $introTitleLabel.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 10)
@@ -579,14 +579,14 @@ $introTitleLabel.ForeColor = $script:SetupPalette['TextColor']
 $panel.Controls.Add($introTitleLabel)
 
 $introBodyLabel = New-Object System.Windows.Forms.Label
-$introBodyLabel.Text = (L -Ru "Выберите папку для Mugen Deej.`r`nПо умолчанию установщик создаст в выбранном месте отдельную папку Mugen Deej — эту опцию можно отключить.`r`nПрограмма не будет добавлена в список установленных приложений Windows." -En "Choose a folder for Mugen Deej.`r`nBy default, Setup creates a separate Mugen Deej folder in the selected location; you can turn that option off.`r`nThe app will not be added to Windows Installed Apps.")
+$introBodyLabel.Text = (L -Ru "Setup распакует portable-версию Mugen Deej в выбранную папку.`r`nПо умолчанию в выбранном месте будет создана отдельная папка Mugen Deej — эту опцию можно отключить.`r`nНикакой отдельной установки программы в Windows не выполняется." -En "Setup extracts the portable Mugen Deej package into the folder you choose.`r`nBy default, it creates a separate Mugen Deej folder in that location; you can turn that option off.`r`nMugen Deej remains a portable application.")
 $introBodyLabel.Location = New-Object System.Drawing.Point(20, 41)
 $introBodyLabel.Size = New-Object System.Drawing.Size(620, 58)
 $introBodyLabel.ForeColor = $script:SetupPalette['MutedColor']
 $panel.Controls.Add($introBodyLabel)
 
 $pathLabel = New-Object System.Windows.Forms.Label
-$pathLabel.Text = (L -Ru 'Куда установить:' -En 'Install to:')
+$pathLabel.Text = (L -Ru 'Куда распаковать:' -En 'Extract to:')
 $pathLabel.Location = New-Object System.Drawing.Point(20, 105)
 $pathLabel.Size = New-Object System.Drawing.Size(150, 23)
 $pathLabel.ForeColor = $script:SetupPalette['TextColor']
@@ -621,7 +621,7 @@ $panel.Controls.Add($pathHintLabel)
 $updateInstallPreview = {
     try {
         if ([string]::IsNullOrWhiteSpace($pathBox.Text)) {
-            $pathHintLabel.Text = (L -Ru 'Выберите место установки.' -En 'Choose an installation location.')
+            $pathHintLabel.Text = (L -Ru 'Выберите папку для распаковки.' -En 'Choose a folder for extraction.')
         }
         else {
             $resolvedPreview = Resolve-InstallPath -SelectedPath $pathBox.Text.Trim() -CreateProgramFolder ([bool]$createFolderCheck.Checked)
@@ -646,7 +646,7 @@ $warningTitleLabel.ForeColor = $script:SetupPalette['Warning']
 $panel.Controls.Add($warningTitleLabel)
 
 $warningBodyLabel = New-Object System.Windows.Forms.Label
-$warningBodyLabel.Text = (L -Ru "Не рекомендуется устанавливать Mugen Deej в Program Files.`r`nНастройки хранятся рядом с программой.`r`nWindows может потребовать права администратора." -En "Installing Mugen Deej under Program Files is not recommended.`r`nSettings are stored next to the application.`r`nWindows may require administrator rights.")
+$warningBodyLabel.Text = (L -Ru "Не рекомендуется распаковывать Mugen Deej в Program Files.`r`nНастройки хранятся рядом с программой.`r`nWindows может потребовать права администратора." -En "Extracting Mugen Deej under Program Files is not recommended.`r`nSettings are stored next to the application.`r`nWindows may require administrator rights.")
 $warningBodyLabel.Location = New-Object System.Drawing.Point(20, 251)
 $warningBodyLabel.Size = New-Object System.Drawing.Size(620, 62)
 $warningBodyLabel.ForeColor = $script:SetupPalette['MutedColor']
@@ -662,7 +662,7 @@ $shortcutCheck.BackColor = $script:SetupPalette['Surface']
 $panel.Controls.Add($shortcutCheck)
 
 $launchCheck = New-Object System.Windows.Forms.CheckBox
-$launchCheck.Text = (L -Ru 'Запустить Mugen Deej после установки' -En 'Launch Mugen Deej after installation')
+$launchCheck.Text = (L -Ru 'Запустить Mugen Deej после распаковки' -En 'Launch Mugen Deej after extraction')
 $launchCheck.Location = New-Object System.Drawing.Point(20, 348)
 $launchCheck.Size = New-Object System.Drawing.Size(350, 26)
 $launchCheck.Checked = $true
@@ -674,13 +674,13 @@ $statusLabel = New-Object System.Windows.Forms.Label
 $statusLabel.Location = New-Object System.Drawing.Point(30, 514)
 $statusLabel.Size = New-Object System.Drawing.Size(420, 54)
 $statusLabel.ForeColor = $script:SetupPalette['MutedColor']
-$statusLabel.Text = (L -Ru 'Выберите место установки и нажмите «Установить».' -En 'Choose an installation location and click Install.')
+$statusLabel.Text = (L -Ru 'Выберите папку и нажмите «Распаковать».' -En 'Choose a folder and click Extract.')
 $form.Controls.Add($statusLabel)
 
 $cancelButton = New-SetupButton -Caption (L -Ru 'Отмена' -En 'Cancel') -X 466 -Y 537 -Width 104
 $form.Controls.Add($cancelButton)
 
-$installButton = New-SetupButton -Caption (L -Ru 'Установить' -En 'Install') -X 584 -Y 537 -Width 108 -IsPrimary $true
+$installButton = New-SetupButton -Caption (L -Ru 'Распаковать' -En 'Extract') -X 584 -Y 537 -Width 108 -IsPrimary $true
 $form.Controls.Add($installButton)
 $form.AcceptButton = $installButton
 $form.CancelButton = $cancelButton
@@ -692,7 +692,7 @@ $script:LaunchSuppressedByOtherInstance = $false
 
 $browseButton.Add_Click({
     $picker = New-Object System.Windows.Forms.FolderBrowserDialog
-    $picker.Description = (L -Ru 'Выберите место установки Mugen Deej' -En 'Choose an installation location for Mugen Deej')
+    $picker.Description = (L -Ru 'Выберите папку для Mugen Deej' -En 'Choose a folder for Mugen Deej')
     $picker.ShowNewFolderButton = $true
 
     try {
@@ -748,7 +748,7 @@ $installButton.Add_Click({
     $selectedPath = $pathBox.Text.Trim()
     if ([string]::IsNullOrWhiteSpace($selectedPath)) {
         [System.Windows.Forms.MessageBox]::Show(
-            (L -Ru 'Выберите место установки.' -En 'Choose an installation location.'),
+            (L -Ru 'Выберите папку для распаковки.' -En 'Choose a folder for extraction.'),
             (L -Ru 'Mugen Deej — Установщик' -En 'Mugen Deej — Installer'),
             [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Warning
@@ -778,7 +778,7 @@ $installButton.Add_Click({
 
     $existingExe = Join-Path $installPath 'MugenDeej.exe'
     if (Test-Path -LiteralPath $existingExe -PathType Leaf) {
-        $updateMessage = L -Ru "В этой папке уже установлен Mugen Deej.`r`n`r`nФайлы программы будут обновлены. Настройки, логи и резервные копии останутся на месте.`r`n`r`nПродолжить?" -En "Mugen Deej is already installed in this folder.`r`n`r`nThe application files will be updated. Your settings, logs, and backups will be kept.`r`n`r`nContinue?"
+        $updateMessage = L -Ru "В этой папке уже есть Mugen Deej.`r`n`r`nФайлы программы будут обновлены. Настройки, логи и резервные копии останутся на месте.`r`n`r`nПродолжить?" -En "This folder already contains Mugen Deej.`r`n`r`nThe application files will be updated. Your settings, logs, and backups will be kept.`r`n`r`nContinue?"
         if (-not (Show-SetupConfirm -Message $updateMessage -DefaultYes $true)) {
             return
         }
@@ -796,7 +796,7 @@ $installButton.Add_Click({
             break
         }
 
-        $runningMessage = L -Ru "Mugen Deej сейчас запущен из этой папки.`r`n`r`nЗакройте программу, чтобы установщик мог обновить её файлы, затем нажмите «Повторить»." -En "Mugen Deej is currently running from this folder.`r`n`r`nClose the app so the installer can update its files, then click Retry."
+        $runningMessage = L -Ru "Mugen Deej сейчас запущен из этой папки.`r`n`r`nЗакройте программу, чтобы Setup мог обновить её файлы, затем нажмите «Повторить»." -En "Mugen Deej is currently running from this folder.`r`n`r`nClose the app so Setup can update its files, then click Retry."
         $retry = Show-SetupConfirm -Message $runningMessage -IsWarning $true -DefaultYes $true -YesCaption (L -Ru 'Повторить' -En 'Retry') -NoCaption (L -Ru 'Отмена' -En 'Cancel')
         if (-not $retry) {
             return
@@ -805,7 +805,7 @@ $installButton.Add_Click({
 
     $runState = Get-MugenDeejRunState -TargetExe $existingExe
     if ($runState.OtherTarget -and $launchCheck.Checked) {
-        $otherInstanceMessage = L -Ru "Mugen Deej уже запущен из другой папки.`r`n`r`nУстановку можно продолжить, но новая копия не сможет запуститься, пока работающий Mugen Deej не будет закрыт.`r`n`r`nОпция «Запустить Mugen Deej после установки» будет отключена.`r`n`r`nПродолжить?" -En "Mugen Deej is already running from another folder.`r`n`r`nInstallation can continue, but the new copy cannot start until the running Mugen Deej instance is closed.`r`n`r`nThe 'Launch Mugen Deej after installation' option will be disabled.`r`n`r`nContinue?"
+        $otherInstanceMessage = L -Ru "Mugen Deej уже запущен из другой папки.`r`n`r`nРаспаковку можно продолжить, но новая копия не сможет запуститься, пока работающий Mugen Deej не будет закрыт.`r`n`r`nОпция «Запустить Mugen Deej после распаковки» будет отключена.`r`n`r`nПродолжить?" -En "Mugen Deej is already running from another folder.`r`n`r`nExtraction can continue, but the new copy cannot start until the running Mugen Deej instance is closed.`r`n`r`nThe 'Launch Mugen Deej after extraction' option will be disabled.`r`n`r`nContinue?"
         if (-not (Show-SetupConfirm -Message $otherInstanceMessage -IsWarning $true -DefaultYes $true -YesCaption (L -Ru 'Продолжить' -En 'Continue') -NoCaption (L -Ru 'Отмена' -En 'Cancel'))) {
             return
         }
@@ -826,7 +826,7 @@ $installButton.Add_Click({
     try {
         $extracted = Expand-PortablePayloadWithRetry -ZipPath $PayloadPath -Destination $installPath
         if (-not $extracted) {
-            $statusLabel.Text = (L -Ru 'Установка отменена.' -En 'Installation cancelled.')
+            $statusLabel.Text = (L -Ru 'Распаковка отменена.' -En 'Extraction cancelled.')
             $installButton.Enabled = $true
             $cancelButton.Enabled = $true
             $browseButton.Enabled = $true
@@ -846,15 +846,15 @@ $installButton.Add_Click({
         $script:LaunchAfterFinish = [bool]$launchCheck.Checked
 
         $introTitleLabel.Text = (L -Ru 'Готово' -En 'Done')
-        $introBodyLabel.Text = (L -Ru "Mugen Deej установлен в выбранную папку.`r`nОтдельная запись в списке установленных приложений Windows не создавалась." -En "Mugen Deej was installed in the selected folder.`r`nNo separate entry was created in Windows Installed Apps.")
-        $pathLabel.Text = (L -Ru 'Установлено в:' -En 'Installed to:')
+        $introBodyLabel.Text = (L -Ru "Файлы Mugen Deej распакованы в выбранную папку.`r`nПрограмма остаётся полностью портативной." -En "Mugen Deej files were extracted to the selected folder.`r`nThe application remains fully portable.")
+        $pathLabel.Text = (L -Ru 'Распаковано в:' -En 'Extracted to:')
         $pathBox.Text = $installPath
         $pathBox.Enabled = $false
         $browseButton.Visible = $false
         $createFolderCheck.Visible = $false
         $pathHintLabel.Location = New-Object System.Drawing.Point(20, 151)
         $pathHintLabel.Size = New-Object System.Drawing.Size(620, 30)
-        $pathHintLabel.Text = (L -Ru 'Mugen Deej установлен в эту папку.' -En 'Mugen Deej is installed in this folder.')
+        $pathHintLabel.Text = (L -Ru 'Mugen Deej распакован в эту папку.' -En 'Mugen Deej was extracted to this folder.')
         $shortcutCheck.Visible = $false
         $launchCheck.Visible = $false
 
@@ -867,16 +867,16 @@ $installButton.Add_Click({
 
         if ($script:LaunchSuppressedByOtherInstance) {
             $launchHintRu = if ($shortcutCheck.Checked) {
-                'Закройте её, если она ещё запущена, затем запустите установленный Mugen Deej с ярлыка на рабочем столе.'
+                'Закройте её, если она ещё запущена, затем запустите новую копию Mugen Deej с ярлыка на рабочем столе.'
             }
             else {
-                'Закройте её, если она ещё запущена, затем запустите MugenDeej.exe из установленной папки.'
+                'Закройте её, если она ещё запущена, затем запустите MugenDeej.exe из выбранной папки.'
             }
             $launchHintEn = if ($shortcutCheck.Checked) {
-                'Close it if it is still running, then start the installed Mugen Deej from the desktop shortcut.'
+                'Close it if it is still running, then start the new Mugen Deej copy from the desktop shortcut.'
             }
             else {
-                'Close it if it is still running, then start MugenDeej.exe from the installed folder.'
+                'Close it if it is still running, then start MugenDeej.exe from the selected folder.'
             }
 
             # Keep the successful "Done" heading normal. Highlight only the
@@ -895,7 +895,7 @@ $installButton.Add_Click({
             $panel.Controls.Add($launchNoticeTitleLabel)
 
             $launchNoticeBodyLabel = New-Object System.Windows.Forms.Label
-            $launchNoticeBodyLabel.Text = (L -Ru ("Во время установки уже работала другая копия программы.`r`n" + $launchHintRu) -En ("Another copy of the app was already running during installation.`r`n" + $launchHintEn))
+            $launchNoticeBodyLabel.Text = (L -Ru ("Во время распаковки уже работала другая копия программы.`r`n" + $launchHintRu) -En ("Another copy of the app was already running during extraction.`r`n" + $launchHintEn))
             $launchNoticeBodyLabel.Location = New-Object System.Drawing.Point(20, 111)
             $launchNoticeBodyLabel.Size = New-Object System.Drawing.Size(620, 54)
             $launchNoticeBodyLabel.ForeColor = $script:SetupPalette['Warning']
@@ -909,14 +909,14 @@ $installButton.Add_Click({
             $warningBodyLabel.Size = New-Object System.Drawing.Size(620, 104)
         }
 
-        $statusLabel.Text = (L -Ru 'Установка завершена. Нажмите «Готово».' -En 'Installation complete. Click Finish.')
+        $statusLabel.Text = (L -Ru 'Распаковка завершена. Нажмите «Готово».' -En 'Extraction complete. Click Finish.')
         $cancelButton.Visible = $false
         $installButton.Text = (L -Ru 'Готово' -En 'Finish')
         $installButton.Enabled = $true
         $form.AcceptButton = $installButton
     }
     catch {
-        $statusLabel.Text = (L -Ru 'Установка не завершена.' -En 'Installation did not complete.')
+        $statusLabel.Text = (L -Ru 'Распаковка не завершена.' -En 'Extraction did not complete.')
         $errorText = L -Ru ("Не удалось распаковать Mugen Deej.`r`n`r`n" + $_.Exception.Message) -En ("Could not extract Mugen Deej.`r`n`r`n" + $_.Exception.Message)
         [System.Windows.Forms.MessageBox]::Show(
             $errorText,

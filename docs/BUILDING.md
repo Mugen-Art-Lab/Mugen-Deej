@@ -91,10 +91,17 @@ The release launcher is built for Windows x64 with the Mugen Deej multi-size ico
 
 The Setup wrapper source is in `src/setup`. It embeds:
 
-- the bilingual PowerShell/WinForms installer UI from `src/setup/setup.ps1`;
+- the bilingual PowerShell/WinForms extraction UI from `src/setup/setup.ps1`;
 - the exact portable ZIP generated earlier in the same build.
 
-The Setup EXE performs a portable-style installation/update. It intentionally does not register an uninstall entry in Windows Installed Apps. Its version is injected into the Go wrapper at build time from the same release version used for the portable package.
+The Setup EXE is a self-contained extractor for that portable ZIP. It writes the
+same portable files into the folder selected by the user and can optionally
+create a desktop shortcut or launch Mugen Deej afterward. Setup itself does not
+register Mugen Deej as an installed Windows application and does not create the
+application's Windows-startup entry. Startup registration is managed later by
+Mugen Deej itself only when the user enables that setting. Its version is
+injected into the Go wrapper at build time from the same release version used
+for the portable package.
 
 ## Portable package contents
 

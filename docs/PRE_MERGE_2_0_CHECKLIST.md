@@ -1199,3 +1199,18 @@ Before creating/merging the final PR:
 
 Only after this checklist is complete:
 **PR -> review -> merge -> tag `v2.0.0` -> GitHub Release.**
+
+
+### Portable-product wording correction — 2026-09-29
+
+Mugen Deej is and remains a **portable application**. The Setup EXE is not a
+traditional Windows installer; it is a self-contained extraction wrapper around
+the exact portable package. It writes the portable files to a chosen folder and
+can optionally create a desktop shortcut or launch the app.
+
+Public docs and Setup UI must not imply that Setup registers Mugen Deej as an
+installed application or owns Windows startup/uninstall state. The optional
+Windows startup registry entry is created and removed by Mugen Deej itself only
+when the user enables/disables **Start Mugen Deej with Windows**. Before moving
+or deleting the portable folder, the UI correctly recommends disabling that
+setting first.

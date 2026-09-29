@@ -32,8 +32,8 @@ Major 2.0 release built from the hardware-tested RC1 line.
 - Added themed restore dialogs and optional automatic restart after a successful restore.
 - Added a one-shot visible post-restore restart so a restored `startMinimized=true` configuration still gives clear confirmation once, while later launches continue to obey the saved start-minimized setting.
 - Added a self-contained bilingual **Setup EXE** alongside the portable ZIP, both generated from the same release files with SHA-256 sidecar files.
-- Setup can create a dedicated `Mugen Deej` folder, create a desktop shortcut, launch after installation, update an existing copy without replacing user config/logs/backups, and explains manual removal because it does not register an uninstall entry in Windows Installed Apps.
-- Improved Setup behavior around running Mugen Deej instances: same-folder updates wait for the running copy to close, different-folder instances are explained clearly, and launch-after-install is suppressed when the single-instance guard would block the new copy.
+- Setup is a self-contained extractor for the same portable files: it can create a dedicated `Mugen Deej` folder and desktop shortcut, launch after extraction, and refresh an existing copy without replacing user config/logs/backups.
+- Improved Setup behavior around running Mugen Deej instances: same-folder refreshes wait for the running copy to close, different-folder instances are explained clearly, and launch-after-extraction is suppressed when the single-instance guard would block the new copy.
 - Improved Setup focus/foreground behavior, bilingual confirmation layouts, dynamic dialog sizing, Program Files warnings, default installation under `%LOCALAPPDATA%\Programs\Mugen Deej`, and final-page guidance.
 - Preserved the existing atomic configuration-save pipeline with `config.previous.json`, `config.last-good.json`, read-back verification, and safe recovery behavior.
 - Reverified real Legacy (5 sliders) and Extended (5 sliders + 6 buttons) controller paths, including physical button actions, backup/restore, reconnect behavior, themes, localization, startup/tray behavior, and the final Setup flow.

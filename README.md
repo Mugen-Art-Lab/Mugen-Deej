@@ -117,7 +117,7 @@ Mugen Deej automatically adapts its interface to the detected controller protoco
 
 [Download the latest release](https://github.com/Mugen-Art-Lab/Mugen-Deej/releases/latest).
 
-For most users, use the **Setup EXE**. It copies Mugen Deej into a folder of your choice and does not add a normal uninstall entry to Windows Installed Apps. A **portable ZIP** is also available if you prefer to extract and run the application manually.
+Mugen Deej remains fully portable. For convenience, the **Setup EXE** simply unpacks the same portable files into a folder of your choice, can create a desktop shortcut, and can launch Mugen Deej when it finishes. The **portable ZIP** contains the same application files for manual extraction.
 
 Latest public stable release: **1.0.0**. The **2.0.0** release is being finalized on the active release branch after RC1 and real-hardware acceptance.
 
@@ -178,7 +178,7 @@ Reference documentation: [Adaptive v3 overview](docs/ADAPTIVE_V3.md) · [Nano wi
 - `arduino/MugenDeejController/` — tested reference Extended controller firmware and hardware pin profile.
 - `arduino/MugenDeejCardboardNanoPrototype/` — hardware-proven Adaptive v3 Nano 5/28/2/1 reference firmware (historical directory name).
 - `src/launcher/` — small Go launcher used to start the PowerShell application as a Windows GUI executable.
-- `src/setup/` — self-contained Go Setup wrapper plus the bilingual PowerShell/WinForms installer UI.
+- `src/setup/` — self-contained Go Setup wrapper plus the bilingual PowerShell/WinForms extraction UI.
 - `tools/Build-Release.ps1` — release builder for the portable ZIP, Setup EXE and SHA-256 checksum files.
 - `packaging/` — files and templates used inside release packages.
 - `config.example.json` — clean default configuration example.

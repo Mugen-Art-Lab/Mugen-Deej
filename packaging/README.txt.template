@@ -22,11 +22,11 @@ Adaptive v3 поддерживает профили приложений, сло
 необязательный виртуальный Xbox 360 / XInput-контроллер. По умолчанию
 виртуальный контроллер выключен и включается только пользователем.
 
-Mugen Deej не требует установки в системные каталоги. Setup EXE копирует те же
+Mugen Deej — портативная программа. Setup EXE просто распаковывает те же
 файлы, что находятся в portable ZIP-архиве, в выбранную папку и при желании
-создаёт ярлык на рабочем столе. Если включён автозапуск вместе с Windows,
-сначала отключите его в Mugen Deej, а затем удаляйте или перемещайте папку
-программы.
+создаёт ярлык на рабочем столе. Если автозапуск вместе с Windows был включён
+в самом Mugen Deej, сначала отключите его в программе, а затем удаляйте или
+перемещайте папку.
 
 EN
 --
@@ -48,10 +48,10 @@ toggle/encoder actions. Physical buttons can also be mapped to the optional
 virtual Xbox 360 / XInput controller. Virtual-controller output is off by
 default and is enabled only by the user.
 
-Mugen Deej does not need to be installed into a system folder. The Setup EXE
-copies the same files as the portable ZIP into a folder of your choice and can
-create a desktop shortcut. If Windows startup is enabled, disable it in Mugen
-Deej before deleting or moving the application folder.
+Mugen Deej is portable. The Setup EXE simply extracts the same files as the
+portable ZIP into a folder of your choice and can create a desktop shortcut. If
+Windows startup was enabled inside Mugen Deej, disable it in the app before
+deleting or moving the application folder.
 
 Project:
 https://github.com/Mugen-Art-Lab/Mugen-Deej

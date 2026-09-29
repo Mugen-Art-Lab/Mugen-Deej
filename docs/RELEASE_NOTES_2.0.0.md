@@ -61,13 +61,13 @@ Reference documentation:
 
 ### Install or update
 
-For most users, use **`Mugen-Deej-2.0.0-Setup.exe`**.
+Mugen Deej remains fully portable.
 
-A **Portable ZIP** is also available for users who prefer a completely manual,
-portable installation.
+For most users, **`Mugen-Deej-2.0.0-Setup.exe`** is the most convenient
+option: it simply extracts the portable package into a folder of your choice,
+can create a desktop shortcut, and can launch Mugen Deej when it finishes.
 
-The Setup EXE installs/updates the same Portable files used by the ZIP. It
-does not add a normal uninstall entry to Windows Installed Apps.
+The **Portable ZIP** contains the same application files for manual extraction.
 
 An in-place **1.0.0 -> 2.0.0** update was tested on real hardware. Normal
 updates preserve user configuration, mappings, logs and backups.
@@ -161,15 +161,14 @@ Mugen Deej 2.0 поддерживает три поколения протоко
 
 ### Установка и обновление
 
+Mugen Deej остаётся полностью портативной программой.
+
 Для большинства пользователей удобнее
-**`Mugen-Deej-2.0.0-Setup.exe`**.
+**`Mugen-Deej-2.0.0-Setup.exe`**: он просто распаковывает portable-версию в
+выбранную папку, при желании создаёт ярлык на рабочем столе и может сразу
+запустить Mugen Deej.
 
-Если нужна полностью переносимая установка без установщика, используйте
-**Portable ZIP**.
-
-Setup EXE устанавливает тот же набор файлов, который находится в Portable ZIP,
-и не добавляет обычную запись удаления в список установленных приложений
-Windows.
+**Portable ZIP** содержит тот же набор файлов для ручной распаковки.
 
 Обновление **1.0.0 -> 2.0.0** поверх существующей установки проверено на
 реальном контроллере. Обычное обновление не удаляет пользовательские настройки,
@@ -177,6 +176,10 @@ Windows.
 
 Перед крупным обновлением всё равно рекомендуется сделать резервную копию
 настроек средствами Mugen.
+
+Если в самой программе включена опция **«Запускать Mugen Deej вместе с
+Windows»**, запись автозапуска создаёт именно Mugen Deej, а не Setup EXE. Перед
+удалением или переносом папки эту опцию лучше отключить.
 
 ### Windows SmartScreen и цифровая подпись
 

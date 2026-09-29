@@ -22,8 +22,9 @@ Extended controllers can add physical buttons and configurable actions.
   actions. Restore validates the file first, saves an emergency copy of the
   current settings, and then uses the same verified configuration-writing path
   as normal saves.
-- **Setup EXE and portable ZIP** — use Setup for the easiest installation or
-  update, or extract the ZIP for a completely portable copy.
+- **Setup EXE and portable ZIP** — Mugen Deej stays portable in both cases.
+  Setup simply extracts the same portable files into a folder of your choice;
+  the ZIP lets you do the same manually.
 - **Safer updates** — Setup handles an already-running Mugen Deej, warns about
   protected folders, can create a desktop shortcut, and preserves user
   configuration, logs and backups when updating an existing folder.
@@ -57,10 +58,13 @@ For a fully portable copy: **`Mugen-Deej-1.0.0-Portable.zip`**.
 
 A matching SHA-256 checksum file is provided for each package.
 
-Setup copies Mugen Deej into a folder of your choice and intentionally does
-**not** create a normal uninstall entry in Windows Installed Apps. To remove it,
-disable Windows startup in Mugen Deej if you enabled that option, close the
-program, and delete its folder.
+Setup does not turn Mugen Deej into an installed Windows application; it is a
+self-contained extractor for the portable package. It can also create a desktop
+shortcut and launch Mugen Deej after extraction.
+
+If you enabled **Start Mugen Deej with Windows** inside the application, turn
+that option off before deleting or moving the folder. The startup entry belongs
+to Mugen Deej itself, not to Setup.
 
 > The 1.0.0 binaries are not code-signed. Depending on Windows security
 > settings, you may see an **Unknown publisher** or SmartScreen warning. Use the
@@ -96,9 +100,9 @@ Mugen Deej 1.0.0 — первый публичный релиз с поддер�
 - **Резервное копирование и восстановление** — в резервную копию входят
   основные настройки и действия кнопок. Перед восстановлением Mugen Deej
   проверяет файл и сохраняет аварийную копию текущих настроек.
-- **Setup EXE и portable ZIP** — для обычной установки или обновления удобнее
-  Setup EXE, а ZIP можно просто распаковать и использовать как полностью
-  переносимую версию.
+- **Setup EXE и portable ZIP** — в обоих случаях Mugen Deej остаётся
+  портативной программой. Setup EXE просто распаковывает тот же набор файлов в
+  выбранную папку, а ZIP позволяет сделать это вручную.
 - **Аккуратное обновление** — установщик умеет дождаться закрытия уже
   запущенного Mugen Deej, предупреждает о защищённых папках, при желании
   создаёт ярлык и не удаляет пользовательские настройки, логи и резервные
@@ -132,10 +136,13 @@ s512|s123|s900|s456|s777|b1|b1|b0|b1|b1|b1
 
 Для каждого пакета опубликован отдельный файл с контрольной суммой SHA-256.
 
-Setup EXE копирует Mugen Deej в выбранную папку и намеренно **не** создаёт
-обычную запись удаления в списке установленных приложений Windows. Чтобы
-удалить программу, сначала отключите автозапуск в Mugen Deej, если он был
-включён, закройте программу и удалите её папку.
+Setup EXE не превращает Mugen Deej в установленное приложение Windows — это
+самораспаковывающаяся оболочка для portable-версии. Она может дополнительно
+создать ярлык на рабочем столе и запустить Mugen Deej после распаковки.
+
+Если в самой программе была включена опция **«Запускать Mugen Deej вместе с
+Windows»**, перед удалением или переносом папки сначала выключите её. Запись
+автозапуска создаёт само приложение, а не Setup EXE.
 
 > Файлы версии 1.0.0 не подписаны цифровой подписью. В зависимости от настроек
 > безопасности Windows может показать «Неизвестный издатель» или предупреждение
