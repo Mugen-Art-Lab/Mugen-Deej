@@ -6,11 +6,13 @@ This is the short resume point for the active `feature/virtual-gamepad-ui` branc
 
 ## Current release-prep resume — 2026-09-29
 
-The newest CI-built runtime under hardware validation is **Build release
-packages #16** from
-`1d414f6d5a0f5eeccc3ec7e9519e1a4e04e02efd`
-(`ui: add fast encoder indicator lane`). Any documentation-only commits after
-that point do not imply a newer tested installer.
+The newest CI-built runtime is **Build release packages #18** from
+`2ecc82cf386c2ff53aaba0b92530e0a504eb3e22`
+(`ui: polish Russian and English copy`). #18 changes only user-facing
+Russian/English wording in the main WinForms app and Setup wizard on top of the
+hardware-tested fast-encoder runtime from CI #16
+(`1d414f6d5a0f5eeccc3ec7e9519e1a4e04e02efd`). Any documentation-only
+commits after #18 do not imply a newer tested installer.
 
 Current experimental hardware state is Adaptive `5/28/2/2` at 500000 baud
 with the true 10 ms heartbeat firmware. The desktop shows roughly near-100 Hz
