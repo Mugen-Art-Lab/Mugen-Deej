@@ -2,24 +2,23 @@
 
 ## 2.0.0 — 2026-09-27
 
-Major 2.0 generation release, promoted from the hardware-accepted RC1 line.
+Major 2.0 release built from the hardware-tested RC1 line.
 
-- Added self-describing **Adaptive v3** controller support with independent sliders, momentary buttons, latching toggles and cumulative-position rotary encoders.
-- Added first-class toggle and encoder actions, application profiles and layered mappings.
-- Added **Control layers** driven by T1/T2, including custom layer names, per-layer button/encoder actions and configurable on-screen layer notifications.
-- Added an optional **Virtual Xbox gamepad** backend with stateful press/hold/release behavior, digital stick directions, safe neutralization on profile/layer changes and low-latency input handling.
-- Added automatic XInput enablement when a virtual mapping is explicitly configured in a layer, without undoing unrelated manual disablement.
-- Added universal **backup schema v3** for main configuration, button actions, Adaptive actions/profiles/layers and virtual-controller state, with compatibility for older backups.
-- Hardened controller discovery and reconnect behavior, including false-Legacy probe protection, hot-unplug survival in the button editor and nonblocking virtual-controller startup/teardown.
-- Reduced the tested Cardboard Nano matrix debounce to **6 ms** and added cumulative firmware debounce diagnostics.
-- Refined the bilingual UI across controller status, button actions, toggle/encoder actions, layers, diagnostics, slider settings and application selection.
-- Improved connection diagnostics for high-rate Adaptive traffic: packet freshness/rate wording is clearer, driver-status lookup no longer blocks the modal open path, the serial receive buffer has more headroom, and malformed topology-shaped packets remain guarded.
-- Added optional 500000-baud probing for high-rate Adaptive development hardware while preserving the normal 9600/115200 compatibility path and the 115200-baud public Adaptive reference.
-- Added a dedicated fast encoder-indicator lane so Adaptive rotary position/value visuals can update near the controller heartbeat without forcing the rest of the dashboard or audio-slider work to run at the same rate.
-- Restored and hardware-verified production Windows-startup behavior, including a real reboot from a clean Setup installation.
-- Added self-contained Setup packaging from the exact Portable payload, preserving one runtime payload across both delivery formats.
-- Slider-direction inversion is now remembered per detected controller protocol/topology, so differently wired Legacy, Extended and Adaptive controllers can be swapped without repeatedly changing a global inversion setting.
-- Hardware acceptance covered Legacy, Extended, and Adaptive 5/28/2/1 switching; 1.0.0 → 2.0.0 in-place update; clean Setup; schema-v3 restore; layer/XInput mappings; per-controller slider inversion; and Windows reboot/autostart.
+- Added **Adaptive v3**, a self-describing controller protocol with first-class sliders, momentary buttons, latching toggles and cumulative-position rotary encoders.
+- Added configurable toggle ON/OFF actions and encoder CW/CCW/Push actions.
+- Added **Control layers** driven by T1/T2, including custom layer names, per-layer mappings and optional on-screen layer notifications.
+- Added application-specific Adaptive profiles.
+- Added an optional **Virtual Xbox 360 / XInput controller** with correct press/hold/release tracking and safe state reset on profile/layer changes.
+- Added automatic XInput enablement when a virtual mapping is explicitly configured, without overriding unrelated manual disablement.
+- Added **backup schema v3** covering the main configuration, button actions, Adaptive actions/profiles/layers and virtual-controller settings, while retaining older-backup compatibility.
+- Hardened COM discovery, hot-unplug recovery, reconnect handling, sleep/hibernation behavior and malformed Adaptive packet rejection.
+- Added clearer connection diagnostics, a larger serial receive buffer for high-rate Adaptive traffic and a dedicated fast UI path for encoder indicators.
+- Added optional 500000-baud probing for development hardware while keeping 9600/115200 compatibility and the public 115200-baud Adaptive reference.
+- Reduced the tested Nano matrix debounce to **6 ms** and exposed firmware debounce diagnostics.
+- Added per-controller slider-direction settings so differently wired Legacy, Extended and Adaptive controllers can be swapped without changing one global inversion option.
+- Refined the Russian/English UI across controller status, button actions, toggle/encoder settings, layers, diagnostics, control settings and application selection.
+- Preserved the same tested Portable payload inside the self-contained Setup EXE.
+- Real-hardware acceptance covered Legacy, Extended and Adaptive 5/28/2/1; 1.0.0 -> 2.0.0 in-place update; clean Setup; backup restore; layer/XInput mappings; per-controller inversion; and Windows reboot/autostart.
 
 ## 1.0.0 — 2026-09-15
 
