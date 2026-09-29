@@ -1092,39 +1092,6 @@ presented as the required/reference firmware in the public build instructions.
 
 Status: **PASS / RELEASE-FACING TEXT AUDITED**
 
-A second language-quality pass on 2026-09-29 rewrote the 1.0.0 release notes
-and removed several machine-translated/calque-style phrases from the public
-README, changelog, packaged README and older bilingual release notes (for
-example `soft mute` -> explicit mute/unmute wording, Russian
-`мягкое отключение звука`, `payload`, `Friendly UI`, and unnecessary
-`portable-` hybrids). The goal is natural human-facing copy in both languages,
-not one-to-one literal translation.
-
-The same pass was then applied to the actual WinForms/Setup copy: awkward
-`portable-` hybrids, `silent application`/Russian `молчащее приложение`
-wording, COM discovery phrasing, and several installer sentences were rewritten
-without changing behavior.
-
-Runtime copy-polish commit:
-
-`2ecc82cf386c2ff53aaba0b92530e0a504eb3e22`
-(`ui: polish Russian and English copy`)
-
-CI provenance:
-
-- workflow: `Build release packages`;
-- run: **#18**, run ID `36601050322`;
-- result: **success**;
-- artifact: `Mugen-Deej-packages-18`, artifact ID `11049465409`;
-- Actions artifact digest:
-  `sha256:954f994e7300689de29afc857090ab4c34c3f63b5f1e61a5a3feb59414585287`;
-- Setup SHA-256:
-  `adf12826321e51b67b6bab8246e4337b4599ce02c0ad8d60e23420abeb35401d`.
-
-The build passed the Windows PowerShell 5.1 parser, helper publish/smoke, launcher
-and package steps. This supersedes CI #16 only for text/copy changes; the fast
-encoder behavior itself is unchanged from the hardware-tested #16 runtime.
-
 - [x] Read `README.md` top-to-bottom as a first-time user.
 - [x] Read `README_RU.md` top-to-bottom as a first-time user.
 - [x] remove stale release-branch wording where it implied 2.0 was already
@@ -1199,39 +1166,3 @@ Before creating/merging the final PR:
 
 Only after this checklist is complete:
 **PR -> review -> merge -> tag `v2.0.0` -> GitHub Release.**
-
-
-### Portable-product wording correction — 2026-09-29
-
-Mugen Deej is and remains a **portable application**. The Setup EXE is not a
-traditional Windows installer; it is a self-contained extraction wrapper around
-the exact portable package. It writes the portable files to a chosen folder and
-can optionally create a desktop shortcut or launch the app.
-
-Public docs and Setup UI must not imply that Setup registers Mugen Deej as an
-installed application or owns Windows startup/uninstall state. The optional
-Windows startup registry entry is created and removed by Mugen Deej itself only
-when the user enables/disables **Start Mugen Deej with Windows**. Before moving
-or deleting the portable folder, the UI correctly recommends disabling that
-setting first.
-
-
-Portable-wording correction CI provenance:
-
-- source commit:
-  `bae5bd0cb6f23d3f782ce897267d0d6ce740e0b4`
-  (`docs: describe Setup as portable extractor`);
-- workflow: `Build release packages`;
-- run: **#19**, run ID `36601931318`;
-- result: **success**;
-- artifact: `Mugen-Deej-packages-19`, artifact ID `11049581653`;
-- Actions artifact digest:
-  `sha256:f692ff2db75715780f848acb7264ff22ea2b4a6109c24512edd73de6aa3370bd`;
-- Setup SHA-256:
-  `d6e16ed76c2154805ad638478dcaf88180a6bbc22c034c47dbbdb041c4133db9`;
-- Portable ZIP SHA-256:
-  `0b23faec10405a0443ee20abf1b329e8eb8e908319df8652297f7a4fb5dd560c`.
-
-The Setup UI now consistently says **extract/unpack** instead of implying a
-traditional Windows installation. This is a wording-only runtime change on top
-of the already tested application behavior.

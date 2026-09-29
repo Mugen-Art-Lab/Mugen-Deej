@@ -2,38 +2,39 @@
 
 ## 2.0.0 — 2026-09-27
 
-Major 2.0 release built from the hardware-tested RC1 line.
+Major 2.0 generation release, promoted from the hardware-accepted RC1 line.
 
-- Added **Adaptive v3**, a self-describing controller protocol with first-class sliders, momentary buttons, latching toggles and cumulative-position rotary encoders.
-- Added configurable toggle ON/OFF actions and encoder CW/CCW/Push actions.
-- Added **Control layers** driven by T1/T2, including custom layer names, per-layer mappings and optional on-screen layer notifications.
-- Added application-specific Adaptive profiles.
-- Added an optional **Virtual Xbox 360 / XInput controller** with correct press/hold/release tracking and safe state reset on profile/layer changes.
-- Added automatic XInput enablement when a virtual mapping is explicitly configured, without overriding unrelated manual disablement.
-- Added **backup schema v3** covering the main configuration, button actions, Adaptive actions/profiles/layers and virtual-controller settings, while retaining older-backup compatibility.
-- Hardened COM discovery, hot-unplug recovery, reconnect handling, sleep/hibernation behavior and malformed Adaptive packet rejection.
-- Added clearer connection diagnostics, a larger serial receive buffer for high-rate Adaptive traffic and a dedicated fast UI path for encoder indicators.
-- Added optional 500000-baud probing for development hardware while keeping 9600/115200 compatibility and the public 115200-baud Adaptive reference.
-- Reduced the tested Nano matrix debounce to **6 ms** and exposed firmware debounce diagnostics.
-- Added per-controller slider-direction settings so differently wired Legacy, Extended and Adaptive controllers can be swapped without changing one global inversion option.
-- Refined the Russian/English UI across controller status, button actions, toggle/encoder settings, layers, diagnostics, control settings and application selection.
-- Preserved the same tested portable files inside the self-contained Setup EXE.
-- Real-hardware acceptance covered Legacy, Extended and Adaptive 5/28/2/1; 1.0.0 -> 2.0.0 in-place update; clean Setup; backup restore; layer/XInput mappings; per-controller inversion; and Windows reboot/autostart.
+- Added self-describing **Adaptive v3** controller support with independent sliders, momentary buttons, latching toggles and cumulative-position rotary encoders.
+- Added first-class toggle and encoder actions, application profiles and layered mappings.
+- Added **Control layers** driven by T1/T2, including custom layer names, per-layer button/encoder actions and configurable on-screen layer notifications.
+- Added an optional **Virtual Xbox gamepad** backend with stateful press/hold/release behavior, digital stick directions, safe neutralization on profile/layer changes and low-latency input handling.
+- Added automatic XInput enablement when a virtual mapping is explicitly configured in a layer, without undoing unrelated manual disablement.
+- Added universal **backup schema v3** for main configuration, button actions, Adaptive actions/profiles/layers and virtual-controller state, with compatibility for older backups.
+- Hardened controller discovery and reconnect behavior, including false-Legacy probe protection, hot-unplug survival in the button editor and nonblocking virtual-controller startup/teardown.
+- Reduced the tested Cardboard Nano matrix debounce to **6 ms** and added cumulative firmware debounce diagnostics.
+- Refined the bilingual UI across controller status, button actions, toggle/encoder actions, layers, diagnostics, slider settings and application selection.
+- Improved connection diagnostics for high-rate Adaptive traffic: packet freshness/rate wording is clearer, driver-status lookup no longer blocks the modal open path, the serial receive buffer has more headroom, and malformed topology-shaped packets remain guarded.
+- Added optional 500000-baud probing for high-rate Adaptive development hardware while preserving the normal 9600/115200 compatibility path and the 115200-baud public Adaptive reference.
+- Added a dedicated fast encoder-indicator lane so Adaptive rotary position/value visuals can update near the controller heartbeat without forcing the rest of the dashboard or audio-slider work to run at the same rate.
+- Restored and hardware-verified production Windows-startup behavior, including a real reboot from a clean Setup installation.
+- Added self-contained Setup packaging from the exact Portable payload, preserving one runtime payload across both delivery formats.
+- Slider-direction inversion is now remembered per detected controller protocol/topology, so differently wired Legacy, Extended and Adaptive controllers can be swapped without repeatedly changing a global inversion setting.
+- Hardware acceptance covered Legacy, Extended, and Adaptive 5/28/2/1 switching; 1.0.0 → 2.0.0 in-place update; clean Setup; schema-v3 restore; layer/XInput mappings; per-controller slider inversion; and Windows reboot/autostart.
 
 ## 1.0.0 — 2026-09-15
 
 - Introduced the first public **Extended-controller architecture** while preserving compatibility with classic deej slider-only hardware.
 - Added automatic protocol detection for classic numeric packets and Extended `s...|b...` packets, with slider and button counts discovered from valid controller data instead of being fixed in the desktop client.
 - Added live button state to the main UI and a dedicated bilingual button-settings interface.
-- Added configurable button actions including mute/unmute for assigned controls, media commands, Windows volume actions, custom hotkeys (including F13–F24), physical hotkey capture, launching programs/files, opening folders or URLs, and running commands.
+- Added configurable button actions including soft mute, media commands, Windows volume actions, custom hotkeys (including F13–F24), physical hotkey capture, launching programs/files, opening folders or URLs, and running commands.
 - Added a tested reference Extended Arduino firmware under `arduino/MugenDeejController/` for the 5-slider + 6-button Nano-style profile, with non-blocking button debounce and full-state packets at 9600 baud.
 - Finalized button-action storage as `button-actions.json` and added safe migration from the internal-development `button-actions.dev.json` filename without deleting the rollback copy.
 - Added portable **backup and restore** for the main configuration and button actions, including backup validation, a pre-restore emergency snapshot, verified writes, and rollback attempts if restore fails.
 - Added themed restore dialogs and optional automatic restart after a successful restore.
 - Added a one-shot visible post-restore restart so a restored `startMinimized=true` configuration still gives clear confirmation once, while later launches continue to obey the saved start-minimized setting.
-- Added a self-contained bilingual **Setup EXE** alongside the portable ZIP, both generated from the same release files with SHA-256 sidecar files.
-- Setup is a self-contained extractor for the same portable files: it can create a dedicated `Mugen Deej` folder and desktop shortcut, launch after extraction, and refresh an existing copy without replacing user config/logs/backups.
-- Improved Setup behavior around running Mugen Deej instances: same-folder refreshes wait for the running copy to close, different-folder instances are explained clearly, and launch-after-extraction is suppressed when the single-instance guard would block the new copy.
+- Added a self-contained bilingual **Setup EXE** alongside the portable ZIP, both generated from the same release payload with SHA-256 sidecar files.
+- Setup can create a dedicated `Mugen Deej` folder, create a desktop shortcut, launch after installation, update an existing copy without replacing user config/logs/backups, and explains manual removal because it does not register an uninstall entry in Windows Installed Apps.
+- Improved Setup behavior around running Mugen Deej instances: same-folder updates wait for the running copy to close, different-folder instances are explained clearly, and launch-after-install is suppressed when the single-instance guard would block the new copy.
 - Improved Setup focus/foreground behavior, bilingual confirmation layouts, dynamic dialog sizing, Program Files warnings, default installation under `%LOCALAPPDATA%\Programs\Mugen Deej`, and final-page guidance.
 - Preserved the existing atomic configuration-save pipeline with `config.previous.json`, `config.last-good.json`, read-back verification, and safe recovery behavior.
 - Reverified real Legacy (5 sliders) and Extended (5 sliders + 6 buttons) controller paths, including physical button actions, backup/restore, reconnect behavior, themes, localization, startup/tray behavior, and the final Setup flow.
@@ -43,7 +44,7 @@ Major 2.0 release built from the hardware-tested RC1 line.
 
 - Added **Auto, Light, and Dark** application themes.
 - Auto theme follows Windows app-theme changes while Mugen Deej is running.
-- Refreshed the WinForms interface with the new interface, including rounded cards, custom combo boxes, flatter buttons, and smoother control indicators.
+- Refreshed the WinForms interface with the new Friendly UI, including rounded cards, custom combo boxes, flatter buttons, and smoother control indicators.
 - Added matching light and dark styling across the main window, control settings, first-run guide, application picker, and notification-area menu.
 - Improved visual stability of control-position indicators so stationary potentiometers no longer appear to jitter, without changing the underlying USB/controller/audio behavior.
 - Improved light-theme contrast for bright and HDR displays and refined card geometry and spacing.

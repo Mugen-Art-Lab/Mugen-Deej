@@ -6,14 +6,11 @@ This is the short resume point for the active `feature/virtual-gamepad-ui` branc
 
 ## Current release-prep resume — 2026-09-29
 
-The newest CI-built runtime is **Build release packages #19** from
-`bae5bd0cb6f23d3f782ce897267d0d6ce740e0b4`
-(`docs: describe Setup as portable extractor`). #19 changes only public/Setup
-wording so Mugen Deej is described correctly as a portable application and the
-Setup EXE as a self-contained extractor. The underlying hardware behavior is
-still the hardware-tested fast-encoder runtime from CI #16
-(`1d414f6d5a0f5eeccc3ec7e9519e1a4e04e02efd`). Any documentation-only
-commits after #19 do not imply a newer tested package.
+The newest CI-built runtime under hardware validation is **Build release
+packages #16** from
+`1d414f6d5a0f5eeccc3ec7e9519e1a4e04e02efd`
+(`ui: add fast encoder indicator lane`). Any documentation-only commits after
+that point do not imply a newer tested installer.
 
 Current experimental hardware state is Adaptive `5/28/2/2` at 500000 baud
 with the true 10 ms heartbeat firmware. The desktop shows roughly near-100 Hz
