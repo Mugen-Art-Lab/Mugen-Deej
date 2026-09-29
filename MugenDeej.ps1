@@ -3478,6 +3478,8 @@ $script:BusyPortCooldownMaxSeconds = 600
 $script:LastScanBusyPorts = @()
 $script:LastValues = @()
 $script:LatestLevels = @()
+$script:PendingSliderValues = @()
+$script:HasPendingSliderValues = $false
 $script:AudioWarningCooldowns = @{}
 $script:CaptureDeviceCache = @()
 $script:CaptureDeviceCacheAt = [DateTime]::MinValue
@@ -13553,6 +13555,74 @@ function Update-AdaptiveInputIndicators {
     }
 }
 
+function Update-MainEncoderIndicatorsFast {
+    if (
+        -not $script:IsConnected -or
+        [string]$script:ControllerProtocol -ne 'adaptive' -or
+        [int]$script:DetectedEncoderCount -lt 1 -or
+        $null -eq $form -or
+        $form.IsDisposed -or
+        -not $form.Visible
+    ) {
+        return
+    }
+
+    $viewCount = @($script:MainEncoderIndicators).Count
+    if ($viewCount -lt 1) { return }
+
+    $encoderCount = @($script:LatestEncoders).Count
+    $count = [Math]::Min($viewCount, $encoderCount)
+
+    for ($i = 0; $i -lt $count; $i++) {
+        $view = $script:MainEncoderIndicators[$i]
+        if (
+            $null -eq $view -or
+            $null -eq $view.KnobView -or
+            $view.KnobView.IsDisposed -or
+            $null -eq $view.PositionLabel -or
+            $view.PositionLabel.IsDisposed
+        ) {
+            continue
+        }
+
+        $encoder = $script:LatestEncoders[$i]
+        if ($null -eq $encoder) { continue }
+
+        $position = [int64]$encoder.Position
+        $hasPush = [bool]$encoder.HasPush
+        $pressed = ($hasPush -and [int]$encoder.Push -eq 0)
+        $positionText = [string]$position
+
+        if ($view.PositionLabel.Text -ne $positionText) {
+            $view.PositionLabel.Text = $positionText
+            # Text updates are tiny but normally remain queued until the next
+            # WinForms paint pass. Flush just this label for a tighter visual
+            # link between a physical detent and its on-screen position.
+            $view.PositionLabel.Update()
+        }
+
+        if (
+            $null -eq $view.LastPosition -or
+            [int64]$view.LastPosition -ne $position -or
+            $null -eq $view.LastHasPush -or
+            [bool]$view.LastHasPush -ne $hasPush -or
+            $null -eq $view.LastPressed -or
+            [bool]$view.LastPressed -ne $pressed
+        ) {
+            $view.LastPosition = $position
+            $view.LastHasPush = $hasPush
+            $view.LastPressed = $pressed
+
+            # The knob is only 28x28. Force only this changed rotary indicator
+            # to paint now instead of waiting for Windows to coalesce several
+            # detents into one later WM_PAINT. This scales linearly to future
+            # 2/4-encoder layouts without speeding up the rest of the dashboard.
+            $view.KnobView.Invalidate()
+            $view.KnobView.Update()
+        }
+    }
+}
+
 function Update-AdaptiveInputFeatureUi {
     $metrics = Get-AdaptiveInputStatusLayoutMetrics
     $hasButtons = ($script:IsConnected -and $script:DetectedButtonCount -gt 0)
@@ -16983,6 +17053,8 @@ function Close-ControllerPort {
     $script:ConnectedPort = ''
     $script:LastSerialPacketAt = [DateTime]::MinValue
     $script:LatestLevels = @()
+    $script:PendingSliderValues = @()
+    $script:HasPendingSliderValues = $false
     $script:ControllerProtocol = 'unknown'
     $script:DetectedSliderCount = 0
     $script:DetectedButtonCount = 0
@@ -17556,6 +17628,15 @@ function Apply-SliderValues {
     }
 }
 
+function Apply-PendingSliderValues {
+    if (-not $script:HasPendingSliderValues) { return }
+
+    $values = @($script:PendingSliderValues)
+    $script:PendingSliderValues = @()
+    $script:HasPendingSliderValues = $false
+    Apply-SliderValues -Values $values
+}
+
 function Handle-ControllerConnectionLost {
     param([string]$Reason)
 
@@ -17644,6 +17725,8 @@ function Fail-ResumePreservedConnection {
 }
 
 function Process-SerialData {
+    param([switch]$DeferSliderApply)
+
     $resumePreserveActive = ($script:ResumePreserveUntil -ne [DateTime]::MinValue)
     $now = Get-Date
 
@@ -17737,7 +17820,17 @@ function Process-SerialData {
                 Update-DriverStatus
             }
 
-            Apply-SliderValues -Values @($latestParsed.Sliders)
+            if ($DeferSliderApply) {
+                $script:PendingSliderValues = @($latestParsed.Sliders)
+                $script:HasPendingSliderValues = $true
+            }
+            else {
+                # A normal 20/5 ms input pass supersedes anything queued by the
+                # encoder fast lane. Always apply only the newest slider state.
+                $script:PendingSliderValues = @()
+                $script:HasPendingSliderValues = $false
+                Apply-SliderValues -Values @($latestParsed.Sliders)
+            }
             return
         }
 
@@ -19154,6 +19247,7 @@ function Handle-PowerModeChange {
             $script:ResumePreserveFirstErrorLogged = $false
 
             if ($null -ne $timer) { $timer.Stop() }
+        if ($null -ne $encoderFastTimer) { $encoderFastTimer.Stop() }
 
             # Preserve the established controller SerialPort across sleep and hibernation.
             # Only an unrelated in-progress discovery probe is cancelled; Windows
@@ -19317,6 +19411,7 @@ $form.Add_FormClosing({
     if ($script:IsConnecting -and -not $script:ShutdownFinalizing) {
         $eventArgs.Cancel = $true
         if ($null -ne $timer) { $timer.Stop() }
+        if ($null -ne $encoderFastTimer) { $encoderFastTimer.Stop() }
         Cancel-ActivePortProbe -Reason 'form closing while a COM-port probe is active'
         Close-ControllerPort
         $form.Hide()
@@ -19371,6 +19466,7 @@ $timer.Add_Tick({
     # Process-SerialData clears this state on success or failure.
     if ($script:ResumePreserveUntil -ne [DateTime]::MinValue) {
         Process-SerialData
+        Apply-PendingSliderValues
         Update-KnobMonitor
         return
     }
@@ -19548,6 +19644,7 @@ $timer.Add_Tick({
 
     if ($script:IsConnected) {
         Process-SerialData
+        Apply-PendingSliderValues
     }
     elseif (-not $script:IsConnecting -and -not $script:ResumeAutoReconnectSuppressed) {
         $seconds = [int]$script:Config.connection.reconnectSeconds
@@ -19603,6 +19700,45 @@ $timer.Add_Tick({
     Update-KnobMonitor
 })
 
+# Encoder indicators get a dedicated 10 ms visual/input lane. The ordinary
+# dashboard and audio-slider work remain on the existing main timer.
+$encoderFastTimer = New-Object System.Windows.Forms.Timer
+$encoderFastTimer.Interval = 10
+$encoderFastTimer.Add_Tick({
+    try {
+        if (
+            $script:IsSuspended -or
+            $script:Closing -or
+            $script:ExitRequested -or
+            -not $script:IsConnected -or
+            [string]$script:ControllerProtocol -ne 'adaptive' -or
+            [int]$script:DetectedEncoderCount -lt 1 -or
+            $null -eq $form -or
+            $form.IsDisposed -or
+            -not $form.Visible -or
+            $script:ResumePreserveUntil -ne [DateTime]::MinValue
+        ) {
+            return
+        }
+
+        # Read and process the high-rate Adaptive stream without pushing audio
+        # slider work to 100 Hz. The main timer consumes the latest queued
+        # slider snapshot on its normal cadence.
+        Process-SerialData -DeferSliderApply
+        Update-MainEncoderIndicatorsFast
+    }
+    catch {
+        try {
+            Write-Log (
+                'Fast encoder UI lane failed and was disabled; fallback remains on the main UI timer: {0}' -f
+                (Get-ExceptionDiagnosticText -ErrorRecord $_)
+            ) 'WARN'
+        }
+        catch { }
+        $encoderFastTimer.Stop()
+    }
+})
+
 $script:PowerUiAction = [System.Action[string]]{
     param($modeName)
     try {
@@ -19650,6 +19786,7 @@ $form.Add_Shown({
     Update-DriverStatus
     [void](Connect-Controller -ForceFullScan)
     $timer.Start()
+    $encoderFastTimer.Start()
     if (-not $startMinimized -and -not [bool]$script:Config.app.firstRunCompleted) {
         Show-FirstRunWizard
     }
