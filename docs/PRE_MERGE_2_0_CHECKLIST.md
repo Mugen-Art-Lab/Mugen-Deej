@@ -1092,6 +1092,14 @@ presented as the required/reference firmware in the public build instructions.
 
 Status: **PASS / RELEASE-FACING TEXT AUDITED**
 
+A second language-quality pass on 2026-09-29 rewrote the 1.0.0 release notes
+and removed several machine-translated/calque-style phrases from the public
+README, changelog, packaged README and older bilingual release notes (for
+example `soft mute` -> explicit mute/unmute wording, Russian
+`мягкое отключение звука`, `payload`, `Friendly UI`, and unnecessary
+`portable-` hybrids). The goal is natural human-facing copy in both languages,
+not one-to-one literal translation.
+
 - [x] Read `README.md` top-to-bottom as a first-time user.
 - [x] Read `README_RU.md` top-to-bottom as a first-time user.
 - [x] remove stale release-branch wording where it implied 2.0 was already

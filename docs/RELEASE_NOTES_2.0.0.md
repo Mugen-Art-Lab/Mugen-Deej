@@ -66,7 +66,7 @@ For most users, use **`Mugen-Deej-2.0.0-Setup.exe`**.
 A **Portable ZIP** is also available for users who prefer a completely manual,
 portable installation.
 
-The Setup EXE installs/updates the same Portable payload used by the ZIP. It
+The Setup EXE installs/updates the same Portable files used by the ZIP. It
 does not add a normal uninstall entry to Windows Installed Apps.
 
 An in-place **1.0.0 -> 2.0.0** update was tested on real hardware. Normal
@@ -198,6 +198,6 @@ SmartScreen.
 ### Экспериментальная конфигурация
 
 Во время разработки мы также проверяли второй матричный энкодер, топологию
-Adaptive `5/28/2/2`, скорость 500000 бод и heartbeat 10 мс. Эти эксперименты
+Adaptive `5/28/2/2`, скорость 500000 бод и период обновления 10 мс. Эти эксперименты
 нужны для будущих вариантов контроллера с двумя и четырьмя энкодерами, но для
 эталонной Adaptive-сборки 2.0 они **не требуются**.

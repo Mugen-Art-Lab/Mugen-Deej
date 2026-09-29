@@ -3,33 +3,34 @@ Mugen Deej {{VERSION}}
 
 RU
 --
-Портативный Windows-клиент для физических USB-контроллеров,
+Портативное приложение для Windows и USB-контроллеров,
 совместимых с deej.
 
 Быстрый старт:
 1. Полностью распакуйте архив в обычную папку.
 2. Подключите совместимый USB-контроллер.
 3. Запустите MugenDeej.exe.
-4. При первом запуске выберите язык и настройте нужные элементы.
+4. При первом запуске выберите язык и настройте нужные элементы управления.
 
 Поддерживаемые поколения протокола:
 - Legacy: классические числовые пакеты с аналоговыми регуляторами.
-- Extended: регуляторы и физические кнопки.
-- Adaptive v3: самоописываемые регуляторы, кнопки, тумблеры и энкодеры.
+- Extended: аналоговые регуляторы и физические кнопки.
+- Adaptive v3: самодокументируемые регуляторы, кнопки, тумблеры и энкодеры.
 
-Для Adaptive v3 доступны профили приложений, слои управления и действия
-тумблеров/энкодеров. При необходимости физические кнопки можно назначить на
-опциональный виртуальный Xbox 360 / XInput-контроллер. Виртуальный контроллер
-по умолчанию выключен и включается только пользователем.
+Adaptive v3 поддерживает профили приложений, слои управления и отдельные
+действия для тумблеров и энкодеров. Физические кнопки также можно назначить на
+необязательный виртуальный Xbox 360 / XInput-контроллер. По умолчанию
+виртуальный контроллер выключен и включается только пользователем.
 
-Программа портативная и не требует установки. Setup EXE устанавливает тот же
-самый payload в выбранную папку и может создать ярлык на рабочем столе.
-Если включён автозапуск вместе с Windows, сначала отключите его в Mugen Deej,
-а уже затем удаляйте или перемещайте portable-папку.
+Mugen Deej не требует установки в системные каталоги. Setup EXE копирует те же
+файлы, что находятся в portable ZIP-архиве, в выбранную папку и при желании
+создаёт ярлык на рабочем столе. Если включён автозапуск вместе с Windows,
+сначала отключите его в Mugen Deej, а затем удаляйте или перемещайте папку
+программы.
 
 EN
 --
-Portable Windows client for physical deej-compatible USB controllers.
+Portable Windows app for deej-compatible USB controllers.
 
 Quick start:
 1. Extract the complete archive to a normal folder.
@@ -39,18 +40,18 @@ Quick start:
 
 Supported protocol generations:
 - Legacy: classic numeric packets with analog controls.
-- Extended: analog controls plus physical buttons.
+- Extended: analog controls and physical buttons.
 - Adaptive v3: self-describing controls, buttons, toggles, and encoders.
 
-Adaptive v3 supports application profiles, Control layers, and first-class
+Adaptive v3 supports application profiles, Control layers, and separate
 toggle/encoder actions. Physical buttons can also be mapped to the optional
 virtual Xbox 360 / XInput controller. Virtual-controller output is off by
 default and is enabled only by the user.
 
-Mugen Deej is portable and does not require installation. The Setup EXE installs
-the same payload into a selected folder and can create a desktop shortcut.
-If Windows startup is enabled, disable it in Mugen Deej before deleting or
-moving the portable folder.
+Mugen Deej does not need to be installed into a system folder. The Setup EXE
+copies the same files as the portable ZIP into a folder of your choice and can
+create a desktop shortcut. If Windows startup is enabled, disable it in Mugen
+Deej before deleting or moving the application folder.
 
 Project:
 https://github.com/Mugen-Art-Lab/Mugen-Deej

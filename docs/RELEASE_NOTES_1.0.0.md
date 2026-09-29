@@ -1,18 +1,34 @@
 # Mugen Deej 1.0.0
 
-Mugen Deej 1.0.0 is the first public release of the Extended-controller architecture. It keeps classic deej slider-only controllers working while adding button-capable controllers, configurable button actions, backup/restore, and a self-contained Setup EXE.
+Mugen Deej 1.0.0 is the first public release to support the Extended controller
+format. Classic slider-only deej controllers still work as before, while
+Extended controllers can add physical buttons and configurable actions.
 
 ## English
 
 ### Highlights
 
-- **Legacy + Extended controllers** — classic numeric deej packets continue to work, while Extended `s...|b...` packets can expose both physical controls and buttons. Mugen Deej detects the protocol and control counts automatically.
-- **Configurable physical buttons** — assign soft mute, media commands, Windows volume actions, hotkeys, program/file launch, folders, URLs, and commands.
-- **Reference Extended firmware** — a tested 5-slider + 6-button Arduino/Nano-style profile is included under `arduino/MugenDeejController/`.
-- **Backup & restore** — backups include the main configuration and button actions. Restore validates the backup first, creates an emergency pre-restore snapshot, and uses the existing verified config-write pipeline.
-- **Setup EXE + portable ZIP** — use the bilingual Setup for the easiest installation/update path, or keep using the portable ZIP.
-- **Safer setup/update flow** — Setup handles already-running Mugen Deej copies, warns about protected locations, can create a desktop shortcut, and preserves user configuration/logs/backups when updating an existing folder.
-- **Bilingual Friendly UI** — Russian and English remain fully supported together with Auto, Light, and Dark themes.
+- **Legacy and Extended controllers** — classic numeric deej packets remain
+  supported, while Extended `s...|b...` packets add buttons alongside analog
+  controls. Mugen Deej detects the protocol and the number of controls
+  automatically.
+- **Configurable physical buttons** — buttons can mute/unmute an assigned
+  control, send media and Windows volume commands, trigger hotkeys, launch
+  programs or files, open folders or URLs, and run commands.
+- **Tested Extended reference firmware** — the repository includes a proven
+  five-control, six-button Arduino/Nano-style firmware profile under
+  `arduino/MugenDeejController/`.
+- **Backup and restore** — a backup stores the main configuration and button
+  actions. Restore validates the file first, saves an emergency copy of the
+  current settings, and then uses the same verified configuration-writing path
+  as normal saves.
+- **Setup EXE and portable ZIP** — use Setup for the easiest installation or
+  update, or extract the ZIP for a completely portable copy.
+- **Safer updates** — Setup handles an already-running Mugen Deej, warns about
+  protected folders, can create a desktop shortcut, and preserves user
+  configuration, logs and backups when updating an existing folder.
+- **Russian and English UI** — both languages remain fully supported together
+  with Auto, Light and Dark themes.
 
 ### Controller compatibility
 
@@ -28,39 +44,67 @@ Extended packet example:
 s512|s123|s900|s456|s777|b1|b1|b0|b1|b1|b1
 ```
 
-In the Extended format, `sN` is a control value (`0..1023`), `b1` is button released, and `b0` is button pressed. Both formats use newline-terminated packets and the reference firmware keeps the classic `9600` baud rate.
+In Extended packets, `sN` is an analog value from `0..1023`,
+`b1` means released, and `b0` means pressed. Both formats use
+newline-terminated packets. The reference Extended firmware keeps the classic
+`9600` baud rate.
 
 ### Which download should I use?
 
 For most users: **`Mugen-Deej-1.0.0-Setup.exe`**.
 
-For a fully portable/manual setup: **`Mugen-Deej-1.0.0-Portable.zip`**.
+For a fully portable copy: **`Mugen-Deej-1.0.0-Portable.zip`**.
 
-SHA-256 sidecar files are provided for both packages.
+A matching SHA-256 checksum file is provided for each package.
 
-The Setup EXE performs a portable-style installation and intentionally does **not** register Mugen Deej in Windows Installed Apps or create a normal uninstall entry. Removal is manual; if Windows startup was enabled inside Mugen Deej, disable it before deleting the application folder.
+Setup copies Mugen Deej into a folder of your choice and intentionally does
+**not** create a normal uninstall entry in Windows Installed Apps. To remove it,
+disable Windows startup in Mugen Deej if you enabled that option, close the
+program, and delete its folder.
 
-> The 1.0.0 Setup EXE is not code-signed. Depending on how the file was downloaded and on Windows security settings, Windows may show an **Unknown publisher** / security warning. Verify the SHA-256 checksum if you want to confirm the downloaded file matches the release artifact.
+> The 1.0.0 binaries are not code-signed. Depending on Windows security
+> settings, you may see an **Unknown publisher** or SmartScreen warning. Use the
+> SHA-256 checksum from the release if you want to verify the downloaded file.
 
 ### Upgrade notes
 
-Existing Legacy controller firmware does not need to be changed. Internal development builds that used `button-actions.dev.json` are migrated safely to `button-actions.json`; the legacy file is retained as a rollback copy.
+Existing Legacy controller firmware does not need to be changed. Internal
+development builds that used `button-actions.dev.json` migrate to
+`button-actions.json`; the old file is kept as a rollback copy.
 
 ---
 
 ## Русский
 
-Mugen Deej 1.0.0 — первый публичный релиз архитектуры Extended-контроллеров. При этом старые deej-контроллеры только с регуляторами продолжают работать без перепрошивки.
+Mugen Deej 1.0.0 — первый публичный релиз с поддержкой Extended-контроллеров.
+Старые deej-контроллеры только с регуляторами продолжают работать как раньше,
+а Extended позволяет добавить физические кнопки и назначить им действия.
 
 ### Главное
 
-- **Legacy + Extended контроллеры** — классические числовые пакеты deej по-прежнему поддерживаются, а Extended-пакеты `s...|b...` могут передавать и регуляторы, и кнопки. Протокол и количество элементов определяются автоматически.
-- **Настраиваемые физические кнопки** — можно назначить мягкое отключение звука, медиакоманды, управление громкостью Windows, хоткеи, запуск программ/файлов, открытие папок и URL, а также команды.
-- **Эталонная Extended-прошивка** — в `arduino/MugenDeejController/` лежит проверенный профиль для пяти регуляторов и шести кнопок на Nano-подобной плате.
-- **Резервное копирование и восстановление** — backup включает основную конфигурацию и действия кнопок. Перед восстановлением файл проверяется, создаётся аварийная копия текущих настроек, а запись проходит через уже проверенный безопасный механизм конфигурации.
-- **Setup EXE + portable ZIP** — для обычного использования удобнее двуязычный Setup, а portable ZIP остаётся для полностью переносимого сценария.
-- **Безопасное обновление** — установщик умеет работать с уже запущенными копиями Mugen Deej, предупреждает о защищённых папках, создаёт ярлык по желанию и при обновлении существующей папки не трогает пользовательские конфиги, логи и backup-файлы.
-- **Двуязычный Friendly UI** — русский и английский интерфейс, а также темы Авто, Светлая и Тёмная сохранены.
+- **Legacy и Extended** — классический числовой формат deej по-прежнему
+  поддерживается, а пакеты `s...|b...` позволяют передавать вместе с
+  регуляторами ещё и кнопки. Протокол и количество элементов Mugen Deej
+  определяет автоматически.
+- **Настраиваемые физические кнопки** — кнопку можно назначить на
+  включение/выключение звука для выбранного регулятора, медиакоманды, изменение
+  системной громкости Windows, горячие клавиши, запуск программ и файлов,
+  открытие папок или ссылок, а также выполнение команд.
+- **Проверенная Extended-прошивка** — в
+  `arduino/MugenDeejController/` лежит эталонный профиль для пяти
+  регуляторов и шести кнопок на Arduino/Nano-подобной плате.
+- **Резервное копирование и восстановление** — в резервную копию входят
+  основные настройки и действия кнопок. Перед восстановлением Mugen Deej
+  проверяет файл и сохраняет аварийную копию текущих настроек.
+- **Setup EXE и portable ZIP** — для обычной установки или обновления удобнее
+  Setup EXE, а ZIP можно просто распаковать и использовать как полностью
+  переносимую версию.
+- **Аккуратное обновление** — установщик умеет дождаться закрытия уже
+  запущенного Mugen Deej, предупреждает о защищённых папках, при желании
+  создаёт ярлык и не удаляет пользовательские настройки, логи и резервные
+  копии при обновлении существующей папки.
+- **Русский и английский интерфейс** — оба языка полностью поддерживаются
+  вместе с темами Авто, Светлая и Тёмная.
 
 ### Совместимость контроллеров
 
@@ -76,20 +120,29 @@ Mugen Deej 1.0.0 — первый публичный релиз архитект
 s512|s123|s900|s456|s777|b1|b1|b0|b1|b1|b1
 ```
 
-В Extended-формате `sN` — значение регулятора (`0..1023`), `b1` — кнопка отпущена, `b0` — нажата. Оба формата передаются строками с переводом строки; эталонная прошивка сохраняет классическую скорость `9600` бод.
+В Extended-формате `sN` — значение регулятора от `0` до `1023`,
+`b1` означает отпущенную кнопку, а `b0` — нажатую. Пакеты заканчиваются
+переводом строки; эталонная Extended-прошивка работает на скорости `9600` бод.
 
 ### Что скачивать?
 
 Для большинства пользователей: **`Mugen-Deej-1.0.0-Setup.exe`**.
 
-Для полностью portable-варианта: **`Mugen-Deej-1.0.0-Portable.zip`**.
+Для полностью переносимой версии: **`Mugen-Deej-1.0.0-Portable.zip`**.
 
-Для обоих файлов публикуются SHA-256 контрольные суммы.
+Для каждого пакета опубликован отдельный файл с контрольной суммой SHA-256.
 
-Setup выполняет portable-установку и намеренно **не** добавляет Mugen Deej в список установленных приложений Windows и не создаёт обычный деинсталлятор. Удаление выполняется вручную; если внутри Mugen Deej был включён автозапуск Windows, сначала отключите его в программе, а уже затем удаляйте папку.
+Setup EXE копирует Mugen Deej в выбранную папку и намеренно **не** создаёт
+обычную запись удаления в списке установленных приложений Windows. Чтобы
+удалить программу, сначала отключите автозапуск в Mugen Deej, если он был
+включён, закройте программу и удалите её папку.
 
-> Setup EXE версии 1.0.0 не подписан цифровой подписью. В зависимости от способа загрузки и настроек безопасности Windows может показать **Неизвестный издатель / Unknown publisher** или другое предупреждение. При необходимости сверяйте SHA-256 с файлом контрольной суммы из релиза.
+> Файлы версии 1.0.0 не подписаны цифровой подписью. В зависимости от настроек
+> безопасности Windows может показать «Неизвестный издатель» или предупреждение
+> SmartScreen. При желании сверяйте SHA-256 с контрольной суммой из релиза.
 
 ### Обновление со старых версий
 
-Legacy-прошивку контроллера менять не требуется. Внутренние dev-сборки, где действия кнопок хранились в `button-actions.dev.json`, безопасно мигрируют на `button-actions.json`; старый файл остаётся как rollback-копия.
+Legacy-прошивку менять не нужно. Внутренние тестовые сборки, где действия
+кнопок хранились в `button-actions.dev.json`, автоматически переходят на
+`button-actions.json`; старый файл остаётся как резервная копия для отката.

@@ -17,7 +17,7 @@ Major 2.0 release built from the hardware-tested RC1 line.
 - Reduced the tested Nano matrix debounce to **6 ms** and exposed firmware debounce diagnostics.
 - Added per-controller slider-direction settings so differently wired Legacy, Extended and Adaptive controllers can be swapped without changing one global inversion option.
 - Refined the Russian/English UI across controller status, button actions, toggle/encoder settings, layers, diagnostics, control settings and application selection.
-- Preserved the same tested Portable payload inside the self-contained Setup EXE.
+- Preserved the same tested portable files inside the self-contained Setup EXE.
 - Real-hardware acceptance covered Legacy, Extended and Adaptive 5/28/2/1; 1.0.0 -> 2.0.0 in-place update; clean Setup; backup restore; layer/XInput mappings; per-controller inversion; and Windows reboot/autostart.
 
 ## 1.0.0 — 2026-09-15
@@ -25,13 +25,13 @@ Major 2.0 release built from the hardware-tested RC1 line.
 - Introduced the first public **Extended-controller architecture** while preserving compatibility with classic deej slider-only hardware.
 - Added automatic protocol detection for classic numeric packets and Extended `s...|b...` packets, with slider and button counts discovered from valid controller data instead of being fixed in the desktop client.
 - Added live button state to the main UI and a dedicated bilingual button-settings interface.
-- Added configurable button actions including soft mute, media commands, Windows volume actions, custom hotkeys (including F13–F24), physical hotkey capture, launching programs/files, opening folders or URLs, and running commands.
+- Added configurable button actions including mute/unmute for assigned controls, media commands, Windows volume actions, custom hotkeys (including F13–F24), physical hotkey capture, launching programs/files, opening folders or URLs, and running commands.
 - Added a tested reference Extended Arduino firmware under `arduino/MugenDeejController/` for the 5-slider + 6-button Nano-style profile, with non-blocking button debounce and full-state packets at 9600 baud.
 - Finalized button-action storage as `button-actions.json` and added safe migration from the internal-development `button-actions.dev.json` filename without deleting the rollback copy.
 - Added portable **backup and restore** for the main configuration and button actions, including backup validation, a pre-restore emergency snapshot, verified writes, and rollback attempts if restore fails.
 - Added themed restore dialogs and optional automatic restart after a successful restore.
 - Added a one-shot visible post-restore restart so a restored `startMinimized=true` configuration still gives clear confirmation once, while later launches continue to obey the saved start-minimized setting.
-- Added a self-contained bilingual **Setup EXE** alongside the portable ZIP, both generated from the same release payload with SHA-256 sidecar files.
+- Added a self-contained bilingual **Setup EXE** alongside the portable ZIP, both generated from the same release files with SHA-256 sidecar files.
 - Setup can create a dedicated `Mugen Deej` folder, create a desktop shortcut, launch after installation, update an existing copy without replacing user config/logs/backups, and explains manual removal because it does not register an uninstall entry in Windows Installed Apps.
 - Improved Setup behavior around running Mugen Deej instances: same-folder updates wait for the running copy to close, different-folder instances are explained clearly, and launch-after-install is suppressed when the single-instance guard would block the new copy.
 - Improved Setup focus/foreground behavior, bilingual confirmation layouts, dynamic dialog sizing, Program Files warnings, default installation under `%LOCALAPPDATA%\Programs\Mugen Deej`, and final-page guidance.
@@ -43,7 +43,7 @@ Major 2.0 release built from the hardware-tested RC1 line.
 
 - Added **Auto, Light, and Dark** application themes.
 - Auto theme follows Windows app-theme changes while Mugen Deej is running.
-- Refreshed the WinForms interface with the new Friendly UI, including rounded cards, custom combo boxes, flatter buttons, and smoother control indicators.
+- Refreshed the WinForms interface with the new interface, including rounded cards, custom combo boxes, flatter buttons, and smoother control indicators.
 - Added matching light and dark styling across the main window, control settings, first-run guide, application picker, and notification-area menu.
 - Improved visual stability of control-position indicators so stationary potentiometers no longer appear to jitter, without changing the underlying USB/controller/audio behavior.
 - Improved light-theme contrast for bright and HDR displays and refined card geometry and spacing.

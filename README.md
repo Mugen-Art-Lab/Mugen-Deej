@@ -38,13 +38,13 @@ Mugen Deej turns a deej-compatible USB serial controller with physical controls 
 - Supports **Legacy**, **Extended**, and self-describing **Adaptive v3** controllers.
 - Shows live analog-control positions and adapts the interface to the detected controller topology.
 - Controls Windows master volume, one or more applications, the default microphone, or a selected input device.
-- Lets silent applications be assigned before they create an audio session.
-- Lets physical buttons perform desktop actions such as soft mute, media controls, hotkeys, launching files/programs, and more.
+- Lets you assign running applications before they start playing audio.
+- Lets physical buttons mute or unmute assigned controls, send media commands and hotkeys, launch files or programs, and more.
 - Can start with Windows and optionally launch directly to the notification area.
 - Includes **Auto, Light, and Dark** themes; Auto follows Windows theme changes while the app is running.
 - Includes Russian and English interfaces and a first-run guide.
 - Adaptive v3 adds toggle/encoder actions, application profiles, Control layers, and an optional virtual Xbox 360 / XInput gamepad.
-- Uses universal backup schema v3 for the main configuration, button actions, Adaptive mappings/layers, and virtual-controller state.
+- Uses backup format v3 to store the main configuration, button actions, Adaptive mappings/layers, and virtual-controller settings together.
 - Ships both as a self-contained Setup EXE and as a portable ZIP.
 
 ## Interface tour
@@ -81,7 +81,7 @@ When the connected firmware exposes buttons, assign desktop actions or optional 
   </a>
 </p>
 
-### Select active or currently silent applications
+### Select applications now or before they start playing audio
 
 Choose applications that already have an audio session or preselect running applications before they play any sound.
 
@@ -117,7 +117,7 @@ Mugen Deej automatically adapts its interface to the detected controller protoco
 
 [Download the latest release](https://github.com/Mugen-Art-Lab/Mugen-Deej/releases/latest).
 
-For most users, use the **Setup EXE**. It performs a portable-style installation and does not register Mugen Deej in Windows Installed Apps. A **portable ZIP** is also provided if you prefer to extract and run the application manually.
+For most users, use the **Setup EXE**. It copies Mugen Deej into a folder of your choice and does not add a normal uninstall entry to Windows Installed Apps. A **portable ZIP** is also available if you prefer to extract and run the application manually.
 
 Latest public stable release: **1.0.0**. The **2.0.0** release is being finalized on the active release branch after RC1 and real-hardware acceptance.
 
