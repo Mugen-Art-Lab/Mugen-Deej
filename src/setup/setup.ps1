@@ -557,7 +557,7 @@ $versionLabel.ForeColor = $script:SetupPalette['MutedColor']
 $form.Controls.Add($versionLabel)
 
 $subtitleLabel = New-Object System.Windows.Forms.Label
-$subtitleLabel.Text = (L -Ru 'Portable-установка без регистрации в Windows' -En 'Portable-style installation without Windows registration')
+$subtitleLabel.Text = (L -Ru 'Установка в папку без регистрации в Windows' -En 'Folder-based installation without Windows app registration')
 $subtitleLabel.Location = New-Object System.Drawing.Point(33, 67)
 $subtitleLabel.Size = New-Object System.Drawing.Size(620, 26)
 $subtitleLabel.ForeColor = $script:SetupPalette['MutedColor']
@@ -571,7 +571,7 @@ $panel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
 $form.Controls.Add($panel)
 
 $introTitleLabel = New-Object System.Windows.Forms.Label
-$introTitleLabel.Text = (L -Ru 'Простая portable-установка' -En 'Simple portable-style installation')
+$introTitleLabel.Text = (L -Ru 'Простая установка в выбранную папку' -En 'Simple folder-based installation')
 $introTitleLabel.Location = New-Object System.Drawing.Point(20, 15)
 $introTitleLabel.Size = New-Object System.Drawing.Size(620, 25)
 $introTitleLabel.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 10)
@@ -579,7 +579,7 @@ $introTitleLabel.ForeColor = $script:SetupPalette['TextColor']
 $panel.Controls.Add($introTitleLabel)
 
 $introBodyLabel = New-Object System.Windows.Forms.Label
-$introBodyLabel.Text = (L -Ru "Выберите место установки.`r`nПо умолчанию будет создана отдельная папка Mugen Deej (опционально).`r`nУстановщик не добавляет программу в список установленных приложений Windows." -En "Choose an installation location.`r`nBy default, a separate Mugen Deej folder will be created (optional).`r`nThe installer does not add the app to Windows Installed Apps.")
+$introBodyLabel.Text = (L -Ru "Выберите папку для Mugen Deej.`r`nПо умолчанию установщик создаст в выбранном месте отдельную папку Mugen Deej — эту опцию можно отключить.`r`nПрограмма не будет добавлена в список установленных приложений Windows." -En "Choose a folder for Mugen Deej.`r`nBy default, Setup creates a separate Mugen Deej folder in the selected location; you can turn that option off.`r`nThe app will not be added to Windows Installed Apps.")
 $introBodyLabel.Location = New-Object System.Drawing.Point(20, 41)
 $introBodyLabel.Size = New-Object System.Drawing.Size(620, 58)
 $introBodyLabel.ForeColor = $script:SetupPalette['MutedColor']
@@ -778,13 +778,13 @@ $installButton.Add_Click({
 
     $existingExe = Join-Path $installPath 'MugenDeej.exe'
     if (Test-Path -LiteralPath $existingExe -PathType Leaf) {
-        $updateMessage = L -Ru "В этой папке уже найден Mugen Deej.`r`n`r`nПрограммные файлы будут обновлены. Конфиги, логи и резервные копии установщик не удаляет.`r`n`r`nПродолжить?" -En "Mugen Deej already exists in this folder.`r`n`r`nApplication files will be updated. The installer does not remove configs, logs, or backups.`r`n`r`nContinue?"
+        $updateMessage = L -Ru "В этой папке уже установлен Mugen Deej.`r`n`r`nФайлы программы будут обновлены. Настройки, логи и резервные копии останутся на месте.`r`n`r`nПродолжить?" -En "Mugen Deej is already installed in this folder.`r`n`r`nThe application files will be updated. Your settings, logs, and backups will be kept.`r`n`r`nContinue?"
         if (-not (Show-SetupConfirm -Message $updateMessage -DefaultYes $true)) {
             return
         }
     }
     elseif (Test-FolderHasContent -Path $installPath) {
-        $nonEmptyMessage = L -Ru "В итоговой папке уже есть другие файлы.`r`n`r`nMugen Deej будет распакован прямо туда. Существующие файлы установщик не удаляет.`r`n`r`nПродолжить?" -En "The final folder already contains other files.`r`n`r`nMugen Deej will be extracted directly into it. The installer will not remove the existing files.`r`n`r`nContinue?"
+        $nonEmptyMessage = L -Ru "В выбранной папке уже есть другие файлы.`r`n`r`nMugen Deej будет распакован прямо туда. Установщик не удаляет существующие файлы.`r`n`r`nПродолжить?" -En "The selected folder already contains other files.`r`n`r`nMugen Deej will be extracted directly into it. Setup will not remove the existing files.`r`n`r`nContinue?"
         if (-not (Show-SetupConfirm -Message $nonEmptyMessage -IsWarning $true -DefaultYes $false)) {
             return
         }
@@ -846,7 +846,7 @@ $installButton.Add_Click({
         $script:LaunchAfterFinish = [bool]$launchCheck.Checked
 
         $introTitleLabel.Text = (L -Ru 'Готово' -En 'Done')
-        $introBodyLabel.Text = (L -Ru "Mugen Deej установлен в выбранную папку.`r`nПрограмма не добавлена в список установленных приложений Windows." -En "Mugen Deej was installed in the selected folder.`r`nThe app was not added to Windows Installed Apps.")
+        $introBodyLabel.Text = (L -Ru "Mugen Deej установлен в выбранную папку.`r`nОтдельная запись в списке установленных приложений Windows не создавалась." -En "Mugen Deej was installed in the selected folder.`r`nNo separate entry was created in Windows Installed Apps.")
         $pathLabel.Text = (L -Ru 'Установлено в:' -En 'Installed to:')
         $pathBox.Text = $installPath
         $pathBox.Enabled = $false

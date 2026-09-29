@@ -1100,6 +1100,12 @@ example `soft mute` -> explicit mute/unmute wording, Russian
 `portable-` hybrids). The goal is natural human-facing copy in both languages,
 not one-to-one literal translation.
 
+The same pass was then applied to the actual WinForms/Setup copy: awkward
+`portable-` hybrids, `silent application`/Russian `молчащее приложение`
+wording, COM discovery phrasing, and several installer sentences were rewritten
+without changing behavior. Because these strings live in runtime sources, this
+text-only UI commit must still pass the normal Windows PowerShell/release CI.
+
 - [x] Read `README.md` top-to-bottom as a first-time user.
 - [x] Read `README_RU.md` top-to-bottom as a first-time user.
 - [x] remove stale release-branch wording where it implied 2.0 was already
