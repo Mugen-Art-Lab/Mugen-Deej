@@ -18864,7 +18864,7 @@ function Show-ConnectionDiagnosticsWindow {
     }
 
     $freshCaption = New-Object System.Windows.Forms.Label
-    $freshCaption.Text = if ($script:Language -eq 'ru') { 'Последний пакет / частота' } else { 'Latest packet / update rate' }
+    $freshCaption.Text = if ($script:Language -eq 'ru') { 'Последний пакет:' } else { 'Last packet:' }
     $freshCaption.Location = [System.Drawing.Point]::new(18, 136)
     $freshCaption.Size = [System.Drawing.Size]::new(185, 22)
     $infoGroup.Controls.Add($freshCaption)
@@ -18887,10 +18887,1561 @@ function Show-ConnectionDiagnosticsWindow {
             $labels[$key].Text = [string]$snapshot.$key
         }
         $freshValue.Text = if ($script:Language -eq 'ru') {
-            ('Пакет: {0} · {1}' -f $snapshot.PacketAge, $snapshot.PacketRate)
+            $ageText = [string]$snapshot.PacketAge
+            if ($ageText -ne '—') {
+                $ageText = (($ageText -replace ' ms
+    }
+
+    $diagTimer = New-Object System.Windows.Forms.Timer
+    $diagTimer.Interval = 250
+    $diagTimer.Add_Tick({ & $refreshInfo })
+
+    try {
+        & $refreshInfo
+        Apply-ThemeToForm -Form $dialog -ThemeName (Get-EffectiveTheme)
+
+        # A modal child must never be opened while its owner is temporarily
+        # TopMost. This can happen during tray restoration if another UI event
+        # is delivered re-entrantly. The restore path no longer pumps DoEvents,
+        # but keep this defensive reset here as well.
+        if ($form.TopMost) {
+            Write-Log 'Diagnostics opening while the main window is TopMost; clearing transient owner TopMost state' 'WARN'
+            $form.TopMost = $false
+        }
+
+        Write-Log (
+            'Opening connection diagnostics; ownerVisible={0}; ownerTopMost={1}; trayTransitionInProgress={2}' -f
+            [bool]$form.Visible,
+            [bool]$form.TopMost,
+            [bool]$script:TrayTransitionInProgress
+        ) 'DEBUG'
+
+        $dialog.Add_Shown({
+            Ensure-FormVisible -Form $dialog -CenterIfOffscreen
+            try {
+                # Give the newly-created owned modal one explicit z-order pulse,
+                # then immediately return it to normal owned-window behavior.
+                # No DoEvents() here: nested message pumping is exactly what can
+                # strand a modal dialog behind its disabled owner.
+                $dialog.TopMost = $true
+                $dialog.BringToFront()
+                [void][MugenDeejWindowing.Foreground]::BringWindowToTop($dialog.Handle)
+                [void][MugenDeejWindowing.Foreground]::SetForegroundWindow($dialog.Handle)
+                $dialog.Activate()
+                $dialog.TopMost = $false
+                Write-Log 'Connection diagnostics shown and activated' 'DEBUG'
+            }
+            catch {
+                try { $dialog.TopMost = $false } catch { }
+                Write-Log ('Failed to activate connection diagnostics: {0}' -f $_.Exception.Message) 'WARN'
+            }
+        })
+        $diagTimer.Start()
+        $dialogResult = $dialog.ShowDialog($form)
+        Write-Log ('Connection diagnostics closed; result={0}' -f $dialogResult) 'DEBUG'
+    }
+    finally {
+        $diagTimer.Stop()
+        $diagTimer.Dispose()
+        if (-not $connectionGroup.IsDisposed) {
+            $advancedPanel.Controls.Add($connectionGroup)
+            $connectionGroup.Location = [System.Drawing.Point]::new(24, 0)
+        }
+        if (-not $driverGroup.IsDisposed) {
+            $advancedPanel.Controls.Add($driverGroup)
+            $driverGroup.Location = [System.Drawing.Point]::new(24, 158)
+        }
+        if (-not $dialog.IsDisposed) { $dialog.Dispose() }
+    }
+}
+function Set-AdvancedExpanded {
+    param(
+        [bool]$Expanded,
+        [bool]$Persist = $true
+    )
+
+    # Compatibility shim for old config/localization call sites. Diagnostics is
+    # now a separate dialog, so the main window never enters an expanded state.
+    $advancedPanel.Visible = $false
+    $label = [string](T -Key 'DiagnosticsClosed')
+    $advancedToggle.Text = ($label -replace '\s*[▼▲]\s*$', '')
+
+    $hasButtons = ($script:IsConnected -and $script:DetectedButtonCount -gt 0)
+    Set-MainButtonLayout -HasButtons $hasButtons
+
+    $script:Config.app.advancedExpanded = $false
+    if ($Persist) {
+        Save-Config -Config $script:Config
+    }
+}
+
+if ([string]$script:Config.connection.mode -eq 'manual') { $manualRadio.Checked = $true } else { $autoRadio.Checked = $true }
+Refresh-PortList
+Update-ConnectionControls
+Apply-MainLocalization
+Set-AdvancedExpanded -Expanded ([bool]$script:Config.app.advancedExpanded) -Persist $false
+$initialTheme = Get-EffectiveTheme
+Apply-ThemeToForm -Form $form -ThemeName $initialTheme
+Apply-ToolStripTheme -ToolStrip $trayMenu -ThemeName $initialTheme
+$script:LastEffectiveTheme = $initialTheme
+
+$themeCombo.Add_SelectedIndexChanged({
+    if ($script:UpdatingThemeCombo -or $themeCombo.SelectedIndex -lt 0) { return }
+
+    $newTheme = switch ($themeCombo.SelectedIndex) {
+        1 { 'light' }
+        2 { 'dark' }
+        default { 'auto' }
+    }
+    $previousTheme = Get-NormalizedThemeSetting -Value ([string]$script:Config.app.theme)
+    if ($newTheme -eq $previousTheme) { return }
+
+    $script:Config.app.theme = $newTheme
+    try {
+        Save-Config -Config $script:Config
+        [void](Apply-CurrentTheme)
+        Write-Log ("Interface theme setting changed: {0} -> {1}" -f $previousTheme, $newTheme) 'INFO'
+    }
+    catch {
+        $script:Config.app.theme = $previousTheme
+        Sync-ThemeCombo
+        [void](Apply-CurrentTheme)
+        Write-Log ("Failed to save interface theme setting: {0}" -f $_.Exception.Message) 'ERROR'
+        [System.Windows.Forms.MessageBox]::Show(
+            $_.Exception.Message,
+            'Mugen Deej',
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Warning
+        ) | Out-Null
+    }
+})
+
+$languageCombo.Add_SelectedIndexChanged({
+    $newLanguage = if ($languageCombo.SelectedIndex -eq 0) { 'ru' } else { 'en' }
+    if ($newLanguage -eq $script:Language) { return }
+    $script:Language = $newLanguage
+    $script:Config.app.language = $newLanguage
+    Set-DefaultControlNamesForLanguage
+    Save-Config -Config $script:Config
+    Apply-MainLocalization
+    if ($script:IsConnected) {
+        Set-Status (Get-ControllerConnectedStatusText -PortName $script:ConnectedPort) 'ok'
+    }
+    else {
+        Set-Status (T -Key 'StatusNotConnected') 'idle'
+    }
+    if ($script:VirtualGamepadFeatureAvailable) {
+        Refresh-MugenVirtualGamepadLocalizedStatus
+    }
+    if ($advancedPanel.Visible) {
+        Update-DriverStatus
+    }
+    Write-Log "Interface language changed to $newLanguage"
+})
+
+$script:UpdatingStartupCheck = $false
+$script:UpdatingStartMinimizedCheck = $false
+
+$startWithWindowsCheck.Add_CheckedChanged({
+    if ($script:UpdatingStartupCheck) { return }
+    try {
+        Set-StartupEnabled -Enabled ([bool]$startWithWindowsCheck.Checked)
+    }
+    catch {
+        Write-Log ("Failed to change Windows startup setting: {0}" -f $_.Exception.Message) 'ERROR'
+        $script:UpdatingStartupCheck = $true
+        try { $startWithWindowsCheck.Checked = (Test-StartupEnabled) }
+        finally { $script:UpdatingStartupCheck = $false }
+        [System.Windows.Forms.MessageBox]::Show(
+            (T -Key 'StartupSettingsError' -Args @($_.Exception.Message)),
+            (T -Key 'StartupSettingsErrorTitle'),
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Warning
+        ) | Out-Null
+    }
+})
+
+$startMinimizedCheck.Add_CheckedChanged({
+    if ($script:UpdatingStartMinimizedCheck) { return }
+    $previous = [bool]$script:Config.app.startMinimized
+    $script:Config.app.startMinimized = [bool]$startMinimizedCheck.Checked
+    try {
+        Save-Config -Config $script:Config
+        Write-Log ("Start minimized setting changed: {0}" -f ([bool]$script:Config.app.startMinimized)) 'INFO'
+    }
+    catch {
+        $script:Config.app.startMinimized = $previous
+        $script:UpdatingStartMinimizedCheck = $true
+        try { $startMinimizedCheck.Checked = $previous }
+        finally { $script:UpdatingStartMinimizedCheck = $false }
+        [System.Windows.Forms.MessageBox]::Show(
+            (T -Key 'StartupSettingsError' -Args @($_.Exception.Message)),
+            (T -Key 'StartupSettingsErrorTitle'),
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Warning
+        ) | Out-Null
+    }
+})
+
+$autoRadio.Add_CheckedChanged({
+    if ($autoRadio.Checked) {
+        $script:Config.connection.mode = 'auto'
+        Save-Config -Config $script:Config
+        Update-ConnectionControls
+    }
+})
+
+$manualRadio.Add_CheckedChanged({
+    if ($manualRadio.Checked) {
+        $script:Config.connection.mode = 'manual'
+        Save-Config -Config $script:Config
+        Update-ConnectionControls
+    }
+})
+
+$portCombo.Add_SelectedIndexChanged({
+    if ($null -ne $portCombo.SelectedItem) {
+        $script:Config.connection.port = [string]$portCombo.SelectedItem
+        Save-Config -Config $script:Config
+    }
+})
+
+function Handle-PowerModeChange {
+    param([Parameter(Mandatory = $true)][string]$ModeName)
+
+    if ($script:Closing -or $script:ExitRequested) { return }
+
+    switch ($ModeName) {
+        'Suspend' {
+            if ($script:IsSuspended) { return }
+
+            $suspendStarted = Get-Date
+            $activePort = [string]$script:ConnectedPort
+            if ([string]::IsNullOrWhiteSpace($activePort)) {
+                $activePort = [string]$script:Config.connection.lastWorkingPort
+            }
+            $script:ResumePreferredPort = $activePort
+
+            $serialPresent = ($null -ne $script:Serial)
+            $serialIsOpen = $false
+            if ($serialPresent) {
+                try { $serialIsOpen = [bool]$script:Serial.IsOpen } catch { }
+            }
+
+            Write-Log ("System suspend detected; connectedPort={0}; preferredResumePort={1}; scanning={2}; serialObjectPresent={3}; serialIsOpen={4}" -f $script:ConnectedPort, $script:ResumePreferredPort, $script:IsConnecting, $serialPresent, $serialIsOpen) 'INFO'
+            $script:IsSuspended = $true
+            $script:ControllerRecoveryPort = ''
+            $script:ControllerRecoveryAt = [DateTime]::MinValue
+            $script:ControllerRecoveryFastUntil = [DateTime]::MinValue
+            $script:ResumeReconnectAt = [DateTime]::MinValue
+            $script:ResumeHotplugRetryUntil = [DateTime]::MinValue
+            $script:ResumeAutoReconnectSuppressed = $true
+            $script:ResumePreserveUntil = [DateTime]::MinValue
+            $script:ResumePreserveStartedAt = [DateTime]::MinValue
+            $script:ResumePreserveFirstErrorLogged = $false
+
+            if ($null -ne $timer) { $timer.Stop() }
+
+            # Preserve the established controller SerialPort across sleep and hibernation.
+            # Only an unrelated in-progress discovery probe is cancelled; Windows
+            # can restore the existing handle when the system resumes.
+            Cancel-ActivePortProbe -Reason 'system suspend; active controller port is intentionally preserved' -Detailed
+            [MugenDeejAudio.AudioMixer]::InvalidateSessions()
+
+            $elapsedMs = [int](((Get-Date) - $suspendStarted).TotalMilliseconds)
+            Write-Log ("Suspend handler completed without closing the controller SerialPort; elapsedMs={0}; port={1}; objectPresent={2}; isOpen={3}" -f $elapsedMs, $script:ConnectedPort, ($null -ne $script:Serial), $serialIsOpen) 'INFO'
+            Set-Status (T -Key 'StatusLost') 'warn'
+            Update-TrayText
+        }
+
+        'Resume' {
+            if ([string]::IsNullOrWhiteSpace($script:ResumePreferredPort)) {
+                $script:ResumePreferredPort = [string]$script:Config.connection.lastWorkingPort
+            }
+
+            $preserveSeconds = [int]$script:ResumePreserveSeconds
+            $serialPresent = ($null -ne $script:Serial)
+            $serialIsOpen = $false
+            if ($serialPresent) {
+                try { $serialIsOpen = [bool]$script:Serial.IsOpen } catch { }
+            }
+
+            Write-Log ("System resume detected; preferredResumePort={0}; preserving the existing SerialPort for {1} seconds; objectPresent={2}; isConnected={3}; isOpen={4}" -f $script:ResumePreferredPort, $preserveSeconds, $serialPresent, $script:IsConnected, $serialIsOpen) 'INFO'
+            $script:IsSuspended = $false
+            [MugenDeejAudio.AudioMixer]::InvalidateSessions()
+
+            $script:ResumeAutoReconnectSuppressed = $true
+            $script:ResumeReconnectAt = [DateTime]::MinValue
+            $script:ResumeHotplugRetryUntil = [DateTime]::MinValue
+            $script:ResumePreserveFirstErrorLogged = $false
+            $script:SerialBuffer = ''
+            $script:LastSerialPacketAt = Get-Date
+
+            if ($script:IsConnected -and $serialPresent) {
+                $script:ResumePreserveStartedAt = Get-Date
+                $script:ResumePreserveUntil = (Get-Date).AddSeconds($preserveSeconds)
+                Set-Status (T -Key 'StatusResumePreserving' -Args @($script:ResumePreferredPort)) 'busy'
+            }
+            else {
+                # No established connection exists to preserve. Wait briefly,
+                # then perform one targeted reconnect attempt instead of immediately
+                # scanning every COM port.
+                $script:ResumePreserveStartedAt = [DateTime]::MinValue
+                $script:ResumePreserveUntil = [DateTime]::MinValue
+                $script:ResumeReconnectAt = (Get-Date).AddSeconds([int]$script:ResumeReconnectDelaySeconds)
+                Set-Status (T -Key 'StatusResumeWaiting' -Args @([int]$script:ResumeReconnectDelaySeconds)) 'busy'
+                Write-Log 'No established SerialPort existed at resume; falling back to one delayed connection attempt' 'WARN'
+            }
+
+            Ensure-FormVisible -Form $form -CenterIfOffscreen
+            try {
+                $form.Invalidate($true)
+                $form.Update()
+            }
+            catch { }
+
+            if ($null -ne $timer -and -not $script:Closing) { $timer.Start() }
+        }
+    }
+}
+
+function Request-AppExit {
+    if ($script:ExitRequested) { return }
+
+    $script:Closing = $true
+    $script:ExitRequested = $true
+    if ($null -ne $timer) { $timer.Stop() }
+
+    Cancel-ActivePortProbe -Reason 'application exit requested'
+    Close-ControllerPort
+
+    if ($script:IsConnecting) {
+        $form.Hide()
+        return
+    }
+
+    $script:ShutdownFinalizing = $true
+    $form.Close()
+}
+
+$backupMenuButton.Add_Click({ Show-MugenDeejBackupMenu -OwnerControl $backupMenuButton })
+$advancedToggle.Add_Click({ Show-ConnectionDiagnosticsWindow })
+$refreshButton.Add_Click({ Refresh-PortList; Update-ConnectionControls })
+$connectButton.Add_Click({
+    $script:ResumeReconnectAt = [DateTime]::MinValue
+    $script:ResumeHotplugRetryUntil = [DateTime]::MinValue
+    $script:ControllerRecoveryPort = ''
+    $script:ControllerRecoveryAt = [DateTime]::MinValue
+    $script:ControllerRecoveryFastUntil = [DateTime]::MinValue
+    $script:ResumePreserveUntil = [DateTime]::MinValue
+    $script:ResumePreserveStartedAt = [DateTime]::MinValue
+    $script:ResumePreserveFirstErrorLogged = $false
+    $script:ResumeAutoReconnectSuppressed = $false
+    [void](Connect-Controller -ForceFullScan)
+})
+$settingsButton.Add_Click({ Show-SliderSettings })
+$buttonSettingsButton.Add_Click({ Show-ButtonSettings })
+$driverButton.Add_Click({ Install-Ch340Driver })
+$logButton.Add_Click({ Start-Process notepad.exe -ArgumentList ('"{0}"' -f $script:LogPath) })
+
+$trayOpen.Add_Click({ Show-MainWindowForeground })
+$traySettings.Add_Click({ Show-MainWindowForeground; Show-SliderSettings })
+$trayReconnect.Add_Click({
+    $script:ResumeReconnectAt = [DateTime]::MinValue
+    $script:ResumeHotplugRetryUntil = [DateTime]::MinValue
+    $script:ControllerRecoveryPort = ''
+    $script:ControllerRecoveryAt = [DateTime]::MinValue
+    $script:ControllerRecoveryFastUntil = [DateTime]::MinValue
+    $script:ResumePreserveUntil = [DateTime]::MinValue
+    $script:ResumePreserveStartedAt = [DateTime]::MinValue
+    $script:ResumePreserveFirstErrorLogged = $false
+    $script:ResumeAutoReconnectSuppressed = $false
+    [void](Connect-Controller -ForceFullScan)
+})
+$trayExit.Add_Click({ Request-AppExit })
+$notifyIcon.Add_DoubleClick({ Show-MainWindowForeground })
+# dev11: normalize the hidden main form BEFORE the legacy Resize handler runs.
+$form.Add_Resize({
+    if (
+        $form.WindowState -eq [System.Windows.Forms.FormWindowState]::Minimized -and
+        [bool]$script:Config.app.minimizeToTray
+    ) {
+        Hide-MainWindowToTray
+    }
+})
+
+# dev11: X-to-tray safety. The existing FormClosing handler still sets Cancel
+# and owns actual shutdown; this pre-handler only guarantees a clean tray state.
+$form.Add_FormClosing({
+    param($sender, $eventArgs)
+
+    if (
+        -not $script:Closing -and
+        [bool]$script:Config.app.minimizeToTray
+    ) {
+        Hide-MainWindowToTray
+    }
+})
+
+$form.Add_Resize({
+    if ($form.WindowState -eq [System.Windows.Forms.FormWindowState]::Minimized -and [bool]$script:Config.app.minimizeToTray) {
+        $form.Hide()
+    }
+})
+
+$form.Add_FormClosing({
+    param($sender, $eventArgs)
+
+    if (-not $script:Closing -and [bool]$script:Config.app.minimizeToTray) {
+        $eventArgs.Cancel = $true
+        $form.Hide()
+        return
+    }
+
+    $script:Closing = $true
+    $script:ExitRequested = $true
+
+    if ($script:IsConnecting -and -not $script:ShutdownFinalizing) {
+        $eventArgs.Cancel = $true
+        if ($null -ne $timer) { $timer.Stop() }
+        Cancel-ActivePortProbe -Reason 'form closing while a COM-port probe is active'
+        Close-ControllerPort
+        $form.Hide()
+        return
+    }
+
+    $script:ShutdownFinalizing = $true
+    if ($null -ne $timer) { $timer.Stop() }
+
+    Cancel-ActivePortProbe -Reason 'final application shutdown'
+
+    try { Save-Config -Config $script:Config }
+    catch { Write-Log "Final config save on exit failed: $($_.Exception.Message)" 'ERROR' }
+
+    Close-ControllerPort
+
+    if ($null -ne $script:PowerBridge) {
+        try { $script:PowerBridge.Dispose() } catch { }
+        $script:PowerBridge = $null
+    }
+    if ($null -ne $script:ThemePreferenceBridge) {
+        try { $script:ThemePreferenceBridge.Dispose() } catch { }
+        $script:ThemePreferenceBridge = $null
+    }
+
+    $notifyIcon.Visible = $false
+    $notifyIcon.Dispose()
+    if ($script:AppIcon) { try { $script:AppIcon.Dispose() } catch { } }
+    try { $script:InstanceMutex.ReleaseMutex() } catch { }
+    try { $script:InstanceMutex.Dispose() } catch { }
+    Write-Log 'Mugen Deej stopped'
+})
+
+$timer = New-Object System.Windows.Forms.Timer
+$timer.Interval = 20
+$timer.Add_Tick({
+    try {
+    $desiredInputInterval = if (
+        $script:VirtualGamepadFeatureAvailable -and
+        $script:VirtualGamepadActive
+    ) { 5 } else { 20 }
+    if ($timer.Interval -ne $desiredInputInterval) {
+        $timer.Interval = $desiredInputInterval
+    }
+
+    if ($script:IsSuspended -or $script:Closing -or $script:ExitRequested) { return }
+
+    $now = Get-Date
+
+    # During the resume grace period, do not enumerate or open COM ports.
+    # Read only from the SerialPort object that existed before hibernation.
+    # Process-SerialData clears this state on success or failure.
+    if ($script:ResumePreserveUntil -ne [DateTime]::MinValue) {
+        Process-SerialData
+        Update-KnobMonitor
+        return
+    }
+
+    if ($script:ResumeReconnectAt -ne [DateTime]::MinValue) {
+        if ($now -lt $script:ResumeReconnectAt) {
+            Update-KnobMonitor
+            return
+        }
+
+        # When no established SerialPort existed to preserve, perform one
+        # delayed targeted attempt without a broad scan.
+        $script:ResumeReconnectAt = [DateTime]::MinValue
+        $preferredPort = [string]$script:ResumePreferredPort
+        $script:KnownPorts = @(Get-PortNames)
+        $script:LastPortSnapshotCheck = Get-Date
+        Write-Log ("Resume recovery delay completed; ports={0}; preferredPort={1}; performing one targeted connection attempt" -f ($script:KnownPorts -join ', '), $preferredPort) 'INFO'
+
+        $connected = $false
+        if (-not [string]::IsNullOrWhiteSpace($preferredPort) -and $script:KnownPorts -contains $preferredPort) {
+            Reset-PortProbeState -PortName $preferredPort
+            $connected = [bool](Connect-Controller -Quiet -CandidatePorts @($preferredPort))
         }
         else {
-            ('Packet: {0} · {1}' -f $snapshot.PacketAge, $snapshot.PacketRate)
+            Write-Log ("The previous working port is not present after the resume quiet period: {0}" -f $preferredPort) 'WARN'
+        }
+
+        if ($connected) {
+            $script:ResumeHotplugRetryUntil = [DateTime]::MinValue
+            $script:ResumeAutoReconnectSuppressed = $false
+            Write-Log ("Targeted resume connection attempt succeeded on {0}" -f $preferredPort) 'INFO'
+        }
+        elseif (
+            $script:ResumeHotplugRetryUntil -ne [DateTime]::MinValue -and
+            $now -lt $script:ResumeHotplugRetryUntil
+        ) {
+            $retrySeconds = [int]$script:ResumeHotplugRetrySeconds
+            $remainingSeconds = [int][Math]::Ceiling(($script:ResumeHotplugRetryUntil - $now).TotalSeconds)
+            $script:ResumeReconnectAt = $now.AddSeconds($retrySeconds)
+            $script:ResumeAutoReconnectSuppressed = $true
+            Write-Log ("Targeted resume retry on {0} is still not ready; retrying in {1} s; readinessWindowRemaining={2} s" -f $preferredPort, $retrySeconds, $remainingSeconds) 'WARN'
+        }
+        else {
+            $hadReadinessWindow = ($script:ResumeHotplugRetryUntil -ne [DateTime]::MinValue)
+            $script:ResumeHotplugRetryUntil = [DateTime]::MinValue
+            $script:ResumeAutoReconnectSuppressed = $true
+
+            # Do not get stuck forever if Windows keeps the same COM name in
+            # enumeration across unplug/replug. After the fast readiness window
+            # expires, keep one low-frequency targeted retry alive only for the
+            # previously working port. This avoids broad scans while still
+            # honoring the user-facing promise that replugging USB reconnects
+            # automatically.
+            $slowRetrySeconds = [int]$script:ResumeHotplugSlowRetrySeconds
+            $script:ResumeReconnectAt = $now.AddSeconds($slowRetrySeconds)
+
+            if ($hadReadinessWindow) {
+                Write-Log ("Resume readiness retry window exhausted for {0}; continuing low-frequency targeted retries every {1} s until the controller returns or the user requests a manual scan" -f $preferredPort, $slowRetrySeconds) 'WARN'
+            }
+            else {
+                Write-Log ("Targeted resume attempt failed on {0}; continuing low-frequency targeted retries every {1} s until the controller returns or the user requests a manual scan" -f $preferredPort, $slowRetrySeconds) 'WARN'
+            }
+            Set-Status (T -Key 'StatusResumeReconnectFailed' -Args @($preferredPort)) 'warn'
+            Update-TrayText
+            Update-DriverStatus
+        }
+
+        Update-KnobMonitor
+        return
+    }
+
+    # Ordinary controller-loss recovery. Unlike resume recovery this also
+    # handles runtime resets/brownouts and very fast same-COM unplug/replug.
+    if (
+        -not $script:IsConnected -and
+        -not $script:IsConnecting -and
+        $script:ControllerRecoveryAt -ne [DateTime]::MinValue -and
+        $now -ge $script:ControllerRecoveryAt
+    ) {
+        $recoveryPort = [string]$script:ControllerRecoveryPort
+        if ([string]::IsNullOrWhiteSpace($recoveryPort)) {
+            $script:ControllerRecoveryAt = [DateTime]::MinValue
+            $script:ControllerRecoveryFastUntil = [DateTime]::MinValue
+        }
+        else {
+            $currentPorts = @(Get-PortNames)
+            $connected = $false
+
+            if ($currentPorts -contains $recoveryPort) {
+                Reset-PortProbeState -PortName $recoveryPort
+                Write-Log ("Controller recovery attempt on {0}; ports={1}" -f $recoveryPort, ($currentPorts -join ', ')) 'INFO'
+                $connected = [bool](Connect-Controller -Quiet -CandidatePorts @($recoveryPort))
+            }
+            else {
+                Write-Log ("Controller recovery waiting for {0} to appear; ports={1}" -f $recoveryPort, ($currentPorts -join ', ')) 'DEBUG'
+            }
+
+            if (-not $connected) {
+                $retrySeconds = if (
+                    $script:ControllerRecoveryFastUntil -ne [DateTime]::MinValue -and
+                    $now -lt $script:ControllerRecoveryFastUntil
+                ) {
+                    [int]$script:ControllerRecoveryFastSeconds
+                }
+                else {
+                    [int]$script:ControllerRecoverySlowSeconds
+                }
+
+                $script:ControllerRecoveryAt = (Get-Date).AddSeconds($retrySeconds)
+                Write-Log ("Controller recovery for {0} still pending; next targeted retry in {1} s" -f $recoveryPort, $retrySeconds) 'DEBUG'
+            }
+
+            Update-KnobMonitor
+            if ($script:IsConnected) { return }
+        }
+    }
+
+    # Detect changes in Windows' COM-port list separately from the slower retry
+    # loop. A newly appeared port is always treated as fresh, even if the same
+    # COM number previously failed protocol detection.
+    if (($now - $script:LastPortSnapshotCheck).TotalMilliseconds -ge $script:PortSnapshotIntervalMs) {
+        $script:LastPortSnapshotCheck = $now
+        $currentPorts = @(Get-PortNames)
+        $newPorts = @($currentPorts | Where-Object { $script:KnownPorts -notcontains $_ })
+        $removedPorts = @($script:KnownPorts | Where-Object { $currentPorts -notcontains $_ })
+        $script:KnownPorts = @($currentPorts)
+
+        if ($removedPorts.Count -gt 0) {
+            foreach ($removedPort in $removedPorts) {
+                Reset-PortProbeState -PortName $removedPort
+                $script:PendingNewPorts = @($script:PendingNewPorts | Where-Object { $_ -ne $removedPort })
+            }
+            Write-Log ("COM ports removed: {0}" -f ($removedPorts -join ', ')) 'DEBUG'
+        }
+        if ($newPorts.Count -gt 0) {
+            Write-Log ("New COM ports detected: {0}" -f ($newPorts -join ', ')) 'INFO'
+            Add-PendingNewPorts -Ports $newPorts
+        }
+    }
+
+    if (-not $script:IsConnected -and -not $script:IsConnecting -and $script:PendingNewPorts.Count -gt 0) {
+        $candidatePorts = @($script:PendingNewPorts)
+        $script:PendingNewPorts = @()
+        $resumeSuppressionWasActive = $script:ResumeAutoReconnectSuppressed
+        if ($resumeSuppressionWasActive) {
+            Write-Log ("New COM device appeared while automatic resume reconnect was suppressed; trying only the new port(s): {0}" -f ($candidatePorts -join ', ')) 'INFO'
+        }
+
+        $newPortConnected = [bool](Connect-Controller -Quiet -CandidatePorts $candidatePorts)
+        if ($newPortConnected) {
+            $script:ResumeAutoReconnectSuppressed = $false
+        }
+        elseif ($resumeSuppressionWasActive) {
+            $preferredPort = [string]$script:ResumePreferredPort
+            if (
+                -not [string]::IsNullOrWhiteSpace($preferredPort) -and
+                $candidatePorts -contains $preferredPort
+            ) {
+                # Windows can publish the COM device name before CreateFile/Open
+                # can actually use it. Start a short bounded readiness window
+                # and keep retrying only the preferred resume port.
+                $retrySeconds = [int]$script:ResumeHotplugRetrySeconds
+                $retryWindowSeconds = [int]$script:ResumeHotplugRetryWindowSeconds
+                $retryNow = Get-Date
+                $script:ResumeHotplugRetryUntil = $retryNow.AddSeconds($retryWindowSeconds)
+                $script:ResumeReconnectAt = $retryNow.AddSeconds($retrySeconds)
+                $script:ResumeAutoReconnectSuppressed = $true
+                Write-Log ("Fresh resume port {0} appeared but was not ready to open; starting bounded readiness retry window of {1} s; next attempt in {2} s" -f $preferredPort, $retryWindowSeconds, $retrySeconds) 'WARN'
+            }
+            else {
+                $script:ResumeAutoReconnectSuppressed = $true
+            }
+        }
+    }
+
+    if ($script:IsConnected) {
+        Process-SerialData
+    }
+    elseif (-not $script:IsConnecting -and -not $script:ResumeAutoReconnectSuppressed) {
+        $seconds = [int]$script:Config.connection.reconnectSeconds
+        if (((Get-Date) - $script:LastReconnectAttempt).TotalSeconds -ge $seconds) {
+            $script:LastReconnectAttempt = Get-Date
+            [void](Connect-Controller -Quiet)
+        }
+    }
+    }
+    catch {
+        $timerError = $_
+        $diagnostic = ''
+        try {
+            $diagnostic = Get-ExceptionDiagnosticText -ErrorRecord $timerError
+        }
+        catch {
+            $diagnostic = 'diagnostic formatting failed: ' + [string]$_.Exception.Message
+        }
+
+        $stackText = ''
+        try {
+            $stackText = ([string]$timerError.ScriptStackTrace) -replace '[\r\n]+', ' <- '
+        }
+        catch { }
+
+        $categoryText = ''
+        try { $categoryText = [string]$timerError.CategoryInfo } catch { }
+
+        $fqidText = ''
+        try { $fqidText = [string]$timerError.FullyQualifiedErrorId } catch { }
+
+        try {
+            Write-Log (
+                'Main UI timer callback failed but was contained; {0}; category={1}; fqid={2}; stack={3}' -f
+                $diagnostic,
+                $categoryText,
+                $fqidText,
+                $stackText
+            ) 'ERROR'
+        }
+        catch { }
+
+        # Avoid a tight exception loop if the failure happened in controller
+        # recovery. Connect-Controller's finally block has already cleared
+        # IsConnecting; simply defer the next targeted attempt.
+        if (
+            -not $script:IsConnected -and
+            -not [string]::IsNullOrWhiteSpace([string]$script:ControllerRecoveryPort)
+        ) {
+            $script:ControllerRecoveryAt = (Get-Date).AddSeconds(2)
+        }
+    }
+    Update-KnobMonitor
+})
+
+$script:PowerUiAction = [System.Action[string]]{
+    param($modeName)
+    try {
+        Handle-PowerModeChange -ModeName $modeName
+    }
+    catch {
+        Write-Log ("Power-mode handler failed for {0}: {1}" -f $modeName, $_.Exception.Message) 'ERROR'
+    }
+}
+
+$script:PowerBridge = [MugenDeejWindowing.PowerModeBridge]::new($form, $script:PowerUiAction)
+Write-Log 'Power suspend/resume monitoring initialized' 'DEBUG'
+
+$script:ThemeUiAction = [System.Action[string]]{
+    param($categoryName)
+    try {
+        Handle-ThemePreferenceChange -CategoryName $categoryName
+    }
+    catch {
+        Write-Log ("Theme preference handler failed for {0}: {1}" -f $categoryName, $_.Exception.Message) 'ERROR'
+    }
+}
+$script:ThemePreferenceBridge = [MugenDeejWindowing.ThemePreferenceBridge]::new($form, $script:ThemeUiAction)
+Write-Log 'Windows theme preference monitoring initialized' 'DEBUG'
+
+$form.Add_Shown({
+    $startMinimized = ([bool]$script:Config.app.startMinimized) -and (-not $script:ForceShowAfterRestore)
+    if ($startMinimized) {
+        # Hide before controller discovery/initialization so startup-to-tray does
+        # not display the main window while COM probing is in progress.
+        $form.Hide()
+        $form.WindowState = [System.Windows.Forms.FormWindowState]::Normal
+        $form.ShowInTaskbar = $true
+        $form.Opacity = 1
+        Write-Log 'Main window suppressed during start-minimized launch' 'DEBUG'
+    }
+    else {
+        Ensure-FormVisible -Form $form -CenterIfOffscreen
+        Show-MainWindowForeground
+    }
+
+    $script:ResumeAutoReconnectSuppressed = $false
+    $script:KnownPorts = @(Get-PortNames)
+    $script:LastPortSnapshotCheck = Get-Date
+    Update-DriverStatus
+    [void](Connect-Controller -ForceFullScan)
+    $timer.Start()
+    if (-not $startMinimized -and -not [bool]$script:Config.app.firstRunCompleted) {
+        Show-FirstRunWizard
+    }
+})
+
+[System.Windows.Forms.Application]::Run($form)
+
+if ($script:RestartRequested) {
+    try {
+        Write-Log ('Restarting Mugen Deej via launcher with one-shot visible window: {0}' -f $script:ExecutablePath) 'INFO'
+        $env:MUGEN_DEEJ_SHOW_AFTER_RESTORE = '1'
+        try {
+            Start-Process -FilePath $script:ExecutablePath -WorkingDirectory $script:BaseDir
+        }
+        finally {
+            Remove-Item Env:\MUGEN_DEEJ_SHOW_AFTER_RESTORE -ErrorAction SilentlyContinue
+        }
+    }
+    catch {
+        Write-Log ('Automatic restart failed: {0}' -f $_.Exception.Message) 'ERROR'
+    }
+}
+, ' мс') + ' назад')
+            }
+
+            $rateText = ([string]$snapshot.PacketRate -replace ' Hz
+    }
+
+    $diagTimer = New-Object System.Windows.Forms.Timer
+    $diagTimer.Interval = 250
+    $diagTimer.Add_Tick({ & $refreshInfo })
+
+    try {
+        & $refreshInfo
+        Apply-ThemeToForm -Form $dialog -ThemeName (Get-EffectiveTheme)
+
+        # A modal child must never be opened while its owner is temporarily
+        # TopMost. This can happen during tray restoration if another UI event
+        # is delivered re-entrantly. The restore path no longer pumps DoEvents,
+        # but keep this defensive reset here as well.
+        if ($form.TopMost) {
+            Write-Log 'Diagnostics opening while the main window is TopMost; clearing transient owner TopMost state' 'WARN'
+            $form.TopMost = $false
+        }
+
+        Write-Log (
+            'Opening connection diagnostics; ownerVisible={0}; ownerTopMost={1}; trayTransitionInProgress={2}' -f
+            [bool]$form.Visible,
+            [bool]$form.TopMost,
+            [bool]$script:TrayTransitionInProgress
+        ) 'DEBUG'
+
+        $dialog.Add_Shown({
+            Ensure-FormVisible -Form $dialog -CenterIfOffscreen
+            try {
+                # Give the newly-created owned modal one explicit z-order pulse,
+                # then immediately return it to normal owned-window behavior.
+                # No DoEvents() here: nested message pumping is exactly what can
+                # strand a modal dialog behind its disabled owner.
+                $dialog.TopMost = $true
+                $dialog.BringToFront()
+                [void][MugenDeejWindowing.Foreground]::BringWindowToTop($dialog.Handle)
+                [void][MugenDeejWindowing.Foreground]::SetForegroundWindow($dialog.Handle)
+                $dialog.Activate()
+                $dialog.TopMost = $false
+                Write-Log 'Connection diagnostics shown and activated' 'DEBUG'
+            }
+            catch {
+                try { $dialog.TopMost = $false } catch { }
+                Write-Log ('Failed to activate connection diagnostics: {0}' -f $_.Exception.Message) 'WARN'
+            }
+        })
+        $diagTimer.Start()
+        $dialogResult = $dialog.ShowDialog($form)
+        Write-Log ('Connection diagnostics closed; result={0}' -f $dialogResult) 'DEBUG'
+    }
+    finally {
+        $diagTimer.Stop()
+        $diagTimer.Dispose()
+        if (-not $connectionGroup.IsDisposed) {
+            $advancedPanel.Controls.Add($connectionGroup)
+            $connectionGroup.Location = [System.Drawing.Point]::new(24, 0)
+        }
+        if (-not $driverGroup.IsDisposed) {
+            $advancedPanel.Controls.Add($driverGroup)
+            $driverGroup.Location = [System.Drawing.Point]::new(24, 158)
+        }
+        if (-not $dialog.IsDisposed) { $dialog.Dispose() }
+    }
+}
+function Set-AdvancedExpanded {
+    param(
+        [bool]$Expanded,
+        [bool]$Persist = $true
+    )
+
+    # Compatibility shim for old config/localization call sites. Diagnostics is
+    # now a separate dialog, so the main window never enters an expanded state.
+    $advancedPanel.Visible = $false
+    $label = [string](T -Key 'DiagnosticsClosed')
+    $advancedToggle.Text = ($label -replace '\s*[▼▲]\s*$', '')
+
+    $hasButtons = ($script:IsConnected -and $script:DetectedButtonCount -gt 0)
+    Set-MainButtonLayout -HasButtons $hasButtons
+
+    $script:Config.app.advancedExpanded = $false
+    if ($Persist) {
+        Save-Config -Config $script:Config
+    }
+}
+
+if ([string]$script:Config.connection.mode -eq 'manual') { $manualRadio.Checked = $true } else { $autoRadio.Checked = $true }
+Refresh-PortList
+Update-ConnectionControls
+Apply-MainLocalization
+Set-AdvancedExpanded -Expanded ([bool]$script:Config.app.advancedExpanded) -Persist $false
+$initialTheme = Get-EffectiveTheme
+Apply-ThemeToForm -Form $form -ThemeName $initialTheme
+Apply-ToolStripTheme -ToolStrip $trayMenu -ThemeName $initialTheme
+$script:LastEffectiveTheme = $initialTheme
+
+$themeCombo.Add_SelectedIndexChanged({
+    if ($script:UpdatingThemeCombo -or $themeCombo.SelectedIndex -lt 0) { return }
+
+    $newTheme = switch ($themeCombo.SelectedIndex) {
+        1 { 'light' }
+        2 { 'dark' }
+        default { 'auto' }
+    }
+    $previousTheme = Get-NormalizedThemeSetting -Value ([string]$script:Config.app.theme)
+    if ($newTheme -eq $previousTheme) { return }
+
+    $script:Config.app.theme = $newTheme
+    try {
+        Save-Config -Config $script:Config
+        [void](Apply-CurrentTheme)
+        Write-Log ("Interface theme setting changed: {0} -> {1}" -f $previousTheme, $newTheme) 'INFO'
+    }
+    catch {
+        $script:Config.app.theme = $previousTheme
+        Sync-ThemeCombo
+        [void](Apply-CurrentTheme)
+        Write-Log ("Failed to save interface theme setting: {0}" -f $_.Exception.Message) 'ERROR'
+        [System.Windows.Forms.MessageBox]::Show(
+            $_.Exception.Message,
+            'Mugen Deej',
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Warning
+        ) | Out-Null
+    }
+})
+
+$languageCombo.Add_SelectedIndexChanged({
+    $newLanguage = if ($languageCombo.SelectedIndex -eq 0) { 'ru' } else { 'en' }
+    if ($newLanguage -eq $script:Language) { return }
+    $script:Language = $newLanguage
+    $script:Config.app.language = $newLanguage
+    Set-DefaultControlNamesForLanguage
+    Save-Config -Config $script:Config
+    Apply-MainLocalization
+    if ($script:IsConnected) {
+        Set-Status (Get-ControllerConnectedStatusText -PortName $script:ConnectedPort) 'ok'
+    }
+    else {
+        Set-Status (T -Key 'StatusNotConnected') 'idle'
+    }
+    if ($script:VirtualGamepadFeatureAvailable) {
+        Refresh-MugenVirtualGamepadLocalizedStatus
+    }
+    if ($advancedPanel.Visible) {
+        Update-DriverStatus
+    }
+    Write-Log "Interface language changed to $newLanguage"
+})
+
+$script:UpdatingStartupCheck = $false
+$script:UpdatingStartMinimizedCheck = $false
+
+$startWithWindowsCheck.Add_CheckedChanged({
+    if ($script:UpdatingStartupCheck) { return }
+    try {
+        Set-StartupEnabled -Enabled ([bool]$startWithWindowsCheck.Checked)
+    }
+    catch {
+        Write-Log ("Failed to change Windows startup setting: {0}" -f $_.Exception.Message) 'ERROR'
+        $script:UpdatingStartupCheck = $true
+        try { $startWithWindowsCheck.Checked = (Test-StartupEnabled) }
+        finally { $script:UpdatingStartupCheck = $false }
+        [System.Windows.Forms.MessageBox]::Show(
+            (T -Key 'StartupSettingsError' -Args @($_.Exception.Message)),
+            (T -Key 'StartupSettingsErrorTitle'),
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Warning
+        ) | Out-Null
+    }
+})
+
+$startMinimizedCheck.Add_CheckedChanged({
+    if ($script:UpdatingStartMinimizedCheck) { return }
+    $previous = [bool]$script:Config.app.startMinimized
+    $script:Config.app.startMinimized = [bool]$startMinimizedCheck.Checked
+    try {
+        Save-Config -Config $script:Config
+        Write-Log ("Start minimized setting changed: {0}" -f ([bool]$script:Config.app.startMinimized)) 'INFO'
+    }
+    catch {
+        $script:Config.app.startMinimized = $previous
+        $script:UpdatingStartMinimizedCheck = $true
+        try { $startMinimizedCheck.Checked = $previous }
+        finally { $script:UpdatingStartMinimizedCheck = $false }
+        [System.Windows.Forms.MessageBox]::Show(
+            (T -Key 'StartupSettingsError' -Args @($_.Exception.Message)),
+            (T -Key 'StartupSettingsErrorTitle'),
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Warning
+        ) | Out-Null
+    }
+})
+
+$autoRadio.Add_CheckedChanged({
+    if ($autoRadio.Checked) {
+        $script:Config.connection.mode = 'auto'
+        Save-Config -Config $script:Config
+        Update-ConnectionControls
+    }
+})
+
+$manualRadio.Add_CheckedChanged({
+    if ($manualRadio.Checked) {
+        $script:Config.connection.mode = 'manual'
+        Save-Config -Config $script:Config
+        Update-ConnectionControls
+    }
+})
+
+$portCombo.Add_SelectedIndexChanged({
+    if ($null -ne $portCombo.SelectedItem) {
+        $script:Config.connection.port = [string]$portCombo.SelectedItem
+        Save-Config -Config $script:Config
+    }
+})
+
+function Handle-PowerModeChange {
+    param([Parameter(Mandatory = $true)][string]$ModeName)
+
+    if ($script:Closing -or $script:ExitRequested) { return }
+
+    switch ($ModeName) {
+        'Suspend' {
+            if ($script:IsSuspended) { return }
+
+            $suspendStarted = Get-Date
+            $activePort = [string]$script:ConnectedPort
+            if ([string]::IsNullOrWhiteSpace($activePort)) {
+                $activePort = [string]$script:Config.connection.lastWorkingPort
+            }
+            $script:ResumePreferredPort = $activePort
+
+            $serialPresent = ($null -ne $script:Serial)
+            $serialIsOpen = $false
+            if ($serialPresent) {
+                try { $serialIsOpen = [bool]$script:Serial.IsOpen } catch { }
+            }
+
+            Write-Log ("System suspend detected; connectedPort={0}; preferredResumePort={1}; scanning={2}; serialObjectPresent={3}; serialIsOpen={4}" -f $script:ConnectedPort, $script:ResumePreferredPort, $script:IsConnecting, $serialPresent, $serialIsOpen) 'INFO'
+            $script:IsSuspended = $true
+            $script:ControllerRecoveryPort = ''
+            $script:ControllerRecoveryAt = [DateTime]::MinValue
+            $script:ControllerRecoveryFastUntil = [DateTime]::MinValue
+            $script:ResumeReconnectAt = [DateTime]::MinValue
+            $script:ResumeHotplugRetryUntil = [DateTime]::MinValue
+            $script:ResumeAutoReconnectSuppressed = $true
+            $script:ResumePreserveUntil = [DateTime]::MinValue
+            $script:ResumePreserveStartedAt = [DateTime]::MinValue
+            $script:ResumePreserveFirstErrorLogged = $false
+
+            if ($null -ne $timer) { $timer.Stop() }
+
+            # Preserve the established controller SerialPort across sleep and hibernation.
+            # Only an unrelated in-progress discovery probe is cancelled; Windows
+            # can restore the existing handle when the system resumes.
+            Cancel-ActivePortProbe -Reason 'system suspend; active controller port is intentionally preserved' -Detailed
+            [MugenDeejAudio.AudioMixer]::InvalidateSessions()
+
+            $elapsedMs = [int](((Get-Date) - $suspendStarted).TotalMilliseconds)
+            Write-Log ("Suspend handler completed without closing the controller SerialPort; elapsedMs={0}; port={1}; objectPresent={2}; isOpen={3}" -f $elapsedMs, $script:ConnectedPort, ($null -ne $script:Serial), $serialIsOpen) 'INFO'
+            Set-Status (T -Key 'StatusLost') 'warn'
+            Update-TrayText
+        }
+
+        'Resume' {
+            if ([string]::IsNullOrWhiteSpace($script:ResumePreferredPort)) {
+                $script:ResumePreferredPort = [string]$script:Config.connection.lastWorkingPort
+            }
+
+            $preserveSeconds = [int]$script:ResumePreserveSeconds
+            $serialPresent = ($null -ne $script:Serial)
+            $serialIsOpen = $false
+            if ($serialPresent) {
+                try { $serialIsOpen = [bool]$script:Serial.IsOpen } catch { }
+            }
+
+            Write-Log ("System resume detected; preferredResumePort={0}; preserving the existing SerialPort for {1} seconds; objectPresent={2}; isConnected={3}; isOpen={4}" -f $script:ResumePreferredPort, $preserveSeconds, $serialPresent, $script:IsConnected, $serialIsOpen) 'INFO'
+            $script:IsSuspended = $false
+            [MugenDeejAudio.AudioMixer]::InvalidateSessions()
+
+            $script:ResumeAutoReconnectSuppressed = $true
+            $script:ResumeReconnectAt = [DateTime]::MinValue
+            $script:ResumeHotplugRetryUntil = [DateTime]::MinValue
+            $script:ResumePreserveFirstErrorLogged = $false
+            $script:SerialBuffer = ''
+            $script:LastSerialPacketAt = Get-Date
+
+            if ($script:IsConnected -and $serialPresent) {
+                $script:ResumePreserveStartedAt = Get-Date
+                $script:ResumePreserveUntil = (Get-Date).AddSeconds($preserveSeconds)
+                Set-Status (T -Key 'StatusResumePreserving' -Args @($script:ResumePreferredPort)) 'busy'
+            }
+            else {
+                # No established connection exists to preserve. Wait briefly,
+                # then perform one targeted reconnect attempt instead of immediately
+                # scanning every COM port.
+                $script:ResumePreserveStartedAt = [DateTime]::MinValue
+                $script:ResumePreserveUntil = [DateTime]::MinValue
+                $script:ResumeReconnectAt = (Get-Date).AddSeconds([int]$script:ResumeReconnectDelaySeconds)
+                Set-Status (T -Key 'StatusResumeWaiting' -Args @([int]$script:ResumeReconnectDelaySeconds)) 'busy'
+                Write-Log 'No established SerialPort existed at resume; falling back to one delayed connection attempt' 'WARN'
+            }
+
+            Ensure-FormVisible -Form $form -CenterIfOffscreen
+            try {
+                $form.Invalidate($true)
+                $form.Update()
+            }
+            catch { }
+
+            if ($null -ne $timer -and -not $script:Closing) { $timer.Start() }
+        }
+    }
+}
+
+function Request-AppExit {
+    if ($script:ExitRequested) { return }
+
+    $script:Closing = $true
+    $script:ExitRequested = $true
+    if ($null -ne $timer) { $timer.Stop() }
+
+    Cancel-ActivePortProbe -Reason 'application exit requested'
+    Close-ControllerPort
+
+    if ($script:IsConnecting) {
+        $form.Hide()
+        return
+    }
+
+    $script:ShutdownFinalizing = $true
+    $form.Close()
+}
+
+$backupMenuButton.Add_Click({ Show-MugenDeejBackupMenu -OwnerControl $backupMenuButton })
+$advancedToggle.Add_Click({ Show-ConnectionDiagnosticsWindow })
+$refreshButton.Add_Click({ Refresh-PortList; Update-ConnectionControls })
+$connectButton.Add_Click({
+    $script:ResumeReconnectAt = [DateTime]::MinValue
+    $script:ResumeHotplugRetryUntil = [DateTime]::MinValue
+    $script:ControllerRecoveryPort = ''
+    $script:ControllerRecoveryAt = [DateTime]::MinValue
+    $script:ControllerRecoveryFastUntil = [DateTime]::MinValue
+    $script:ResumePreserveUntil = [DateTime]::MinValue
+    $script:ResumePreserveStartedAt = [DateTime]::MinValue
+    $script:ResumePreserveFirstErrorLogged = $false
+    $script:ResumeAutoReconnectSuppressed = $false
+    [void](Connect-Controller -ForceFullScan)
+})
+$settingsButton.Add_Click({ Show-SliderSettings })
+$buttonSettingsButton.Add_Click({ Show-ButtonSettings })
+$driverButton.Add_Click({ Install-Ch340Driver })
+$logButton.Add_Click({ Start-Process notepad.exe -ArgumentList ('"{0}"' -f $script:LogPath) })
+
+$trayOpen.Add_Click({ Show-MainWindowForeground })
+$traySettings.Add_Click({ Show-MainWindowForeground; Show-SliderSettings })
+$trayReconnect.Add_Click({
+    $script:ResumeReconnectAt = [DateTime]::MinValue
+    $script:ResumeHotplugRetryUntil = [DateTime]::MinValue
+    $script:ControllerRecoveryPort = ''
+    $script:ControllerRecoveryAt = [DateTime]::MinValue
+    $script:ControllerRecoveryFastUntil = [DateTime]::MinValue
+    $script:ResumePreserveUntil = [DateTime]::MinValue
+    $script:ResumePreserveStartedAt = [DateTime]::MinValue
+    $script:ResumePreserveFirstErrorLogged = $false
+    $script:ResumeAutoReconnectSuppressed = $false
+    [void](Connect-Controller -ForceFullScan)
+})
+$trayExit.Add_Click({ Request-AppExit })
+$notifyIcon.Add_DoubleClick({ Show-MainWindowForeground })
+# dev11: normalize the hidden main form BEFORE the legacy Resize handler runs.
+$form.Add_Resize({
+    if (
+        $form.WindowState -eq [System.Windows.Forms.FormWindowState]::Minimized -and
+        [bool]$script:Config.app.minimizeToTray
+    ) {
+        Hide-MainWindowToTray
+    }
+})
+
+# dev11: X-to-tray safety. The existing FormClosing handler still sets Cancel
+# and owns actual shutdown; this pre-handler only guarantees a clean tray state.
+$form.Add_FormClosing({
+    param($sender, $eventArgs)
+
+    if (
+        -not $script:Closing -and
+        [bool]$script:Config.app.minimizeToTray
+    ) {
+        Hide-MainWindowToTray
+    }
+})
+
+$form.Add_Resize({
+    if ($form.WindowState -eq [System.Windows.Forms.FormWindowState]::Minimized -and [bool]$script:Config.app.minimizeToTray) {
+        $form.Hide()
+    }
+})
+
+$form.Add_FormClosing({
+    param($sender, $eventArgs)
+
+    if (-not $script:Closing -and [bool]$script:Config.app.minimizeToTray) {
+        $eventArgs.Cancel = $true
+        $form.Hide()
+        return
+    }
+
+    $script:Closing = $true
+    $script:ExitRequested = $true
+
+    if ($script:IsConnecting -and -not $script:ShutdownFinalizing) {
+        $eventArgs.Cancel = $true
+        if ($null -ne $timer) { $timer.Stop() }
+        Cancel-ActivePortProbe -Reason 'form closing while a COM-port probe is active'
+        Close-ControllerPort
+        $form.Hide()
+        return
+    }
+
+    $script:ShutdownFinalizing = $true
+    if ($null -ne $timer) { $timer.Stop() }
+
+    Cancel-ActivePortProbe -Reason 'final application shutdown'
+
+    try { Save-Config -Config $script:Config }
+    catch { Write-Log "Final config save on exit failed: $($_.Exception.Message)" 'ERROR' }
+
+    Close-ControllerPort
+
+    if ($null -ne $script:PowerBridge) {
+        try { $script:PowerBridge.Dispose() } catch { }
+        $script:PowerBridge = $null
+    }
+    if ($null -ne $script:ThemePreferenceBridge) {
+        try { $script:ThemePreferenceBridge.Dispose() } catch { }
+        $script:ThemePreferenceBridge = $null
+    }
+
+    $notifyIcon.Visible = $false
+    $notifyIcon.Dispose()
+    if ($script:AppIcon) { try { $script:AppIcon.Dispose() } catch { } }
+    try { $script:InstanceMutex.ReleaseMutex() } catch { }
+    try { $script:InstanceMutex.Dispose() } catch { }
+    Write-Log 'Mugen Deej stopped'
+})
+
+$timer = New-Object System.Windows.Forms.Timer
+$timer.Interval = 20
+$timer.Add_Tick({
+    try {
+    $desiredInputInterval = if (
+        $script:VirtualGamepadFeatureAvailable -and
+        $script:VirtualGamepadActive
+    ) { 5 } else { 20 }
+    if ($timer.Interval -ne $desiredInputInterval) {
+        $timer.Interval = $desiredInputInterval
+    }
+
+    if ($script:IsSuspended -or $script:Closing -or $script:ExitRequested) { return }
+
+    $now = Get-Date
+
+    # During the resume grace period, do not enumerate or open COM ports.
+    # Read only from the SerialPort object that existed before hibernation.
+    # Process-SerialData clears this state on success or failure.
+    if ($script:ResumePreserveUntil -ne [DateTime]::MinValue) {
+        Process-SerialData
+        Update-KnobMonitor
+        return
+    }
+
+    if ($script:ResumeReconnectAt -ne [DateTime]::MinValue) {
+        if ($now -lt $script:ResumeReconnectAt) {
+            Update-KnobMonitor
+            return
+        }
+
+        # When no established SerialPort existed to preserve, perform one
+        # delayed targeted attempt without a broad scan.
+        $script:ResumeReconnectAt = [DateTime]::MinValue
+        $preferredPort = [string]$script:ResumePreferredPort
+        $script:KnownPorts = @(Get-PortNames)
+        $script:LastPortSnapshotCheck = Get-Date
+        Write-Log ("Resume recovery delay completed; ports={0}; preferredPort={1}; performing one targeted connection attempt" -f ($script:KnownPorts -join ', '), $preferredPort) 'INFO'
+
+        $connected = $false
+        if (-not [string]::IsNullOrWhiteSpace($preferredPort) -and $script:KnownPorts -contains $preferredPort) {
+            Reset-PortProbeState -PortName $preferredPort
+            $connected = [bool](Connect-Controller -Quiet -CandidatePorts @($preferredPort))
+        }
+        else {
+            Write-Log ("The previous working port is not present after the resume quiet period: {0}" -f $preferredPort) 'WARN'
+        }
+
+        if ($connected) {
+            $script:ResumeHotplugRetryUntil = [DateTime]::MinValue
+            $script:ResumeAutoReconnectSuppressed = $false
+            Write-Log ("Targeted resume connection attempt succeeded on {0}" -f $preferredPort) 'INFO'
+        }
+        elseif (
+            $script:ResumeHotplugRetryUntil -ne [DateTime]::MinValue -and
+            $now -lt $script:ResumeHotplugRetryUntil
+        ) {
+            $retrySeconds = [int]$script:ResumeHotplugRetrySeconds
+            $remainingSeconds = [int][Math]::Ceiling(($script:ResumeHotplugRetryUntil - $now).TotalSeconds)
+            $script:ResumeReconnectAt = $now.AddSeconds($retrySeconds)
+            $script:ResumeAutoReconnectSuppressed = $true
+            Write-Log ("Targeted resume retry on {0} is still not ready; retrying in {1} s; readinessWindowRemaining={2} s" -f $preferredPort, $retrySeconds, $remainingSeconds) 'WARN'
+        }
+        else {
+            $hadReadinessWindow = ($script:ResumeHotplugRetryUntil -ne [DateTime]::MinValue)
+            $script:ResumeHotplugRetryUntil = [DateTime]::MinValue
+            $script:ResumeAutoReconnectSuppressed = $true
+
+            # Do not get stuck forever if Windows keeps the same COM name in
+            # enumeration across unplug/replug. After the fast readiness window
+            # expires, keep one low-frequency targeted retry alive only for the
+            # previously working port. This avoids broad scans while still
+            # honoring the user-facing promise that replugging USB reconnects
+            # automatically.
+            $slowRetrySeconds = [int]$script:ResumeHotplugSlowRetrySeconds
+            $script:ResumeReconnectAt = $now.AddSeconds($slowRetrySeconds)
+
+            if ($hadReadinessWindow) {
+                Write-Log ("Resume readiness retry window exhausted for {0}; continuing low-frequency targeted retries every {1} s until the controller returns or the user requests a manual scan" -f $preferredPort, $slowRetrySeconds) 'WARN'
+            }
+            else {
+                Write-Log ("Targeted resume attempt failed on {0}; continuing low-frequency targeted retries every {1} s until the controller returns or the user requests a manual scan" -f $preferredPort, $slowRetrySeconds) 'WARN'
+            }
+            Set-Status (T -Key 'StatusResumeReconnectFailed' -Args @($preferredPort)) 'warn'
+            Update-TrayText
+            Update-DriverStatus
+        }
+
+        Update-KnobMonitor
+        return
+    }
+
+    # Ordinary controller-loss recovery. Unlike resume recovery this also
+    # handles runtime resets/brownouts and very fast same-COM unplug/replug.
+    if (
+        -not $script:IsConnected -and
+        -not $script:IsConnecting -and
+        $script:ControllerRecoveryAt -ne [DateTime]::MinValue -and
+        $now -ge $script:ControllerRecoveryAt
+    ) {
+        $recoveryPort = [string]$script:ControllerRecoveryPort
+        if ([string]::IsNullOrWhiteSpace($recoveryPort)) {
+            $script:ControllerRecoveryAt = [DateTime]::MinValue
+            $script:ControllerRecoveryFastUntil = [DateTime]::MinValue
+        }
+        else {
+            $currentPorts = @(Get-PortNames)
+            $connected = $false
+
+            if ($currentPorts -contains $recoveryPort) {
+                Reset-PortProbeState -PortName $recoveryPort
+                Write-Log ("Controller recovery attempt on {0}; ports={1}" -f $recoveryPort, ($currentPorts -join ', ')) 'INFO'
+                $connected = [bool](Connect-Controller -Quiet -CandidatePorts @($recoveryPort))
+            }
+            else {
+                Write-Log ("Controller recovery waiting for {0} to appear; ports={1}" -f $recoveryPort, ($currentPorts -join ', ')) 'DEBUG'
+            }
+
+            if (-not $connected) {
+                $retrySeconds = if (
+                    $script:ControllerRecoveryFastUntil -ne [DateTime]::MinValue -and
+                    $now -lt $script:ControllerRecoveryFastUntil
+                ) {
+                    [int]$script:ControllerRecoveryFastSeconds
+                }
+                else {
+                    [int]$script:ControllerRecoverySlowSeconds
+                }
+
+                $script:ControllerRecoveryAt = (Get-Date).AddSeconds($retrySeconds)
+                Write-Log ("Controller recovery for {0} still pending; next targeted retry in {1} s" -f $recoveryPort, $retrySeconds) 'DEBUG'
+            }
+
+            Update-KnobMonitor
+            if ($script:IsConnected) { return }
+        }
+    }
+
+    # Detect changes in Windows' COM-port list separately from the slower retry
+    # loop. A newly appeared port is always treated as fresh, even if the same
+    # COM number previously failed protocol detection.
+    if (($now - $script:LastPortSnapshotCheck).TotalMilliseconds -ge $script:PortSnapshotIntervalMs) {
+        $script:LastPortSnapshotCheck = $now
+        $currentPorts = @(Get-PortNames)
+        $newPorts = @($currentPorts | Where-Object { $script:KnownPorts -notcontains $_ })
+        $removedPorts = @($script:KnownPorts | Where-Object { $currentPorts -notcontains $_ })
+        $script:KnownPorts = @($currentPorts)
+
+        if ($removedPorts.Count -gt 0) {
+            foreach ($removedPort in $removedPorts) {
+                Reset-PortProbeState -PortName $removedPort
+                $script:PendingNewPorts = @($script:PendingNewPorts | Where-Object { $_ -ne $removedPort })
+            }
+            Write-Log ("COM ports removed: {0}" -f ($removedPorts -join ', ')) 'DEBUG'
+        }
+        if ($newPorts.Count -gt 0) {
+            Write-Log ("New COM ports detected: {0}" -f ($newPorts -join ', ')) 'INFO'
+            Add-PendingNewPorts -Ports $newPorts
+        }
+    }
+
+    if (-not $script:IsConnected -and -not $script:IsConnecting -and $script:PendingNewPorts.Count -gt 0) {
+        $candidatePorts = @($script:PendingNewPorts)
+        $script:PendingNewPorts = @()
+        $resumeSuppressionWasActive = $script:ResumeAutoReconnectSuppressed
+        if ($resumeSuppressionWasActive) {
+            Write-Log ("New COM device appeared while automatic resume reconnect was suppressed; trying only the new port(s): {0}" -f ($candidatePorts -join ', ')) 'INFO'
+        }
+
+        $newPortConnected = [bool](Connect-Controller -Quiet -CandidatePorts $candidatePorts)
+        if ($newPortConnected) {
+            $script:ResumeAutoReconnectSuppressed = $false
+        }
+        elseif ($resumeSuppressionWasActive) {
+            $preferredPort = [string]$script:ResumePreferredPort
+            if (
+                -not [string]::IsNullOrWhiteSpace($preferredPort) -and
+                $candidatePorts -contains $preferredPort
+            ) {
+                # Windows can publish the COM device name before CreateFile/Open
+                # can actually use it. Start a short bounded readiness window
+                # and keep retrying only the preferred resume port.
+                $retrySeconds = [int]$script:ResumeHotplugRetrySeconds
+                $retryWindowSeconds = [int]$script:ResumeHotplugRetryWindowSeconds
+                $retryNow = Get-Date
+                $script:ResumeHotplugRetryUntil = $retryNow.AddSeconds($retryWindowSeconds)
+                $script:ResumeReconnectAt = $retryNow.AddSeconds($retrySeconds)
+                $script:ResumeAutoReconnectSuppressed = $true
+                Write-Log ("Fresh resume port {0} appeared but was not ready to open; starting bounded readiness retry window of {1} s; next attempt in {2} s" -f $preferredPort, $retryWindowSeconds, $retrySeconds) 'WARN'
+            }
+            else {
+                $script:ResumeAutoReconnectSuppressed = $true
+            }
+        }
+    }
+
+    if ($script:IsConnected) {
+        Process-SerialData
+    }
+    elseif (-not $script:IsConnecting -and -not $script:ResumeAutoReconnectSuppressed) {
+        $seconds = [int]$script:Config.connection.reconnectSeconds
+        if (((Get-Date) - $script:LastReconnectAttempt).TotalSeconds -ge $seconds) {
+            $script:LastReconnectAttempt = Get-Date
+            [void](Connect-Controller -Quiet)
+        }
+    }
+    }
+    catch {
+        $timerError = $_
+        $diagnostic = ''
+        try {
+            $diagnostic = Get-ExceptionDiagnosticText -ErrorRecord $timerError
+        }
+        catch {
+            $diagnostic = 'diagnostic formatting failed: ' + [string]$_.Exception.Message
+        }
+
+        $stackText = ''
+        try {
+            $stackText = ([string]$timerError.ScriptStackTrace) -replace '[\r\n]+', ' <- '
+        }
+        catch { }
+
+        $categoryText = ''
+        try { $categoryText = [string]$timerError.CategoryInfo } catch { }
+
+        $fqidText = ''
+        try { $fqidText = [string]$timerError.FullyQualifiedErrorId } catch { }
+
+        try {
+            Write-Log (
+                'Main UI timer callback failed but was contained; {0}; category={1}; fqid={2}; stack={3}' -f
+                $diagnostic,
+                $categoryText,
+                $fqidText,
+                $stackText
+            ) 'ERROR'
+        }
+        catch { }
+
+        # Avoid a tight exception loop if the failure happened in controller
+        # recovery. Connect-Controller's finally block has already cleared
+        # IsConnecting; simply defer the next targeted attempt.
+        if (
+            -not $script:IsConnected -and
+            -not [string]::IsNullOrWhiteSpace([string]$script:ControllerRecoveryPort)
+        ) {
+            $script:ControllerRecoveryAt = (Get-Date).AddSeconds(2)
+        }
+    }
+    Update-KnobMonitor
+})
+
+$script:PowerUiAction = [System.Action[string]]{
+    param($modeName)
+    try {
+        Handle-PowerModeChange -ModeName $modeName
+    }
+    catch {
+        Write-Log ("Power-mode handler failed for {0}: {1}" -f $modeName, $_.Exception.Message) 'ERROR'
+    }
+}
+
+$script:PowerBridge = [MugenDeejWindowing.PowerModeBridge]::new($form, $script:PowerUiAction)
+Write-Log 'Power suspend/resume monitoring initialized' 'DEBUG'
+
+$script:ThemeUiAction = [System.Action[string]]{
+    param($categoryName)
+    try {
+        Handle-ThemePreferenceChange -CategoryName $categoryName
+    }
+    catch {
+        Write-Log ("Theme preference handler failed for {0}: {1}" -f $categoryName, $_.Exception.Message) 'ERROR'
+    }
+}
+$script:ThemePreferenceBridge = [MugenDeejWindowing.ThemePreferenceBridge]::new($form, $script:ThemeUiAction)
+Write-Log 'Windows theme preference monitoring initialized' 'DEBUG'
+
+$form.Add_Shown({
+    $startMinimized = ([bool]$script:Config.app.startMinimized) -and (-not $script:ForceShowAfterRestore)
+    if ($startMinimized) {
+        # Hide before controller discovery/initialization so startup-to-tray does
+        # not display the main window while COM probing is in progress.
+        $form.Hide()
+        $form.WindowState = [System.Windows.Forms.FormWindowState]::Normal
+        $form.ShowInTaskbar = $true
+        $form.Opacity = 1
+        Write-Log 'Main window suppressed during start-minimized launch' 'DEBUG'
+    }
+    else {
+        Ensure-FormVisible -Form $form -CenterIfOffscreen
+        Show-MainWindowForeground
+    }
+
+    $script:ResumeAutoReconnectSuppressed = $false
+    $script:KnownPorts = @(Get-PortNames)
+    $script:LastPortSnapshotCheck = Get-Date
+    Update-DriverStatus
+    [void](Connect-Controller -ForceFullScan)
+    $timer.Start()
+    if (-not $startMinimized -and -not [bool]$script:Config.app.firstRunCompleted) {
+        Show-FirstRunWizard
+    }
+})
+
+[System.Windows.Forms.Application]::Run($form)
+
+if ($script:RestartRequested) {
+    try {
+        Write-Log ('Restarting Mugen Deej via launcher with one-shot visible window: {0}' -f $script:ExecutablePath) 'INFO'
+        $env:MUGEN_DEEJ_SHOW_AFTER_RESTORE = '1'
+        try {
+            Start-Process -FilePath $script:ExecutablePath -WorkingDirectory $script:BaseDir
+        }
+        finally {
+            Remove-Item Env:\MUGEN_DEEJ_SHOW_AFTER_RESTORE -ErrorAction SilentlyContinue
+        }
+    }
+    catch {
+        Write-Log ('Automatic restart failed: {0}' -f $_.Exception.Message) 'ERROR'
+    }
+}
+, ' Гц') -replace '\.', ','
+            ('{0} · Частота: {1}' -f $ageText, $rateText)
+        }
+        else {
+            $ageText = [string]$snapshot.PacketAge
+            if ($ageText -ne '—') {
+                $ageText += ' ago'
+            }
+
+            ('{0} · Rate: {1}' -f $ageText, $snapshot.PacketRate)
         }
     }
 
