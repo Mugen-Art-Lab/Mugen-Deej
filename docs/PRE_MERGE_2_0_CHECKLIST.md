@@ -460,6 +460,52 @@ This is sufficient to proceed with the isolated cadence experiment, but longer
 high-rate runtime/reconnect testing is still required before 500000 is treated
 as a reference transport.
 
+### Diagnostics modal z-order after tray restore — 2026-09-29
+
+A post-hibernation UI failure was reproduced while validating the high-rate
+diagnostics path. The controller itself resumed successfully on the preserved
+COM5 SerialPort, but opening **Connection and diagnostics** after restoring the
+main window from the tray could produce this sequence:
+
+- the diagnostics form flashed briefly and then became inaccessible;
+- the main form remained visible but rejected clicks with the Windows modal
+  notification sound;
+- Mugen continued to treat a modal dialog as open, confirming that the
+  diagnostics form had not actually closed;
+- on forced application shutdown, the delayed
+  `Main window restored from tray` log entry appeared only after the modal
+  dialog unwound.
+
+The root cause is WinForms message-loop re-entrancy in
+`Show-MainWindowForeground`. The tray restore path temporarily raised the main
+form to `TopMost`, then called `Application.DoEvents()` before clearing that
+state. A fast diagnostics click could therefore be delivered *inside* the
+restore call. `ShowDialog($form)` then blocked that nested callback while the
+owner was still TopMost, allowing the disabled main form to sit above its own
+modal child.
+
+Fix committed in:
+
+`e3263139194b2ab9325a4d6a924c2865d2396dc4`
+(`fix: keep diagnostics modal above restored main window`)
+
+The fix:
+
+- removes `Application.DoEvents()` from the main-window restore path;
+- clears the temporary owner `TopMost` state before opening diagnostics as a
+  defensive guard;
+- gives the diagnostics form one explicit foreground/z-order pulse when shown,
+  then immediately returns it to normal owned-modal behavior;
+- does not pump another nested message loop;
+- adds diagnostics open/shown/closed log markers, including owner visibility,
+  owner TopMost state and tray-transition state.
+
+**Acceptance status: PENDING CI/HARDWARE RETEST.** From the CI package built
+from the exact fix, test both ordinary use and the original regression path:
+hide Mugen to tray -> hibernate -> resume -> restore Mugen -> immediately open
+Connection and diagnostics. The dialog must remain visible above the main form,
+close normally, and leave the main form interactive.
+
 True start-to-start heartbeat experiment:
 
 - commit `e77a89e6c8bbf3fbe53cd07465e1f7b566eac25c`
