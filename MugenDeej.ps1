@@ -4243,7 +4243,10 @@ function Apply-ConfiguredUiScale {
             if ($null -eq $control -or $control.IsDisposed) { continue }
             if ($null -ne $entry.Font) {
                 $newSize = [Math]::Max(6.0, ([double]$entry.Font.Size * $factor))
-                $control.Font = [System.Drawing.Font]::new($entry.Font, [single]$newSize)
+                $control.Font = [System.Drawing.Font]::new(
+                    $entry.Font.FontFamily, [single]$newSize,
+                    $entry.Font.Style, $entry.Font.Unit
+                )
             }
             if ($null -ne $entry.ScrollMin -and
                 ($entry.ScrollMin.Width -gt 0 -or $entry.ScrollMin.Height -gt 0)) {
