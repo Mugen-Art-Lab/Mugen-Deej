@@ -36,8 +36,22 @@ field required for the initial design.
 
 A user building a controller with limited MCU I/O reports using a **resistor
 ladder for 10 physical buttons**, with **four pins** used in their particular
-setup. The circuit topology and how it handles simultaneous presses have not
-yet been supplied or independently verified.
+setup. The user has since described and shown the working firmware arrangement:
+**one digital input for hard mute, one digital input for a separate button,
+and two independent analog inputs for four buttons each** (1 + 1 + 4 + 4).
+Each ADC input classifies one button from distinct reading ranges, separated
+by deliberately unused gaps; the firmware then maps the decoded states to
+ordinary Extended button fields. Their Mugen Deej 1.0.0 screenshot shows
+**6 controls / 10 buttons**, and the user reports all ten buttons and six
+sliders operate correctly.
+
+Simultaneous presses **between independent groups** are possible according
+to the builder; decoding more than one key **within the same resistor group**
+was deliberately not required and should not be advertised as supported.
+The user described the parallel-resistor behavior for that case, but a full
+electrical schematic and controlled multi-key measurements are not on file.
+These are community hardware observations, not yet a Mugen reference-firmware
+validation.
 
 The useful architectural distinction:
 
@@ -66,6 +80,60 @@ algorithm **only if they wish to share it**; do not assume their exact design.
 
 **Not a 2.0.0 feature or reference-hardware requirement.**
 
+## 2026-10-09 — Adjustable application UI scale / compact and large displays
+
+**Status:** Proposed experiment; user-requested first approach, not implemented.
+
+A small-screen hardware test on an HD Ready laptop with **5 sliders and
+6 buttons** reproduced the UI problem visually: the main window is usable,
+but the fixed-height **Configure controls** dialog extends below the Windows
+taskbar, hiding its Save/Cancel buttons. A separate community report reproduced
+a similar failure with **6 sliders at 1366 x 768 / 100% Windows scaling**.
+The original screenshots are held in the project conversation, not committed
+to this repository.
+
+The user proposed a **manual UI-scale selector** as the initial experiment,
+with convenient small/normal/large display presets (conceptually 720p,
+1080p, 1440p/"2K", and 4K). The goal is **both directions**: make dialogs
+smaller on low-resolution laptop screens, and avoid tiny windows/controls
+on large high-resolution monitors.
+
+Current implementation facts (release branch, no change made here):
+
+- the app uses WinForms with fixed pixel coordinates and multiple custom
+  controls; it does **not** yet have an application-level scale setting;
+- the slider dialog starts at `ClientSize = 1110 x 775` and
+  `MinimumSize = 1126 x 814`, then shifts content and extends form height
+  by another **38 px** for the Save warning; more slider rows can move
+  buttons still further down;
+- several other dialogs also exceed 768 px in height, so this must be tested
+  across more than one page;
+- `Ensure-FormVisible` checks whether some part of a form is within a
+  monitor's `WorkingArea`, not whether its entire content and actions fit.
+
+Potential direction for an **approved** prototype:
+
+- provide meaningful scale presets, e.g. Auto / Compact / 100% / 125% /
+  150% / 200%, with the exact list and labels agreed before coding;
+- determine an initial automatic choice from **usable screen working area**
+  and Windows DPI scaling, rather than treating nominal pixel resolution
+  as a guaranteed physical size; avoid double-scaling with OS DPI;
+- preserve layout proportions, font legibility, button hit targets and
+  custom-control appearance; verify actual WinForms scaling rather than
+  assuming a single `Scale()` call solves all fixed coordinates;
+- keep primary dialog actions accessible; a scrollable settings-content area
+  with anchored Save/Cancel may still be necessary even with compact scaling;
+- retain existing 100% appearance as an explicit compatibility baseline,
+  offer a way to reset an unusable scale setting and avoid affecting
+  controller protocol, audio, or serial timing.
+
+Suggested test matrix: 1366x768/100% (confirmed failure), 1920x1080,
+2560x1440 and 3840x2160 at representative Windows DPI settings. Include
+5 and 6+ sliders, advanced settings expanded, keyboard navigation, long
+Russian/English labels, and a complete Save/Cancel path.
+
+**UI layout/scale change requires separate user review and approval.**
+
 ## Related 2.0.0 issues (separate from these ideas)
 
 The same early community test identified two concrete release-prep checks:
@@ -76,8 +144,11 @@ The same early community test identified two concrete release-prep checks:
    five-row UI limit. Fix/test dynamic main-window display before release.
 2. **Small-screen settings window:** on **1366 x 768 at 100% Windows display
    scaling**, the bottom controls of the slider settings window may be hidden
-   behind the taskbar when six rows are shown. Test resize/scroll/work-area
-   handling without affecting the normal five-slider layout.
+   behind the taskbar when six rows are shown. The project owner independently
+   reproduced the hidden Save/Cancel area on an HD Ready laptop even with
+   **5 sliders / 6 buttons**. Investigate the approved scale-setting experiment,
+   while also verifying that essential actions remain reachable regardless of
+   scale. Do not alter the normal five-slider layout silently.
 
 The user's backup was a valid 1.0.0 schema-v1 JSON snapshot containing
 `expectedSliders=6` and six slider entries. The user reported that the earlier
