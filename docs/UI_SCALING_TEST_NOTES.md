@@ -75,7 +75,10 @@ the source of UX approval. Do not silently alter RU/EN copy.
   calculate settings visibility/signature from actual detected capabilities,
   explicitly set required card/button visibility, and force a single redraw
   after the main form is shown from the tray. Retain CI #29 atomic redraw
-  protection.
+  protection. Windows CI [#30](https://github.com/Mugen-Art-Lab/Mugen-Deej/actions/runs/37957458571)
+  **passed** on self-hosted `Mugen-Builder`. Setup EXE SHA-256:
+  `8560db245d802df750670d76e2971074044ba7639653be9eda5636ff5855ac82`;
+  test ZIP `Mugen-Deej-2.0.0-Setup-CI30.zip` contains that verified EXE.
 - **Real-device result PENDING**: reopen from tray, Auto/80/100 transitions,
   compare all 28 button tiles, two toggle/encoder indicators and three
   settings buttons. Also repeat with a fresh visible launch. Do not promote
