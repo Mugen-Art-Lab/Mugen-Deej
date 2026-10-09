@@ -1,10 +1,74 @@
 # Mugen Deej — current development handoff
 
-Last updated: 2026-09-29
+Last updated: 2026-10-09
 
 This is the short resume point for the active `feature/virtual-gamepad-ui` branch. Stable `main` / v1.0.0 remains untouched.
 
-## Current release-prep resume — 2026-09-29
+## Current resume — 2026-10-09 / CI #35
+
+**CURRENT TEST CANDIDATE: CI #35; runtime/UI validation on the real Windows
+machine is PENDING, NOT a confirmed fix.** The self-hosted Windows
+[build-release #35](https://github.com/Mugen-Art-Lab/Mugen-Deej/actions/runs/37964157556)
+was green on commit `5d126bb6ffc35ce885139795250c5564bff23ee3`;
+Actions artifact `Mugen-Deej-packages-35`, ID `11633430248`. The downloaded
+test archive shared to the user was `Mugen-Deej-CI35.zip` (Portable + Setup).
+Do not refer to older #16 as the current UI candidate; historical notes below
+are retained intentionally.
+
+**Why we reached #35:**
+- #27: 80%-scaled modal regulator settings visually passed HD Ready
+  1366x768 (all five controls and Save/Cancel accessible). Main dashboard
+  still at 100%.
+- #28: main dashboard Auto/80/100 introduced, but 80% caused geometry
+  oscillations and overlapping controls (real machine FAIL).
+- #29: redraw pause/signature caching stopped oscillation, but real hardware
+  showed disappearing 28-button/toggle/encoder panel. Inherited WinForms
+  `Control.Visible` was wrong while start-minimized.
+- #30: capability-derived visibility and tray-restore relayout; CI green.
+- #31: bound huge launcher crash dialog to short recent log lines; CI green.
+  A separate observed PowerShell exit=2 after ~22s (near a virtual-Xbox
+  disable action) has **no proven root cause yet**; do not attribute this
+  crash to teardown without better logs.
+- #32: made Xbox status-card height comparison scale-aware; CI green.
+- #33: additionally narrowed two-toggle indicator hosts to fit the shared
+  toggle/encoder line at 80%; CI green. **User screenshot test: both toggles
+  NOW FIT, but the top controller + virtual-Xbox status card is badly clipped
+  / vertically crushed at 100% AND 80%. #33 FAIL.**
+- #34: moved all virtual Xbox status-card bounds setup into a logical
+  coordinate helper, so status refreshes no longer directly resize already
+  scaled child controls; CI green.
+- #35: `MugenDeej.ps1` calls logical status-card layout only inside the
+  atomic main layout transaction after restoring 100% bounds, before the
+  80% transform. Layout signatures now use desired logical card heights
+  60 or 68 rather than the existing scaled WinForms height; CI green.
+  **No real-machine test of #35 received yet.**
+
+**Hardware under test:** experimental Adaptive v3 `5/28/2/2`, 500000 baud,
+true 10 ms heartbeat, two toggle switches and two encoders. Public 2.0
+reference remains `5/28/2/1` at 115200 baud; do not silently promote the
+experimental second encoder topology into the public default.
+
+**Next step when resuming the conversation:** request the user's real
+CI #35 screenshots/logs (or receive their results) for 100% and 80%
+main dashboard with Xbox available. Verify both status lines, button grid,
+both toggles, both encoders, all three settings buttons; switch virtual
+gamepad ON/OFF several times and check for black window artifacts, flicker,
+layout oscillations; test Auto and tray restore. If it fails, debug
+`Set-MainButtonLayout`, `Restore-MainUiLogicalLayout`,
+`Apply-MainUiLayoutScale` and
+`Set-MugenVirtualGamepadStatusLayoutLogical` together. The new owner
+of status geometry is `Set-MainButtonLayout`: keep 100% reference bounds
+separate from scaled bounds and do not patch visual symptoms by random offsets.
+Look at `Main UI layout applied` lines and screenshots before patching.
+
+**Project workflow:** edit only `feature/virtual-gamepad-ui`; await
+green GitHub Actions; fetch the finished artifact ZIP and **provide a direct
+chat ZIP link** rather than merely a link to the workflow. Green CI does not
+equal hardware acceptance. Do not merge into `main` / tag/publish until
+explicitly approved. See `docs/UI_SCALING_TEST_NOTES.md` for the chronological
+UI regression record. Continue conversation with the user in Russian.
+
+## Historical resume — 2026-09-29
 
 The newest CI-built runtime under hardware validation is **Build release
 packages #16** from
