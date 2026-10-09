@@ -92,11 +92,10 @@ a similar failure with **6 sliders at 1366 x 768 / 100% Windows scaling**.
 The original screenshots are held in the project conversation, not committed
 to this repository.
 
-The user proposed a **manual UI-scale selector** as the initial experiment,
-with convenient small/normal/large display presets (conceptually 720p,
-1080p, 1440p/"2K", and 4K). The goal is **both directions**: make dialogs
-smaller on low-resolution laptop screens, and avoid tiny windows/controls
-on large high-resolution monitors.
+The user agreed to trial **two reference scale profiles only**: compact for
+HD Ready (nominally 720p) and normal for Full HD (1080p). The owner can test
+these on real hardware. **1440p/"2K" and 4K are explicitly deferred** because
+there is currently no suitable display for visual verification.
 
 Current implementation facts (release branch, no change made here):
 
@@ -113,11 +112,12 @@ Current implementation facts (release branch, no change made here):
 
 Potential direction for an **approved** prototype:
 
-- provide meaningful scale presets, e.g. Auto / Compact / 100% / 125% /
-  150% / 200%, with the exact list and labels agreed before coding;
-- determine an initial automatic choice from **usable screen working area**
-  and Windows DPI scaling, rather than treating nominal pixel resolution
-  as a guaranteed physical size; avoid double-scaling with OS DPI;
+- start with a **single 100% reference layout** and a smaller compact
+  scale (e.g. 80%, provisional), applying a consistent one-time scale per
+  form rather than maintaining two unrelated pixel-coordinate layouts;
+- choose/offer the two profiles based on the user's preference and **usable
+  screen working area**; take Windows DPI scaling into account and avoid
+  applying a second scale on top of automatic OS scaling;
 - preserve layout proportions, font legibility, button hit targets and
   custom-control appearance; verify actual WinForms scaling rather than
   assuming a single `Scale()` call solves all fixed coordinates;
@@ -127,10 +127,16 @@ Potential direction for an **approved** prototype:
   offer a way to reset an unusable scale setting and avoid affecting
   controller protocol, audio, or serial timing.
 
-Suggested test matrix: 1366x768/100% (confirmed failure), 1920x1080,
-2560x1440 and 3840x2160 at representative Windows DPI settings. Include
-5 and 6+ sliders, advanced settings expanded, keyboard navigation, long
-Russian/English labels, and a complete Save/Cancel path.
+Suggested immediate test matrix: **1366x768/100%** (confirmed failure) and
+**1920x1080**, both physically available to the owner. Include 5 and 6+
+sliders, advanced settings, keyboard navigation, long Russian/English labels,
+and a complete Save/Cancel path. Defer 1440p/4K validation and profiles.
+
+Possible persistence: optional `config.app.uiScale` with a default of `1.0`
+for existing configurations. The current backup contains the complete
+configuration, so the scale value should be included automatically; check
+restore normalization and backward compatibility instead of introducing a
+new backup schema solely for this setting.
 
 **UI layout/scale change requires separate user review and approval.**
 
