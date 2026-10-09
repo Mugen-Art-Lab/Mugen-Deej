@@ -3284,6 +3284,7 @@ function New-DefaultConfig {
             language = 'auto'
             theme = 'auto'
             uiScale = 1.0
+            uiScaleMode = 'auto'
             startMinimized = $false
             minimizeToTray = $true
             firstRunCompleted = $false
@@ -3409,6 +3410,7 @@ function Ensure-ConfigShape {
     Add-MissingConfigProperty -Object $Config.app -Name 'language' -Value 'auto'
     Add-MissingConfigProperty -Object $Config.app -Name 'theme' -Value 'auto'
     Add-MissingConfigProperty -Object $Config.app -Name 'uiScale' -Value 1.0
+    Add-MissingConfigProperty -Object $Config.app -Name 'uiScaleMode' -Value 'auto'
     Add-MissingConfigProperty -Object $Config.app -Name 'startMinimized' -Value $false
     Add-MissingConfigProperty -Object $Config.app -Name 'minimizeToTray' -Value $true
     Add-MissingConfigProperty -Object $Config.app -Name 'firstRunCompleted' -Value $false
@@ -4183,9 +4185,25 @@ function Apply-ThemeToControl {
 # Experimental two-profile UI scaling. The main dashboard retains its dynamic
 # hardware layout; compact scaling is applied once to finished modal forms.
 function Get-ConfiguredUiScale {
-    $value = 1.0
-    try { $value = [double]$script:Config.app.uiScale } catch { }
-    if ([Math]::Abs($value - 0.8) -lt 0.01) { return 0.8 }
+    $mode = 'auto'
+    try { $mode = [string]$script:Config.app.uiScaleMode } catch { }
+    if ($mode -eq 'manual') {
+        $value = 1.0
+        try { $value = [double]$script:Config.app.uiScale } catch { }
+        if ([Math]::Abs($value - 0.8) -lt 0.01) { return 0.8 }
+        return 1.0
+    }
+
+    # Screen.WorkingArea accounts for taskbar and Windows DPI logical pixels.
+    try {
+        $screen = [System.Windows.Forms.Screen]::PrimaryScreen
+        if ($null -ne $script:MainUiForm -and -not $script:MainUiForm.IsDisposed) {
+            $screen = [System.Windows.Forms.Screen]::FromControl($script:MainUiForm)
+        }
+        $area = $screen.WorkingArea
+        if ($area.Height -lt 900 -or $area.Width -lt 1150) { return 0.8 }
+    }
+    catch { }
     return 1.0
 }
 
@@ -4274,6 +4292,105 @@ function Apply-ConfiguredUiScale {
     finally {
         $Form.ResumeLayout($true)
     }
+}
+
+# Main window dynamic layout is authored in 100% logical coordinates.
+# Snapshot those bounds before scaling so topology redraws never compound
+# scaling or drift by rounding on repeated disconnect/reconnect cycles.
+$script:MainUiScaleBaseline = $null
+
+function Restore-MainUiLogicalLayout {
+    $baseline = $script:MainUiScaleBaseline
+    if ($null -eq $baseline) { return }
+    $main = $script:MainUiForm
+    $script:MainUiScaleBaseline = $null
+    if ($null -eq $main -or $main.IsDisposed) { return }
+
+    $main.SuspendLayout()
+    try {
+        $main.MinimumSize = [System.Drawing.Size]::Empty
+        $main.MaximumSize = [System.Drawing.Size]::Empty
+        $main.ClientSize = $baseline.ClientSize
+
+        foreach ($entry in $baseline.Entries) {
+            $control = $entry.Control
+            if ($null -eq $control -or $control.IsDisposed) { continue }
+            $control.SuspendLayout()
+            try {
+                if ($null -ne $entry.Font) { $control.Font = $entry.Font }
+                $control.Margin = $entry.Margin
+                $control.Padding = $entry.Padding
+                $control.Bounds = $entry.Bounds
+                if ($null -ne $entry.ScrollMin) {
+                    $control.AutoScrollMinSize = $entry.ScrollMin
+                }
+            }
+            finally { $control.ResumeLayout($true) }
+        }
+        $main.MinimumSize = $baseline.MinimumSize
+        $main.MaximumSize = $baseline.MaximumSize
+    }
+    finally { $main.ResumeLayout($true) }
+}
+
+function Apply-MainUiLayoutScale {
+    $main = $script:MainUiForm
+    if ($null -eq $main -or $main.IsDisposed) { return }
+    $factor = [double](Get-ConfiguredUiScale)
+    if ($factor -eq 1.0) { return }
+
+    $entries = New-Object 'System.Collections.Generic.List[object]'
+    $pending = New-Object 'System.Collections.Queue'
+    foreach ($child in $main.Controls) { $pending.Enqueue($child) }
+    while ($pending.Count -gt 0) {
+        $control = [System.Windows.Forms.Control]$pending.Dequeue()
+        $scrollMin = $null
+        if ($control -is [System.Windows.Forms.ScrollableControl]) {
+            $scrollMin = $control.AutoScrollMinSize
+        }
+        $entries.Add([pscustomobject]@{
+            Control = $control
+            Bounds = $control.Bounds
+            Font = $control.Font
+            Margin = $control.Margin
+            Padding = $control.Padding
+            ScrollMin = $scrollMin
+        })
+        foreach ($child in $control.Controls) { $pending.Enqueue($child) }
+    }
+    $baseline = [pscustomobject]@{
+        Entries = $entries
+        ClientSize = $main.ClientSize
+        MinimumSize = $main.MinimumSize
+        MaximumSize = $main.MaximumSize
+    }
+
+    $main.SuspendLayout()
+    try {
+        $main.MinimumSize = [System.Drawing.Size]::Empty
+        $main.MaximumSize = [System.Drawing.Size]::Empty
+        $main.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
+        $main.Scale([System.Drawing.SizeF]::new([single]$factor, [single]$factor))
+
+        foreach ($entry in $entries) {
+            $control = $entry.Control
+            if ($null -eq $control -or $control.IsDisposed -or $null -eq $entry.Font) { continue }
+            $size = [Math]::Max(6.0, [double]$entry.Font.Size * $factor)
+            $control.Font = [System.Drawing.Font]::new(
+                $entry.Font.FontFamily, [single]$size,
+                $entry.Font.Style, $entry.Font.Unit
+            )
+        }
+        $main.ClientSize = [System.Drawing.Size]::new(
+            [int][Math]::Round($baseline.ClientSize.Width * $factor),
+            [int][Math]::Round($baseline.ClientSize.Height * $factor)
+        )
+        # The reference layout is FixedSingle, so lock the scaled size.
+        $main.MinimumSize = $main.Size
+        $main.MaximumSize = $main.Size
+        $script:MainUiScaleBaseline = $baseline
+    }
+    finally { $main.ResumeLayout($true) }
 }
 
 function Apply-ThemeToForm {
@@ -13171,7 +13288,11 @@ function Ensure-MainButtonIndicators {
     }
 }
 function Update-MainButtonIndicators {
+    $beforeCount = @($script:MainButtonIndicators).Count
     Ensure-MainButtonIndicators
+    if ($beforeCount -ne @($script:MainButtonIndicators).Count -and (Get-ConfiguredUiScale) -ne 1.0) {
+        Set-MainButtonLayout -HasButtons ($script:IsConnected -and [int]$script:DetectedButtonCount -gt 0)
+    }
 
     # Adaptive high-button main-grid UI: keep the live physical identification
     # surface visible in every controller size instead of replacing it with a
@@ -13329,6 +13450,8 @@ function Ensure-MainToggleIndicators {
                 )
                 $palette = $script:ThemePalettes[(Get-EffectiveTheme)]
                 $eventArgs.Graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+                $paintScale = [single](Get-ConfiguredUiScale)
+                if ($paintScale -ne 1.0) { $eventArgs.Graphics.ScaleTransform($paintScale, $paintScale) }
 
                 $path = New-Object System.Drawing.Drawing2D.GraphicsPath
                 try {
@@ -13449,6 +13572,8 @@ function Ensure-MainEncoderIndicators {
 
                 $palette = $script:ThemePalettes[(Get-EffectiveTheme)]
                 $eventArgs.Graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+                $paintScale = [single](Get-ConfiguredUiScale)
+                if ($paintScale -ne 1.0) { $eventArgs.Graphics.ScaleTransform($paintScale, $paintScale) }
 
                 # The encoder itself is also its push indicator. Pressing the
                 # shaft lights the knob instead of showing a detached "Push"
@@ -13539,8 +13664,16 @@ function Ensure-MainEncoderIndicators {
 }
 
 function Update-AdaptiveInputIndicators {
+    $oldToggleCount = @($script:MainToggleIndicators).Count
+    $oldEncoderCount = @($script:MainEncoderIndicators).Count
     Ensure-MainToggleIndicators
     Ensure-MainEncoderIndicators
+    if ((Get-ConfiguredUiScale) -ne 1.0 -and (
+        $oldToggleCount -ne @($script:MainToggleIndicators).Count -or
+        $oldEncoderCount -ne @($script:MainEncoderIndicators).Count
+    )) {
+        Set-MainButtonLayout -HasButtons ($script:IsConnected -and [int]$script:DetectedButtonCount -gt 0)
+    }
 
     $themeKey = [string](Get-EffectiveTheme)
     $palette = $script:ThemePalettes[$themeKey]
@@ -13827,6 +13960,7 @@ function Set-MainButtonLayout {
     param([Parameter(Mandatory = $true)][bool]$HasButtons)
 
     if ($null -eq $form -or $null -eq $startupGroup -or $null -eq $advancedToggle -or $null -eq $advancedPanel -or $null -eq $footer) { return }
+    Restore-MainUiLogicalLayout
 
     $hasSliders = [bool](Update-SliderCapabilityUi)
     $buttonCount = if ($HasButtons) { [int]$script:DetectedButtonCount } else { 0 }
@@ -13964,6 +14098,7 @@ function Set-MainButtonLayout {
     $form.MaximumSize = [System.Drawing.Size]::new(696, $windowHeight)
     $form.ClientSize = [System.Drawing.Size]::new(680, $collapsedHeight)
     $footer.Location = [System.Drawing.Point]::new(24, ($form.ClientSize.Height - 28))
+    Apply-MainUiLayoutScale
 }
 function Update-ButtonFeatureUi {
     $hasButtons = ($script:IsConnected -and $script:DetectedButtonCount -gt 0)
@@ -18331,19 +18466,20 @@ $themeCombo.Size = New-Object System.Drawing.Size(110, 29)
 $form.Controls.Add($themeCombo)
 $script:ThemeCombo = $themeCombo
 
-# Experimental compact profile selector: 80% for HD Ready dialogs,
-# 100% for the existing Full HD reference layout.
+# Two tested reference profiles, or automatic choice for the current screen.
 $uiScaleCombo = New-Object MugenDeejWindowing.MugenComboBox
 $uiScaleCombo.DropDownStyle = 'DropDownList'
-$uiScaleCombo.Location = New-Object System.Drawing.Point(188, 21)
-$uiScaleCombo.Size = New-Object System.Drawing.Size(80, 29)
+$uiScaleCombo.Location = New-Object System.Drawing.Point(186, 21)
+$uiScaleCombo.Size = New-Object System.Drawing.Size(82, 29)
 $uiScaleCombo.Name = 'MugenUiScaleCombo'
+[void]$uiScaleCombo.Items.Add($(if ($script:Language -eq 'ru') { 'Авто' } else { 'Auto' }))
 [void]$uiScaleCombo.Items.Add('80%')
 [void]$uiScaleCombo.Items.Add('100%')
-$uiScaleCombo.SelectedIndex = if ((Get-ConfiguredUiScale) -eq 0.8) { 0 } else { 1 }
+$scaleMode = [string]$script:Config.app.uiScaleMode
+$uiScaleCombo.SelectedIndex = if ($scaleMode -ne 'manual') { 0 } elseif ((Get-ConfiguredUiScale) -eq 0.8) { 1 } else { 2 }
 $form.Controls.Add($uiScaleCombo)
 $uiScaleToolTip = New-Object System.Windows.Forms.ToolTip
-$uiScaleToolTip.SetToolTip($uiScaleCombo, $(if ($script:Language -eq 'ru') { 'Масштаб окон: HD Ready 80% / Full HD 100%' } else { 'Window scale: HD Ready 80% / Full HD 100%' }))
+$uiScaleToolTip.SetToolTip($uiScaleCombo, $(if ($script:Language -eq 'ru') { 'Масштаб интерфейса: Авто / 80% / 100%' } else { 'Interface scale: Auto / 80% / 100%' }))
 
 $languageLabel = New-Object System.Windows.Forms.Label
 $languageLabel.Text = (T -Key 'LanguageLabel')
@@ -18743,7 +18879,10 @@ function Update-DriverStatus {
 }
 
 function Apply-MainLocalization {
-    $uiScaleToolTip.SetToolTip($uiScaleCombo, $(if ($script:Language -eq 'ru') { 'Масштаб окон: HD Ready 80% / Full HD 100%' } else { 'Window scale: HD Ready 80% / Full HD 100%' }))
+    $script:UpdatingUiScaleCombo = $true
+    try { $uiScaleCombo.Items[0] = $(if ($script:Language -eq 'ru') { 'Авто' } else { 'Auto' }) }
+    finally { $script:UpdatingUiScaleCombo = $false }
+    $uiScaleToolTip.SetToolTip($uiScaleCombo, $(if ($script:Language -eq 'ru') { 'Масштаб интерфейса: Авто / 80% / 100%' } else { 'Interface scale: Auto / 80% / 100%' }))
     $themeLabel.Text = (T -Key 'ThemeLabel')
     $languageLabel.Text = (T -Key 'LanguageLabel')
     Sync-ThemeCombo
@@ -19212,20 +19351,30 @@ Apply-ToolStripTheme -ToolStrip $trayMenu -ThemeName $initialTheme
 $script:LastEffectiveTheme = $initialTheme
 
 $uiScaleCombo.Add_SelectedIndexChanged({
-    if ($uiScaleCombo.SelectedIndex -lt 0) { return }
-    $newScale = if ($uiScaleCombo.SelectedIndex -eq 0) { 0.8 } else { 1.0 }
+    if ($script:UpdatingUiScaleCombo -or $uiScaleCombo.SelectedIndex -lt 0) { return }
+    $oldMode = [string]$script:Config.app.uiScaleMode
+    $oldManual = [double]$script:Config.app.uiScale
     $oldScale = [double](Get-ConfiguredUiScale)
-    if ($newScale -eq $oldScale) { return }
+    $newMode = if ($uiScaleCombo.SelectedIndex -eq 0) { 'auto' } else { 'manual' }
+    $newManual = if ($uiScaleCombo.SelectedIndex -eq 1) { 0.8 } else { 1.0 }
+    if ($newMode -eq $oldMode -and ($newMode -eq 'auto' -or $newManual -eq $oldManual)) { return }
 
-    $script:Config.app.uiScale = $newScale
+    $script:Config.app.uiScaleMode = $newMode
+    if ($newMode -eq 'manual') { $script:Config.app.uiScale = $newManual }
     try {
         Save-Config -Config $script:Config
-        Write-Log ('UI window scale changed from {0:N2} to {1:N2}' -f $oldScale, $newScale) 'INFO'
+        $newScale = [double](Get-ConfiguredUiScale)
+        Set-MainButtonLayout -HasButtons ($script:IsConnected -and [int]$script:DetectedButtonCount -gt 0)
+        Ensure-FormVisible -Form $form -CenterIfOffscreen
+        Write-Log ('UI scale mode {0} -> {1}; factor {2:N2} -> {3:N2}' -f $oldMode, $newMode, $oldScale, $newScale) 'INFO'
     }
     catch {
-        $script:Config.app.uiScale = $oldScale
-        $uiScaleCombo.SelectedIndex = if ($oldScale -eq 0.8) { 0 } else { 1 }
-        Write-Log ('Failed to save UI scale: {0}' -f $_.Exception.Message) 'ERROR'
+        $script:Config.app.uiScaleMode = $oldMode
+        $script:Config.app.uiScale = $oldManual
+        $script:UpdatingUiScaleCombo = $true
+        try { $uiScaleCombo.SelectedIndex = if ($oldMode -ne 'manual') { 0 } elseif ($oldManual -eq 0.8) { 1 } else { 2 } }
+        finally { $script:UpdatingUiScaleCombo = $false }
+        Write-Log ('Failed to apply UI scale: {0}' -f $_.Exception.Message) 'ERROR'
     }
 })
 
