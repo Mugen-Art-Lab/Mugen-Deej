@@ -140,7 +140,10 @@ function Ensure-MugenVirtualGamepadStatusUi {
     return $true
 }
 
-function Set-MugenVirtualGamepadStatusLayout {
+# Geometry is defined only in 100% logical coordinates and applied by
+# Set-MainButtonLayout BETWEEN Restore-MainUiLogicalLayout and scaling.
+# Never move/resize these child controls from an Xbox heartbeat at 80%.
+function Set-MugenVirtualGamepadStatusLayoutLogical {
     param([Parameter(Mandatory = $true)][bool]$Enabled)
 
     if (-not (Ensure-MugenVirtualGamepadStatusUi)) { return }
@@ -149,52 +152,40 @@ function Set-MugenVirtualGamepadStatusLayout {
     $physicalLabel = (Get-Variable -Name statusLabel -Scope Script).Value
     $physicalDot = (Get-Variable -Name statusDot -Scope Script).Value
 
-    $targetHeight = if ($Enabled) { 68 } else { 60 }
-    # The dashboard is rebuilt in 100% logical coordinates, then scaled to
-    # 80%. Compare the visible (scaled) panel height with the scaled target.
-    # Comparing 54px to the unscaled 68px forced a full window rescale on
-    # every Xbox status refresh, leaving black unpainted regions behind.
-    $activeScale = 1.0
-    if ($null -ne $script:MainUiScaleBaseline) {
-        $activeScale = [double](Get-ConfiguredUiScale)
-    }
-    $visibleTargetHeight = [int][Math]::Round($targetHeight * $activeScale)
-    $layoutChanged = ($panel.Height -ne $visibleTargetHeight)
-    $modeChanged = (
-        $null -eq $script:VirtualGamepadLastStatusLayoutEnabled -or
-        [bool]$script:VirtualGamepadLastStatusLayoutEnabled -ne $Enabled
-    )
-
-    if (-not $layoutChanged -and -not $modeChanged) { return }
-
-    $script:VirtualGamepadLastStatusLayoutEnabled = $Enabled
-    $panel.Size = [System.Drawing.Size]::new(632, $targetHeight)
+    $panel.Size = [System.Drawing.Size]::new(632, $(if ($Enabled) { 68 } else { 60 }))
     $physicalLabel.AutoEllipsis = $false
     $physicalLabel.TextAlign = 'MiddleLeft'
 
     if ($Enabled) {
-        # Two tightly stacked status rows. Both markers use the same font and
-        # X coordinate, so the rows read as one aligned status block.
         $physicalDot.Location = [System.Drawing.Point]::new(15, 9)
         $physicalLabel.Location = [System.Drawing.Point]::new(46, 3)
         $physicalLabel.Size = [System.Drawing.Size]::new(444, 28)
-
         $script:VirtualGamepadStatusDot.Location = [System.Drawing.Point]::new(15, 37)
         $script:VirtualGamepadStatusLabel.Location = [System.Drawing.Point]::new(46, 31)
         $script:VirtualGamepadStatusLabel.Size = [System.Drawing.Size]::new(444, 28)
-
-        # The toggle belongs to the card as a whole rather than visually
-        # hanging from the first status line.
         $script:VirtualGamepadToggleButton.Location = [System.Drawing.Point]::new(506, 31)
     }
     else {
-        # Restore the original single-row card height/vertical rhythm when the
-        # virtual device is off.
         $physicalDot.Location = [System.Drawing.Point]::new(15, 21)
         $physicalLabel.Location = [System.Drawing.Point]::new(46, 10)
         $physicalLabel.Size = [System.Drawing.Size]::new(444, 38)
         $script:VirtualGamepadToggleButton.Location = [System.Drawing.Point]::new(506, 15)
     }
+    $script:VirtualGamepadLastStatusLayoutEnabled = $Enabled
+}
+
+# State refreshes update only text/color; a protocol topology change can
+# request the shared dashboard layout, but never resize scaled controls here.
+function Set-MugenVirtualGamepadStatusLayout {
+    param([Parameter(Mandatory = $true)][bool]$Enabled)
+
+    if (-not (Ensure-MugenVirtualGamepadStatusUi)) { return }
+    $modeChanged = (
+        $null -eq $script:VirtualGamepadLastStatusLayoutEnabled -or
+        [bool]$script:VirtualGamepadLastStatusLayoutEnabled -ne $Enabled
+    )
+    if (-not $modeChanged) { return }
+    $script:VirtualGamepadLastStatusLayoutEnabled = $Enabled
 
     try {
         if ($null -ne (Get-Command -Name Set-MainButtonLayout -CommandType Function -ErrorAction SilentlyContinue)) {
