@@ -13992,12 +13992,10 @@ $script:MainUiLayoutSignature = $null
 function Get-MainUiLayoutSignature {
     param([bool]$HasButtons)
 
-    $statusHeight = -1
-    $statusVariable = Get-Variable -Name statusPanel -Scope Script -ErrorAction SilentlyContinue
-    if ($null -ne $statusVariable -and $null -ne $statusVariable.Value -and
-        -not $statusVariable.Value.IsDisposed) {
-        $statusHeight = [int]$statusVariable.Value.Height
-    }
+    # The signature describes the DESIRED logical status layout, not the
+    # currently scaled panel height. The latter may still be the previous
+    # geometry when the controller protocol changes.
+    $statusHeight = if ([string]$script:ControllerProtocol -eq 'adaptive') { 68 } else { 60 }
 
     # Control.Visible is the EFFECTIVE visibility: it is false whenever the
     # main form is hidden in the tray, even for controls that should be shown
@@ -14043,6 +14041,13 @@ function Set-MainButtonLayout {
         [MugenDeejWindowing.UiRedraw]::Pause($form)
         $redrawPaused = $true
         Restore-MainUiLogicalLayout
+
+        # Status geometry is authored only here, after restoring 100% logical
+        # bounds and before making the 80% snapshot. The Xbox heartbeat must
+        # never resize/reposition children in the already scaled dashboard.
+        if ($null -ne (Get-Command -Name Set-MugenVirtualGamepadStatusLayoutLogical -CommandType Function -ErrorAction SilentlyContinue)) {
+            Set-MugenVirtualGamepadStatusLayoutLogical -Enabled ([string]$script:ControllerProtocol -eq 'adaptive')
+        }
 
     $hasSliders = [bool](Update-SliderCapabilityUi)
     $buttonCount = if ($HasButtons) { [int]$script:DetectedButtonCount } else { 0 }
