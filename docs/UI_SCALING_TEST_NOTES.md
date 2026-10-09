@@ -37,6 +37,22 @@ the source of UX approval. Do not silently alter RU/EN copy.
   confirmed solely by runtime logs.
 - Previous CI #27 test install should be used if dashboard stability needed.
 
+## 2026-10-09 — CI #29 (repaint/rebuild fix candidate)
+
+- Runtime commit: `c0d38e201a0c3f83b249296440dceb799602e5be`.
+- Workflow: [Build release packages #29](https://github.com/Mugen-Art-Lab/Mugen-Deej/actions/runs/37953827010) — **green CI** on the organization's self-hosted Windows runner.
+- Fix candidate: suspend native redraw while returning to the 100% reference
+  layout and applying the selected scale; suppress nested and identical
+  dashboard rebuilds. Record layout signature/size in the diagnostic log.
+- Tested artifact: `Mugen-Deej-2.0.0-Setup-CI29.zip`, Setup SHA-256
+  `66db99ee61dfe26d314d9a665f00746bdbcce70319ce1e9c39ade8bd3f3fac1b`
+  verified against the workflow's release checksum.
+- **UI/hardware regression test PENDING.** Green CI does not prove that
+  the live main-window oscillation is fixed. Test 100% -> 80% -> 100% ->
+  Auto while Adaptive 5/28/2/2 is active; check restarts and tray restore.
+  If the problem remains, inspect `Main UI layout applied` DEBUG entries
+  for repeated identical or alternating layout signatures.
+
 ## Intended architecture / acceptance before merge
 
 - Exactly two tested reference scales (80% and 100%), plus Auto **default**.
