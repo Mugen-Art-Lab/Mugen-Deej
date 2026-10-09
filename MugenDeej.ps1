@@ -13999,9 +13999,15 @@ function Get-MainUiLayoutSignature {
         $statusHeight = [int]$statusVariable.Value.Height
     }
 
-    $buttonVisible = ($null -ne $script:ButtonSettingsButton -and $script:ButtonSettingsButton.Visible)
-    $typedVisible = ($null -ne $script:AdaptiveSettingsButton -and $script:AdaptiveSettingsButton.Visible)
-    $layerVisible = ($null -ne $script:LayerStateLabel -and $script:LayerStateLabel.Visible)
+    # Control.Visible is the EFFECTIVE visibility: it is false whenever the
+    # main form is hidden in the tray, even for controls that should be shown
+    # after restore. Layout decisions must come from detected capabilities.
+    $buttonVisible = ([bool]$script:IsConnected -and [int]$script:DetectedButtonCount -gt 0)
+    $typedVisible = ([bool]$script:IsConnected -and (
+        [int]$script:DetectedToggleCount -gt 0 -or
+        [int]$script:DetectedEncoderCount -gt 0
+    ))
+    $layerVisible = ($typedVisible -and (Test-AdaptiveLayersEnabled))
 
     return ('{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}|{8}|{9}|{10}|{11}|{12}|{13}|{14}' -f
         [bool]$script:IsConnected,
@@ -14043,6 +14049,23 @@ function Set-MainButtonLayout {
     $buttonMetrics = Get-AdaptiveButtonLayoutMetrics -Count $buttonCount
     $adaptiveMetrics = Get-AdaptiveInputStatusLayoutMetrics
     $hasAnyInput = ($HasButtons -or [bool]$adaptiveMetrics.HasControls)
+    $hasTypedSettings = ([bool]$script:IsConnected -and (
+        [int]$script:DetectedToggleCount -gt 0 -or
+        [int]$script:DetectedEncoderCount -gt 0
+    ))
+
+    # Explicit desired visibility instead of WinForms inherited Visible.
+    # During start-minimized the owner form is hidden, making every child's
+    # Visible getter false even if its own visibility bit was set to true.
+    if ($null -ne $script:ButtonStateGroup -and -not $script:ButtonStateGroup.IsDisposed) {
+        $script:ButtonStateGroup.Visible = $hasAnyInput
+    }
+    if ($null -ne $script:ButtonSettingsButton -and -not $script:ButtonSettingsButton.IsDisposed) {
+        $script:ButtonSettingsButton.Visible = $HasButtons
+    }
+    if ($null -ne $script:AdaptiveSettingsButton -and -not $script:AdaptiveSettingsButton.IsDisposed) {
+        $script:AdaptiveSettingsButton.Visible = $hasTypedSettings
+    }
 
     # The status card grows when XInput adds its second row. Start the rest
     # of the main content below the actual card bottom rather than a fixed Y.
@@ -14132,8 +14155,12 @@ function Set-MainButtonLayout {
 
     $settingsControls = @()
     if ($hasSliders) { $settingsControls += $settingsButton }
-    if ($null -ne $script:ButtonSettingsButton -and $script:ButtonSettingsButton.Visible) { $settingsControls += $script:ButtonSettingsButton }
-    if ($null -ne $script:AdaptiveSettingsButton -and $script:AdaptiveSettingsButton.Visible) { $settingsControls += $script:AdaptiveSettingsButton }
+    if ($HasButtons -and $null -ne $script:ButtonSettingsButton -and -not $script:ButtonSettingsButton.IsDisposed) {
+        $settingsControls += $script:ButtonSettingsButton
+    }
+    if ($hasTypedSettings -and $null -ne $script:AdaptiveSettingsButton -and -not $script:AdaptiveSettingsButton.IsDisposed) {
+        $settingsControls += $script:AdaptiveSettingsButton
+    }
 
     if ($settingsControls.Count -gt 0) {
         if ($settingsControls.Count -eq 1) {
@@ -19095,8 +19122,13 @@ function Show-MainWindowForeground {
         $form.ShowInTaskbar = $true
         $form.Opacity = 1
 
-        if (-not $form.Visible) {
+        $wasHidden = -not $form.Visible
+        if ($wasHidden) {
             $form.Show()
+            # A layout calculated before the first Shown event must not retain
+            # the tray-hidden state. Force one atomic, fully visible rebuild.
+            $script:MainUiLayoutSignature = $null
+            Update-ButtonFeatureUi
         }
 
         Ensure-FormVisible `
