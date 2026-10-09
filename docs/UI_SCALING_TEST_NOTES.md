@@ -141,6 +141,46 @@ baseline restoration and whether the virtual-gamepad status children are
 created after the baseline snapshot; do not change transport or HID code
 without evidence.
 
+## 2026-10-09 — CI #35 hardware failure and CI #36 redraw/lifecycle candidate
+
+**#35 real-machine regression: FAILED.** Real Adaptive 5/28/2/2 at
+500000 baud was correctly detected, but on both 100% and 80% the entire
+button/toggle/encoder card and two of three setup buttons remained invisible.
+They appeared only after the tester switched Dark/Light themes and repeatedly
+hid/restored the window from the tray. Crucial clarification: they were not
+initially present at 80% either. A subsequent physical USB unplug caused the
+top controller/Xbox status card to crush/overlap again. Another regression:
+after Light -> Dark, the native title bar could be dark temporarily, but
+reappear light after tray restore despite the dark content theme.
+
+Returned runtime log `mugen-deej(20261009-172728).log`: main form started
+minimized. At 23:25:13 it logged the expected full layout with
+`True|True|5|28|2|2|28|2|2|True|True|True|68|1|ru`
+and 696x801 bounds even though the screenshot lacked the input card.
+The 80% layout also logged its complete signature and 560x649 window.
+Hence capabilities/count/layout calculations succeeded; visible painting
+and native window lifecycle are suspect, not serial data. No process crash
+was reported in the supplied launcher log.
+
+**#36 candidate**: runtime commit
+`35de47baf0e25cbc6ae703b53753f76fb481cbcf`;
+[CI #36](https://github.com/Mugen-Art-Lab/Mugen-Deej/actions/runs/37967084655).
+- `UiRedraw.Pause` now refuses WM_SETREDRAW on a hidden main form.
+  Win32 WM_SETREDRAW changes the native WS_VISIBLE bit independently of
+  WinForms. Repaint completion explicitly invalidates native child windows,
+  not just the parent. Tray restore forces a final child repaint.
+- `Close-ControllerPort` refreshes the status/layout after clearing
+  `ControllerProtocol` and topology, rather than only during HID teardown
+  when the previous Adaptive capabilities still remain in memory.
+- The main form reapplies DWM immersive-dark caption styling on
+  HandleCreated and on restore, avoiding a light title bar after native
+  HWND recreation.
+- **CI completion and hardware verdict PENDING** at time of this note.
+  Test first open from start-minimized, 100/80/100, theme switch and tray
+  restore, then unplug/replug and virtual-Xbox toggle without loss or overlap.
+  If it still fails, add instrumentation of effective/own visibility and
+  native redraw state at each layout/restore boundary; avoid pixel nudges.
+
 ## Intended architecture / acceptance before merge
 
 - Exactly two tested reference scales (80% and 100%), plus Auto **default**.
