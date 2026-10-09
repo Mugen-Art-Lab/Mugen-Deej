@@ -709,3 +709,34 @@ Hardware retest pending: unplug/replug Extended while Physical button actions re
 Final 2.0.0 hardware smoke: PASS. The normal consolidated release workflow package was installed over RC1, preserved the existing schema-v3 configuration, detected the real Adaptive 5/28/2/1 controller, restored layer behavior, started the optional virtual Xbox helper to ready, and produced working XInput button output visible in Windows joy.cpl.
 
 Runtime and packaging are release-accepted. Remaining steps: PR/merge, v2.0.0 tag and GitHub Release publication after explicit approval.
+
+
+## 2026-10-09 active feature-branch UI regression tracking
+
+The historically accepted 2.0 hardware/release baseline above remains
+historical context; the current `feature/virtual-gamepad-ui` branch contains
+additional experimental scaling work that is **not yet hardware-accepted**.
+The stable `main` branch is unchanged.
+
+The latest test package is **CI #35**, commit
+`5d126bb6ffc35ce885139795250c5564bff23ee3`, run
+`37964157556` (SUCCESS), artifact
+`Mugen-Deej-packages-35` ID `11633430248`.
+This is a build success, **not a passed real-machine UI test**.
+
+Current target is the experimental Adaptive `5/28/2/2` at 500000 baud
+(two encoders), Auto/80/100 dashboard scales. Previous CI #33 real-machine
+screenshots: two toggle switches finally fit the compact row, but the
+controller / virtual Xbox status card was clipped and compressed at 100%
+and 80%. CI #35 moves all Xbox status-card geometry into the atomic
+main layout's logical 100% stage and avoids changes to scaled child bounds
+from background status refreshes. Real-machine verdict on #35 is pending.
+Separately, a PowerShell code-2 exit after ~22 seconds was observed in an
+earlier test; root cause unknown; CI #31 only improved the runaway-height
+launcher error dialog.
+
+Next: verify CI #35 on Windows with physical/virtual Xbox status,
+both toggle switches, both encoders, 100/80/Auto, XInput ON/OFF and
+tray restore, before declaring the scaling regression closed. Consult
+`docs/CURRENT_HANDOFF.md` (CURRENT section at the **top**) and
+`docs/UI_SCALING_TEST_NOTES.md` (CI #27–35 timeline) first.
