@@ -3283,6 +3283,7 @@ function New-DefaultConfig {
         app = [ordered]@{
             language = 'auto'
             theme = 'auto'
+            uiScale = 1.0
             startMinimized = $false
             minimizeToTray = $true
             firstRunCompleted = $false
@@ -3407,6 +3408,7 @@ function Ensure-ConfigShape {
     }
     Add-MissingConfigProperty -Object $Config.app -Name 'language' -Value 'auto'
     Add-MissingConfigProperty -Object $Config.app -Name 'theme' -Value 'auto'
+    Add-MissingConfigProperty -Object $Config.app -Name 'uiScale' -Value 1.0
     Add-MissingConfigProperty -Object $Config.app -Name 'startMinimized' -Value $false
     Add-MissingConfigProperty -Object $Config.app -Name 'minimizeToTray' -Value $true
     Add-MissingConfigProperty -Object $Config.app -Name 'firstRunCompleted' -Value $false
@@ -4178,6 +4180,99 @@ function Apply-ThemeToControl {
     }
 }
 
+# Experimental two-profile UI scaling. The main dashboard retains its dynamic
+# hardware layout; compact scaling is applied once to finished modal forms.
+function Get-ConfiguredUiScale {
+    $value = 1.0
+    try { $value = [double]$script:Config.app.uiScale } catch { }
+    if ([Math]::Abs($value - 0.8) -lt 0.01) { return 0.8 }
+    return 1.0
+}
+
+$script:UiScaledForms = [System.Runtime.CompilerServices.ConditionalWeakTable[System.Windows.Forms.Form, System.Object]]::new()
+
+function Apply-ConfiguredUiScale {
+    param([Parameter(Mandatory = $true)][System.Windows.Forms.Form]$Form)
+
+    if ($null -eq $Form -or $Form.IsDisposed) { return }
+    # Set-MainButtonLayout recalculates dashboard coordinates dynamically and
+    # must never be scaled by the static-modal form transform.
+    if ($null -ne $script:MainUiForm -and [object]::ReferenceEquals($Form, $script:MainUiForm)) { return }
+
+    $alreadyScaled = $null
+    if ($script:UiScaledForms.TryGetValue($Form, [ref]$alreadyScaled)) { return }
+
+    $factor = [double](Get-ConfiguredUiScale)
+    if ($factor -eq 1.0) {
+        $script:UiScaledForms.Add($Form, [object]::new())
+        return
+    }
+
+    # Capture original fonts and scroll extents before scaling any parent:
+    # inherited WinForms fonts otherwise cause accidental double-scaling.
+    $items = New-Object 'System.Collections.Generic.List[object]'
+    $pending = New-Object 'System.Collections.Queue'
+    $pending.Enqueue($Form)
+    while ($pending.Count -gt 0) {
+        $control = [System.Windows.Forms.Control]$pending.Dequeue()
+        $scrollMin = $null
+        if ($control -is [System.Windows.Forms.ScrollableControl]) {
+            $scrollMin = $control.AutoScrollMinSize
+        }
+        $items.Add([pscustomobject]@{
+            Control = $control
+            Font = $control.Font
+            ScrollMin = $scrollMin
+        })
+        foreach ($child in $control.Controls) { $pending.Enqueue($child) }
+    }
+
+    $originalMin = $Form.MinimumSize
+    $originalMax = $Form.MaximumSize
+    $Form.SuspendLayout()
+    try {
+        # FixedDialog minimum dimensions otherwise prevent the form from
+        # shrinking at all. Scale minimum/maximum limits explicitly.
+        $Form.MinimumSize = [System.Drawing.Size]::Empty
+        $Form.MaximumSize = [System.Drawing.Size]::Empty
+        $Form.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
+        $Form.Scale([System.Drawing.SizeF]::new([single]$factor, [single]$factor))
+
+        foreach ($entry in $items) {
+            $control = $entry.Control
+            if ($null -eq $control -or $control.IsDisposed) { continue }
+            if ($null -ne $entry.Font) {
+                $newSize = [Math]::Max(6.0, ([double]$entry.Font.Size * $factor))
+                $control.Font = [System.Drawing.Font]::new($entry.Font, [single]$newSize)
+            }
+            if ($null -ne $entry.ScrollMin -and
+                ($entry.ScrollMin.Width -gt 0 -or $entry.ScrollMin.Height -gt 0)) {
+                $control.AutoScrollMinSize = [System.Drawing.Size]::new(
+                    [int][Math]::Ceiling($entry.ScrollMin.Width * $factor),
+                    [int][Math]::Ceiling($entry.ScrollMin.Height * $factor)
+                )
+            }
+        }
+        if ($originalMin.Width -gt 0 -or $originalMin.Height -gt 0) {
+            $Form.MinimumSize = [System.Drawing.Size]::new(
+                [int][Math]::Ceiling($originalMin.Width * $factor),
+                [int][Math]::Ceiling($originalMin.Height * $factor)
+            )
+        }
+        if ($originalMax.Width -gt 0 -or $originalMax.Height -gt 0) {
+            $Form.MaximumSize = [System.Drawing.Size]::new(
+                [int][Math]::Ceiling($originalMax.Width * $factor),
+                [int][Math]::Ceiling($originalMax.Height * $factor)
+            )
+        }
+        $script:UiScaledForms.Add($Form, [object]::new())
+        Write-Log ('Compact UI scale applied to {0}: factor={1:N2}' -f $Form.Text, $factor) 'DEBUG'
+    }
+    finally {
+        $Form.ResumeLayout($true)
+    }
+}
+
 function Apply-ThemeToForm {
     param(
         [Parameter(Mandatory = $true)][System.Windows.Forms.Form]$Form,
@@ -4186,6 +4281,12 @@ function Apply-ThemeToForm {
 
     if ([string]::IsNullOrWhiteSpace($ThemeName)) { $ThemeName = Get-EffectiveTheme }
     Apply-ThemeToControl -Control $Form -ThemeName $ThemeName
+    try {
+        Apply-ConfiguredUiScale -Form $Form
+    }
+    catch {
+        Write-Log ("UI scaling failed for '{0}': {1}" -f $Form.Text, $_.Exception.Message) 'WARN'
+    }
     try {
         [MugenDeejWindowing.ThemeInterop]::SetDarkTitleBar($Form.Handle, ($ThemeName -eq 'dark'))
     }
@@ -18170,6 +18271,7 @@ if ($script:NeedsInitialLanguageSelection) {
 
 # ---------- UI ----------
 $form = New-Object System.Windows.Forms.Form
+$script:MainUiForm = $form
 $form.Text = "Mugen Deej $script:AppVersion"
 $form.StartPosition = 'CenterScreen'
 $form.ClientSize = New-Object System.Drawing.Size(680, 592)
@@ -18225,6 +18327,20 @@ $themeCombo.Location = New-Object System.Drawing.Point(340, 21)
 $themeCombo.Size = New-Object System.Drawing.Size(110, 29)
 $form.Controls.Add($themeCombo)
 $script:ThemeCombo = $themeCombo
+
+# Experimental compact profile selector: 80% for HD Ready dialogs,
+# 100% for the existing Full HD reference layout.
+$uiScaleCombo = New-Object MugenDeejWindowing.MugenComboBox
+$uiScaleCombo.DropDownStyle = 'DropDownList'
+$uiScaleCombo.Location = New-Object System.Drawing.Point(188, 21)
+$uiScaleCombo.Size = New-Object System.Drawing.Size(80, 29)
+$uiScaleCombo.Name = 'MugenUiScaleCombo'
+[void]$uiScaleCombo.Items.Add('80%')
+[void]$uiScaleCombo.Items.Add('100%')
+$uiScaleCombo.SelectedIndex = if ((Get-ConfiguredUiScale) -eq 0.8) { 0 } else { 1 }
+$form.Controls.Add($uiScaleCombo)
+$uiScaleToolTip = New-Object System.Windows.Forms.ToolTip
+$uiScaleToolTip.SetToolTip($uiScaleCombo, $(if ($script:Language -eq 'ru') { 'Масштаб окон: HD Ready 80% / Full HD 100%' } else { 'Window scale: HD Ready 80% / Full HD 100%' }))
 
 $languageLabel = New-Object System.Windows.Forms.Label
 $languageLabel.Text = (T -Key 'LanguageLabel')
@@ -18624,6 +18740,7 @@ function Update-DriverStatus {
 }
 
 function Apply-MainLocalization {
+    $uiScaleToolTip.SetToolTip($uiScaleCombo, $(if ($script:Language -eq 'ru') { 'Масштаб окон: HD Ready 80% / Full HD 100%' } else { 'Window scale: HD Ready 80% / Full HD 100%' }))
     $themeLabel.Text = (T -Key 'ThemeLabel')
     $languageLabel.Text = (T -Key 'LanguageLabel')
     Sync-ThemeCombo
@@ -19090,6 +19207,24 @@ $initialTheme = Get-EffectiveTheme
 Apply-ThemeToForm -Form $form -ThemeName $initialTheme
 Apply-ToolStripTheme -ToolStrip $trayMenu -ThemeName $initialTheme
 $script:LastEffectiveTheme = $initialTheme
+
+$uiScaleCombo.Add_SelectedIndexChanged({
+    if ($uiScaleCombo.SelectedIndex -lt 0) { return }
+    $newScale = if ($uiScaleCombo.SelectedIndex -eq 0) { 0.8 } else { 1.0 }
+    $oldScale = [double](Get-ConfiguredUiScale)
+    if ($newScale -eq $oldScale) { return }
+
+    $script:Config.app.uiScale = $newScale
+    try {
+        Save-Config -Config $script:Config
+        Write-Log ('UI window scale changed from {0:N2} to {1:N2}' -f $oldScale, $newScale) 'INFO'
+    }
+    catch {
+        $script:Config.app.uiScale = $oldScale
+        $uiScaleCombo.SelectedIndex = if ($oldScale -eq 0.8) { 0 } else { 1 }
+        Write-Log ('Failed to save UI scale: {0}' -f $_.Exception.Message) 'ERROR'
+    }
+})
 
 $themeCombo.Add_SelectedIndexChanged({
     if ($script:UpdatingThemeCombo -or $themeCombo.SelectedIndex -lt 0) { return }
