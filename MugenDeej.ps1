@@ -51,23 +51,43 @@ namespace MugenDeejWindowing
     public static class UiRedraw
     {
         private const int WM_SETREDRAW = 0x000B;
+        private const uint RDW_INVALIDATE = 0x0001;
+        private const uint RDW_ERASE = 0x0004;
+        private const uint RDW_ALLCHILDREN = 0x0080;
+        private const uint RDW_UPDATENOW = 0x0100;
+        private const uint RDW_FRAME = 0x0400;
 
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         private static extern IntPtr SendMessage(
             IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
 
-        public static void Pause(Form form)
+        [DllImport("user32.dll")]
+        private static extern bool RedrawWindow(
+            IntPtr hWnd, IntPtr updateRect, IntPtr updateRegion, uint flags);
+
+        // WM_SETREDRAW on a hidden window changes native WS_VISIBLE
+        // independently of WinForms. Never pause tray-hidden main forms.
+        public static bool Pause(Form form)
         {
-            if (form != null && !form.IsDisposed && form.IsHandleCreated)
-                SendMessage(form.Handle, WM_SETREDRAW, IntPtr.Zero, IntPtr.Zero);
+            if (form == null || form.IsDisposed ||
+                !form.IsHandleCreated || !form.Visible)
+                return false;
+            SendMessage(form.Handle, WM_SETREDRAW, IntPtr.Zero, IntPtr.Zero);
+            return true;
         }
 
-        public static void Resume(Form form)
+        public static void Resume(Form form, bool wasPaused)
         {
-            if (form != null && !form.IsDisposed && form.IsHandleCreated)
-            {
+            if (form == null || form.IsDisposed || !form.IsHandleCreated)
+                return;
+            if (wasPaused)
                 SendMessage(form.Handle, WM_SETREDRAW, new IntPtr(1), IntPtr.Zero);
-                form.Invalidate(true);
+            if (form.Visible)
+            {
+                // Refresh native child windows, not only the parent surface.
+                RedrawWindow(form.Handle, IntPtr.Zero, IntPtr.Zero,
+                    RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN |
+                    RDW_UPDATENOW | RDW_FRAME);
             }
         }
     }
@@ -14038,8 +14058,7 @@ function Set-MainButtonLayout {
     $script:MainUiLayoutInProgress = $true
     $redrawPaused = $false
     try {
-        [MugenDeejWindowing.UiRedraw]::Pause($form)
-        $redrawPaused = $true
+        $redrawPaused = [MugenDeejWindowing.UiRedraw]::Pause($form)
         Restore-MainUiLogicalLayout
 
         # Status geometry is authored only here, after restoring 100% logical
@@ -14215,7 +14234,7 @@ function Set-MainButtonLayout {
     finally {
         # Even if WinForms throws while restoring child bounds, always restore
         # normal painting so the dashboard can recover on the next update.
-        if ($redrawPaused) { [MugenDeejWindowing.UiRedraw]::Resume($form) }
+        [MugenDeejWindowing.UiRedraw]::Resume($form, [bool]$redrawPaused)
         $script:MainUiLayoutInProgress = $false
     }
 }
@@ -17424,6 +17443,22 @@ function Close-ControllerPort {
     $script:LastEncoderPositions = @()
     $script:AdaptiveDebounceDiagnostics = $null
     $script:LastButtonStates = @()
+    
+    # Virtual-Xbox teardown above still sees the previous protocol.
+    # Refresh after capabilities are cleared, so disconnect removes its
+    # second row and hides the physical-input dashboard consistently.
+    if (-not $script:Closing -and -not $script:ExitRequested -and
+        $null -ne $script:MainUiForm -and -not $script:MainUiForm.IsDisposed) {
+        try {
+            if ($script:VirtualGamepadFeatureAvailable) {
+                Update-MugenVirtualGamepadStatusUi
+            }
+            Update-ButtonFeatureUi
+        }
+        catch {
+            Write-Log ('Disconnected dashboard refresh failed: {0}' -f $_.Exception.Message) 'WARN'
+        }
+    }
     if ($Detailed) {
         Write-Log ("Controller-port cleanup completed; reason={0}; port={1}" -f $Reason, $portName) 'INFO'
     }
@@ -18540,6 +18575,16 @@ $form.FormBorderStyle = 'FixedSingle'
 $form.MaximizeBox = $false
 Set-FormAppIcon -Form $form
 
+# DWM dark-title-bar styling belongs to a native HWND and is lost if
+# ShowInTaskbar or another WinForms property recreates the main handle.
+$form.Add_HandleCreated({
+    try {
+        [MugenDeejWindowing.ThemeInterop]::SetDarkTitleBar(
+            $form.Handle, ((Get-EffectiveTheme) -eq 'dark'))
+    }
+    catch { }
+})
+
 # When start-minimized is enabled, keep the main form completely invisible
 # during its first WinForms show cycle. Application.Run(form) must create/show
 # the main form to establish the message loop, but an opacity of 0 together
@@ -19163,6 +19208,11 @@ function Show-MainWindowForeground {
         # child from inside DoEvents(), leaving the TopMost owner above the
         # dialog and making the application appear locked.
         $form.TopMost = $false
+
+        [MugenDeejWindowing.ThemeInterop]::SetDarkTitleBar(
+            $form.Handle, ((Get-EffectiveTheme) -eq 'dark'))
+        $form.Invalidate($true)
+        $form.Update()
 
         Write-Log 'Main window restored from tray' 'DEBUG'
     }
