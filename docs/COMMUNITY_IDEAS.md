@@ -140,14 +140,58 @@ new backup schema solely for this setting.
 
 **UI layout/scale change requires separate user review and approval.**
 
+## 2026-10-09 — Dynamic analog-control count across protocols
+
+**Status:** UI behavior review requested, not a new serial protocol feature.
+
+Users can build **Legacy**, **Extended** or **Adaptive v3** controllers with
+different numbers of physical analog controls (e.g. 1, 2, 5, 6 or 10). Detect
+the actual count from the connected protocol packet; never redefine the
+controller as a "five-slider device" just because five is the historical
+reference panel.
+
+Separate **detected/functional controls** from **visible preview rows**:
+
+- 1 or 2 sliders: show 1 or 2 live rows and shrink unused dashboard space.
+- Around 5 sliders: preserve the familiar normal dashboard layout.
+- 6 or 10 sliders: do **not** make the entire main form ten rows taller.
+  Show a deliberately bounded preview and provide an obvious accessible
+  path to all live controls, e.g. the already implemented "Show all" scrollable
+  controller-state dialog. Consider embedded scrolling only if approved.
+- The Configure controls dialog must still allow every physical slider to be
+  named, mapped and monitored, with Save/Cancel reachable on small displays.
+  This interacts with the separate HD Ready / Full HD scale experiment.
+- A device with zero analog controls must not display an invented slider
+  section (important for Adaptive v3).
+
+Current branch observation: the main preview widgets are created with a
+five-iteration loop, but `Update-SliderCapabilityUi` already limits visible
+rows to the detected count and shows "Show all… (+N)" for overflow.
+`Show-FullControllerStateWindow` already creates one indicator per detected
+slider inside a scrollable panel. The requirement is to review these
+existing behaviors and finish their UX/test coverage, not accidentally
+rewrite working topology discovery.
+
+Suggested tests: Legacy 1/2/5/6/10; Extended 1/2/5/6/10 with buttons;
+Adaptive 0/1/2/5/6/10 where representable; repeated reconnects and switching
+controllers of different sizes; changing settings, saving, restoring and
+showing live values; both approved display scales. Keep this scoped to actual
+supported parser limits and avoid asserting unlimited hardware capacity.
+
+**No runtime changes or UX approval yet.**
+
 ## Related 2.0.0 issues (separate from these ideas)
 
 The same early community test identified two concrete release-prep checks:
 
-1. **Sixth analog control:** 1.0.0 detects six serial sliders and can use the
-   sixth after manual configuration, but the main window still has five
-   hardcoded indicator rows. The current 2.0.0 feature branch also has this
-   five-row UI limit. Fix/test dynamic main-window display before release.
+1. **Analog control count / main UI:** 1.0.0 detects six sliders and can use
+   the sixth after manual configuration, but the main dashboard shows only
+   five. The 2.0.0 branch already hides unused preview rows for 1-4 sliders
+   and offers **"Show all… (+N)"** for >5; the full controller-state window
+   renders the actual detected count in a scrolling area. Nevertheless, the
+   dashboard preview controls themselves are still constructed from exactly
+   five fixed slots. Review/test this presentation explicitly before release
+   rather than claiming the sixth slider has no display path at all.
 2. **Small-screen settings window:** on **1366 x 768 at 100% Windows display
    scaling**, the bottom controls of the slider settings window may be hidden
    behind the taskbar when six rows are shown. The project owner independently
