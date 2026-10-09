@@ -46,6 +46,32 @@ using System.Drawing.Drawing2D;
 
 namespace MugenDeejWindowing
 {
+    // Prevent intermediate 100%-to-80% frames from reaching the screen
+    // while the dynamically authored dashboard is being rebuilt.
+    public static class UiRedraw
+    {
+        private const int WM_SETREDRAW = 0x000B;
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern IntPtr SendMessage(
+            IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+        public static void Pause(Form form)
+        {
+            if (form != null && !form.IsDisposed && form.IsHandleCreated)
+                SendMessage(form.Handle, WM_SETREDRAW, IntPtr.Zero, IntPtr.Zero);
+        }
+
+        public static void Resume(Form form)
+        {
+            if (form != null && !form.IsDisposed && form.IsHandleCreated)
+            {
+                SendMessage(form.Handle, WM_SETREDRAW, new IntPtr(1), IntPtr.Zero);
+                form.Invalidate(true);
+            }
+        }
+    }
+
     public static class Foreground
     {
         [DllImport("user32.dll")]
@@ -13956,11 +13982,61 @@ function Update-AdaptiveInputFeatureUi {
     }
 }
 
+# Main layout must be an atomic transaction: the 100% reference
+# geometry is restored and the 80% geometry reapplied without showing the
+# intermediate window size. Frequent UI status updates must not rebuild
+# unchanged geometry.
+$script:MainUiLayoutInProgress = $false
+$script:MainUiLayoutSignature = $null
+
+function Get-MainUiLayoutSignature {
+    param([bool]$HasButtons)
+
+    $statusHeight = -1
+    $statusVariable = Get-Variable -Name statusPanel -Scope Script -ErrorAction SilentlyContinue
+    if ($null -ne $statusVariable -and $null -ne $statusVariable.Value -and
+        -not $statusVariable.Value.IsDisposed) {
+        $statusHeight = [int]$statusVariable.Value.Height
+    }
+
+    $buttonVisible = ($null -ne $script:ButtonSettingsButton -and $script:ButtonSettingsButton.Visible)
+    $typedVisible = ($null -ne $script:AdaptiveSettingsButton -and $script:AdaptiveSettingsButton.Visible)
+    $layerVisible = ($null -ne $script:LayerStateLabel -and $script:LayerStateLabel.Visible)
+
+    return ('{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}|{8}|{9}|{10}|{11}|{12}|{13}|{14}' -f
+        [bool]$script:IsConnected,
+        $HasButtons,
+        [int]$script:DetectedSliderCount,
+        [int]$script:DetectedButtonCount,
+        [int]$script:DetectedToggleCount,
+        [int]$script:DetectedEncoderCount,
+        @($script:MainButtonIndicators).Count,
+        @($script:MainToggleIndicators).Count,
+        @($script:MainEncoderIndicators).Count,
+        $buttonVisible,
+        $typedVisible,
+        $layerVisible,
+        $statusHeight,
+        (Get-ConfiguredUiScale),
+        [string]$script:Language)
+}
+
 function Set-MainButtonLayout {
     param([Parameter(Mandatory = $true)][bool]$HasButtons)
 
     if ($null -eq $form -or $null -eq $startupGroup -or $null -eq $advancedToggle -or $null -eq $advancedPanel -or $null -eq $footer) { return }
-    Restore-MainUiLogicalLayout
+    if ($script:MainUiLayoutInProgress) { return }
+
+    $layoutSignature = Get-MainUiLayoutSignature -HasButtons $HasButtons
+    if ($null -ne $script:MainUiLayoutSignature -and
+        $layoutSignature -ceq $script:MainUiLayoutSignature) { return }
+
+    $script:MainUiLayoutInProgress = $true
+    $redrawPaused = $false
+    try {
+        [MugenDeejWindowing.UiRedraw]::Pause($form)
+        $redrawPaused = $true
+        Restore-MainUiLogicalLayout
 
     $hasSliders = [bool](Update-SliderCapabilityUi)
     $buttonCount = if ($HasButtons) { [int]$script:DetectedButtonCount } else { 0 }
@@ -14097,8 +14173,19 @@ function Set-MainButtonLayout {
     $form.MinimumSize = [System.Drawing.Size]::new(696, $windowHeight)
     $form.MaximumSize = [System.Drawing.Size]::new(696, $windowHeight)
     $form.ClientSize = [System.Drawing.Size]::new(680, $collapsedHeight)
-    $footer.Location = [System.Drawing.Point]::new(24, ($form.ClientSize.Height - 28))
-    Apply-MainUiLayoutScale
+        $footer.Location = [System.Drawing.Point]::new(24, ($form.ClientSize.Height - 28))
+        Apply-MainUiLayoutScale
+        $script:MainUiLayoutSignature = Get-MainUiLayoutSignature -HasButtons $HasButtons
+        Write-Log ('Main UI layout applied; effectiveScale={0:N2}; window={1}x{2}; signature={3}' -f
+            [double](Get-ConfiguredUiScale), $form.Width, $form.Height,
+            $script:MainUiLayoutSignature) 'DEBUG'
+    }
+    finally {
+        # Even if WinForms throws while restoring child bounds, always restore
+        # normal painting so the dashboard can recover on the next update.
+        if ($redrawPaused) { [MugenDeejWindowing.UiRedraw]::Resume($form) }
+        $script:MainUiLayoutInProgress = $false
+    }
 }
 function Update-ButtonFeatureUi {
     $hasButtons = ($script:IsConnected -and $script:DetectedButtonCount -gt 0)
