@@ -84,6 +84,63 @@ the source of UX approval. Do not silently alter RU/EN copy.
   settings buttons. Also repeat with a fresh visible launch. Do not promote
   until this passes.
 
+
+## 2026-10-09 — CI #31 to #35: crash dialog, toggles and Xbox status card
+
+**#31** — launcher crash dialog fix: `c3adf68cb3789a459945391ad4dc48134b751cad`,
+[CI #31](https://github.com/Mugen-Art-Lab/Mugen-Deej/actions/runs/37959864210), SUCCESS.
+- Prior real-machine incident on 2026-10-09: the PowerShell process exited
+  with code 2 after about 22 seconds, around a virtual-Xbox disable event.
+  The available logs do **not** prove that virtual-Xbox teardown caused it.
+  Independently, the launcher error dialog dumped thousands of bytes of old
+  launcher history and stretched below the desktop.
+- #31 bounded crash-dialog contents to recent, truncated application/launcher
+  lines and retained paths to complete on-disk logs. The crash **root cause
+  remains unknown**; the dialog improvement is not a crash fix.
+
+**#32/#33** — Xbox-status rescale and narrow toggle-row candidates.
+- #32 `1a803aa4c6f59a2e2e9752cd4155d1db5cc64818` changed the status
+  card height comparison to account for dashboard scaling.
+- #33 `a55a86bd200573656cbbc716e428f4915fcb3b86`,
+  [CI #33](https://github.com/Mugen-Art-Lab/Mugen-Deej/actions/runs/37962077211),
+  SUCCESS, additionally narrowed the compact toggle indicator hosts
+  (96 -> 92 reference px) so two switches fit next to two encoders at 80%.
+- **Real-device result of #33: FAILED overall.** Two toggles now visibly fit,
+  but the top physical + virtual-Xbox status card becomes vertically crushed
+  **at both 100% and 80%**, with overlapping/clipped content (two screenshots).
+  Therefore do not endorse #33 on green CI alone.
+- Root-cause analysis: the virtual-gamepad module changed
+  `statusPanel.Size` and child bounds directly in 100% coordinates, even
+  while the main form was already at 80% and the cached layout signature
+  assumed a stable card height. Separate owners of geometry caused
+  compaction and incorrect status-card bounds.
+
+**#34/#35** — status geometry integration.
+- #34 `da4b5a2e482aecd462d444e671c8965b411963ae` introduced
+  `Set-MugenVirtualGamepadStatusLayoutLogical` and stopped status-update
+  calls from changing the already-scaled bounds.
+- #35 `5d126bb6ffc35ce885139795250c5564bff23ee3`,
+  [CI #35](https://github.com/Mugen-Art-Lab/Mugen-Deej/actions/runs/37964157556),
+  **SUCCESS**, artifact `Mugen-Deej-packages-35`, ID `11633430248`.
+  `Set-MainButtonLayout` now owns status-card geometry at the 100% logical
+  stage after restoring baseline bounds and before scaling. The main-layout
+  signature uses the expected logical status height (68 for Adaptive/XInput
+  status availability, otherwise 60), instead of measuring an existing scaled
+  WinForms control. The compact two-toggle width fix remains included.
+- **Real-device result of #35: PENDING**. Package was shared in conversation
+  as `Mugen-Deej-CI35.zip`. No screenshots/confirmation yet. Windows CI
+  green means compile/package success, not verified GUI behavior.
+
+**Immediate next test:** use #35 on the real Adaptive 5/28/2/2 at 500000 baud.
+Check intact two-row physical/virtual-Xbox card and both toggles at 100%,
+80%, back to 100%, then Auto; enable/disable XInput several times, restore
+from tray, and watch for window resize oscillation, black/blank trailing
+windows or overlaps. Check log for repeated identical
+`Main UI layout applied` signatures. If the card is still broken, investigate
+baseline restoration and whether the virtual-gamepad status children are
+created after the baseline snapshot; do not change transport or HID code
+without evidence.
+
 ## Intended architecture / acceptance before merge
 
 - Exactly two tested reference scales (80% and 100%), plus Auto **default**.
