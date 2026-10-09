@@ -55,7 +55,7 @@ jobs:
           cache: false
 
       - name: Build portable ZIP and Setup EXE
-        shell: pwsh
+        shell: powershell
         env:
           REQUESTED_VERSION: ${{ inputs.version }}
         run: |
