@@ -13447,7 +13447,7 @@ function Ensure-MainToggleIndicators {
             $toggleItemHost = New-Object System.Windows.Forms.Panel
             # Keep the main-card toggle compact enough to share one row with
             # two encoder indicators on the fixed-width dashboard.
-            $toggleItemHost.Size = [System.Drawing.Size]::new(96, 28)
+            $toggleItemHost.Size = [System.Drawing.Size]::new(92, 28)
             $toggleItemHost.Margin = New-Object System.Windows.Forms.Padding(1, 0, 2, 0)
             $toggleItemHost.BorderStyle = [System.Windows.Forms.BorderStyle]::None
             $toggleItemHost.BackColor = $surfaceBack
@@ -13462,7 +13462,7 @@ function Ensure-MainToggleIndicators {
 
             $switchView = New-Object System.Windows.Forms.Panel
             $switchView.Tag = $i
-            $switchView.Location = [System.Drawing.Point]::new(18, 1)
+            $switchView.Location = [System.Drawing.Point]::new(16, 1)
             $switchView.Size = [System.Drawing.Size]::new(42, 26)
             $switchView.BackColor = $surfaceBack
             Enable-AdaptiveIndicatorDoubleBuffer -Control $switchView
@@ -13514,7 +13514,7 @@ function Ensure-MainToggleIndicators {
             $toggleItemHost.Controls.Add($switchView)
 
             $stateLabel = New-Object System.Windows.Forms.Label
-            $stateLabel.Location = [System.Drawing.Point]::new(62, 2)
+            $stateLabel.Location = [System.Drawing.Point]::new(58, 2)
             $stateLabel.Size = [System.Drawing.Size]::new(34, 24)
             $stateLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
             $stateLabel.Font = New-Object System.Drawing.Font('Segoe UI', 8.5)
