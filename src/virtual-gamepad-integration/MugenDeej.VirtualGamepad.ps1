@@ -150,7 +150,16 @@ function Set-MugenVirtualGamepadStatusLayout {
     $physicalDot = (Get-Variable -Name statusDot -Scope Script).Value
 
     $targetHeight = if ($Enabled) { 68 } else { 60 }
-    $layoutChanged = ($panel.Height -ne $targetHeight)
+    # The dashboard is rebuilt in 100% logical coordinates, then scaled to
+    # 80%. Compare the visible (scaled) panel height with the scaled target.
+    # Comparing 54px to the unscaled 68px forced a full window rescale on
+    # every Xbox status refresh, leaving black unpainted regions behind.
+    $activeScale = 1.0
+    if ($null -ne $script:MainUiScaleBaseline) {
+        $activeScale = [double](Get-ConfiguredUiScale)
+    }
+    $visibleTargetHeight = [int][Math]::Round($targetHeight * $activeScale)
+    $layoutChanged = ($panel.Height -ne $visibleTargetHeight)
     $modeChanged = (
         $null -eq $script:VirtualGamepadLastStatusLayoutEnabled -or
         [bool]$script:VirtualGamepadLastStatusLayoutEnabled -ne $Enabled
