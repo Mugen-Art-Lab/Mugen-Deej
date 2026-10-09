@@ -77,6 +77,26 @@ func tailFile(path string, limit int64) string {
 	return string(data)
 }
 
+// recentLogLines limits both the height and width of crash-dialog details.
+// The complete log history remains available in the files named in the dialog.
+func recentLogLines(path string, maxLines, maxLineRunes int) string {
+	if maxLines <= 0 || maxLineRunes <= 0 { return "" }
+	data := tailFile(path, 8192)
+	if data == "" { return "" }
+	lines := make([]string, 0, maxLines)
+	for _, line := range strings.Split(strings.ReplaceAll(data, "\r\n", "\n"), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" { continue }
+		runes := []rune(line)
+		if len(runes) > maxLineRunes {
+			line = string(runes[:maxLineRunes]) + "..."
+		}
+		lines = append(lines, line)
+	}
+	if len(lines) > maxLines { lines = lines[len(lines)-maxLines:] }
+	return strings.Join(lines, "\n")
+}
+
 func main() {
 	exe, err := os.Executable()
 	if err != nil {
@@ -159,14 +179,21 @@ func main() {
 			err,
 		)
 		_ = logFile.Sync()
-		details := tailFile(launcherLog, 6000)
+		appLog := filepath.Join(logDir, "mugen-deej.log")
+		appDetails := recentLogLines(appLog, 6, 92)
+		launcherDetails := recentLogLines(launcherLog, 4, 92)
 		text := localized(
-			fmt.Sprintf("Mugen Deej завершился с ошибкой.\n\nКод выхода PowerShell: %d\nВремя работы: %s\n\nЖурнал:\n%s", exitCode, runtime, launcherLog),
-			fmt.Sprintf("Mugen Deej exited with an error.\n\nPowerShell exit code: %d\nRuntime: %s\n\nLog:\n%s", exitCode, runtime, launcherLog),
+			fmt.Sprintf("Mugen Deej завершился с ошибкой.\nКод выхода PowerShell: %d\nВремя работы: %s", exitCode, runtime),
+			fmt.Sprintf("Mugen Deej exited with an error.\nPowerShell exit code: %d\nRuntime: %s", exitCode, runtime),
 		)
-		if details != "" {
-			text += localized("\n\nПоследние строки:\n", "\n\nLast lines:\n") + details
+		if appDetails != "" {
+			text += localized("\n\nПоследние записи программы:\n", "\n\nRecent application log:\n") + appDetails
 		}
+		if launcherDetails != "" {
+			text += localized("\n\nПоследние записи запуска:\n", "\n\nRecent launcher log:\n") + launcherDetails
+		}
+		text += localized("\n\nПолные журналы:\n", "\n\nFull logs:\n") +
+			appLog + "\n" + launcherLog
 		messageBox(localized("Mugen Deej — ошибка процесса", "Mugen Deej — process error"), text)
 		return
 	}
