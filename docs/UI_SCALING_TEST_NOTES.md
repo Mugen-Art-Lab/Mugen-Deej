@@ -53,6 +53,34 @@ the source of UX approval. Do not silently alter RU/EN copy.
   If the problem remains, inspect `Main UI layout applied` DEBUG entries
   for repeated identical or alternating layout signatures.
 
+## 2026-10-09 — CI #29 real-device test (FAILED) and CI #30 candidate
+
+- **CI #29 hardware/UI test FAILED.** Repeated back-and-forth resizing is
+  resolved, but after an Auto/80%/100% transition with controller attached
+  the main input card (28 button indicators, toggle and encoder indicators)
+  and its two settings buttons disappear. A large blank space remains where
+  the input card should be. One screenshot shows a normal five-slider panel,
+  one `Regulators` button and the disconnected-looking empty card space,
+  while the status line still correctly reports 5/28/2/2.
+- Supplied log around 2026-10-09 22:08 shows `Main UI layout applied`
+  with `signature=True|True|5|28|2|2|28|2|2|False|False|False|68|1|ru`.
+  Counts and indicator objects exist, **settings visibility flags are wrong**.
+  No PowerShell crash is evident.
+- Identified cause in code: WinForms `Control.Visible` getter describes
+  **effective** visibility, inherited from parent form. With start-minimized
+  the main form is hidden, so reading `.Visible` while computing button
+  arrangement returns false even for controls logically enabled by the
+  controller. The CI #29 layout cache can retain this wrong arrangement.
+- **CI #30 fix candidate** (runtime commit `b6940caf4f75d999da6d95c7aa190c2a2933bdbd`):
+  calculate settings visibility/signature from actual detected capabilities,
+  explicitly set required card/button visibility, and force a single redraw
+  after the main form is shown from the tray. Retain CI #29 atomic redraw
+  protection.
+- **Real-device result PENDING**: reopen from tray, Auto/80/100 transitions,
+  compare all 28 button tiles, two toggle/encoder indicators and three
+  settings buttons. Also repeat with a fresh visible launch. Do not promote
+  until this passes.
+
 ## Intended architecture / acceptance before merge
 
 - Exactly two tested reference scales (80% and 100%), plus Auto **default**.
