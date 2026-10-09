@@ -36,6 +36,10 @@ permissions:
 jobs:
   build-release:
     runs-on: [self-hosted, windows, x64]
+    env:
+      # The non-admin self-hosted runner cannot install to C:\Program Files\dotnet.
+      # Keep the SDK under the writable runner temp folder instead.
+      DOTNET_INSTALL_DIR: ${{ runner.temp }}\dotnet
 
     steps:
       - name: Check out source
