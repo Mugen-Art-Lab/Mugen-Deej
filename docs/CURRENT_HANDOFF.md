@@ -4,7 +4,54 @@ Last updated: 2026-10-09
 
 This is the short resume point for the active `feature/virtual-gamepad-ui` branch. Stable `main` / v1.0.0 remains untouched.
 
-## Current resume — 2026-10-09 / CI #35
+## Current resume — 2026-10-09 / CI #36
+
+**LATEST SOFTWARE CANDIDATE: #36, hardware evaluation PENDING.** Runtime
+commit `35de47baf0e25cbc6ae703b53753f76fb481cbcf`;
+[GitHub Actions #36](https://github.com/Mugen-Art-Lab/Mugen-Deej/actions/runs/37967084655).
+This run was queued/starting when the documentation was written; verify its
+conclusion and deliver its finished ZIP directly in chat before testing.
+Do **not** call #35 accepted on hardware. Stable `main` remains untouched.
+
+**Confirmed #35 hardware failure (2026-10-09):**
+- Adaptive v3 5/28/2/2 controller detected on COM5 at 500000 baud;
+  status and five audio sliders displayed, but the 28-button/2-toggle/
+  2-encoder card plus its two settings buttons were invisible at **both
+  100% and 80%**. Only switching theme and repeated tray hide/restore
+  eventually brought them back.
+- 23:25:13 main log already reported all widgets present in logical layout:
+  `True|True|5|28|2|2|28|2|2|True|True|True|68|1|ru`,
+  696x801, so the blank panel is strongly associated with visibility/native
+  painting rather than missing protocol capabilities.
+- Unplugging controller **again crushed the top controller/Xbox status card**.
+- Light -> Dark theme changed the content but after hide/restore the native
+  window caption sometimes returned to light.
+
+**#36 corrections to test:** only suspend WM_SETREDRAW when form is actually
+visible (Windows changes native WS_VISIBLE for hidden windows), force native
+child redraw on finished layout/tray show; refresh status card only after
+protocol/counts reset on disconnect; reapply dark title-bar DWM attribute
+on HWND creation and tray restore. No UART, firmware, XInput input mapping or
+physical encoder logic changed.
+
+**Next test after green #36:** launch with start-minimized, open dashboard
+before changing theme, verify complete button/toggle/encoder card on 100% and
+80%; unplug/replug the Adaptive 5/28/2/2, enable/disable Xbox, cycle themes,
+hide/restore, and check that the DWM title bar tracks the selected theme.
+Collect fresh logs/screenshots for any failures. This is a *candidate*
+fix, not confirmed until tested by the user.
+
+**Release/build workflow:** only commit to
+`feature/virtual-gamepad-ui`; await green Windows Actions and send
+downloaded artifact ZIP directly in chat; avoid merging/tagging/publishing
+without explicit approval. `docs/UI_SCALING_TEST_NOTES.md` has the detailed
+CI #27–36 chronology. The separate PowerShell exitCode=2 incident from
+earlier CI testing still has an unknown root cause; CI #31 fixed only the
+oversized launcher dialog.
+
+### Previous resume snapshot — CI #35 (now superseded)
+
+Previous resume — 2026-10-09 / CI #35
 
 **CURRENT TEST CANDIDATE: CI #35; runtime/UI validation on the real Windows
 machine is PENDING, NOT a confirmed fix.** The self-hosted Windows
