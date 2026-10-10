@@ -1,10 +1,51 @@
 # Mugen Deej — current development handoff
 
-Last updated: 2026-10-09
+Last updated: 2026-10-10
 
 This is the short resume point for the active `feature/virtual-gamepad-ui` branch. Stable `main` / v1.0.0 remains untouched.
 
-## Current resume — 2026-10-09 / CI #36
+## Current resume — 2026-10-10 / CI #38
+
+**CI #36 hardware test: PASS for visibility, status card and dark title bar.**
+User provided 2026-10-10 screenshots showing the formerly missing controls
+visible at both 100% and 80%, including Adaptive v3 5/28/2/2 at COM5,
+500000 baud, all 28 button indicators, 2 toggles, 2 encoders, and the
+settings buttons. Unplugged display shows a clean one-line status and
+reconnect works. Dark Windows title bar remains dark after tray restore.
+Build #36 succeeded in GitHub Actions.
+
+**New outstanding regression:** on connecting or disconnecting controller at
+80% scale, the whole dashboard flashes momentarily toward the wider/taller
+100%-sized Form window, with a black area to the right / behind it. The
+80% layout is correct once the transient ends, and 100% has no such flicker.
+Cause: restoring baseline scaled child geometry also resized the native Form
+to the 100% logical size in the middle of the layout, which WM_SETREDRAW cannot
+hide from DWM.
+
+**Current TEST CANDIDATE: CI #38**
+[workflow](https://github.com/Mugen-Art-Lab/Mugen-Deej/actions/runs/38019552812).
+Runtime fixes in commits
+`b67ec3e2250d96c1b48a69470fa030d261a05561` and
+`4ad48ef80e30bb34f8bcd312f85e1f6881be1236`.
+Child controls now restore/scale at logical 100% without altering the native
+parent Form dimensions; a single final ClientSize commit occurs after all
+child work. Footer anchoring changed to Top/Left so it does not receive a
+second movement when final client bounds change.
+
+**CI and hardware verdict of #38 are PENDING at this snapshot.** Wait for
+GitHub Actions to go green, fetch artifact ZIP, provide the ZIP directly in
+chat. Then test multiple USB reconnect cycles at 80%, check full dashboard,
+no flash or black right strip, footer at bottom; verify 80 <-> 100,
+Dark/Light theme, and tray restore. If flicker persists, inspect remaining
+HWND bounds changes in the status/layout path and log actual WINDOWPOS events;
+do not reintroduce incorrect 100% HWND resize.
+
+Keep feature-branch-only development, no merge/tag until approved. This
+state is expanded in `docs/UI_SCALING_TEST_NOTES.md`.
+
+## Previous resume — 2026-10-09 / CI #36 (superseded)
+
+
 
 **LATEST SOFTWARE CANDIDATE: #36, hardware evaluation PENDING.** Runtime
 commit `35de47baf0e25cbc6ae703b53753f76fb481cbcf`;
