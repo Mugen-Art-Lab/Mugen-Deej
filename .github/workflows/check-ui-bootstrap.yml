@@ -1,0 +1,34 @@
+name: Validate Windows UI bootstrap
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/virtual-gamepad-ui
+    paths:
+      - 'MugenDeej.ps1'
+      - '.github/workflows/check-ui-bootstrap.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Compile WinForms C# types via Windows PowerShell 5.1
+        shell: powershell
+        env:
+          MUGENDEEJ_BOOTSTRAP_VALIDATE: '1'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # The bootstrap validation exit path occurs after Add-Type but before
+          # singleton mutex, COM probing, form creation or tray integration.
+          & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\MugenDeej.ps1
+          if ($LASTEXITCODE -ne 0) {
+            throw "Mugen UI bootstrap compilation failed with exit code $LASTEXITCODE"
+          }
+          Write-Host 'PowerShell 5.1 WinForms Add-Type bootstrap succeeded.'
