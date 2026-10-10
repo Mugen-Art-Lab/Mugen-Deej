@@ -5735,10 +5735,17 @@ function Show-SliderSettings {
         param([int]$Slot)
         $index = [int]$editorState.FirstRow + $Slot
         $model = $sliderModels[$index]
-        $position = if ($index -lt $positions.Count) { $positions[$index] } else { (T -Key 'PosNumber' -Args @($index + 1)) }
+        # "far left / center / far right" is meaningful only for the
+        # original five-control physical layout. Other topologies have no
+        # implied position: show an unambiguous localized control number.
+        $positionLabel = if ($count -eq 5) {
+            "$($index + 1) · $($positions[$index])"
+        } else {
+            (T -Key 'KnobN' -Args @($index + 1))
+        }
         $editorState.Busy = $true
         try {
-            $indexLabels[$Slot].Text = "$($index + 1) · $position"
+            $indexLabels[$Slot].Text = $positionLabel
             $nameBoxes[$Slot].Text = [string]$model.Name
             $modeCombos[$Slot].SelectedIndex = [int]$model.Mode
             if ([int]$model.Mode -eq 2) {
@@ -6040,6 +6047,23 @@ $advancedConfigButton.Visible = $false
             ($settingsForm.MinimumSize.Height + $saveNoticeShift)
         )
     }
+
+    # The slider list occupies one row per physical control up to five.
+    # Compact the dialog by exactly the height of the missing row slots.
+    # Set MinimumSize first: FixedDialog otherwise clamps ClientSize to
+    # the old five-row minimum and leaves an empty region at the bottom.
+    if ($visibleRows -lt 5) {
+        $missingRowsHeight = (5 - $visibleRows) * 76
+        $settingsForm.MinimumSize = New-Object System.Drawing.Size(
+            $settingsForm.MinimumSize.Width,
+            ($settingsForm.MinimumSize.Height - $missingRowsHeight)
+        )
+        $settingsForm.ClientSize = New-Object System.Drawing.Size(
+            $settingsForm.ClientSize.Width,
+            ($settingsForm.ClientSize.Height - $missingRowsHeight)
+        )
+    }
+
     Apply-ThemeToForm -Form $settingsForm
     if ($null -ne $sliderVScroll) {
         # The scrollbar changes which data the five FIXED rows display.
