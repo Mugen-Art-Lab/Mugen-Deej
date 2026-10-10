@@ -41,8 +41,11 @@ volume responsiveness unchanged. Numeric level uses bar's
 `Slider N ADC endpoint captured: raw=X; rail=0/1` only on entering a
 rail; per-pot latch resets on COM disconnect. Firmware was NOT changed.
 
-**CI #40 / real-device verdict PENDING** at handoff entry. Await green
-GitHub-hosted build, download artifact directly into chat. Hardware check:
+**CI #40: SUCCESS** on GitHub-hosted Windows (run 38038724081).
+Artifact `Mugen-Deej-packages-40` ID `11665257063`, downloaded to
+`Mugen-Deej-CI40.zip`. Outer and inner ZIP CRC and both supplied SHA-256
+sidecars verified; Portable contains the endpoint fix. **Real-device verdict
+PENDING**. Hardware check:
 steady physical extreme in BOTH directions and inversion states, all five
 pots, plus mid-travel responsiveness/audio output; collect fresh logs to
 verify actual raw endpoint readings if unstable. Do not assume 500000 baud
