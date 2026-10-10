@@ -5561,10 +5561,11 @@ function Show-SliderSettings {
     $settingsForm.Controls.Add($sliderRowViewport)
     $sliderRowContent = New-Object System.Windows.Forms.Panel
     $sliderRowContent.Location = New-Object System.Drawing.Point(0, 0)
-    $sliderRowContent.Size = New-Object System.Drawing.Size(1070, ($count * 76))
+    $sliderRowContent.Size = New-Object System.Drawing.Size(1070, ($visibleRows * 76))
     $sliderRowContent.AutoScroll = $false
     $sliderRowContent.BorderStyle = [System.Windows.Forms.BorderStyle]::None
     $sliderRowViewport.Controls.Add($sliderRowContent)
+    $sliderRowPanels = New-Object System.Collections.ArrayList
     $sliderVScroll = $null
     if ($count -gt 5) {
         $sliderVScroll = New-Object MugenDeejWindowing.MugenVScrollBar
@@ -5583,7 +5584,11 @@ function Show-SliderSettings {
         $rowPanel.Size = New-Object System.Drawing.Size(1070, 66)
         $rowPanel.BackColor = [System.Drawing.Color]::White
         $rowPanel.BorderStyle = 'None'
+        # Keep native ComboBox / TextBox HWNDs fully inside the viewport.
+        # Never show a partially clipped row while scrolling.
+        $rowPanel.Visible = ($i -lt $visibleRows)
         $sliderRowContent.Controls.Add($rowPanel)
+        [void]$sliderRowPanels.Add($rowPanel)
 
         $position = if ($i -lt $positions.Count) { $positions[$i] } else { (T -Key 'PosNumber' -Args @($i + 1)) }
         $indexLabel = New-Object System.Windows.Forms.Label
@@ -5821,11 +5826,13 @@ $advancedConfigButton.Visible = $false
     $liveTimer = New-Object System.Windows.Forms.Timer
     $liveTimer.Interval = 50
     $liveTimer.Add_Tick({
+        if ($topologyState.Reopen) { return }
         # A modal editor captures its row count when opened. Do not let a
         # different controller silently reuse those controls or save old edits.
         $liveSignature = if ($script:IsConnected) { Get-CurrentControllerSignature } else { '' }
         if (-not [string]::IsNullOrEmpty($liveSignature) -and $liveSignature -ne $topologyState.OriginalSignature) {
             $topologyState.Reopen = $true
+            $liveTimer.Stop()
             Write-Log ('Slider editor topology changed; reopen requested: old={0}; new={1}' -f $topologyState.OriginalSignature, $liveSignature) 'INFO'
             $settingsForm.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
             $settingsForm.Close()
@@ -5978,29 +5985,41 @@ $advancedConfigButton.Visible = $false
     }
     Apply-ThemeToForm -Form $settingsForm
     if ($null -ne $sliderVScroll) {
-        # Scroll offsets use logical pixels; translate them once to the current
-        # DPI/UI-scale-adjusted row layout. No native non-client scrollbar.
-        # Wheel/drag bursts can deliver hundreds of events per second.
-        # Coalesce repainting on the WinForms UI thread to at most ~30 FPS.
-        $sliderScrollTimer = New-Object System.Windows.Forms.Timer
-        $sliderScrollTimer.Interval = 33
-        $sliderScrollState = [pscustomobject]@{ LastApplied = 0 }
-        $sliderScrollTimer.Add_Tick({
-            $desired = [int]$sliderVScroll.Value
-            if ($desired -eq [int]$sliderScrollState.LastApplied) {
-                $sliderScrollTimer.Stop()
-                return
+        # Native WinForms edit boxes / drop-down arrows are HWND-based and
+        # cannot be safely pixel-clipped during scrolling: Windows paints them
+        # outside the parent's backbuffer. Show only COMPLETE rows instead.
+        #
+        # The thumb can still be dragged continuously, but the list advances
+        # by one full card at a time. This avoids partial arrow/button flashes,
+        # leftover glyphs and repaint storms (especially at 80% + HiDPI).
+        $sliderScrollState = [pscustomobject]@{ FirstRow = 0 }
+        $showSliderPage = {
+            $firstRow = [int][Math]::Round(([double]$sliderVScroll.Value / 76.0), 0)
+            $firstRow = [Math]::Max(0, [Math]::Min($count - $visibleRows, $firstRow))
+            if ($firstRow -eq [int]$sliderScrollState.FirstRow) { return }
+
+            $sliderRowContent.SuspendLayout()
+            try {
+                # Hide all rows before moving any HWND-backed descendants;
+                # none can be drawn in a partially clipped position.
+                for ($i = 0; $i -lt $sliderRowPanels.Count; $i++) {
+                    $sliderRowPanels[$i].Visible = $false
+                }
+                $logicalToPhysical = [double]$sliderRowViewport.Height / [double]($visibleRows * 76)
+                for ($slot = 0; $slot -lt $visibleRows; $slot++) {
+                    $index = $firstRow + $slot
+                    $row = $sliderRowPanels[$index]
+                    $row.Top = [int][Math]::Round(($slot * 76) * $logicalToPhysical)
+                    $row.Visible = $true
+                }
+                $sliderScrollState.FirstRow = $firstRow
             }
-            # Use the ACTUAL scaled viewport dimensions. This also works when
-            # Windows DPI rounding does not give an exact 0.8 row height.
-            $factor = [double]$sliderRowViewport.Height / [double]($visibleRows * 76)
-            $sliderRowContent.Top = -[int][Math]::Round($desired * $factor)
-            $sliderScrollState.LastApplied = $desired
-            $sliderRowViewport.Invalidate($true)
-        })
-        $sliderVScroll.Add_ValueChanged({
-            if (-not $sliderScrollTimer.Enabled) { $sliderScrollTimer.Start() }
-        })
+            finally {
+                $sliderRowContent.ResumeLayout($true)
+            }
+            $sliderRowViewport.Invalidate()
+        }
+        $sliderVScroll.Add_ValueChanged({ & $showSliderPage })
         $sliderRowViewport.Add_MouseWheel({
             param($sender, $eventArgs)
             $sliderVScroll.Value -= [Math]::Sign($eventArgs.Delta) * 76
@@ -6008,10 +6027,6 @@ $advancedConfigButton.Visible = $false
         $sliderRowContent.Add_MouseWheel({
             param($sender, $eventArgs)
             $sliderVScroll.Value -= [Math]::Sign($eventArgs.Delta) * 76
-        })
-        $settingsForm.Add_FormClosed({
-            $sliderScrollTimer.Stop()
-            $sliderScrollTimer.Dispose()
         })
     }
 
