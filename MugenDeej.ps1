@@ -1924,6 +1924,162 @@ namespace MugenDeejWindowing
         }
     }
 
+    // The native WinForms AutoScroll bar stays light on dark Windows themes.
+    // This painted slider-row scrollbar never touches serial/audio state.
+    public sealed class MugenVScrollBar : Control
+    {
+        private int currentValue;
+        private int maximumOffset;
+        private int pageSize = 1;
+        private bool dragging;
+        private bool hovered;
+        private int dragOffset;
+        private Color trackColor = Color.FromArgb(25, 29, 37);
+        private Color thumbColor = Color.FromArgb(64, 72, 89);
+        private Color hoverColor = Color.FromArgb(78, 91, 114);
+        private Color outlineColor = Color.FromArgb(58, 67, 83);
+
+        public event EventHandler ValueChanged;
+
+        public int MaximumOffset
+        {
+            get { return maximumOffset; }
+            set { maximumOffset = Math.Max(0, value); Value = currentValue; Invalidate(); }
+        }
+
+        public int PageSize
+        {
+            get { return pageSize; }
+            set { pageSize = Math.Max(1, value); Invalidate(); }
+        }
+
+        public int Value
+        {
+            get { return currentValue; }
+            set
+            {
+                int next = Math.Max(0, Math.Min(maximumOffset, value));
+                if (next == currentValue) return;
+                currentValue = next;
+                Invalidate();
+                if (ValueChanged != null) ValueChanged(this, EventArgs.Empty);
+            }
+        }
+
+        public MugenVScrollBar()
+        {
+            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
+                     ControlStyles.OptimizedDoubleBuffer | ControlStyles.Selectable, true);
+            TabStop = true;
+            Cursor = Cursors.Hand;
+            Width = 16;
+        }
+
+        public void ApplyTheme(Color track, Color thumb, Color hover, Color outline)
+        {
+            trackColor = track;
+            thumbColor = thumb;
+            hoverColor = hover;
+            outlineColor = outline;
+            Invalidate();
+        }
+
+        private Rectangle ThumbBounds()
+        {
+            int length = Math.Max(1, Height - 4);
+            int full = Math.Max(pageSize, pageSize + maximumOffset);
+            int thumbHeight = Math.Min(length, Math.Max(Math.Min(22, length), (int)Math.Round((double)length * pageSize / full)));
+            int travel = Math.Max(0, length - thumbHeight);
+            int top = 2 + (maximumOffset == 0 ? 0 : (int)Math.Round((double)currentValue * travel / maximumOffset));
+            return new Rectangle(2, top, Math.Max(3, Width - 4), thumbHeight);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            e.Graphics.Clear(trackColor);
+            Rectangle thumb = ThumbBounds();
+            using (Brush brush = new SolidBrush(hovered || dragging ? hoverColor : thumbColor))
+                e.Graphics.FillRectangle(brush, thumb);
+            using (Pen pen = new Pen(outlineColor))
+                e.Graphics.DrawRectangle(pen, thumb.X, thumb.Y,
+                    Math.Max(1, thumb.Width - 1), Math.Max(1, thumb.Height - 1));
+        }
+
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            base.OnMouseDown(e);
+            if (e.Button != MouseButtons.Left || maximumOffset == 0) return;
+            Focus();
+            Rectangle thumb = ThumbBounds();
+            if (thumb.Contains(e.Location))
+            {
+                dragging = true;
+                dragOffset = e.Y - thumb.Top;
+                Capture = true;
+            }
+            else
+            {
+                Value += e.Y < thumb.Top ? -pageSize : pageSize;
+            }
+        }
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            base.OnMouseMove(e);
+            bool over = ThumbBounds().Contains(e.Location);
+            if (hovered != over) { hovered = over; Invalidate(); }
+            if (!dragging) return;
+            int travel = Math.Max(1, Height - 4 - ThumbBounds().Height);
+            int pos = Math.Max(0, Math.Min(travel, e.Y - dragOffset - 2));
+            Value = (int)Math.Round((double)pos * maximumOffset / travel);
+        }
+
+        protected override void OnMouseLeave(EventArgs e)
+        {
+            base.OnMouseLeave(e);
+            if (!dragging) { hovered = false; Invalidate(); }
+        }
+
+        protected override void OnMouseUp(MouseEventArgs e)
+        {
+            base.OnMouseUp(e);
+            dragging = false;
+            Capture = false;
+            Invalidate();
+        }
+
+        protected override void OnMouseWheel(MouseEventArgs e)
+        {
+            base.OnMouseWheel(e);
+            Value -= Math.Sign(e.Delta) * 76;
+        }
+
+        protected override bool IsInputKey(Keys keyData)
+        {
+            Keys key = keyData & Keys.KeyCode;
+            if (key == Keys.Up || key == Keys.Down || key == Keys.PageUp ||
+                key == Keys.PageDown || key == Keys.Home || key == Keys.End) return true;
+            return base.IsInputKey(keyData);
+        }
+
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            base.OnKeyDown(e);
+            switch (e.KeyCode)
+            {
+                case Keys.Up: Value -= 76; break;
+                case Keys.Down: Value += 76; break;
+                case Keys.PageUp: Value -= pageSize; break;
+                case Keys.PageDown: Value += pageSize; break;
+                case Keys.Home: Value = 0; break;
+                case Keys.End: Value = maximumOffset; break;
+                default: return;
+            }
+            e.Handled = true;
+        }
+    }
+
     public sealed class MugenToolStripRenderer : ToolStripProfessionalRenderer
     {
         private readonly Color back;
@@ -2397,6 +2553,7 @@ if (-not $createdNew) {
 $script:AppVersion = '2.0.0'
 $script:ControllerProtocol = 'unknown'
 $script:DetectedSliderCount = 0
+$script:LastKnownSliderCount = 0
 $script:DetectedButtonCount = 0
 $script:DetectedToggleCount = 0
 $script:DetectedEncoderCount = 0
@@ -4105,7 +4262,10 @@ function Apply-ThemeToControl {
         Set-RoundedControlRegion -Control $Control -Radius $buttonRadius
     }
 
-    if ($Control -is [MugenDeejWindowing.MugenProgressBar]) {
+    if ($Control -is [MugenDeejWindowing.MugenVScrollBar]) {
+        $Control.ApplyTheme($palette.ProgressTrack, $palette.Border, $palette.ControlHover, $palette.Border)
+    }
+    elseif ($Control -is [MugenDeejWindowing.MugenProgressBar]) {
         $Control.ApplyTheme($palette.ProgressTrack, $palette.Accent, $palette.Border)
     }
     elseif ($Control -is [MugenDeejWindowing.MugenComboBox]) {
@@ -5261,6 +5421,8 @@ function Show-ApplicationPicker {
 }
 
 function Show-SliderSettings {
+    param([switch]$ReopenedAfterTopologyChange)
+
     if ($script:IsConnected -and [int]$script:DetectedSliderCount -le 0) {
         $message = if ($script:Language -eq 'ru') {
             'У подключённого контроллера нет физических регуляторов.'
@@ -5327,6 +5489,13 @@ function Show-SliderSettings {
         34
     )
     $saveNotice.TextAlign = 'MiddleLeft'
+    if ($ReopenedAfterTopologyChange) {
+        $saveNotice.Text = if ($script:Language -eq 'ru') {
+            'Состав контроллера изменился. Настройки обновлены; несохранённые правки предыдущего окна не применены.'
+        } else {
+            'Controller topology changed. Settings were refreshed; unsaved edits from the previous window were discarded.'
+        }
+    }
     $settingsForm.Controls.Add($saveNotice)
 
     $headers = @(
@@ -5353,18 +5522,39 @@ function Show-SliderSettings {
     $percentLabels = New-Object System.Collections.ArrayList
     $targetSelections = New-Object System.Collections.ArrayList
     $microphoneCombos = New-Object System.Collections.ArrayList
-    $count = if ($script:IsConnected) { [int]$script:DetectedSliderCount } else { [int]$script:Config.connection.expectedSliders }
+    $count = if ($script:IsConnected) { [int]$script:DetectedSliderCount } elseif ([int]$script:LastKnownSliderCount -gt 0) { [int]$script:LastKnownSliderCount } else { [int]$script:Config.connection.expectedSliders }
+    $originalSignature = if ($script:IsConnected) { Get-CurrentControllerSignature } else { '' }
+    $topologyState = [pscustomobject]@{ OriginalSignature = [string]$originalSignature; Reopen = $false; NoticeText = [string]$saveNotice.Text }
     Ensure-SliderConfigCapacity -Count $count
+    # Only slider rows scroll; advanced options and Save/Cancel remain fixed.
+    $visibleRows = [Math]::Min(5, $count)
+    $sliderRowViewport = New-Object System.Windows.Forms.Panel
+    $sliderRowViewport.Location = New-Object System.Drawing.Point(20, 150)
+    $sliderRowViewport.Size = New-Object System.Drawing.Size(1070, ($visibleRows * 76))
+    $sliderRowViewport.AutoScroll = $false
+    $sliderRowViewport.BorderStyle = [System.Windows.Forms.BorderStyle]::None
+    $settingsForm.Controls.Add($sliderRowViewport)
+    $sliderRowPanels = New-Object System.Collections.ArrayList
+    $sliderVScroll = $null
+    if ($count -gt 5) {
+        $sliderVScroll = New-Object MugenDeejWindowing.MugenVScrollBar
+        $sliderVScroll.Location = New-Object System.Drawing.Point(1091, 150)
+        $sliderVScroll.Size = New-Object System.Drawing.Size(14, ($visibleRows * 76))
+        $sliderVScroll.PageSize = $visibleRows * 76
+        $sliderVScroll.MaximumOffset = ($count - $visibleRows) * 76
+        $settingsForm.Controls.Add($sliderVScroll)
+    }
     $positions = @((T -Key 'PosFarLeft'), (T -Key 'PosSecondLeft'), (T -Key 'PosCenter'), (T -Key 'PosSecondRight'), (T -Key 'PosFarRight'))
 
     for ($i = 0; $i -lt $count; $i++) {
-        $y = 150 + ($i * 76)
+        $y = $i * 76
         $rowPanel = New-Object MugenDeejWindowing.MugenCardPanel
-        $rowPanel.Location = New-Object System.Drawing.Point(20, $y)
+        $rowPanel.Location = New-Object System.Drawing.Point(0, $y)
         $rowPanel.Size = New-Object System.Drawing.Size(1070, 66)
         $rowPanel.BackColor = [System.Drawing.Color]::White
         $rowPanel.BorderStyle = 'None'
-        $settingsForm.Controls.Add($rowPanel)
+        $sliderRowViewport.Controls.Add($rowPanel)
+        [void]$sliderRowPanels.Add($rowPanel)
 
         $position = if ($i -lt $positions.Count) { $positions[$i] } else { (T -Key 'PosNumber' -Args @($i + 1)) }
         $indexLabel = New-Object System.Windows.Forms.Label
@@ -5515,7 +5705,7 @@ function Show-SliderSettings {
     # and makes inversion/responsiveness discoverable on the real hardware UI.
     $sliderAdvancedPanel = New-Object MugenDeejWindowing.MugenCardPanel
     $sliderAdvancedPanel.Name = 'SliderAdvancedPanel'
-    $advancedY = 150 + ($count * 76) + 10
+    $advancedY = 150 + ($visibleRows * 76) + 10
     $sliderAdvancedPanel.Location = New-Object System.Drawing.Point(25, $advancedY)
     $sliderAdvancedPanel.Size = New-Object System.Drawing.Size(1065, 112)
     $sliderAdvancedPanel.Visible = $true
@@ -5595,10 +5785,6 @@ $advancedConfigButton.Visible = $false
     $saveButton = New-Object MugenDeejWindowing.MugenButton
     $saveButton.Text = (T -Key 'Save')
     $saveButton.Location = New-Object System.Drawing.Point(982, $actionY)
-    if ($count -gt 5) {
-        $settingsForm.AutoScroll = $true
-        $settingsForm.AutoScrollMinSize = [System.Drawing.Size]::new(1090, ($actionY + 70))
-    }
     $saveButton.Size = New-Object System.Drawing.Size(105, 36)
     $saveButton.Tag = 'MugenPrimary'
     $settingsForm.Controls.Add($saveButton)
@@ -5606,6 +5792,23 @@ $advancedConfigButton.Visible = $false
     $liveTimer = New-Object System.Windows.Forms.Timer
     $liveTimer.Interval = 50
     $liveTimer.Add_Tick({
+        # A modal editor captures its row count when opened. Do not let a
+        # different controller silently reuse those controls or save old edits.
+        $liveSignature = if ($script:IsConnected) { Get-CurrentControllerSignature } else { '' }
+        if (-not [string]::IsNullOrEmpty($liveSignature) -and $liveSignature -ne $topologyState.OriginalSignature) {
+            $topologyState.Reopen = $true
+            Write-Log ('Slider editor topology changed; reopen requested: old={0}; new={1}' -f $topologyState.OriginalSignature, $liveSignature) 'INFO'
+            $settingsForm.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+            $settingsForm.Close()
+            return
+        }
+        if (-not [string]::IsNullOrEmpty($topologyState.OriginalSignature)) {
+            $saveButton.Enabled = [bool]$script:IsConnected
+            $saveNotice.Text = if (-not $script:IsConnected) {
+                if ($script:Language -eq 'ru') { 'Связь с контроллером потеряна. Сохранение приостановлено до переподключения.' }
+                else { 'Controller disconnected. Saving is paused until reconnection.' }
+            } else { $topologyState.NoticeText }
+        }
         for ($i = 0; $i -lt $count; $i++) {
             if ($script:LatestLevels.Count -gt $i) {
                 $level = [Math]::Max(0.0, [Math]::Min(1.0, [double]$script:LatestLevels[$i]))
@@ -5621,7 +5824,15 @@ $advancedConfigButton.Visible = $false
 
     $saveButton.Add_Click({
         param($sender, $eventArgs)
-
+        if (-not [string]::IsNullOrEmpty($topologyState.OriginalSignature)) {
+            if (-not $script:IsConnected) { return }
+            if ((Get-CurrentControllerSignature) -ne $topologyState.OriginalSignature) {
+                $topologyState.Reopen = $true
+                $settingsForm.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+                $settingsForm.Close()
+                return
+            }
+        }
         $newSliders = @()
         for ($i = 0; $i -lt $count; $i++) {
             $name = ([string]$nameBoxes[$i].Text).Trim()
@@ -5737,6 +5948,23 @@ $advancedConfigButton.Visible = $false
         )
     }
     Apply-ThemeToForm -Form $settingsForm
+    if ($null -ne $sliderVScroll) {
+        # Scroll offsets use logical pixels; translate them once to the current
+        # DPI/UI-scale-adjusted row layout. No native non-client scrollbar.
+        $applySliderRowScroll = {
+            $factor = [double](Get-ConfiguredUiScale)
+            $offset = [int][Math]::Round([int]$sliderVScroll.Value * $factor)
+            for ($i = 0; $i -lt $sliderRowPanels.Count; $i++) {
+                $panel = $sliderRowPanels[$i]
+                $panel.Top = [int][Math]::Round(($i * 76) * $factor) - $offset
+            }
+        }
+        $sliderVScroll.Add_ValueChanged({ & $applySliderRowScroll })
+        $sliderRowViewport.Add_MouseWheel({ param($sender, $eventArgs) $sliderVScroll.Value -= [Math]::Sign($eventArgs.Delta) * 76 })
+        foreach ($scrollRow in @($sliderRowPanels)) {
+            $scrollRow.Add_MouseWheel({ param($sender, $eventArgs) $sliderVScroll.Value -= [Math]::Sign($eventArgs.Delta) * 76 })
+        }
+    }
 
     # Theme application recolors generic labels; restore semantic amber.
     $saveNotice.ForeColor = [System.Drawing.Color]::FromArgb(
@@ -5751,6 +5979,9 @@ $advancedConfigButton.Visible = $false
     $liveTimer.Start()
     [void]$settingsForm.ShowDialog($form)
     $settingsForm.Dispose()
+    if ($topologyState.Reopen -and $script:IsConnected -and [int]$script:DetectedSliderCount -gt 0) {
+        Show-SliderSettings -ReopenedAfterTopologyChange
+    }
 }
 
 function Show-FirstRunWizard {
@@ -10660,6 +10891,7 @@ function Get-ControllerConnectedStatusText {
 
     $script:ControllerProtocol = $protocol
     $script:DetectedSliderCount = $sliderCount
+    if ($sliderCount -gt 0) { $script:LastKnownSliderCount = $sliderCount }
     $script:DetectedButtonCount = $buttonCount
     $script:DetectedToggleCount = $toggleCount
     $script:DetectedEncoderCount = $encoderCount
@@ -13290,7 +13522,8 @@ function Update-SliderCapabilityUi {
         [int]$script:DetectedSliderCount
     }
     else {
-        [int]$script:Config.connection.expectedSliders
+        if ([int]$script:LastKnownSliderCount -gt 0) { [int]$script:LastKnownSliderCount }
+        else { [int]$script:Config.connection.expectedSliders }
     }
 
     $visibleCount = [Math]::Min($count, @($script:KnobProgressBars).Count)
