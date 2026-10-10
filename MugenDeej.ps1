@@ -13269,8 +13269,10 @@ function Show-FullControllerStateWindow {
     $stateForm = New-Object System.Windows.Forms.Form
     $stateForm.Text = if ($script:Language -eq 'ru') { 'Состояние контроллера' } else { 'Controller state' }
     $stateForm.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterParent
+    # Initial bounds are the largest useful viewport; after the capability
+    # groups are laid out the height is compacted to their actual contents.
     $stateForm.ClientSize = [System.Drawing.Size]::new(760, 620)
-    $stateForm.MinimumSize = [System.Drawing.Size]::new(676, 500)
+    $stateForm.MinimumSize = [System.Drawing.Size]::new(676, 230)
     $stateForm.Font = $form.Font
     $stateForm.ShowInTaskbar = $false
     Set-FormAppIcon -Form $stateForm
@@ -13554,6 +13556,15 @@ function Show-FullControllerStateWindow {
     }
 
     $scroll.AutoScrollMinSize = [System.Drawing.Size]::new(696, [Math]::Max(0, $contentY))
+
+    # Size the state dialog to the actual detected controls, rather than
+    # retaining a 620px client area even when only one group is present.
+    # Keep the original 502px viewport cap for dense Adaptive configurations:
+    # larger layouts continue to scroll instead of growing off-screen.
+    # Work in unscaled logical coordinates; Apply-ThemeToForm scales the entire
+    # completed dialog once for 80% mode and DPI.
+    $viewportHeight = [int][Math]::Min(502, [Math]::Max(115, ($contentY + 10)))
+    $stateForm.ClientSize = [System.Drawing.Size]::new(760, (100 + $viewportHeight + 18))
 
     $refreshState = {
         $summaryTitle.Text = if ($script:IsConnected) {
