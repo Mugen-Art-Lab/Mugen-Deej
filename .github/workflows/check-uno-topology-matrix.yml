@@ -59,10 +59,14 @@ jobs:
           arduino-cli compile --fqbn arduino:avr:uno --warnings all --output-dir build/uno arduino/MugenDeejUnoTopologyMatrix
           test -s build/uno/MugenDeejUnoTopologyMatrix.ino.hex
 
-      - name: Upload flashable Uno HEX
+      - name: Upload tested Uno sketch, instructions and HEX
         uses: actions/upload-artifact@v4
         with:
-          name: Mugen-Deej-Uno-TopologyMatrix-HEX
-          path: build/uno/MugenDeejUnoTopologyMatrix.ino.hex
+          name: Mugen-Deej-Uno-TopologyMatrix
+          path: |
+            arduino/MugenDeejUnoTopologyMatrix/MugenDeejUnoTopologyMatrix.ino
+            arduino/MugenDeejUnoTopologyMatrix/README.md
+            arduino/MugenDeejUnoTopologyMatrix/README_RU.md
+            build/uno/MugenDeejUnoTopologyMatrix.ino.hex
           if-no-files-found: error
           retention-days: 14
