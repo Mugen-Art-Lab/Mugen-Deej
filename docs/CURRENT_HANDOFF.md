@@ -32,11 +32,15 @@ assignments preserved. The diagnostics scale and USB hotplug changes
 from #42 are intact. Build run
 https://github.com/Mugen-Art-Lab/Mugen-Deej/actions/runs/38062029968 .
 
-**CI and real-device verdict of #43 PENDING** when first documented.
-Wait for green GitHub-hosted Windows CI, fetch and verify ZIP, share
-actual artifact in chat. First confirm *clean startup without a JIT
-dialog*, then test 80% and 100% diagnostics proportions and repeated
-modal open/close; if successful, test USB hotplug with modal open.
+**CI #43: SUCCESS on GitHub-hosted Windows**, commit
+`e6b21bd3024bbb6f74e30d3eebe2715afe6857b2`, run
+38062029968. Artifact `Mugen-Deej-packages-43`, ID `11672629579`,
+downloaded as `Mugen-Deej-CI43.zip`; verified outer and inner ZIP CRC,
+Portable and Setup SHA-256 sidecars, and confirmed the flag initializer
+occurs before the first read in bundled `MugenDeej.ps1`.
+**Real Windows startup/diagnostics verdict still PENDING.** First confirm
+clean startup without JIT dialog, then 80%/100% diagnostics cards and
+repeated open/close. If successful, test USB hotplug with modal open.
 Do not describe CI green as a verified runtime smoke test.
 
 ## CI #42 diagnostic modal scaling regression — 2026-10-10
