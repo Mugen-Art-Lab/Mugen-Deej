@@ -181,6 +181,44 @@ was reported in the supplied launcher log.
   If it still fails, add instrumentation of effective/own visibility and
   native redraw state at each layout/restore boundary; avoid pixel nudges.
 
+## 2026-10-10 — CI #36 real-machine PASS, CI #38 flicker fix pending
+
+**Hardware result of #36: PASS for the previously broken behaviors.**
+Tester showed the status/header in dark mode after tray restore, clean single
+physical status row after unplug, successful reconnect with both virtual Xbox
+status lines, all 28 buttons, both toggles, both encoders and settings buttons
+present at 100% and 80%. The title bar stayed dark. No hidden controls or
+permanent top status overlap in the provided screenshots.
+
+**Remaining regression on #36:** when a controller is connected or disconnected
+while dashboard scale=80%, the top-level window briefly expands toward its
+100% dimensions, leaving a black area at the right/bottom and traces of the
+expanded controls for a fraction of a second (provided screenshot). Final
+layout remains correct at 80%. At 100%, no similar transient flicker.
+Root cause isolated in main WinForms layout: Restore-MainUiLogicalLayout
+wrote 100% logical ClientSize and restored 100% size constraints before
+drawing was resumed. Later Set-MainButtonLayout wrote 100% size again and
+Apply-MainUiLayoutScale called Form.Scale(0.8). WM_SETREDRAW suppresses
+WM_PAINT but cannot conceal top-level HWND/DWM resize bounds.
+
+**#37/#38 software candidate:** patch commits
+`b67ec3e2250d96c1b48a69470fa030d261a05561` and
+`4ad48ef80e30bb34f8bcd312f85e1f6881be1236`.
+[CI #38](https://github.com/Mugen-Art-Lab/Mugen-Deej/actions/runs/38019552812).
+The logical restore now restores child controls without resizing the parent
+window. Main layout computes a logical target client size separately. 80%
+transformation scales direct child subtrees (and their fonts from the baseline)
+without calling Form.Scale and commits *one* final top-level client resize.
+The bottom footer now uses left/top anchoring because dynamic layout places it
+explicitly and bottom anchoring would move it a second time at commit.
+No physical-controller/serial/XInput behavior changed.
+
+**CI #38 and real-device visual verdict: PENDING** at time of this note.
+Test USB unplug/replug with 80% selected, repeatedly, including with Xbox
+enabled/disabled. Check no 100%-sized ghost region, all controls remain visible
+and footer stays at bottom. Then test switching scale 80<->100, themes, and
+tray restore. Do not treat CI green as a guarantee that DWM flicker is fixed.
+
 ## Intended architecture / acceptance before merge
 
 - Exactly two tested reference scales (80% and 100%), plus Auto **default**.
