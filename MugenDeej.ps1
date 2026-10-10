@@ -4499,7 +4499,10 @@ function Prepare-FirstPaintReveal {
     $Form.Add_Shown({
         param($sender, $eventArgs)
         $shownForm = [System.Windows.Forms.Form]$sender
-        $reveal = [System.Action]{
+        # Create the closure as a ScriptBlock *before* casting it to an
+        # Action delegate. A cast-first expression is a System.Action and
+        # does not expose ScriptBlock.GetNewClosure().
+        $revealBlock = {
             if ($shownForm.IsDisposed) { return }
             try {
                 $shownForm.Invalidate($true)
@@ -4509,6 +4512,7 @@ function Prepare-FirstPaintReveal {
                 if (-not $shownForm.IsDisposed) { $shownForm.Opacity = 1.0 }
             }
         }.GetNewClosure()
+        $reveal = [System.Action]$revealBlock
         try {
             # After the other Shown handlers: modal position/z-order and
             # late native child handles settle before the first visible frame.
