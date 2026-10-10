@@ -4,6 +4,41 @@ Last updated: 2026-10-10
 
 This is the short resume point for the active `feature/virtual-gamepad-ui` branch. Stable `main` / v1.0.0 remains untouched.
 
+## CI #43 fatal startup regression in #42 — 2026-10-10
+
+**CI #42 user test: FAILS AT STARTUP** with Windows Forms unhandled
+RuntimeException / .NET Framework JIT dialog in PowerShell:
+`Переменная "$script:ConnectionDiagnosticsModalOpen" не может быть получена,
+так как она не установлена.`
+This is **not** a .NET installation or controller problem; app uses
+`Set-StrictMode -Version 2.0`, and #42 introduced the flag in
+`Update-DriverStatus` before ever assigning it. The window's Form.Shown
+handler calls driver status immediately. It crashes even with the
+controller disconnected; relaunching from tray reproduces.
+
+User attachments: `Вставленный текст(20261010-150024).txt` (full JIT
+stack), `launcher(20261010-150031).log`,
+`mugen-deej(20261010-150031).log`. Launcher recorded ordinary
+runtime exits at 20:59:47 / 21:00:35, while main app logged startup and
+UI layout but no specific exception (uncaught WinForms event exceptions
+surface through the native JIT dialog).
+
+**#43 patch**, commit
+`e6b21bd3024bbb6f74e30d3eebe2715afe6857b2`:
+unconditionally initialize `$script:ConnectionDiagnosticsModalOpen = $false`
+in the global script-state initialization block (line ~3551), before the
+first read in `Update-DriverStatus` (line ~19072), with modal's true/false
+assignments preserved. The diagnostics scale and USB hotplug changes
+from #42 are intact. Build run
+https://github.com/Mugen-Art-Lab/Mugen-Deej/actions/runs/38062029968 .
+
+**CI and real-device verdict of #43 PENDING** when first documented.
+Wait for green GitHub-hosted Windows CI, fetch and verify ZIP, share
+actual artifact in chat. First confirm *clean startup without a JIT
+dialog*, then test 80% and 100% diagnostics proportions and repeated
+modal open/close; if successful, test USB hotplug with modal open.
+Do not describe CI green as a verified runtime smoke test.
+
 ## CI #42 diagnostic modal scaling regression — 2026-10-10
 
 Hardware regression from #40 screenshots: modal **Connection & diagnostics**
