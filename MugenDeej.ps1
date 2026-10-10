@@ -18973,7 +18973,10 @@ $footer = New-Object System.Windows.Forms.Label
 $footer.Text = 'Made by Mugen Art Lab'
 $footer.ForeColor = [System.Drawing.Color]::Gray
 $footer.AutoSize = $true
-$footer.Anchor = [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Bottom
+# Footer position is recalculated by Set-MainButtonLayout in logical space.
+# Bottom anchoring would apply an extra delta when the final native resize
+# occurs after scaling children, shifting the footer out of its intended row.
+$footer.Anchor = [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Top
 $footer.Location = New-Object System.Drawing.Point(24, 564)
 $form.Controls.Add($footer)
 # dev3 layout hotfix: initialize button layout only after the full main UI exists
