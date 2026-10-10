@@ -3546,6 +3546,9 @@ $script:CaptureDeviceRefreshMinSeconds = 4
 $script:CoreAudioCaptureUnavailable = $false
 $script:Closing = $false
 $script:ExitRequested = $false
+# Default before any Form.Shown / driver-status event. Set-StrictMode makes
+# reads of an undefined script variable fatal, even when cast to [bool].
+$script:ConnectionDiagnosticsModalOpen = $false
 $script:ShutdownFinalizing = $false
 $script:RestartRequested = $false
 $script:IsSuspended = $false
