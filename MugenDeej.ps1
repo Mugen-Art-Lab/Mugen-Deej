@@ -5545,7 +5545,8 @@ function Show-SliderSettings {
     $selectButtons = New-Object System.Collections.ArrayList
     $progressBars = New-Object System.Collections.ArrayList
     $percentLabels = New-Object System.Collections.ArrayList
-    $targetSelections = New-Object System.Collections.ArrayList
+    $indexLabels = New-Object System.Collections.ArrayList
+    $sliderModels = New-Object System.Collections.ArrayList
     $microphoneCombos = New-Object System.Collections.ArrayList
     $count = if ($script:IsConnected) { [int]$script:DetectedSliderCount } elseif ([int]$script:LastKnownSliderCount -gt 0) { [int]$script:LastKnownSliderCount } else { [int]$script:Config.connection.expectedSliders }
     $originalSignature = if ($script:IsConnected) { Get-CurrentControllerSignature } else { '' }
@@ -5565,7 +5566,7 @@ function Show-SliderSettings {
     $sliderRowContent.AutoScroll = $false
     $sliderRowContent.BorderStyle = [System.Windows.Forms.BorderStyle]::None
     $sliderRowViewport.Controls.Add($sliderRowContent)
-    $sliderRowPanels = New-Object System.Collections.ArrayList
+    # Five permanent UI slots; no native control is moved or hidden on scroll.
     $sliderVScroll = $null
     if ($count -gt 5) {
         $sliderVScroll = New-Object MugenDeejWindowing.MugenVScrollBar
@@ -5577,65 +5578,62 @@ function Show-SliderSettings {
     }
     $positions = @((T -Key 'PosFarLeft'), (T -Key 'PosSecondLeft'), (T -Key 'PosCenter'), (T -Key 'PosSecondRight'), (T -Key 'PosFarRight'))
 
+    # Mutable per-logical-slider state lives independently of WinForms widgets.
+    # It survives moving between pages and is committed only by Save.
     for ($i = 0; $i -lt $count; $i++) {
-        $y = $i * 76
+        $cfg = $script:Config.sliders[$i]
+        $targets = @()
+        foreach ($targetObject in @($cfg.targets)) {
+            $target = Normalize-TargetName -Value ([string]$targetObject)
+            if (-not [string]::IsNullOrWhiteSpace($target) -and $targets -notcontains $target) { $targets += $target }
+        }
+        $applications = @($targets | Where-Object { $_ -ine 'master' -and $_ -ine 'mic' })
+        $mode = if ($targets -contains 'master') { 0 } elseif ($targets -contains 'mic') { 2 } elseif ($targets.Count -gt 0) { 1 } else { 3 }
+        [void]$sliderModels.Add([pscustomobject]@{
+            Name = [string]$cfg.name
+            Mode = [int]$mode
+            Targets = [object[]]@($applications)
+            InputDeviceId = [string]$cfg.inputDeviceId
+            InputDeviceName = [string]$cfg.inputDeviceName
+        })
+    }
+    $editorState = [pscustomobject]@{ FirstRow = 0; Busy = $false }
+
+    for ($slot = 0; $slot -lt $visibleRows; $slot++) {
+        $y = $slot * 76
         $rowPanel = New-Object MugenDeejWindowing.MugenCardPanel
         $rowPanel.Location = New-Object System.Drawing.Point(0, $y)
         $rowPanel.Size = New-Object System.Drawing.Size(1070, 66)
         $rowPanel.BackColor = [System.Drawing.Color]::White
         $rowPanel.BorderStyle = 'None'
-        # Keep native ComboBox / TextBox HWNDs fully inside the viewport.
-        # Never show a partially clipped row while scrolling.
-        $rowPanel.Visible = ($i -lt $visibleRows)
         $sliderRowContent.Controls.Add($rowPanel)
-        [void]$sliderRowPanels.Add($rowPanel)
 
-        $position = if ($i -lt $positions.Count) { $positions[$i] } else { (T -Key 'PosNumber' -Args @($i + 1)) }
         $indexLabel = New-Object System.Windows.Forms.Label
-        $indexLabel.Text = "$($i + 1) · $position"
+        $indexLabel.Text = ''
         $indexLabel.Location = New-Object System.Drawing.Point(8, 9)
         $indexLabel.Size = New-Object System.Drawing.Size(142, 45)
         $indexLabel.TextAlign = 'MiddleLeft'
         $rowPanel.Controls.Add($indexLabel)
+        [void]$indexLabels.Add($indexLabel)
 
         $nameBox = New-Object System.Windows.Forms.TextBox
         $nameBox.Location = New-Object System.Drawing.Point(154, 17)
         $nameBox.Size = New-Object System.Drawing.Size(145, 30)
-        if ($i -lt $script:Config.sliders.Count) { $nameBox.Text = [string]$script:Config.sliders[$i].name }
-        else { $nameBox.Text = (T -Key 'KnobN' -Args @($i + 1)) }
+        $nameBox.Text = ''
         $rowPanel.Controls.Add($nameBox)
         $nameToolTip.SetToolTip($nameBox, (T -Key 'NameHelp'))
         [void]$nameBoxes.Add($nameBox)
-
-        $targets = @()
-        if ($i -lt $script:Config.sliders.Count) {
-            foreach ($targetObject in @($script:Config.sliders[$i].targets)) {
-                $target = Normalize-TargetName -Value ([string]$targetObject)
-                if (-not [string]::IsNullOrWhiteSpace($target) -and $targets -notcontains $target) { $targets += $target }
-            }
-        }
-        $applicationTargets = @($targets | Where-Object { $_ -ine 'master' -and $_ -ine 'mic' })
-        [void]$targetSelections.Add([object[]]@($applicationTargets))
-        $selectedInputDeviceId = ''
-        $selectedInputDeviceName = ''
-        if ($i -lt $script:Config.sliders.Count) {
-            $selectedInputDeviceId = [string]$script:Config.sliders[$i].inputDeviceId
-            $selectedInputDeviceName = [string]$script:Config.sliders[$i].inputDeviceName
-        }
 
         $modeCombo = New-Object MugenDeejWindowing.MugenComboBox
         $modeCombo.DropDownStyle = 'DropDownList'
         $modeCombo.Location = New-Object System.Drawing.Point(306, 16)
         $modeCombo.Size = New-Object System.Drawing.Size(186, 30)
-        $modeCombo.Tag = $i
+        $modeCombo.Tag = $slot
         [void]$modeCombo.Items.Add((T -Key 'ModeMaster'))
         [void]$modeCombo.Items.Add((T -Key 'ModeApplications'))
         [void]$modeCombo.Items.Add((T -Key 'ModeMicrophone'))
         [void]$modeCombo.Items.Add((T -Key 'ModeDisabled'))
-        if ($targets -contains 'master') { $modeCombo.SelectedIndex = 0 }
-        elseif ($targets -contains 'mic') { $modeCombo.SelectedIndex = 2 }
-        elseif ($targets.Count -gt 0) { $modeCombo.SelectedIndex = 1 }
-        else { $modeCombo.SelectedIndex = 3 }
+        $modeCombo.SelectedIndex = 3
         $rowPanel.Controls.Add($modeCombo)
         [void]$modeCombos.Add($modeCombo)
 
@@ -5651,7 +5649,7 @@ function Show-SliderSettings {
         $selectButton.Text = (T -Key 'SelectApplications')
         $selectButton.Location = New-Object System.Drawing.Point(722, 15)
         $selectButton.Size = New-Object System.Drawing.Size(180, 34)
-        $selectButton.Tag = $i
+        $selectButton.Tag = $slot
         $rowPanel.Controls.Add($selectButton)
         [void]$selectButtons.Add($selectButton)
 
@@ -5660,8 +5658,8 @@ function Show-SliderSettings {
         $microphoneCombo.Location = New-Object System.Drawing.Point(502, 16)
         $microphoneCombo.Size = New-Object System.Drawing.Size(400, 30)
         $microphoneCombo.DropDownWidth = 520
-        $microphoneCombo.Tag = $i
-        Set-MicrophoneComboItems -Combo $microphoneCombo -SelectedId $selectedInputDeviceId -SelectedName $selectedInputDeviceName
+        $microphoneCombo.Tag = $slot
+        Set-MicrophoneComboItems -Combo $microphoneCombo
         $microphoneCombo.Visible = $false
         $rowPanel.Controls.Add($microphoneCombo)
         [void]$microphoneCombos.Add($microphoneCombo)
@@ -5683,54 +5681,113 @@ function Show-SliderSettings {
         [void]$percentLabels.Add($percentLabel)
     }
 
+    # Five stable cards show five entries from sliderModels. Names, mode,
+    # application targets and microphone selection are stored before rebinding.
     $updateRowSummary = {
-        param([int]$Index)
-        $mode = $modeCombos[$Index].SelectedIndex
-        $summaryLabels[$Index].Visible = $true
-        $selectButtons[$Index].Visible = $true
-        $microphoneCombos[$Index].Visible = $false
+        param([int]$Slot)
+        if ($editorState.Busy) { return }
+        $index = [int]$editorState.FirstRow + $Slot
+        if ($Slot -lt 0 -or $Slot -ge $visibleRows -or $index -ge $sliderModels.Count) { return }
+        $model = $sliderModels[$index]
+        $mode = [int]$modeCombos[$Slot].SelectedIndex
+        $summaryLabels[$Slot].Visible = $true
+        $selectButtons[$Slot].Visible = $true
+        $microphoneCombos[$Slot].Visible = $false
         if ($mode -eq 0) {
-            $summaryLabels[$Index].Text = (T -Key 'ModeMaster')
-            $selectButtons[$Index].Enabled = $false
+            $summaryLabels[$Slot].Text = (T -Key 'ModeMaster')
+            $selectButtons[$Slot].Enabled = $false
         }
         elseif ($mode -eq 1) {
-            $summary = Get-TargetSummary -Targets @($targetSelections[$Index])
-            $summaryLabels[$Index].Text = if ([string]::IsNullOrWhiteSpace($summary)) { (T -Key 'ApplicationsNotSelected') } else { $summary }
-            $selectButtons[$Index].Enabled = $true
+            $summary = Get-TargetSummary -Targets @($model.Targets)
+            $summaryLabels[$Slot].Text = if ([string]::IsNullOrWhiteSpace($summary)) { (T -Key 'ApplicationsNotSelected') } else { $summary }
+            $selectButtons[$Slot].Enabled = $true
         }
         elseif ($mode -eq 2) {
-            $summaryLabels[$Index].Visible = $false
-            $selectButtons[$Index].Visible = $false
-            $microphoneCombos[$Index].Visible = $true
+            $summaryLabels[$Slot].Visible = $false
+            $selectButtons[$Slot].Visible = $false
+            $microphoneCombos[$Slot].Visible = $true
         }
         else {
-            $summaryLabels[$Index].Text = (T -Key 'KnobDisabled')
-            $selectButtons[$Index].Enabled = $false
+            $summaryLabels[$Slot].Text = (T -Key 'KnobDisabled')
+            $selectButtons[$Slot].Enabled = $false
         }
     }
-
-    for ($i = 0; $i -lt $count; $i++) {
-        $modeCombos[$i].Add_SelectedIndexChanged({
+    $storeSlot = {
+        param([int]$Slot)
+        if ($editorState.Busy) { return }
+        $index = [int]$editorState.FirstRow + $Slot
+        if ($index -ge $sliderModels.Count) { return }
+        $model = $sliderModels[$index]
+        $model.Name = [string]$nameBoxes[$Slot].Text
+        $model.Mode = [int]$modeCombos[$Slot].SelectedIndex
+        if ($model.Mode -eq 2) {
+            $item = $microphoneCombos[$Slot].SelectedItem
+            if ($null -ne $item) {
+                $model.InputDeviceId = [string]$item.Id
+                $model.InputDeviceName = [string]$item.FriendlyName
+            }
+        }
+    }
+    $storeVisible = {
+        for ($slot = 0; $slot -lt $visibleRows; $slot++) { & $storeSlot $slot }
+    }
+    $renderSlot = {
+        param([int]$Slot)
+        $index = [int]$editorState.FirstRow + $Slot
+        $model = $sliderModels[$index]
+        $position = if ($index -lt $positions.Count) { $positions[$index] } else { (T -Key 'PosNumber' -Args @($index + 1)) }
+        $editorState.Busy = $true
+        try {
+            $indexLabels[$Slot].Text = "$($index + 1) · $position"
+            $nameBoxes[$Slot].Text = [string]$model.Name
+            $modeCombos[$Slot].SelectedIndex = [int]$model.Mode
+            if ([int]$model.Mode -eq 2) {
+                Set-MicrophoneComboItems -Combo $microphoneCombos[$Slot] -SelectedId ([string]$model.InputDeviceId) -SelectedName ([string]$model.InputDeviceName)
+            }
+        }
+        finally { $editorState.Busy = $false }
+        & $updateRowSummary $Slot
+    }
+    for ($slot = 0; $slot -lt $visibleRows; $slot++) {
+        $modeCombos[$slot].Add_SelectedIndexChanged({
             param($sender, $eventArgs)
-            & $updateRowSummary ([int]$sender.Tag)
+            if ($editorState.Busy) { return }
+            $slotIndex = [int]$sender.Tag
+            $index = [int]$editorState.FirstRow + $slotIndex
+            $sliderModels[$index].Mode = [int]$sender.SelectedIndex
+            & $updateRowSummary $slotIndex
         })
-        $selectButtons[$i].Add_Click({
+        $selectButtons[$slot].Add_Click({
             param($sender, $eventArgs)
-            $idx = [int]$sender.Tag
-            $sliderName = [string]$nameBoxes[$idx].Text
+            $slotIndex = [int]$sender.Tag
+            $idx = [int]$editorState.FirstRow + $slotIndex
+            $sliderName = [string]$nameBoxes[$slotIndex].Text
             if ([string]::IsNullOrWhiteSpace($sliderName)) { $sliderName = (T -Key 'KnobN' -Args @($idx + 1)) }
-            $newTargets = Show-ApplicationPicker -Owner $settingsForm -SliderName $sliderName -SelectedTargets @($targetSelections[$idx])
-            $targetSelections[$idx] = [object[]]@($newTargets)
-            & $updateRowSummary $idx
+            $newTargets = Show-ApplicationPicker -Owner $settingsForm -SliderName $sliderName -SelectedTargets @($sliderModels[$idx].Targets)
+            $sliderModels[$idx].Targets = [object[]]@($newTargets)
+            & $updateRowSummary $slotIndex
         })
-        $microphoneCombos[$i].Add_DropDown({
+        $microphoneCombos[$slot].Add_DropDown({
             param($sender, $eventArgs)
             $currentItem = $sender.SelectedItem
             $currentId = if ($null -eq $currentItem) { '' } else { [string]$currentItem.Id }
             $currentName = if ($null -eq $currentItem) { '' } else { [string]$currentItem.FriendlyName }
             Set-MicrophoneComboItems -Combo $sender -SelectedId $currentId -SelectedName $currentName -ForceRefresh
         })
-        & $updateRowSummary $i
+        & $renderSlot $slot
+    }
+    $showSliderPage = {
+        if ($null -eq $sliderVScroll) { return }
+        $firstRow = [int][Math]::Round(([double]$sliderVScroll.Value / 76.0), 0)
+        $firstRow = [Math]::Max(0, [Math]::Min($count - $visibleRows, $firstRow))
+        if ($firstRow -eq [int]$editorState.FirstRow) { return }
+        & $storeVisible
+        $editorState.FirstRow = $firstRow
+        $sliderRowContent.SuspendLayout()
+        try {
+            for ($slot = 0; $slot -lt $visibleRows; $slot++) { & $renderSlot $slot }
+        }
+        finally { $sliderRowContent.ResumeLayout($true) }
     }
 
     # The analog editor only has a handful of advanced options. Keep them
@@ -5845,15 +5902,16 @@ $advancedConfigButton.Visible = $false
                 else { 'Controller disconnected. Saving is paused until reconnection.' }
             } else { $topologyState.NoticeText }
         }
-        for ($i = 0; $i -lt $count; $i++) {
-            if ($script:LatestLevels.Count -gt $i) {
-                $level = [Math]::Max(0.0, [Math]::Min(1.0, [double]$script:LatestLevels[$i]))
-                $progressBars[$i].Value = [int][Math]::Round($level * 1000)
-                $percentLabels[$i].Text = ('{0}%' -f [int][Math]::Round($level * 100))
+        for ($slot = 0; $slot -lt $visibleRows; $slot++) {
+            $index = [int]$editorState.FirstRow + $slot
+            if ($script:LatestLevels.Count -gt $index) {
+                $level = [Math]::Max(0.0, [Math]::Min(1.0, [double]$script:LatestLevels[$index]))
+                $progressBars[$slot].Value = [int][Math]::Round($level * 1000)
+                $percentLabels[$slot].Text = ('{0}%' -f [int][Math]::Round($level * 100))
             }
             else {
-                $progressBars[$i].Value = 0
-                $percentLabels[$i].Text = '—'
+                $progressBars[$slot].Value = 0
+                $percentLabels[$slot].Text = '—'
             }
         }
     })
@@ -5869,13 +5927,15 @@ $advancedConfigButton.Visible = $false
                 return
             }
         }
+        & $storeVisible
         $newSliders = @()
         for ($i = 0; $i -lt $count; $i++) {
-            $name = ([string]$nameBoxes[$i].Text).Trim()
+            $model = $sliderModels[$i]
+            $name = ([string]$model.Name).Trim()
             $defaultDisplayName = (T -Key 'KnobN' -Args @($i + 1))
             if ([string]::IsNullOrWhiteSpace($name)) { $name = $defaultDisplayName }
             $isDefaultName = ($name -eq $defaultDisplayName)
-            $mode = $modeCombos[$i].SelectedIndex
+            $mode = [int]$model.Mode
             $targets = @()
             $inputDeviceId = ''
             $inputDeviceName = ''
@@ -5883,18 +5943,15 @@ $advancedConfigButton.Visible = $false
                 $targets = @('master')
             }
             elseif ($mode -eq 1) {
-                foreach ($targetObject in @($targetSelections[$i])) {
+                foreach ($targetObject in @($model.Targets)) {
                     $target = Normalize-TargetName -Value ([string]$targetObject)
                     if (-not [string]::IsNullOrWhiteSpace($target) -and $targets -notcontains $target) { $targets += $target }
                 }
             }
             elseif ($mode -eq 2) {
                 $targets = @('mic')
-                $selectedMicrophone = $microphoneCombos[$i].SelectedItem
-                if ($null -ne $selectedMicrophone) {
-                    $inputDeviceId = [string]$selectedMicrophone.Id
-                    $inputDeviceName = [string]$selectedMicrophone.FriendlyName
-                }
+                $inputDeviceId = [string]$model.InputDeviceId
+                $inputDeviceName = [string]$model.InputDeviceName
             }
             $newSliders += [pscustomobject]@{
                 name = $name
@@ -5985,40 +6042,8 @@ $advancedConfigButton.Visible = $false
     }
     Apply-ThemeToForm -Form $settingsForm
     if ($null -ne $sliderVScroll) {
-        # Native WinForms edit boxes / drop-down arrows are HWND-based and
-        # cannot be safely pixel-clipped during scrolling: Windows paints them
-        # outside the parent's backbuffer. Show only COMPLETE rows instead.
-        #
-        # The thumb can still be dragged continuously, but the list advances
-        # by one full card at a time. This avoids partial arrow/button flashes,
-        # leftover glyphs and repaint storms (especially at 80% + HiDPI).
-        $sliderScrollState = [pscustomobject]@{ FirstRow = 0 }
-        $showSliderPage = {
-            $firstRow = [int][Math]::Round(([double]$sliderVScroll.Value / 76.0), 0)
-            $firstRow = [Math]::Max(0, [Math]::Min($count - $visibleRows, $firstRow))
-            if ($firstRow -eq [int]$sliderScrollState.FirstRow) { return }
-
-            $sliderRowContent.SuspendLayout()
-            try {
-                # Hide all rows before moving any HWND-backed descendants;
-                # none can be drawn in a partially clipped position.
-                for ($i = 0; $i -lt $sliderRowPanels.Count; $i++) {
-                    $sliderRowPanels[$i].Visible = $false
-                }
-                $logicalToPhysical = [double]$sliderRowViewport.Height / [double]($visibleRows * 76)
-                for ($slot = 0; $slot -lt $visibleRows; $slot++) {
-                    $index = $firstRow + $slot
-                    $row = $sliderRowPanels[$index]
-                    $row.Top = [int][Math]::Round(($slot * 76) * $logicalToPhysical)
-                    $row.Visible = $true
-                }
-                $sliderScrollState.FirstRow = $firstRow
-            }
-            finally {
-                $sliderRowContent.ResumeLayout($true)
-            }
-            $sliderRowViewport.Invalidate()
-        }
+        # The scrollbar changes which data the five FIXED rows display.
+        # No HWND-backed WinForms control ever moves, clips, or toggles Visible.
         $sliderVScroll.Add_ValueChanged({ & $showSliderPage })
         $sliderRowViewport.Add_MouseWheel({
             param($sender, $eventArgs)
