@@ -1565,6 +1565,11 @@ namespace MugenDeejWindowing
         // UI-only percentage used for painting. Never used by controller/audio logic.
         private int displayPercent;
 
+        // The adjacent numeric label must show the SAME hysteretic percent as
+        // the bar; rounding the unfiltered ADC independently makes 99/100
+        // flicker even while the bar itself is held steady.
+        public int DisplayPercent { get { return displayPercent; } }
+
         // Hysteresis around the next integer-percent boundary, expressed as a
         // fraction of one percent. 0.20 means a value has to move 20% of the
         // way into the neighboring 1% bucket before the picture changes.
@@ -3527,6 +3532,7 @@ $script:BusyPortCooldownBaseSeconds = 60
 $script:BusyPortCooldownMaxSeconds = 600
 $script:LastScanBusyPorts = @()
 $script:LastValues = @()
+$script:SliderEndpointStates = @()
 $script:LatestLevels = @()
 $script:PendingSliderValues = @()
 $script:HasPendingSliderValues = $false
@@ -17449,6 +17455,7 @@ function Close-ControllerPort {
     $script:ConnectedPort = ''
     $script:LastSerialPacketAt = [DateTime]::MinValue
     $script:LatestLevels = @()
+    $script:SliderEndpointStates = @()
     $script:PendingSliderValues = @()
     $script:HasPendingSliderValues = $false
     $script:ControllerProtocol = 'unknown'
@@ -17986,9 +17993,30 @@ function Apply-SliderValues {
     if ($script:LastValues.Count -ne $Values.Count) {
         $script:LastValues = @(for ($i = 0; $i -lt $Values.Count; $i++) { -1.0 })
     }
+    if ($script:SliderEndpointStates.Count -ne $Values.Count) {
+        $script:SliderEndpointStates = @(for ($i = 0; $i -lt $Values.Count; $i++) { -1 })
+    }
     $liveLevels = @()
     for ($i = 0; $i -lt $Values.Count; $i++) {
-        $liveLevel = [double]$Values[$i] / 1023.0
+        $adc = [int]$Values[$i]
+        $previousEndpoint = [int]$script:SliderEndpointStates[$i]
+        # Arduino 10-bit ADC can fluctuate a few counts even at a hard stop.
+        # Enter a rail within 16 counts (~1.6%) and leave it only after
+        # moving 24 counts (~2.3%) away. This Schmitt-style deadband keeps
+        # 99/100 (or 0/1 with inversion) steady WITHOUT delaying mid-travel.
+        $endpoint = -1
+        if ($adc -le 16 -or ($previousEndpoint -eq 0 -and $adc -le 24)) {
+            $endpoint = 0
+        }
+        elseif ($adc -ge 1007 -or ($previousEndpoint -eq 1 -and $adc -ge 999)) {
+            $endpoint = 1
+        }
+        $script:SliderEndpointStates[$i] = $endpoint
+        if ($endpoint -ne $previousEndpoint -and $endpoint -ne -1) {
+            Write-Log ('Slider {0} ADC endpoint captured: raw={1}; rail={2}' -f ($i + 1), $adc, $endpoint) 'DEBUG'
+        }
+
+        $liveLevel = if ($endpoint -eq 0) { 0.0 } elseif ($endpoint -eq 1) { 1.0 } else { [double]$adc / 1023.0 }
         if ($invert) { $liveLevel = 1.0 - $liveLevel }
         $liveLevels += $liveLevel
     }
@@ -19292,7 +19320,7 @@ function Update-KnobMonitor {
             }
             else {
                 $script:KnobPercentLabels[$i].Text = (
-                    '{0}%' -f [int][Math]::Round($level * 100)
+                    '{0}%' -f [int]$script:KnobProgressBars[$i].DisplayPercent
                 )
                 $script:KnobPercentLabels[$i].ForeColor = $palette.Text
                 $script:KnobPercentLabels[$i].Font = New-Object System.Drawing.Font(
