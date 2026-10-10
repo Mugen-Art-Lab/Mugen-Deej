@@ -32,13 +32,19 @@ Fix commits:
   `ScriptBlock.GetNewClosure()` **before** casting to System.Action,
   avoiding a method lookup on an Action delegate.
 
-**CI #45 build and real Windows visual verdict PENDING** at this snapshot:
-https://github.com/Mugen-Art-Lab/Mugen-Deej/actions/runs/38063776267 .
-Wait until green, download, CRC/SHA-check ZIP and share chat link.
-Test main window after tray restore; diagnostics first show at 80/100%,
-regulators/buttons/toggles settings and repeated openings. Watch for
-white transient frames, invisible modals, lost activation or startup JIT.
-CI green only validates packaging; on-screen UI needs user testing.
+**CI #45: SUCCESS**, run
+https://github.com/Mugen-Art-Lab/Mugen-Deej/actions/runs/38063776267 ,
+commit `61a30e8815d8c3f81ee3add5629c7827f4a20581`.
+GitHub Actions artifact `Mugen-Deej-packages-45` ID `11674715156`
+downloaded as `Mugen-Deej-CI45.zip` (157051398 bytes). Verified the
+outer ZIP CRC, inner Portable ZIP CRC, Portable ZIP and Setup EXE SHA-256
+sidecars and actual packaged `MugenDeej.ps1` contains the transparent
+first-paint helper and closure fix.
+**Real Windows visual verdict PENDING.** Test main window after tray
+restore; diagnostics first show at 80/100%, regulators/buttons/toggles
+settings and repeated openings. Watch for white transient frames,
+invisible modals, lost activation or startup JIT. CI green only verifies
+packaging, not on-screen UI behavior.
 No firmware, UART or analog filter changes.
 
 ## CI #43 fatal startup regression in #42 — 2026-10-10
