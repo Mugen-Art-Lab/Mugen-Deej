@@ -3603,6 +3603,8 @@ $script:FriendlyProcessNames = @{
 $script:Strings = @{
     ru = @{
         LanguageLabel = 'Язык:'
+        ScaleLabel = 'Масштаб:'
+        ScaleHint = 'Авто выбирает 80% или 100% по доступной рабочей области экрана. Можно задать масштаб вручную.'
         ThemeLabel = 'Тема:'
         ThemeAuto = 'Авто'
         ThemeLight = 'Светлая'
@@ -3747,6 +3749,8 @@ $script:Strings = @{
     }
     en = @{
         LanguageLabel = 'Language:'
+        ScaleLabel = 'Scale:'
+        ScaleHint = 'Auto selects 80% or 100% to fit the available screen work area. You can also choose a scale manually.'
         ThemeLabel = 'Theme:'
         ThemeAuto = 'Auto'
         ThemeLight = 'Light'
@@ -18718,7 +18722,7 @@ if ($script:LaunchMinimized) {
 
 $title = New-Object System.Windows.Forms.Label
 $title.Text = 'Mugen Deej'
-$title.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 18)
+$title.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 16)
 $title.AutoSize = $true
 $title.Location = New-Object System.Drawing.Point(24, 18)
 $form.Controls.Add($title)
@@ -18730,25 +18734,36 @@ $subtitle.AutoSize = $true
 $subtitle.Location = New-Object System.Drawing.Point(27, 57)
 $form.Controls.Add($subtitle)
 
+# Keep the three header settings as compact, labelled groups within the
+# 680 px logical client width. All bounds are captured at 100% and scaled
+# together with the main form; do not reflow using already-scaled bounds.
+$uiScaleLabel = New-Object System.Windows.Forms.Label
+$uiScaleLabel.Name = 'MugenUiScaleLabel'
+$uiScaleLabel.Text = (T -Key 'ScaleLabel')
+$uiScaleLabel.Location = New-Object System.Drawing.Point(156, 24)
+$uiScaleLabel.Size = New-Object System.Drawing.Size(75, 25)
+$uiScaleLabel.TextAlign = 'MiddleRight'
+$form.Controls.Add($uiScaleLabel)
+
 $themeLabel = New-Object System.Windows.Forms.Label
 $themeLabel.Text = (T -Key 'ThemeLabel')
-$themeLabel.Location = New-Object System.Drawing.Point(274, 24)
-$themeLabel.Size = New-Object System.Drawing.Size(60, 25)
+$themeLabel.Location = New-Object System.Drawing.Point(322, 24)
+$themeLabel.Size = New-Object System.Drawing.Size(48, 25)
 $themeLabel.TextAlign = 'MiddleRight'
 $form.Controls.Add($themeLabel)
 
 $themeCombo = New-Object MugenDeejWindowing.MugenComboBox
 $themeCombo.DropDownStyle = 'DropDownList'
-$themeCombo.Location = New-Object System.Drawing.Point(340, 21)
-$themeCombo.Size = New-Object System.Drawing.Size(110, 29)
+$themeCombo.Location = New-Object System.Drawing.Point(376, 21)
+$themeCombo.Size = New-Object System.Drawing.Size(98, 29)
 $form.Controls.Add($themeCombo)
 $script:ThemeCombo = $themeCombo
 
 # Two tested reference profiles, or automatic choice for the current screen.
 $uiScaleCombo = New-Object MugenDeejWindowing.MugenComboBox
 $uiScaleCombo.DropDownStyle = 'DropDownList'
-$uiScaleCombo.Location = New-Object System.Drawing.Point(186, 21)
-$uiScaleCombo.Size = New-Object System.Drawing.Size(82, 29)
+$uiScaleCombo.Location = New-Object System.Drawing.Point(236, 21)
+$uiScaleCombo.Size = New-Object System.Drawing.Size(78, 29)
 $uiScaleCombo.Name = 'MugenUiScaleCombo'
 [void]$uiScaleCombo.Items.Add($(if ($script:Language -eq 'ru') { 'Авто' } else { 'Auto' }))
 [void]$uiScaleCombo.Items.Add('80%')
@@ -18757,19 +18772,20 @@ $scaleMode = [string]$script:Config.app.uiScaleMode
 $uiScaleCombo.SelectedIndex = if ($scaleMode -ne 'manual') { 0 } elseif ((Get-ConfiguredUiScale) -eq 0.8) { 1 } else { 2 }
 $form.Controls.Add($uiScaleCombo)
 $uiScaleToolTip = New-Object System.Windows.Forms.ToolTip
-$uiScaleToolTip.SetToolTip($uiScaleCombo, $(if ($script:Language -eq 'ru') { 'Масштаб интерфейса: Авто / 80% / 100%' } else { 'Interface scale: Auto / 80% / 100%' }))
+$uiScaleToolTip.SetToolTip($uiScaleCombo, (T -Key 'ScaleHint'))
+$uiScaleToolTip.SetToolTip($uiScaleLabel, (T -Key 'ScaleHint'))
 
 $languageLabel = New-Object System.Windows.Forms.Label
 $languageLabel.Text = (T -Key 'LanguageLabel')
-$languageLabel.Location = New-Object System.Drawing.Point(456, 24)
-$languageLabel.Size = New-Object System.Drawing.Size(84, 25)
+$languageLabel.Location = New-Object System.Drawing.Point(479, 24)
+$languageLabel.Size = New-Object System.Drawing.Size(70, 25)
 $languageLabel.TextAlign = 'MiddleRight'
 $form.Controls.Add($languageLabel)
 
 $languageCombo = New-Object MugenDeejWindowing.MugenComboBox
 $languageCombo.DropDownStyle = 'DropDownList'
-$languageCombo.Location = New-Object System.Drawing.Point(545, 21)
-$languageCombo.Size = New-Object System.Drawing.Size(110, 29)
+$languageCombo.Location = New-Object System.Drawing.Point(555, 21)
+$languageCombo.Size = New-Object System.Drawing.Size(100, 29)
 [void]$languageCombo.Items.Add('Русский')
 [void]$languageCombo.Items.Add('English')
 $languageCombo.SelectedIndex = if ($script:Language -eq 'ru') { 0 } else { 1 }
@@ -19170,7 +19186,9 @@ function Apply-MainLocalization {
     $script:UpdatingUiScaleCombo = $true
     try { $uiScaleCombo.Items[0] = $(if ($script:Language -eq 'ru') { 'Авто' } else { 'Auto' }) }
     finally { $script:UpdatingUiScaleCombo = $false }
-    $uiScaleToolTip.SetToolTip($uiScaleCombo, $(if ($script:Language -eq 'ru') { 'Масштаб интерфейса: Авто / 80% / 100%' } else { 'Interface scale: Auto / 80% / 100%' }))
+    $uiScaleLabel.Text = (T -Key 'ScaleLabel')
+    $uiScaleToolTip.SetToolTip($uiScaleCombo, (T -Key 'ScaleHint'))
+    $uiScaleToolTip.SetToolTip($uiScaleLabel, (T -Key 'ScaleHint'))
     $themeLabel.Text = (T -Key 'ThemeLabel')
     $languageLabel.Text = (T -Key 'LanguageLabel')
     Sync-ThemeCombo
