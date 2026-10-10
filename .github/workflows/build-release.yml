@@ -35,7 +35,8 @@ permissions:
 
 jobs:
   build-release:
-    runs-on: [self-hosted, windows, x64]
+    # Public repository builds on GitHub-hosted Windows; keep Mugen-Builder free for private projects.
+    runs-on: windows-latest
     steps:
       - name: Check out source
         uses: actions/checkout@v7
