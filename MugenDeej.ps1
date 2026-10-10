@@ -1924,6 +1924,31 @@ namespace MugenDeejWindowing
         }
     }
 
+    // All slider cards live inside ONE moving content panel. The viewport
+    // clips the native TextBox/ComboBox children while buffering its own
+    // background, avoiding paint storms from repositioning each card.
+    public sealed class MugenSliderViewport : Panel
+    {
+        public MugenSliderViewport()
+        {
+            AutoScroll = false;
+            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
+                     ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+        }
+
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams cp = base.CreateParams;
+                const int WS_CLIPCHILDREN = 0x02000000;
+                const int WS_CLIPSIBLINGS = 0x04000000;
+                cp.Style |= WS_CLIPCHILDREN | WS_CLIPSIBLINGS;
+                return cp;
+            }
+        }
+    }
+
     // The native WinForms AutoScroll bar stays light on dark Windows themes.
     // This painted slider-row scrollbar never touches serial/audio state.
     public sealed class MugenVScrollBar : Control
@@ -5528,13 +5553,18 @@ function Show-SliderSettings {
     Ensure-SliderConfigCapacity -Count $count
     # Only slider rows scroll; advanced options and Save/Cancel remain fixed.
     $visibleRows = [Math]::Min(5, $count)
-    $sliderRowViewport = New-Object System.Windows.Forms.Panel
+    $sliderRowViewport = New-Object MugenDeejWindowing.MugenSliderViewport
     $sliderRowViewport.Location = New-Object System.Drawing.Point(20, 150)
     $sliderRowViewport.Size = New-Object System.Drawing.Size(1070, ($visibleRows * 76))
     $sliderRowViewport.AutoScroll = $false
     $sliderRowViewport.BorderStyle = [System.Windows.Forms.BorderStyle]::None
     $settingsForm.Controls.Add($sliderRowViewport)
-    $sliderRowPanels = New-Object System.Collections.ArrayList
+    $sliderRowContent = New-Object System.Windows.Forms.Panel
+    $sliderRowContent.Location = New-Object System.Drawing.Point(0, 0)
+    $sliderRowContent.Size = New-Object System.Drawing.Size(1070, ($count * 76))
+    $sliderRowContent.AutoScroll = $false
+    $sliderRowContent.BorderStyle = [System.Windows.Forms.BorderStyle]::None
+    $sliderRowViewport.Controls.Add($sliderRowContent)
     $sliderVScroll = $null
     if ($count -gt 5) {
         $sliderVScroll = New-Object MugenDeejWindowing.MugenVScrollBar
@@ -5553,8 +5583,7 @@ function Show-SliderSettings {
         $rowPanel.Size = New-Object System.Drawing.Size(1070, 66)
         $rowPanel.BackColor = [System.Drawing.Color]::White
         $rowPanel.BorderStyle = 'None'
-        $sliderRowViewport.Controls.Add($rowPanel)
-        [void]$sliderRowPanels.Add($rowPanel)
+        $sliderRowContent.Controls.Add($rowPanel)
 
         $position = if ($i -lt $positions.Count) { $positions[$i] } else { (T -Key 'PosNumber' -Args @($i + 1)) }
         $indexLabel = New-Object System.Windows.Forms.Label
@@ -5951,19 +5980,39 @@ $advancedConfigButton.Visible = $false
     if ($null -ne $sliderVScroll) {
         # Scroll offsets use logical pixels; translate them once to the current
         # DPI/UI-scale-adjusted row layout. No native non-client scrollbar.
-        $applySliderRowScroll = {
-            $factor = [double](Get-ConfiguredUiScale)
-            $offset = [int][Math]::Round([int]$sliderVScroll.Value * $factor)
-            for ($i = 0; $i -lt $sliderRowPanels.Count; $i++) {
-                $panel = $sliderRowPanels[$i]
-                $panel.Top = [int][Math]::Round(($i * 76) * $factor) - $offset
+        # Wheel/drag bursts can deliver hundreds of events per second.
+        # Coalesce repainting on the WinForms UI thread to at most ~30 FPS.
+        $sliderScrollTimer = New-Object System.Windows.Forms.Timer
+        $sliderScrollTimer.Interval = 33
+        $sliderScrollState = [pscustomobject]@{ LastApplied = 0 }
+        $sliderScrollTimer.Add_Tick({
+            $desired = [int]$sliderVScroll.Value
+            if ($desired -eq [int]$sliderScrollState.LastApplied) {
+                $sliderScrollTimer.Stop()
+                return
             }
-        }
-        $sliderVScroll.Add_ValueChanged({ & $applySliderRowScroll })
-        $sliderRowViewport.Add_MouseWheel({ param($sender, $eventArgs) $sliderVScroll.Value -= [Math]::Sign($eventArgs.Delta) * 76 })
-        foreach ($scrollRow in @($sliderRowPanels)) {
-            $scrollRow.Add_MouseWheel({ param($sender, $eventArgs) $sliderVScroll.Value -= [Math]::Sign($eventArgs.Delta) * 76 })
-        }
+            # Use the ACTUAL scaled viewport dimensions. This also works when
+            # Windows DPI rounding does not give an exact 0.8 row height.
+            $factor = [double]$sliderRowViewport.Height / [double]($visibleRows * 76)
+            $sliderRowContent.Top = -[int][Math]::Round($desired * $factor)
+            $sliderScrollState.LastApplied = $desired
+            $sliderRowViewport.Invalidate($true)
+        })
+        $sliderVScroll.Add_ValueChanged({
+            if (-not $sliderScrollTimer.Enabled) { $sliderScrollTimer.Start() }
+        })
+        $sliderRowViewport.Add_MouseWheel({
+            param($sender, $eventArgs)
+            $sliderVScroll.Value -= [Math]::Sign($eventArgs.Delta) * 76
+        })
+        $sliderRowContent.Add_MouseWheel({
+            param($sender, $eventArgs)
+            $sliderVScroll.Value -= [Math]::Sign($eventArgs.Delta) * 76
+        })
+        $settingsForm.Add_FormClosed({
+            $sliderScrollTimer.Stop()
+            $sliderScrollTimer.Dispose()
+        })
     }
 
     # Theme application recolors generic labels; restore semantic amber.
