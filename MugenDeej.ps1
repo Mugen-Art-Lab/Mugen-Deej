@@ -4478,6 +4478,48 @@ function Apply-MainUiLayoutScale {
     finally { $main.ResumeLayout($true) }
 }
 
+# A themed modal can receive an initial native WM_PAINT before its owner-
+# drawn child controls have finished their first full paint. On Windows this
+# exposes the stock WHITE rectangle backgrounds for a frame. Compose that
+# first frame while the form is transparent, then reveal it on the UI thread.
+# Repeated Apply-ThemeToForm calls must never queue a second Shown handler.
+$script:UiFirstPaintRevealForms = [System.Runtime.CompilerServices.ConditionalWeakTable[System.Windows.Forms.Form, System.Object]]::new()
+
+function Prepare-FirstPaintReveal {
+    param([Parameter(Mandatory = $true)][System.Windows.Forms.Form]$Form)
+
+    if ($Form.IsDisposed -or $Form.Visible) { return }
+    if ($null -ne $script:MainUiForm -and
+        [object]::ReferenceEquals($Form, $script:MainUiForm)) { return }
+
+    $registered = $null
+    if ($script:UiFirstPaintRevealForms.TryGetValue($Form, [ref]$registered)) { return }
+    $script:UiFirstPaintRevealForms.Add($Form, [object]::new())
+    $Form.Opacity = 0.0
+    $Form.Add_Shown({
+        param($sender, $eventArgs)
+        $shownForm = [System.Windows.Forms.Form]$sender
+        $reveal = [System.Action]{
+            if ($shownForm.IsDisposed) { return }
+            try {
+                $shownForm.Invalidate($true)
+                $shownForm.Refresh()
+            }
+            finally {
+                if (-not $shownForm.IsDisposed) { $shownForm.Opacity = 1.0 }
+            }
+        }.GetNewClosure()
+        try {
+            # After the other Shown handlers: modal position/z-order and
+            # late native child handles settle before the first visible frame.
+            [void]$shownForm.BeginInvoke($reveal)
+        }
+        catch {
+            if (-not $shownForm.IsDisposed) { $shownForm.Opacity = 1.0 }
+        }
+    })
+}
+
 function Apply-ThemeToForm {
     param(
         [Parameter(Mandatory = $true)][System.Windows.Forms.Form]$Form,
@@ -4492,6 +4534,10 @@ function Apply-ThemeToForm {
     catch {
         Write-Log ("UI scaling failed for '{0}': {1}" -f $Form.Text, $_.Exception.Message) 'WARN'
     }
+    # Install the reveal barrier AFTER initial styling, but BEFORE showing.
+    # This is a one-shot per modal; theme changes on visible windows do not
+    # fade or suppress them, and the main form uses its tray-safe path below.
+    Prepare-FirstPaintReveal -Form $Form
     try {
         [MugenDeejWindowing.ThemeInterop]::SetDarkTitleBar($Form.Handle, ($ThemeName -eq 'dark'))
     }
@@ -18631,6 +18677,10 @@ $form.MinimumSize = New-Object System.Drawing.Size(696, 631)
 $form.MaximumSize = New-Object System.Drawing.Size(696, 899)
 $form.Font = New-Object System.Drawing.Font('Segoe UI', 10)
 $form.BackColor = [System.Drawing.Color]::FromArgb(247, 247, 249)
+# Application.Run shows the native form before its Shown handler finishes.
+# Keep initial creation transparent until the already-themed child tree has
+# painted; the same reveal barrier is used when restoring from the tray.
+$form.Opacity = 0.0
 $form.FormBorderStyle = 'FixedSingle'
 $form.MaximizeBox = $false
 Set-FormAppIcon -Form $form
@@ -19240,10 +19290,12 @@ function Show-MainWindowForeground {
         }
 
         $form.ShowInTaskbar = $true
-        $form.Opacity = 1
 
         $wasHidden = -not $form.Visible
         if ($wasHidden) {
+            # A tray restore creates native child handles before they have
+            # their final painted colors. Never expose that transitional frame.
+            $form.Opacity = 0.0
             $form.Show()
             # A layout calculated before the first Shown event must not retain
             # the tray-hidden state. Force one atomic, fully visible rebuild.
@@ -19282,7 +19334,10 @@ function Show-MainWindowForeground {
         [MugenDeejWindowing.ThemeInterop]::SetDarkTitleBar(
             $form.Handle, ((Get-EffectiveTheme) -eq 'dark'))
         $form.Invalidate($true)
-        $form.Update()
+        $form.Refresh()
+        # Uncover the main HWND only after synchronous child painting. This
+        # also reveals the initial non-minimized Application.Run() show.
+        if ($form.Opacity -lt 1.0) { $form.Opacity = 1.0 }
 
         Write-Log 'Main window restored from tray' 'DEBUG'
     }
