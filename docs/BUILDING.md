@@ -126,6 +126,22 @@ runtime/user data and are never bundled by the builder.
 Do not bundle third-party driver installers unless their redistribution terms are confirmed. Mugen Deej downloads the official WCH driver only after the user requests it and verifies the publisher's digital signature before launch.
 
 
+## GitHub-hosted Windows runner
+
+As of 2026-10-10, the public `feature/virtual-gamepad-ui` build uses
+`runs-on: windows-latest` (GitHub-hosted Windows), **not** the private
+self-hosted Mugen-Builder. The job still uses Windows PowerShell 5.1,
+`actions/setup-dotnet` for .NET 10 and `actions/setup-go` for the
+launcher/installer. No self-hosted hardware or custom runner setup is required
+to produce the packages.
+
+The first migrated run, [CI #39](https://github.com/Mugen-Art-Lab/Mugen-Deej/actions/runs/38036314621),
+**succeeded**: Portable ZIP, Setup EXE and SHA-256 sidecars were uploaded as
+`Mugen-Deej-packages-39` (artifact ID `11663877928`). This verifies the
+build and packaging pipeline on a fresh GitHub-hosted machine; it does not
+replace real hardware testing of the UI changes from CI #38. The personal
+self-hosted runner is left untouched for separate private repositories.
+
 ## Code signing
 
 The build pipeline does not currently Authenticode-sign the launcher or Setup
