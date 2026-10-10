@@ -35,9 +35,14 @@ if the USB driver status changes mid-dialog. A DEBUG line reports
 modal widths: `Diagnostics layout: scale=...; infoWidth=...;
 connectionWidth=...; driverWidth=...; comboWidth=...`.
 
-**#42 CI and real-Windows verdict PENDING** at this snapshot. Build
-link: https://github.com/Mugen-Art-Lab/Mugen-Deej/actions/runs/38052830321 .
-Wait for GREEN, download artifact ZIP for user. Hardware test at 80%:
+**#42 CI: SUCCESS** on GitHub-hosted Windows, commit
+`cc39c25f8515e72cb7c59713d9674df235b85505`, run
+https://github.com/Mugen-Art-Lab/Mugen-Deej/actions/runs/38052830321 .
+Artifact `Mugen-Deej-packages-42` ID `11669797313` was downloaded to
+`Mugen-Deej-CI42.zip`. Verified outer ZIP CRC, inner Portable ZIP CRC,
+both Portable/Setup SHA-256 checksums, and actual packaged PowerShell
+code contains the modal geometry fix. **Real-device GUI result PENDING.**
+Hardware test at 80%:
 info/connection/driver cards should be the same proportional width;
 radio labels, selected COM ComboBox, both maintenance buttons,
 driver status and log button should all fit; opening/closing multiple
