@@ -3604,7 +3604,6 @@ $script:Strings = @{
     ru = @{
         LanguageLabel = 'Язык:'
         ScaleLabel = 'Масштаб:'
-        ScaleHint = 'Авто выбирает 80% или 100% по доступной рабочей области экрана. Можно задать масштаб вручную.'
         ThemeLabel = 'Тема:'
         ThemeAuto = 'Авто'
         ThemeLight = 'Светлая'
@@ -3750,7 +3749,6 @@ $script:Strings = @{
     en = @{
         LanguageLabel = 'Lang:'
         ScaleLabel = 'Scale:'
-        ScaleHint = 'Auto selects 80% or 100% to fit the available screen work area. You can also choose a scale manually.'
         ThemeLabel = 'Theme:'
         ThemeAuto = 'Auto'
         ThemeLight = 'Light'
@@ -18771,9 +18769,6 @@ $uiScaleCombo.Name = 'MugenUiScaleCombo'
 $scaleMode = [string]$script:Config.app.uiScaleMode
 $uiScaleCombo.SelectedIndex = if ($scaleMode -ne 'manual') { 0 } elseif ((Get-ConfiguredUiScale) -eq 0.8) { 1 } else { 2 }
 $form.Controls.Add($uiScaleCombo)
-$uiScaleToolTip = New-Object System.Windows.Forms.ToolTip
-$uiScaleToolTip.SetToolTip($uiScaleCombo, (T -Key 'ScaleHint'))
-$uiScaleToolTip.SetToolTip($uiScaleLabel, (T -Key 'ScaleHint'))
 
 $languageLabel = New-Object System.Windows.Forms.Label
 $languageLabel.Text = (T -Key 'LanguageLabel')
@@ -19188,8 +19183,6 @@ function Apply-MainLocalization {
     try { $uiScaleCombo.Items[0] = $(if ($script:Language -eq 'ru') { 'Авто' } else { 'Auto' }) }
     finally { $script:UpdatingUiScaleCombo = $false }
     $uiScaleLabel.Text = (T -Key 'ScaleLabel')
-    $uiScaleToolTip.SetToolTip($uiScaleCombo, (T -Key 'ScaleHint'))
-    $uiScaleToolTip.SetToolTip($uiScaleLabel, (T -Key 'ScaleHint'))
     $themeLabel.Text = (T -Key 'ThemeLabel')
     $languageLabel.Text = (T -Key 'LanguageLabel')
     Sync-ThemeCombo
