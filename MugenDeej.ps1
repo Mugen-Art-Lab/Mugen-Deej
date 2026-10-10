@@ -3748,7 +3748,7 @@ $script:Strings = @{
         WizardNotFound = 'Контроллер пока не найден. Подключите USB или откройте диагностику.'
     }
     en = @{
-        LanguageLabel = 'Language:'
+        LanguageLabel = 'Lang:'
         ScaleLabel = 'Scale:'
         ScaleHint = 'Auto selects 80% or 100% to fit the available screen work area. You can also choose a scale manually.'
         ThemeLabel = 'Theme:'
@@ -18748,14 +18748,14 @@ $form.Controls.Add($uiScaleLabel)
 $themeLabel = New-Object System.Windows.Forms.Label
 $themeLabel.Text = (T -Key 'ThemeLabel')
 $themeLabel.Location = New-Object System.Drawing.Point(322, 24)
-$themeLabel.Size = New-Object System.Drawing.Size(48, 25)
+$themeLabel.Size = New-Object System.Drawing.Size(58, 25)
 $themeLabel.TextAlign = 'MiddleRight'
 $form.Controls.Add($themeLabel)
 
 $themeCombo = New-Object MugenDeejWindowing.MugenComboBox
 $themeCombo.DropDownStyle = 'DropDownList'
-$themeCombo.Location = New-Object System.Drawing.Point(376, 21)
-$themeCombo.Size = New-Object System.Drawing.Size(98, 29)
+$themeCombo.Location = New-Object System.Drawing.Point(386, 21)
+$themeCombo.Size = New-Object System.Drawing.Size(104, 29)
 $form.Controls.Add($themeCombo)
 $script:ThemeCombo = $themeCombo
 
@@ -18777,17 +18777,18 @@ $uiScaleToolTip.SetToolTip($uiScaleLabel, (T -Key 'ScaleHint'))
 
 $languageLabel = New-Object System.Windows.Forms.Label
 $languageLabel.Text = (T -Key 'LanguageLabel')
-$languageLabel.Location = New-Object System.Drawing.Point(479, 24)
-$languageLabel.Size = New-Object System.Drawing.Size(70, 25)
+$languageLabel.Location = New-Object System.Drawing.Point(510, 24)
+$languageLabel.Size = New-Object System.Drawing.Size(63, 25)
 $languageLabel.TextAlign = 'MiddleRight'
 $form.Controls.Add($languageLabel)
 
 $languageCombo = New-Object MugenDeejWindowing.MugenComboBox
 $languageCombo.DropDownStyle = 'DropDownList'
-$languageCombo.Location = New-Object System.Drawing.Point(555, 21)
-$languageCombo.Size = New-Object System.Drawing.Size(100, 29)
-[void]$languageCombo.Items.Add('Русский')
-[void]$languageCombo.Items.Add('English')
+$languageCombo.Location = New-Object System.Drawing.Point(579, 21)
+$languageCombo.Size = New-Object System.Drawing.Size(76, 29)
+# Short ISO language codes leave room for all three header setting groups.
+[void]$languageCombo.Items.Add('RU')
+[void]$languageCombo.Items.Add('EN')
 $languageCombo.SelectedIndex = if ($script:Language -eq 'ru') { 0 } else { 1 }
 $form.Controls.Add($languageCombo)
 
