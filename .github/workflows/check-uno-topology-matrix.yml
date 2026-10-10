@@ -1,0 +1,68 @@
+name: Compile Uno topology matrix
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/virtual-gamepad-ui
+    paths:
+      - 'arduino/MugenDeejUnoTopologyMatrix/**'
+      - '.github/workflows/check-uno-topology-matrix.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  compile-uno-matrix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate synthetic profiles
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          import re
+
+          source = pathlib.Path('arduino/MugenDeejUnoTopologyMatrix/MugenDeejUnoTopologyMatrix.ino').read_text(encoding='utf-8')
+          profiles = re.findall(
+              r'^\s*\{\s*(LEGACY|EXTENDED|ADAPTIVE),\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)\s*\},?',
+              source, re.MULTILINE
+          )
+          assert len(profiles) == 16, f"Expected 16 profiles, got {len(profiles)}"
+          assert [p[0] for p in profiles] == ['LEGACY']*5 + ['EXTENDED']*5 + ['ADAPTIVE']*6
+          for idx, (mode, s, b, t, e) in enumerate(profiles):
+              s, b, t, e = map(int, (s, b, t, e))
+              fields = s + b + t + e + (1 if mode == 'ADAPTIVE' else 0)
+              assert 1 <= fields <= 64, (idx, mode, fields)
+              if mode in ('LEGACY', 'EXTENDED'):
+                  assert s >= 1 and t == 0 and e == 0, (idx, mode)
+              if mode == 'LEGACY':
+                  assert b == 0, idx
+              print(f"{idx:X}: {mode} {s}/{b}/{t}/{e} ({fields} fields)")
+          print('All 16 fixture profiles satisfy Mugen packet-shape constraints')
+          PY
+
+      - name: Install Arduino CLI
+        uses: arduino/setup-arduino-cli@v2
+
+      - name: Install Arduino AVR core
+        run: |
+          arduino-cli core update-index
+          arduino-cli core install arduino:avr
+
+      - name: Compile sketch for classic Arduino Uno
+        run: |
+          mkdir -p build/uno
+          arduino-cli compile --fqbn arduino:avr:uno --warnings all --output-dir build/uno arduino/MugenDeejUnoTopologyMatrix
+          test -s build/uno/MugenDeejUnoTopologyMatrix.ino.hex
+
+      - name: Upload flashable Uno HEX
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mugen-Deej-Uno-TopologyMatrix-HEX
+          path: build/uno/MugenDeejUnoTopologyMatrix.ino.hex
+          if-no-files-found: error
+          retention-days: 14
