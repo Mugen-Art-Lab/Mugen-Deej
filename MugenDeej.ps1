@@ -4293,6 +4293,7 @@ function Apply-ConfiguredUiScale {
             Control = $control
             Font = $control.Font
             ScrollMin = $scrollMin
+            ComboItemHeight = $(if ($control -is [System.Windows.Forms.ComboBox]) { [int]$control.ItemHeight } else { $null })
         })
         foreach ($child in $control.Controls) { $pending.Enqueue($child) }
     }
@@ -4317,6 +4318,11 @@ function Apply-ConfiguredUiScale {
                     $entry.Font.FontFamily, [single]$newSize,
                     $entry.Font.Style, $entry.Font.Unit
                 )
+            }
+            # OwnerDrawFixed ComboBoxes keep an independent drop-down row
+            # height; Control.Scale and Font scaling do not update it.
+            if ($null -ne $entry.ComboItemHeight -and $control -is [System.Windows.Forms.ComboBox]) {
+                $control.ItemHeight = [Math]::Max(12, [int][Math]::Round([double]$entry.ComboItemHeight * $factor))
             }
             if ($null -ne $entry.ScrollMin -and
                 ($entry.ScrollMin.Width -gt 0 -or $entry.ScrollMin.Height -gt 0)) {
@@ -19390,6 +19396,45 @@ function Show-ConnectionDiagnosticsWindow {
     Refresh-PortList
     Update-ConnectionControls
 
+    # The connection/driver cards are real dashboard controls, temporarily
+    # moved into this modal. At 80% they are ALREADY scaled by the dashboard.
+    # Snapshot the entire subtrees (including radio buttons, ComboBox and all
+    # action buttons), restore their original 100% logical geometry before
+    # dialog scaling, then rebuild dashboard scaling when they are returned.
+    # Otherwise Form.Scale(0.8) compounds 0.8 * 0.8 = 0.64 on these cards.
+    $borrowedGeometry = New-Object 'System.Collections.Generic.List[object]'
+    $borrowedQueue = New-Object 'System.Collections.Queue'
+    $borrowedQueue.Enqueue($connectionGroup)
+    $borrowedQueue.Enqueue($driverGroup)
+    $dashboardBaseline = $script:MainUiScaleBaseline
+    $dialogFactor = [double](Get-ConfiguredUiScale)
+    while ($borrowedQueue.Count -gt 0) {
+        $control = [System.Windows.Forms.Control]$borrowedQueue.Dequeue()
+        $logical = $null
+        if ($null -ne $dashboardBaseline) {
+            foreach ($candidate in $dashboardBaseline.Entries) {
+                if ([object]::ReferenceEquals($candidate.Control, $control)) {
+                    $logical = $candidate
+                    break
+                }
+            }
+        }
+        $originalScrollMin = $null
+        if ($control -is [System.Windows.Forms.ScrollableControl]) {
+            $originalScrollMin = $control.AutoScrollMinSize
+        }
+        $borrowedGeometry.Add([pscustomobject]@{
+            Control = $control
+            Bounds = $(if ($null -ne $logical) { $logical.Bounds } else { $control.Bounds })
+            Font = $(if ($null -ne $logical) { $logical.Font } else { $control.Font })
+            Margin = $(if ($null -ne $logical) { $logical.Margin } else { $control.Margin })
+            Padding = $(if ($null -ne $logical) { $logical.Padding } else { $control.Padding })
+            ScrollMin = $(if ($null -ne $logical) { $logical.ScrollMin } else { $originalScrollMin })
+            ComboItemHeight = $(if ($control -is [System.Windows.Forms.ComboBox]) { [int]$control.ItemHeight } else { $null })
+        })
+        foreach ($child in $control.Controls) { $borrowedQueue.Enqueue($child) }
+    }
+
     $dialog = New-Object System.Windows.Forms.Form
     $title = [string](T -Key 'DiagnosticsClosed')
     $dialog.Text = ($title -replace '\s*[▼▲]\s*$', '')
@@ -19452,6 +19497,24 @@ function Show-ConnectionDiagnosticsWindow {
     $freshValue.ForeColor = [System.Drawing.Color]::DimGray
     $infoGroup.Controls.Add($freshValue)
 
+    # Restore logical sizes/fonts first, while the cards are still detached
+    # from the live dashboard. All elements now enter modal scaling at 100%.
+    foreach ($entry in $borrowedGeometry) {
+        $control = $entry.Control
+        if ($null -eq $control -or $control.IsDisposed) { continue }
+        $control.SuspendLayout()
+        try {
+            $control.Font = $entry.Font
+            $control.Margin = $entry.Margin
+            $control.Padding = $entry.Padding
+            $control.Bounds = $entry.Bounds
+            if ($null -ne $entry.ScrollMin) { $control.AutoScrollMinSize = $entry.ScrollMin }
+            if ($null -ne $entry.ComboItemHeight -and $control -is [System.Windows.Forms.ComboBox]) {
+                $control.ItemHeight = [int]$entry.ComboItemHeight
+            }
+        }
+        finally { $control.ResumeLayout($true) }
+    }
     $connectionGroup.Location = [System.Drawing.Point]::new(24, 182)
     $driverGroup.Location = [System.Drawing.Point]::new(24, 340)
     $dialog.Controls.Add($connectionGroup)
@@ -19539,6 +19602,30 @@ function Show-ConnectionDiagnosticsWindow {
         if (-not $driverGroup.IsDisposed) {
             $advancedPanel.Controls.Add($driverGroup)
             $driverGroup.Location = [System.Drawing.Point]::new(24, 158)
+        }
+
+        # Restore the shared card subtrees to their 100% logical baseline,
+        # and let the dashboard's atomic layout perform its ONE 80% pass.
+        # Never leave them at the modal's scaled geometry on returning home.
+        foreach ($entry in $borrowedGeometry) {
+            $control = $entry.Control
+            if ($null -eq $control -or $control.IsDisposed) { continue }
+            $control.SuspendLayout()
+            try {
+                $control.Font = $entry.Font
+                $control.Margin = $entry.Margin
+                $control.Padding = $entry.Padding
+                $control.Bounds = $entry.Bounds
+                if ($null -ne $entry.ScrollMin) { $control.AutoScrollMinSize = $entry.ScrollMin }
+                if ($null -ne $entry.ComboItemHeight -and $control -is [System.Windows.Forms.ComboBox]) {
+                    $control.ItemHeight = [int]$entry.ComboItemHeight
+                }
+            }
+            finally { $control.ResumeLayout($true) }
+        }
+        if ($dialogFactor -ne 1.0 -and -not $form.IsDisposed) {
+            $script:MainUiLayoutSignature = $null
+            Set-MainButtonLayout -HasButtons ($script:IsConnected -and [int]$script:DetectedButtonCount -gt 0)
         }
         if (-not $dialog.IsDisposed) { $dialog.Dispose() }
     }
