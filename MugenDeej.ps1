@@ -4354,10 +4354,10 @@ function Restore-MainUiLogicalLayout {
 
     $main.SuspendLayout()
     try {
-        $main.MinimumSize = [System.Drawing.Size]::Empty
-        $main.MaximumSize = [System.Drawing.Size]::Empty
-        $main.ClientSize = $baseline.ClientSize
-
+        # Restore children in logical 100% coordinates without resizing the
+        # TOP-LEVEL HWND. WM_SETREDRAW does not hide the DWM window outline:
+        # restoring ClientSize here temporarily expanded an 80% window to 100%
+        # on every controller reconnect/disconnect (black strip at its right).
         foreach ($entry in $baseline.Entries) {
             $control = $entry.Control
             if ($null -eq $control -or $control.IsDisposed) { continue }
@@ -4373,17 +4373,28 @@ function Restore-MainUiLogicalLayout {
             }
             finally { $control.ResumeLayout($true) }
         }
-        $main.MinimumSize = $baseline.MinimumSize
-        $main.MaximumSize = $baseline.MaximumSize
+        # Parent bounds / size constraints are committed only AFTER children
+        # have been fully laid out and scaled.
     }
     finally { $main.ResumeLayout($true) }
 }
 
 function Apply-MainUiLayoutScale {
+    param([Parameter(Mandatory = $true)][System.Drawing.Size]$LogicalClientSize)
+
     $main = $script:MainUiForm
     if ($null -eq $main -or $main.IsDisposed) { return }
     $factor = [double](Get-ConfiguredUiScale)
-    if ($factor -eq 1.0) { return }
+    # Even at 100%, setting the final client size here (only once) ensures
+    # the form never takes an intermediate 100%-size detour at 80%.
+    if ($factor -eq 1.0) {
+        $main.MinimumSize = [System.Drawing.Size]::Empty
+        $main.MaximumSize = [System.Drawing.Size]::Empty
+        $main.ClientSize = $LogicalClientSize
+        $main.MinimumSize = $main.Size
+        $main.MaximumSize = $main.Size
+        return
+    }
 
     $entries = New-Object 'System.Collections.Generic.List[object]'
     $pending = New-Object 'System.Collections.Queue'
@@ -4406,17 +4417,23 @@ function Apply-MainUiLayoutScale {
     }
     $baseline = [pscustomobject]@{
         Entries = $entries
-        ClientSize = $main.ClientSize
-        MinimumSize = $main.MinimumSize
-        MaximumSize = $main.MaximumSize
+        ClientSize = $LogicalClientSize
+        MinimumSize = [System.Drawing.Size]::Empty
+        MaximumSize = [System.Drawing.Size]::Empty
     }
 
     $main.SuspendLayout()
     try {
-        $main.MinimumSize = [System.Drawing.Size]::Empty
-        $main.MaximumSize = [System.Drawing.Size]::Empty
         $main.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
-        $main.Scale([System.Drawing.SizeF]::new([single]$factor, [single]$factor))
+        # Scale top-level CHILDREN, not the main Form itself. Form.Scale()
+        # temporarily resizes the native window to 100% and back to 80%,
+        # which is visible to DWM even with WM_SETREDRAW disabled.
+        $scale = [System.Drawing.SizeF]::new([single]$factor, [single]$factor)
+        foreach ($child in $main.Controls) {
+            if ($null -ne $child -and -not $child.IsDisposed) {
+                $child.Scale($scale)
+            }
+        }
 
         foreach ($entry in $entries) {
             $control = $entry.Control
@@ -4427,11 +4444,14 @@ function Apply-MainUiLayoutScale {
                 $entry.Font.Style, $entry.Font.Unit
             )
         }
+        # Commit ONE final top-level resize after all logical/scaled child
+        # work is finished. Clear old 80% limits only at this final step.
+        $main.MinimumSize = [System.Drawing.Size]::Empty
+        $main.MaximumSize = [System.Drawing.Size]::Empty
         $main.ClientSize = [System.Drawing.Size]::new(
-            [int][Math]::Round($baseline.ClientSize.Width * $factor),
-            [int][Math]::Round($baseline.ClientSize.Height * $factor)
+            [int][Math]::Round($LogicalClientSize.Width * $factor),
+            [int][Math]::Round($LogicalClientSize.Height * $factor)
         )
-        # The reference layout is FixedSingle, so lock the scaled size.
         $main.MinimumSize = $main.Size
         $main.MaximumSize = $main.Size
         $script:MainUiScaleBaseline = $baseline
@@ -14220,12 +14240,11 @@ function Set-MainButtonLayout {
     $mainY += 52
 
     $collapsedHeight = $mainY + 24
-    $windowHeight = $collapsedHeight + 39
-    $form.MinimumSize = [System.Drawing.Size]::new(696, $windowHeight)
-    $form.MaximumSize = [System.Drawing.Size]::new(696, $windowHeight)
-    $form.ClientSize = [System.Drawing.Size]::new(680, $collapsedHeight)
-        $footer.Location = [System.Drawing.Point]::new(24, ($form.ClientSize.Height - 28))
-        Apply-MainUiLayoutScale
+    $logicalClientSize = [System.Drawing.Size]::new(680, $collapsedHeight)
+    # Keep the native outer window at its current width while layout is
+    # rebuilt, including during capability changes and 80% mode.
+    $footer.Location = [System.Drawing.Point]::new(24, ($collapsedHeight - 28))
+    Apply-MainUiLayoutScale -LogicalClientSize $logicalClientSize
         $script:MainUiLayoutSignature = Get-MainUiLayoutSignature -HasButtons $HasButtons
         Write-Log ('Main UI layout applied; effectiveScale={0:N2}; window={1}x{2}; signature={3}' -f
             [double](Get-ConfiguredUiScale), $form.Width, $form.Height,
