@@ -6,6 +6,19 @@ This is the short resume point for the active `feature/virtual-gamepad-ui` branc
 
 ## CI #40 potentiometer-endpoint investigation — 2026-10-10
 
+**CI #40 hardware visual verdict: PASS (2026-10-10, user-confirmed).**
+User installed #40 and reports that slider percentages no longer flutter visually.
+Fresh logs `mugen-deej(20261010-092225).log` show #40 running from
+15:18:36 local, Adaptive v3 5/28/2/2 on COM5 at 500000 baud; rail
+diagnostics activated normally: low endpoint raw 4, 5, 6, 9 and 16,
+high endpoint raw 1011, 1014, 1016, 1022 and 1023. Multiple pots
+were swept to both physical limits with capture recorded. No errors
+observed in this latest run. This validates *visual* steadiness,
+not yet real Windows audio or precise full-range linearity. No new
+runtime change needed.
+
+
+
 User hardware-tested #39 at both 100%/80% with unplug/replug and reports
 **no more black silhouette/window jump**. The 80% scaling/layout issue is
 now hardware-accepted as far as the reported test covers.
