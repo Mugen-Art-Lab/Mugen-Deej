@@ -4,6 +4,43 @@ Last updated: 2026-10-10
 
 This is the short resume point for the active `feature/virtual-gamepad-ui` branch. Stable `main` / v1.0.0 remains untouched.
 
+## CI #45 first-paint white flash prevention — 2026-10-10
+
+**CI #43 real Windows result:** clean launch (no .NET JIT dialog) and
+connection diagnostics looks correctly proportioned at 80%, as evidenced
+by user screenshot. 100% view was already correct. User then captured
+a **transient white-flash frame** when showing the main window and modal
+settings/diagnostics. Screenshot shows dark outer window and status/info
+card but blank native-white rectangles for two action buttons and the
+driver group inside Connection & Diagnostics; a fraction of a second
+later they repaint correctly. This is a visual first-paint issue, not a
+persistent theme bug or controller detection issue.
+
+Fix commits:
+- #44 `9787262cf8ea2d991887a6046a2eb1e35542d160`:
+  `Apply-ThemeToForm` now installs a one-time per-modal first-paint
+  transparent reveal, tracked in a ConditionalWeakTable. The form is
+  given opacity 0 before ShowDialog; an async callback after Shown
+  invalidates and synchronously refreshes the entire child tree before
+  opacity 1. Theme changes on already visible forms do not re-hide them.
+  On the main form, initial creation is transparent and tray restore
+  changes opacity to 0 before Show; `Show-MainWindowForeground`
+  repaints children before revealing the main window. WM_SETREDRAW is
+  deliberately NOT used (it previously damaged WinForms visibility).
+- #45 `61a30e8815d8c3f81ee3add5629c7827f4a20581`: ensures the
+  deferred delegate's PowerShell scriptblock calls
+  `ScriptBlock.GetNewClosure()` **before** casting to System.Action,
+  avoiding a method lookup on an Action delegate.
+
+**CI #45 build and real Windows visual verdict PENDING** at this snapshot:
+https://github.com/Mugen-Art-Lab/Mugen-Deej/actions/runs/38063776267 .
+Wait until green, download, CRC/SHA-check ZIP and share chat link.
+Test main window after tray restore; diagnostics first show at 80/100%,
+regulators/buttons/toggles settings and repeated openings. Watch for
+white transient frames, invisible modals, lost activation or startup JIT.
+CI green only validates packaging; on-screen UI needs user testing.
+No firmware, UART or analog filter changes.
+
 ## CI #43 fatal startup regression in #42 — 2026-10-10
 
 **CI #42 user test: FAILS AT STARTUP** with Windows Forms unhandled
