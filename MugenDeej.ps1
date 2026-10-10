@@ -4373,6 +4373,10 @@ function Restore-MainUiLogicalLayout {
         foreach ($entry in $baseline.Entries) {
             $control = $entry.Control
             if ($null -eq $control -or $control.IsDisposed) { continue }
+            # The diagnostics window temporarily borrows two card subtrees.
+            # Never overwrite a modal's scaled controls while USB hotplug
+            # causes the dashboard to recalculate in the background.
+            if (-not [object]::ReferenceEquals($control.FindForm(), $main)) { continue }
             $control.SuspendLayout()
             try {
                 if ($null -ne $entry.Font) { $control.Font = $entry.Font }
@@ -19059,19 +19063,26 @@ function Set-DriverStatus {
 function Update-DriverStatus {
     $status = Get-DriverStatus
 
+    # Reused driver controls may currently live in the already-scaled modal.
+    # If the driver state changes while diagnostics is open (e.g. USB hotplug),
+    # apply the modal factor to each new button bound exactly once.
+    $driverScale = if ([bool]$script:ConnectionDiagnosticsModalOpen) {
+        [double](Get-ConfiguredUiScale)
+    } else { 1.0 }
+
     # The bundled installer is only relevant to WCH controllers. For FTDI or
     # other USB-serial devices, keep the exact driver status but hide the WCH
     # maintenance button and give the log button the available space.
     $driverButton.Visible = [bool]$status.IsWch
     if ($driverButton.Visible) {
-        $driverButton.Location = New-Object System.Drawing.Point(18, 61)
-        $driverButton.Size = New-Object System.Drawing.Size(310, 32)
-        $logButton.Location = New-Object System.Drawing.Point(342, 61)
-        $logButton.Size = New-Object System.Drawing.Size(170, 32)
+        $driverButton.Location = [System.Drawing.Point]::new([int][Math]::Round(18 * $driverScale), [int][Math]::Round(61 * $driverScale))
+        $driverButton.Size = [System.Drawing.Size]::new([int][Math]::Round(310 * $driverScale), [int][Math]::Round(32 * $driverScale))
+        $logButton.Location = [System.Drawing.Point]::new([int][Math]::Round(342 * $driverScale), [int][Math]::Round(61 * $driverScale))
+        $logButton.Size = [System.Drawing.Size]::new([int][Math]::Round(170 * $driverScale), [int][Math]::Round(32 * $driverScale))
     }
     else {
-        $logButton.Location = New-Object System.Drawing.Point(18, 61)
-        $logButton.Size = New-Object System.Drawing.Size(494, 32)
+        $logButton.Location = [System.Drawing.Point]::new([int][Math]::Round(18 * $driverScale), [int][Math]::Round(61 * $driverScale))
+        $logButton.Size = [System.Drawing.Size]::new([int][Math]::Round(494 * $driverScale), [int][Math]::Round(32 * $driverScale))
     }
 
     switch ($status.State) {
@@ -19551,6 +19562,12 @@ function Show-ConnectionDiagnosticsWindow {
     try {
         & $refreshInfo
         Apply-ThemeToForm -Form $dialog -ThemeName (Get-EffectiveTheme)
+        $script:ConnectionDiagnosticsModalOpen = $true
+        Write-Log (
+            'Diagnostics layout: scale={0:N2}; infoWidth={1}; connectionWidth={2}; driverWidth={3}; comboWidth={4}' -f
+            $dialogFactor, $infoGroup.Width, $connectionGroup.Width,
+            $driverGroup.Width, $portCombo.Width
+        ) 'DEBUG'
 
         # A modal child must never be opened while its owner is temporarily
         # TopMost. This can happen during tray restoration if another UI event
@@ -19593,6 +19610,7 @@ function Show-ConnectionDiagnosticsWindow {
         Write-Log ('Connection diagnostics closed; result={0}' -f $dialogResult) 'DEBUG'
     }
     finally {
+        $script:ConnectionDiagnosticsModalOpen = $false
         $diagTimer.Stop()
         $diagTimer.Dispose()
         if (-not $connectionGroup.IsDisposed) {
