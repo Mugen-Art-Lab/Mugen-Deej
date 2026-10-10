@@ -4,6 +4,47 @@ Last updated: 2026-10-10
 
 This is the short resume point for the active `feature/virtual-gamepad-ui` branch. Stable `main` / v1.0.0 remains untouched.
 
+## CI #42 diagnostic modal scaling regression — 2026-10-10
+
+Hardware regression from #40 screenshots: modal **Connection & diagnostics**
+at 80% has correct top info card (roughly 632 * .8 = 506 px) but reused
+connection and driver cards display at roughly 632 * .64 = 404 px.
+The 100% screenshot is correct. Cause identified in source: the two
+cards and all their children were *borrowed* from the dashboard's
+hidden `$advancedPanel`, where they were already scaled to 80%.
+`Apply-ThemeToForm` invokes `Apply-ConfiguredUiScale`, which scales
+the entire modal by another 80% and therefore double-scales those
+shared card subtrees.
+
+Fix commits `3a47c3c7210f771f3a363a35142d5ff8fea5a5f9` (#41)
+and `cc39c25f8515e72cb7c59713d9674df235b85505` (#42).
+The modal captures the full tree geometry (all radiobuttons,
+buttons, combo, labels and card frames), restores its logical 100%
+baseline from `MainUiScaleBaseline`, and only then runs the modal's
+one 80% pass. At closure it reattaches the controls, resets logical
+geometry and forces one atomic main-dashboard layout to avoid
+rounding/drift over repeated modal opens. Custom OwnerDrawFixed
+ComboBox drop-down `ItemHeight` is now scaled along with its font
+and Bounds in `Apply-ConfiguredUiScale`.
+
+Hotplug while diagnostics is displayed can rebuild the main layout.
+`Restore-MainUiLogicalLayout` now skips baseline entries currently
+parented to the modal instead of overwriting their bounds; the live
+driver-action controls adjust their final placement to dialog scale
+if the USB driver status changes mid-dialog. A DEBUG line reports
+modal widths: `Diagnostics layout: scale=...; infoWidth=...;
+connectionWidth=...; driverWidth=...; comboWidth=...`.
+
+**#42 CI and real-Windows verdict PENDING** at this snapshot. Build
+link: https://github.com/Mugen-Art-Lab/Mugen-Deej/actions/runs/38052830321 .
+Wait for GREEN, download artifact ZIP for user. Hardware test at 80%:
+info/connection/driver cards should be the same proportional width;
+radio labels, selected COM ComboBox, both maintenance buttons,
+driver status and log button should all fit; opening/closing multiple
+times must not progressively shrink them. Test 100%, theme switch,
+and unplug/replug while modal is still open. #40 endpoint jitter fix
+is retained.
+
 ## CI #40 potentiometer-endpoint investigation — 2026-10-10
 
 **CI #40 hardware visual verdict: PASS (2026-10-10, user-confirmed).**
