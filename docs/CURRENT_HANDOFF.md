@@ -4,6 +4,28 @@ Last updated: 2026-10-10
 
 This is the short resume point for the active `feature/virtual-gamepad-ui` branch. Stable `main` / v1.0.0 remains untouched.
 
+## CI #39 public GitHub-hosted Windows migration — 2026-10-10
+
+Build workflow in `.github/workflows/build-release.yml` was moved from
+`runs-on: [self-hosted, windows, x64]` to **`runs-on: windows-latest`**,
+commit `3f0c632e106ca25b75face5a348bcfdea66d023f`. Public Mugen Deej
+no longer waits for or uses the local self-hosted Windows runner. This only
+changes the runner, not runtime source or packaging contents.
+
+**CI #39 on GitHub-hosted Windows: SUCCESS**:
+https://github.com/Mugen-Art-Lab/Mugen-Deej/actions/runs/38036314621
+Artifact: `Mugen-Deej-packages-39` ID `11663877928`, 157043673 bytes,
+ZIP integrity verified and downloaded directly as `Mugen-Deej-CI39.zip`.
+Inside are Portable ZIP, Setup EXE and SHA256 sidecars. For application
+behavior and the 80% reconnect flicker, **CI #38 remains the source-level
+test candidate; CI #39 contains the same application code**. Actual user
+hardware verdict on the #38/#39 flicker fix is still pending.
+
+Local `Mugen-Builder` was not modified, disabled or removed; user wants to
+reserve it for private projects. Do not switch the workflow back to self-hosted
+without an explicit request. The public workflow still retains archives 14 days
+and otherwise retains existing triggers.
+
 ## Current resume — 2026-10-10 / CI #38
 
 **CI #36 hardware test: PASS for visibility, status card and dark title bar.**
