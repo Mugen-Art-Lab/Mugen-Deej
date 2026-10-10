@@ -4,6 +4,51 @@ Last updated: 2026-10-10
 
 This is the short resume point for the active `feature/virtual-gamepad-ui` branch. Stable `main` / v1.0.0 remains untouched.
 
+## CI #40 potentiometer-endpoint investigation — 2026-10-10
+
+User hardware-tested #39 at both 100%/80% with unplug/replug and reports
+**no more black silhouette/window jump**. The 80% scaling/layout issue is
+now hardware-accepted as far as the reported test covers.
+
+New bug reported: when rotating a physical potentiometer to one extreme,
+the displayed level flutters 99/100%; flipping per-controller inversion
+moves the same physical endpoint jitter to 0/1%; the opposite physical
+end remains stable. User observes the behavior on all physical pots.
+Attached logs `mugen-deej(20261010-083536).log` and
+`launcher(20261010-083535).log`, current start around 14:30 local.
+Controller: COM5, Adaptive v3 5/28/2/2 at 500000 baud; real encoder movement
+was logged as discrete +/-1 events, without evidence of spontaneous detents.
+Logs DO NOT contain per-packet raw analog values, so analog-noise magnitude
+and physical wiring cannot yet be proven. Increased sampling rate (10ms vs
+25ms) might make noise more visible; faster UART does not by itself make ADC
+values unstable.
+
+**Proven UI-path mismatch in source:** `Apply-SliderValues` used raw
+`adc/1023.0` directly for `LatestLevels` (percent labels), but
+`noiseThreshold` (default 0.007) only gated *audio writes*, not the visible
+percentage. The MugenProgressBar had a separate existing hysteretic
+`displayPercent`, while the numeric label independently rounded raw ADC
+and could alternate between 99 and 100.
+
+**#40 software candidate**, commit
+`8e761c3a01471e225845143789b53e08bb784992`,
+[Actions #40](https://github.com/Mugen-Art-Lab/Mugen-Deej/actions/runs/38038724081).
+Adds a bounded per-pot raw endpoint latch (enter <=16 or >=1007; exit
+after moving >24 or <999 ADC counts), applied BEFORE inversion and fed
+consistently into displayed and actual audio level. Leaves mid-travel
+volume responsiveness unchanged. Numeric level uses bar's
+`DisplayPercent` instead of independent rounding. Adds one DEBUG log
+`Slider N ADC endpoint captured: raw=X; rail=0/1` only on entering a
+rail; per-pot latch resets on COM disconnect. Firmware was NOT changed.
+
+**CI #40 / real-device verdict PENDING** at handoff entry. Await green
+GitHub-hosted build, download artifact directly into chat. Hardware check:
+steady physical extreme in BOTH directions and inversion states, all five
+pots, plus mid-travel responsiveness/audio output; collect fresh logs to
+verify actual raw endpoint readings if unstable. Do not assume 500000 baud
+itself is the culprit without raw ADC evidence. Investigate physical AVCC,
+GND and pot wipers if jitter persists.
+
 ## CI #39 public GitHub-hosted Windows migration — 2026-10-10
 
 Build workflow in `.github/workflows/build-release.yml` was moved from
