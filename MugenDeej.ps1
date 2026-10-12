@@ -4288,7 +4288,15 @@ function Apply-ThemeToControl {
     }
 
     if ($Control -is [MugenDeejWindowing.MugenVScrollBar]) {
-        $Control.ApplyTheme($palette.ProgressTrack, $palette.Border, $palette.ControlHover, $palette.Border)
+        if ([string]$Control.Tag -eq 'MugenStateScrollbar') {
+            # The controller-state viewport uses a permanently visible,
+            # high-contrast thumb: a subtle track/border was effectively
+            # invisible beside the dark/light card at 80% UI scaling.
+            $Control.ApplyTheme($palette.ProgressTrack, $palette.Muted, $palette.Accent, $palette.Border)
+        }
+        else {
+            $Control.ApplyTheme($palette.ProgressTrack, $palette.Border, $palette.ControlHover, $palette.Border)
+        }
     }
     elseif ($Control -is [MugenDeejWindowing.MugenProgressBar]) {
         $Control.ApplyTheme($palette.ProgressTrack, $palette.Accent, $palette.Border)
@@ -13306,7 +13314,9 @@ function Show-FullControllerStateWindow {
 
     $scroll = New-Object MugenDeejWindowing.MugenSliderViewport
     $scroll.Location = [System.Drawing.Point]::new(18, 100)
-    $scroll.Size = [System.Drawing.Size]::new(724, 502)
+    # Reserve a separate gutter for the custom scrollbar instead of
+    # overlapping it with the clipped WinForms content viewport.
+    $scroll.Size = [System.Drawing.Size]::new(706, 502)
     $scroll.Anchor = (
         [System.Windows.Forms.AnchorStyles]::Top -bor
         [System.Windows.Forms.AnchorStyles]::Bottom -bor
@@ -13583,6 +13593,7 @@ function Show-FullControllerStateWindow {
     $stateContent.Height = [Math]::Max($viewportHeight, $contentY)
     if ($contentY -gt $viewportHeight) {
         $stateVScroll = New-Object MugenDeejWindowing.MugenVScrollBar
+        $stateVScroll.Tag = 'MugenStateScrollbar'
         $stateVScroll.Location = [System.Drawing.Point]::new(724, 100)
         $stateVScroll.Size = [System.Drawing.Size]::new(16, $viewportHeight)
         $stateVScroll.Anchor = (
@@ -13593,6 +13604,9 @@ function Show-FullControllerStateWindow {
         $stateVScroll.PageSize = $viewportHeight
         $stateVScroll.MaximumOffset = [int]($contentY - $viewportHeight)
         $stateForm.Controls.Add($stateVScroll)
+        # WinForms Controls.Add can leave a later control behind a sibling
+        # in z-order. Never let the viewport hide the scroll thumb.
+        $stateVScroll.BringToFront()
         $stateVScroll.Add_ValueChanged({
             $ratio = [double]$scroll.Height / [double]$viewportHeight
             $stateContent.Top = -[int][Math]::Round([int]$stateVScroll.Value * $ratio)
@@ -13614,7 +13628,10 @@ function Show-FullControllerStateWindow {
 
     $refreshState = {
         $summaryTitle.Text = if ($script:IsConnected) {
-            '{0} · {1}' -f (Get-ControllerProtocolDisplayText), $(if ([string]::IsNullOrWhiteSpace($script:ConnectedPort)) { 'COM —' } else { $script:ConnectedPort })
+            $protocolCaption = if ($script:Language -eq 'ru') { 'Протокол' } else { 'Protocol' }
+            $portCaption = if ($script:Language -eq 'ru') { 'Порт' } else { 'Port' }
+            $portValue = if ([string]::IsNullOrWhiteSpace($script:ConnectedPort)) { '—' } else { [string]$script:ConnectedPort }
+            '{0}: {1}  •  {2}: {3}' -f $protocolCaption, (Get-ControllerProtocolDisplayText), $portCaption, $portValue
         }
         else { $(if ($script:Language -eq 'ru') { 'Связь с контроллером потеряна' } else { 'Controller disconnected' }) }
         $summaryDetail.Text = if ($script:Language -eq 'ru') {
@@ -13679,6 +13696,7 @@ function Show-FullControllerStateWindow {
 
     try {
         Apply-ThemeToForm -Form $stateForm -ThemeName (Get-EffectiveTheme)
+        if ($null -ne $stateVScroll) { $stateVScroll.BringToFront() }
         & $refreshState
         $stateTimer.Start()
         [void]$stateForm.ShowDialog($form)
