@@ -7,7 +7,7 @@ hardware firmware, or public UI wording.
 
 ## 2026-10-09 — Independent system-sounds volume control
 
-**Status:** Proposed / investigate after the 2.0.0 release blockers.
+**Status:** Accepted into the 2.0.0 target backlog on 2026-10-12; not implemented or guaranteed for release.
 
 A user of Mugen Deej 1.0.0 asked for the ability to control **Windows system
 sounds** with a dedicated analog slider/potentiometer, as in the original deej.
@@ -27,7 +27,29 @@ amplifier.
 - Acceptance would include independent music/system-sound volumes, a real
   notification/USB-sound test, reconnect/restart behavior and RU/EN UI review.
 
-**No implementation decision or release date yet.**
+**Implementation direction approved for 2.0.0 planning, pending engineering and real-machine testing. No promised release date.**
+
+## 2026-10-11 — Foreground audio target (Jeph)
+
+**Status:** Accepted into the 2.0.0 target backlog on 2026-10-12; not implemented or guaranteed for release.
+
+Jeph, after testing Mugen Deej, asked for an analog knob/slider that controls
+**whichever application's window is currently in the foreground** so games do
+not each need to be assigned manually. Original deej calls this audio target
+`deej.current`. The project owner agreed to try to include it in 2.0.0
+and has replied to Jeph.
+
+- Expose it as a clear RU/EN audio-assignment choice, not a magic process name.
+- Apply volume only on a physical slider change; focus changes alone must
+  not reset the newly foregrounded application's current volume.
+- Do not silently fall back to Windows master volume if no suitable foreground
+  audio session exists.
+- Reuse existing Win32 foreground process detection where safe; foreground
+  Adaptive action profiles are distinct from this new audio routing.
+- Verify the focus-switch/no-audio/launch/exit behavior on real Windows,
+  audio session matching, persisted mappings, backup and all controller generations.
+
+See [ROADMAP.md](ROADMAP.md) for implementation intent and acceptance scope.
 
 ## 2026-10-09 — Resistor-ladder button inputs for Adaptive hardware
 
