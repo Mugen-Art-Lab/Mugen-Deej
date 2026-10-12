@@ -4325,6 +4325,9 @@ function Apply-ThemeToControl {
         if ([string]$Control.Tag -eq 'MugenCardInner') {
             $Control.BackColor = $palette.Surface
         }
+        elseif ([string]$Control.Tag -eq 'MugenStateGroupInner') {
+            $Control.BackColor = $palette.SurfaceAlt
+        }
         elseif ($Control.BorderStyle -ne [System.Windows.Forms.BorderStyle]::None) {
             $Control.BackColor = $palette.Surface
         }
@@ -13265,6 +13268,8 @@ function Get-FullControllerStateText {
 
 function Show-FullControllerStateWindow {
     if (-not $script:IsConnected) { return }
+    $stateSignature = [string](Get-CurrentControllerSignature)
+    $topologyChange = [pscustomobject]@{ Reopen = $false }
 
     $stateForm = New-Object System.Windows.Forms.Form
     $stateForm.Text = if ($script:Language -eq 'ru') { 'Состояние контроллера' } else { 'Controller state' }
@@ -13299,7 +13304,7 @@ function Show-FullControllerStateWindow {
     $summaryDetail.Size = [System.Drawing.Size]::new(690, 23)
     $summary.Controls.Add($summaryDetail)
 
-    $scroll = New-Object System.Windows.Forms.Panel
+    $scroll = New-Object MugenDeejWindowing.MugenSliderViewport
     $scroll.Location = [System.Drawing.Point]::new(18, 100)
     $scroll.Size = [System.Drawing.Size]::new(724, 502)
     $scroll.Anchor = (
@@ -13308,8 +13313,14 @@ function Show-FullControllerStateWindow {
         [System.Windows.Forms.AnchorStyles]::Left -bor
         [System.Windows.Forms.AnchorStyles]::Right
     )
-    $scroll.AutoScroll = $true
+    $scroll.AutoScroll = $false
     $stateForm.Controls.Add($scroll)
+    $stateContent = New-Object System.Windows.Forms.Panel
+    $stateContent.Location = [System.Drawing.Point]::new(0, 0)
+    $stateContent.Size = [System.Drawing.Size]::new(696, 502)
+    $stateContent.AutoScroll = $false
+    $scroll.Controls.Add($stateContent)
+    $stateVScroll = $null
 
     $sliderViews = @()
     $buttonViews = @()
@@ -13325,7 +13336,7 @@ function Show-FullControllerStateWindow {
         $group.Text = if ($script:Language -eq 'ru') { 'Регуляторы ({0})' -f $count } else { 'Controls ({0})' -f $count }
         $group.Location = [System.Drawing.Point]::new(0, $contentY)
         $group.Size = [System.Drawing.Size]::new($contentWidth, $groupHeight)
-        $scroll.Controls.Add($group)
+        $stateContent.Controls.Add($group)
 
         for ($i = 0; $i -lt $count; $i++) {
             $y = 31 + ($i * 31)
@@ -13363,13 +13374,14 @@ function Show-FullControllerStateWindow {
         $group.Text = if ($script:Language -eq 'ru') { 'Кнопки ({0})' -f $count } else { 'Buttons ({0})' -f $count }
         $group.Location = [System.Drawing.Point]::new(0, $contentY)
         $group.Size = [System.Drawing.Size]::new($contentWidth, (38 + $flowHeight))
-        $scroll.Controls.Add($group)
+        $stateContent.Controls.Add($group)
 
         $flow = New-Object System.Windows.Forms.FlowLayoutPanel
         $flow.Location = [System.Drawing.Point]::new(12, 29)
         $flow.Size = [System.Drawing.Size]::new(672, $flowHeight)
         $flow.WrapContents = $true
         $flow.AutoScroll = $false
+        $flow.Tag = 'MugenStateGroupInner'
         $flow.BackColor = $group.BackColor
         $group.Controls.Add($flow)
 
@@ -13394,13 +13406,14 @@ function Show-FullControllerStateWindow {
         $group.Text = if ($script:Language -eq 'ru') { 'Тумблеры ({0})' -f $count } else { 'Toggles ({0})' -f $count }
         $group.Location = [System.Drawing.Point]::new(0, $contentY)
         $group.Size = [System.Drawing.Size]::new($contentWidth, (38 + $flowHeight))
-        $scroll.Controls.Add($group)
+        $stateContent.Controls.Add($group)
 
         $flow = New-Object System.Windows.Forms.FlowLayoutPanel
         $flow.Location = [System.Drawing.Point]::new(12, 29)
         $flow.Size = [System.Drawing.Size]::new(672, $flowHeight)
         $flow.WrapContents = $true
         $flow.AutoScroll = $false
+        $flow.Tag = 'MugenStateGroupInner'
         $flow.BackColor = $group.BackColor
         $group.Controls.Add($flow)
 
@@ -13408,6 +13421,7 @@ function Show-FullControllerStateWindow {
             $hostPanel = New-Object System.Windows.Forms.Panel
             $hostPanel.Size = [System.Drawing.Size]::new(124, 30)
             $hostPanel.Margin = New-Object System.Windows.Forms.Padding(3, 1, 3, 1)
+            $hostPanel.Tag = 'MugenStateGroupInner'
             $hostPanel.BackColor = $group.BackColor
 
             $number = New-Object System.Windows.Forms.Label
@@ -13467,13 +13481,14 @@ function Show-FullControllerStateWindow {
         $group.Text = if ($script:Language -eq 'ru') { 'Энкодеры ({0})' -f $count } else { 'Encoders ({0})' -f $count }
         $group.Location = [System.Drawing.Point]::new(0, $contentY)
         $group.Size = [System.Drawing.Size]::new($contentWidth, (38 + $flowHeight))
-        $scroll.Controls.Add($group)
+        $stateContent.Controls.Add($group)
 
         $flow = New-Object System.Windows.Forms.FlowLayoutPanel
         $flow.Location = [System.Drawing.Point]::new(12, 29)
         $flow.Size = [System.Drawing.Size]::new(672, $flowHeight)
         $flow.WrapContents = $true
         $flow.AutoScroll = $false
+        $flow.Tag = 'MugenStateGroupInner'
         $flow.BackColor = $group.BackColor
         $group.Controls.Add($flow)
 
@@ -13481,6 +13496,7 @@ function Show-FullControllerStateWindow {
             $hostPanel = New-Object System.Windows.Forms.Panel
             $hostPanel.Size = [System.Drawing.Size]::new(124, 32)
             $hostPanel.Margin = New-Object System.Windows.Forms.Padding(3, 1, 3, 1)
+            $hostPanel.Tag = 'MugenStateGroupInner'
             $hostPanel.BackColor = $group.BackColor
 
             $number = New-Object System.Windows.Forms.Label
@@ -13555,7 +13571,6 @@ function Show-FullControllerStateWindow {
         $contentY += $group.Height + 10
     }
 
-    $scroll.AutoScrollMinSize = [System.Drawing.Size]::new(696, [Math]::Max(0, $contentY))
 
     # Size the state dialog to the actual detected controls, rather than
     # retaining a 620px client area even when only one group is present.
@@ -13565,6 +13580,37 @@ function Show-FullControllerStateWindow {
     # completed dialog once for 80% mode and DPI.
     $viewportHeight = [int][Math]::Min(502, [Math]::Max(115, ($contentY + 10)))
     $stateForm.ClientSize = [System.Drawing.Size]::new(760, (100 + $viewportHeight + 18))
+    $stateContent.Height = [Math]::Max($viewportHeight, $contentY)
+    if ($contentY -gt $viewportHeight) {
+        $stateVScroll = New-Object MugenDeejWindowing.MugenVScrollBar
+        $stateVScroll.Location = [System.Drawing.Point]::new(724, 100)
+        $stateVScroll.Size = [System.Drawing.Size]::new(16, $viewportHeight)
+        $stateVScroll.Anchor = (
+            [System.Windows.Forms.AnchorStyles]::Top -bor
+            [System.Windows.Forms.AnchorStyles]::Bottom -bor
+            [System.Windows.Forms.AnchorStyles]::Right
+        )
+        $stateVScroll.PageSize = $viewportHeight
+        $stateVScroll.MaximumOffset = [int]($contentY - $viewportHeight)
+        $stateForm.Controls.Add($stateVScroll)
+        $stateVScroll.Add_ValueChanged({
+            $ratio = [double]$scroll.Height / [double]$viewportHeight
+            $stateContent.Top = -[int][Math]::Round([int]$stateVScroll.Value * $ratio)
+            $scroll.Invalidate()
+        })
+        $scrollWheel = {
+            param($sender, $eventArgs)
+            $delta = [Math]::Sign($eventArgs.Delta)
+            if ($delta -ne 0) { $stateVScroll.Value -= ($delta * 62) }
+        }
+        $wheelQueue = New-Object System.Collections.Queue
+        $wheelQueue.Enqueue($scroll)
+        while ($wheelQueue.Count -gt 0) {
+            $wheelTarget = [System.Windows.Forms.Control]$wheelQueue.Dequeue()
+            $wheelTarget.Add_MouseWheel($scrollWheel)
+            foreach ($child in $wheelTarget.Controls) { $wheelQueue.Enqueue($child) }
+        }
+    }
 
     $refreshState = {
         $summaryTitle.Text = if ($script:IsConnected) {
@@ -13617,7 +13663,19 @@ function Show-FullControllerStateWindow {
 
     $stateTimer = New-Object System.Windows.Forms.Timer
     $stateTimer.Interval = 75
-    $stateTimer.Add_Tick({ & $refreshState })
+    $stateTimer.Add_Tick({
+        if ($topologyChange.Reopen) { return }
+        $liveSignature = if ($script:IsConnected) { [string](Get-CurrentControllerSignature) } else { '' }
+        if (-not [string]::IsNullOrWhiteSpace($liveSignature) -and $liveSignature -ne $stateSignature) {
+            $topologyChange.Reopen = $true
+            $stateTimer.Stop()
+            Write-Log ('Controller state topology changed: {0} -> {1}' -f $stateSignature, $liveSignature) 'INFO'
+            $stateForm.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+            $stateForm.Close()
+            return
+        }
+        & $refreshState
+    })
 
     try {
         Apply-ThemeToForm -Form $stateForm -ThemeName (Get-EffectiveTheme)
@@ -13629,6 +13687,9 @@ function Show-FullControllerStateWindow {
         $stateTimer.Stop()
         $stateTimer.Dispose()
         if (-not $stateForm.IsDisposed) { $stateForm.Dispose() }
+    }
+    if ($topologyChange.Reopen -and $script:IsConnected) {
+        Show-FullControllerStateWindow
     }
 }
 function Get-MainInputOverflowCount {
